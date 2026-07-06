@@ -1,4 +1,10 @@
-<svg width="56" height="64" viewBox="0 0 56 64" xmlns="http://www.w3.org/2000/svg">
-  <polygon points="28,0 56,16 56,48 28,64 0,48 0,16" fill="#4c7a34"/>
-  <polygon points="28,0 56,16 56,48 28,64 0,48 0,16" fill="none" stroke="#3f6a2b" stroke-width="1.5"/>
+<svg width="64" height="40" viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#57833b"/>
+      <stop offset="1" stop-color="#426a2b"/>
+    </linearGradient>
+  </defs>
+  <polygon points="32,0 64,10 64,30 32,40 0,30 0,10" fill="url(#grass)"/>
+  <polygon points="32,0 64,10 64,30 32,40 0,30 0,10" fill="none" stroke="#395e26" stroke-width="1.2"/>
 </svg>
