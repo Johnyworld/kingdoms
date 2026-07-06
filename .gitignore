@@ -1,0 +1,19 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+/build/
+/export/
+export_presets.cfg
+
+# Imported translations (automatically generated from CSV files)
+*.translation
+
+# Mono/C# (unused for GDScript, kept for safety)
+.mono/
+data_*/
+mono_crash.*.json
+
+# System / editor
+.DS_Store
+*.tmp
+*.swp
