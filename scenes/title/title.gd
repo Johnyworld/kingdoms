@@ -20,8 +20,7 @@ func _ready() -> void:
 	_start_button.grab_focus()
 
 func _on_start_pressed() -> void:
-	# TODO: 게임플레이 씬이 준비되면 SceneManager.change_scene(...) 로 연결
-	print("[Title] 시작 - 게임플레이 씬 준비 중")
+	SceneManager.change_scene("res://scenes/game/game.tscn")
 
 func _on_settings_pressed() -> void:
 	# TODO: 설정 화면 연결
