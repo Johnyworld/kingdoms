@@ -1,5 +1,6 @@
 extends GutTest
 ## 건물(Building) 점유 영역·종류 스펙·맵 라벨 테스트.
+## 자원·이름·세력은 영지(Territory)가 보유하므로, 맵 라벨은 영지에서 온다.
 
 const MAP := 41
 const BLUE := Color(0.2, 0.3, 0.8)
@@ -19,6 +20,13 @@ func _center() -> Vector2i:
 
 func _camp() -> void:
 	building.setup(terrain, _center(), "camp")
+
+## 이름·세력을 가진 영지에 이 건물을 편입한다.
+func _join_territory() -> void:
+	var f = load("res://scenes/faction/faction.gd").new("프랑스", BLUE)
+	var t = load("res://scenes/territory/territory.gd").new("파리", {})
+	f.add_territory(t)
+	t.add_building(building)
 
 # --- 점유 영역 ---
 
@@ -42,14 +50,7 @@ func test_does_not_contain_far_cell() -> void:
 
 # --- 종류 스펙 ---
 
-func test_camp_resources_from_catalog() -> void:
-	_camp()
-	var expected := {"밀": 50, "빵": 20, "나무": 20, "목재": 20, "철": 10, "철괴": 10}
-	assert_eq(building.resources.size(), expected.size(), "자원 6종")
-	for key in expected:
-		assert_eq(building.resources.get(key), expected[key], "%s 초기값" % key)
-
-func test_camp_vision_and_label() -> void:
+func test_camp_type_vision_and_label() -> void:
 	_camp()
 	assert_eq(building.building_type, "camp", "종류 id 저장")
 	assert_eq(building.vision, 5, "캠프 시야 5")
@@ -58,36 +59,22 @@ func test_camp_vision_and_label() -> void:
 func test_unknown_type_defaults() -> void:
 	building.setup(terrain, _center(), "없는id")
 	assert_eq(building.vision, 0, "미지 종류 시야 0")
-	assert_eq(building.resources.size(), 0, "미지 종류 자원 없음")
 	assert_eq(building.label(), "", "미지 종류 라벨 빈 문자열")
 
-func test_resources_is_copy_not_catalog() -> void:
+# --- 영지 / 맵 라벨 ---
+
+func test_default_no_territory() -> void:
+	assert_null(building.territory, "기본 소속 영지 없음")
+
+func test_map_labels_from_territory() -> void:
 	_camp()
-	building.resources["밀"] = 999
-	var types = load("res://scenes/building/building_types.gd")
-	assert_eq(types.get_type("camp")["resources"]["밀"], 50, "인스턴스 수정이 카탈로그를 바꾸지 않음")
-
-# --- 정체성 / 맵 라벨 ---
-
-func test_default_identity() -> void:
-	assert_eq(building.building_name, "", "기본 이름은 빈 문자열")
-	assert_null(building.faction, "기본 세력 없음")
-
-func test_map_labels_name_and_faction() -> void:
-	_camp()
-	building.building_name = "파리"
-	load("res://scenes/faction/faction.gd").new("프랑스", BLUE).add_building(building)
+	_join_territory()
 	var lines: Array = building.map_label_lines()
-	assert_eq(lines.size(), 2, "이름 + 세력 = 2줄")
-	assert_eq(lines[0]["text"], "파리", "첫 줄은 건물 이름")
+	assert_eq(lines.size(), 2, "영지명 + 세력 = 2줄")
+	assert_eq(lines[0]["text"], "파리", "첫 줄은 영지 이름")
 	assert_eq(lines[1]["text"], "프랑스", "둘째 줄은 세력명")
 	assert_eq(lines[1]["color"], BLUE, "세력 줄 색상 = 세력 색상")
 
-func test_map_labels_name_only() -> void:
-	building.building_name = "파리"
-	var lines: Array = building.map_label_lines()
-	assert_eq(lines.size(), 1, "세력 없으면 이름 1줄")
-	assert_eq(lines[0]["text"], "파리", "이름 줄 텍스트")
-
-func test_map_labels_empty() -> void:
-	assert_eq(building.map_label_lines().size(), 0, "이름·세력 없으면 빈 배열")
+func test_map_labels_empty_without_territory() -> void:
+	_camp()
+	assert_eq(building.map_label_lines().size(), 0, "영지 없으면 빈 배열")

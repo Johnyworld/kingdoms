@@ -25,8 +25,9 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 게임 내 데이터 모델. 각 문서에 속성(properties) 목록을 정리한다.
 
 - [Character](entities/Character.md) — 주인공 캐릭터 (능력치 · 자원)
-- [Building](entities/Building.md) — 맵에 배치된 건물 (7헥스 · 종류 · 보유 자원 · 시야 · 이름 · 세력)
-- [Faction](entities/Faction.md) — 세력 (이름 · 색상 · 소속 건물)
+- [Building](entities/Building.md) — 맵에 배치된 건물 (7헥스 · 종류 · 시야 · 소속 영지)
+- [Territory](entities/Territory.md) — 영지 (이름 · 모든 자원 보유 · 소속 건물)
+- [Faction](entities/Faction.md) — 세력 (이름 · 색상 · 소속 영지)
 
 ### 기능 (`features/`)
 동작하는 기능 정의.
@@ -59,6 +60,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 주인공 | `scenes/character/character.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |
+| 영지 | `scenes/territory/territory.gd` |
 | 캠프 메뉴 | `scenes/camp/camp_menu.gd` |
 | 세력 | `scenes/faction/faction.gd` |
 | 초원 타일셋 | `tiles/grass_tileset.tres` |

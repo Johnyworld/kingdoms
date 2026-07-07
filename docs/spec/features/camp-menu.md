@@ -2,22 +2,23 @@
 
 > 스크립트: `scenes/camp/camp_menu.gd` (`extends CanvasLayer`, layer 64)
 
-건물(현재 캠프) 헥스를 클릭하면 열리는 오버레이. 좌측에 자원 정보, 우측에 선택 메뉴를 표시한다.
+건물(현재 캠프) 헥스를 클릭하면 열리는 오버레이. 그 건물이 속한 **영지** 정보(자원·이름·세력)를 보여준다.
 UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
-(스크립트/노드 이름은 `camp_menu`지만 실제로는 선택된 **건물** 정보를 표시한다.)
+(스크립트/노드 이름은 `camp_menu`지만 실제로는 클릭한 건물의 **영지** 정보를 표시한다.)
 
 ## 레이아웃
 
 - 반투명 배경(`Color(0,0,0,0.45)`) — 클릭 시 닫힘.
 - 화면 중앙에 두 패널을 나란히(HBox, separation 16):
   - **좌측 — 자원 패널** (220×260): 제목 "자원" + 2열 그리드(자원명 / 값).
-  - **우측 — 건물 패널** (200×260): 제목 = **건물 이름**(예: "파리") + 그 아래 **세력명**(예: "프랑스", 세력 색상으로 표기) + "건축" 버튼 + (하단) "닫기" 버튼.
+  - **우측 — 영지 패널** (200×260): 제목 = **영지 이름**(예: "파리") + 그 아래 **세력명**(예: "프랑스", 세력 색상으로 표기) + "건축" 버튼 + (하단) "닫기" 버튼.
 
 ## 동작
 
-- `open(building: Building)` — 건물을 받아 자원 그리드를 채우고(`building.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다.
-  - 제목 라벨 = `building.building_name`.
-  - 세력 라벨 = `building.faction.name` (색상 = `building.faction.color`). `faction`이 `null`이면 세력 라벨은 빈 문자열.
+- `open(building: Building)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다.
+  - 제목 라벨 = `territory.name`.
+  - 세력 라벨 = `territory.faction.name` (색상 = `territory.faction.color`). `faction`이 `null`이면 세력 라벨은 빈 문자열.
+  - `building.territory`가 `null`이거나 영지에 세력이 없으면 라벨은 빈 문자열이고, 세력 색상 오버라이드를 제거한다(다른 영지로 재오픈 대비). `territory == null`이면 자원 그리드도 비어 있다.
 - `close_menu()` — 숨긴다.
 - 닫기 트리거: 배경 좌클릭, "닫기" 버튼.
 - **건축 버튼** (`_on_build_pressed`) — 아직 기능 없음. **Phase 2 · TODO**.
@@ -26,13 +27,14 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 
 `test/unit/test_camp_menu.gd`.
 
-- [정상] 세력 소속 건물로 `open` → 제목 라벨 = 건물 이름("파리"), 세력 라벨 = 세력명("프랑스")
+- [정상] 세력 소속 영지의 건물로 `open` → 제목 라벨 = 영지 이름("파리"), 세력 라벨 = 세력명("프랑스")
 - [정상] 세력 라벨 색상 = 세력 색상
-- [경계] `faction == null`인 건물로 `open` → 세력 라벨은 빈 문자열
-- [정상] `open` 후 자원 그리드가 자원 6종으로 채워진다
+- [경계] `territory == null`인 건물로 `open` → 세력 라벨은 빈 문자열
+- [경계] 세력 있는 영지로 연 뒤 세력 없는 건물로 재오픈 → 이전 세력 색상 오버라이드가 남지 않음
+- [정상] `open` 후 자원 그리드가 영지 자원 7종으로 채워진다
 
 ## 관련
 
-- 표시되는 자원은 [Building 엔티티](../entities/Building.md)의 `resources`를 그대로 전달받는다.
-- 이름·세력은 [Building](../entities/Building.md) / [Faction](../entities/Faction.md) 엔티티에서 온다.
+- 표시되는 자원·이름·세력은 [Territory 엔티티](../entities/Territory.md)에서 온다.
+- 세력은 [Faction](../entities/Faction.md) 엔티티 참고.
 - 건축(자원 소비·배치)은 Phase 2 미구현. [추천 스펙](../SPEC.md#추천-스펙-미구현--제안) 참고.

@@ -1,11 +1,13 @@
 # Data: Resources (자원)
 
-게임에 존재하는 자원 목록. 현재는 [건물](../entities/Building.md) 인스턴스가 보유한다(초기값은 [건물 종류 카탈로그](buildings.md)에서 옴).
+게임에 존재하는 자원 목록. **[영지](../entities/Territory.md)가 모든 자원(인구 포함)을 보유**한다
+(영지 초기값은 캠프 종류의 [카탈로그](buildings.md) `resources`에서 복사됨).
 
-> **삽입 순서 = 캠프 메뉴 표시 순서** (`building.resources` Dictionary).
+> **삽입 순서 = 캠프 메뉴 표시 순서** (`territory.resources` Dictionary).
 
-| 자원 | 캠프 초기 보유량 | 비고 |
+| 자원 | 영지 초기 보유량 | 비고 |
 | --- | --- | --- |
+| 인구 | 10 | 건물 건설/철거 시 소비·환산 (소비 로직은 Phase 2) |
 | 밀 | 50 | |
 | 빵 | 20 | |
 | 나무 | 20 | |

@@ -1,24 +1,20 @@
 class_name Building extends Node2D
 ## 맵에 배치된 건물. 종류(building_type)에 따라 스펙을 카탈로그(BuildingTypes)에서 읽는다.
 ## 캠프는 건물 종류 중 하나("camp")다.
+## 자원·이름·세력은 건물이 아니라 소속 영지(Territory)가 보유한다 (세력 → 영지 → 건물).
 ## 중심 1헥스 + 주변 6헥스 = 총 7헥스를 차지한다(현재 모든 종류 공통 발자국).
 ## 헥스 중 하나라도 클릭되면 게임 쪽에서 캠프 메뉴를 연다.
 
 const LABEL_COLOR := Color.WHITE
 
-# --- 정체성 --- (변경 시 맵 라벨을 다시 그리도록 setter에서 queue_redraw)
-var building_type := ""       # 종류 id (예: "camp")
-var building_name := "":       # 인스턴스 이름(예: "파리"). Node.name과 충돌을 피해 building_name 사용.
+# --- 정체성 ---
+var building_type := ""            # 종류 id (예: "camp")
+var territory: Territory = null:   # 소속 영지. Territory.add_building으로 연결. 변경 시 맵 라벨 갱신.
 	set(value):
-		building_name = value
-		queue_redraw()
-var faction: Faction = null:   # 소속 세력. Faction.add_building으로 연결된다.
-	set(value):
-		faction = value
+		territory = value
 		queue_redraw()
 
-# --- 종류에서 오는 값 (setup 시 카탈로그에서 채움) ---
-var resources := {}
+# --- 종류에서 오는 값 (setup 시 카탈로그에서 읽음) ---
 var vision := 0
 
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
@@ -38,8 +34,6 @@ func setup(terrain: TileMapLayer, center_cell: Vector2i, type_id: String) -> voi
 	building_type = type_id
 	_spec = BuildingTypes.get_type(type_id)
 	vision = _spec.get("vision", 0)
-	# 카탈로그 원본을 건드리지 않도록 깊은 복사본을 인스턴스가 보유한다.
-	resources = (_spec.get("resources", {}) as Dictionary).duplicate(true)
 	cells = [center_cell]
 	for n in terrain.get_surrounding_cells(center_cell):
 		cells.append(n)
@@ -57,14 +51,16 @@ func center_cell() -> Vector2i:
 func label() -> String:
 	return _spec.get("label", "")
 
-## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}.
-## 이름(흰색) → 세력명(세력 색). 둘 다 없으면 빈 배열.
+## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
+## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.
 func map_label_lines() -> Array:
 	var lines := []
-	if building_name != "":
-		lines.append({"text": building_name, "color": LABEL_COLOR})
-	if faction != null:
-		lines.append({"text": faction.name, "color": faction.color})
+	if territory == null:
+		return lines
+	if territory.name != "":
+		lines.append({"text": territory.name, "color": LABEL_COLOR})
+	if territory.faction != null:
+		lines.append({"text": territory.faction.name, "color": territory.faction.color})
 	return lines
 
 func _draw() -> void:

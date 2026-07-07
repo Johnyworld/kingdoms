@@ -61,11 +61,15 @@ func _center_camera() -> void:
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
 
-## 캠프 건물에 이름("파리")을 붙이고 세력("프랑스")에 편입한다.
+## 시작 영지("파리")를 만들어 세력("프랑스")에 편입하고, 캠프 건물을 그 영지에 넣는다.
+## 영지 초기 자원은 캠프 종류 카탈로그의 resources를 복사한다(인구 포함 7종).
 func _setup_faction() -> void:
+	var camp_spec := BuildingTypes.get_type(BuildingTypes.CAMP)
+	var start_res: Dictionary = (camp_spec.get("resources", {}) as Dictionary).duplicate(true)
+	var paris := Territory.new("파리", start_res)
 	var france := Faction.new("프랑스", Color(0.2, 0.3, 0.8))
-	building.building_name = "파리"
-	france.add_building(building)
+	france.add_territory(paris)
+	paris.add_building(building)
 
 ## 주인공을 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_hero() -> void:

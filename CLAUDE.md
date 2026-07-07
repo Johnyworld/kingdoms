@@ -17,6 +17,7 @@ kingdoms/
 │   ├── game/                # 게임 본편 (game / range_overlay / fog)
 │   ├── character/           # 주인공
 │   ├── building/            # 건물 (building / building_types 카탈로그)
+│   ├── territory/           # 영지 (territory — 데이터 전용, 씬 없음)
 │   ├── faction/             # 세력 (faction — 데이터 전용, 씬 없음)
 │   └── camp/                # 캠프 메뉴 (camp_menu)
 ├── assets/                  # 원본 에셋

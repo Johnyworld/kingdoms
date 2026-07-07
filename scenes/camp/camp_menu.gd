@@ -4,7 +4,7 @@ extends CanvasLayer
 
 var _root: Control
 var _res_grid: GridContainer
-var _camp_title: Label     # 우측 패널 제목 = 캠프 이름
+var _camp_title: Label     # 우측 패널 제목 = 영지 이름
 var _faction_label: Label  # 제목 아래 세력명(세력 색상)
 
 func _ready() -> void:
@@ -95,18 +95,23 @@ func _build_menu_panel() -> Control:
 
 	return panel
 
-## 건물 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
+## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
 func open(building: Building) -> void:
-	# 우측 패널: 이름 + 세력.
-	_camp_title.text = building.building_name
-	if building.faction != null:
-		_faction_label.text = building.faction.name
-		_faction_label.add_theme_color_override("font_color", building.faction.color)
-	else:
-		_faction_label.text = ""
+	var territory := building.territory
 
-	# 좌측 패널: 자원 그리드.
-	var resources := building.resources
+	# 우측 패널: 영지 이름 + 세력.
+	_camp_title.text = territory.name if territory != null else ""
+	var faction: Faction = territory.faction if territory != null else null
+	if faction != null:
+		_faction_label.text = faction.name
+		_faction_label.add_theme_color_override("font_color", faction.color)
+	else:
+		# 이전 오픈에서 남은 색상 오버라이드를 지운다(다른 영지로 재오픈 대비).
+		_faction_label.text = ""
+		_faction_label.remove_theme_color_override("font_color")
+
+	# 좌측 패널: 영지 자원 그리드.
+	var resources := territory.resources if territory != null else {}
 	for child in _res_grid.get_children():
 		child.queue_free()
 	for res_name in resources:

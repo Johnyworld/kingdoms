@@ -29,4 +29,4 @@
 
 `TerrainLayer` · `Building` · `RangeOverlay` · `Hero` · `Fog`(z_index 10) · `Camera2D` · `CampMenu`.
 
-시작 순서(`_ready`): 맵 생성 → 카메라 중앙 → 오버레이 setup → 건물 배치(중앙 캠프) → 세력 연결 → 주인공 배치 → 안개 setup → 안개 갱신.
+시작 순서(`_ready`): 맵 생성 → 카메라 중앙 → 오버레이 setup → 건물 배치(중앙 캠프) → 영지·세력 연결(캠프의 영지 "파리" ∈ 세력 "프랑스") → 주인공 배치 → 안개 setup → 안개 갱신.
