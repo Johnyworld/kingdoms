@@ -13,7 +13,7 @@
 > 게임 시작 시 캠프가 배치되고(즉시 완성), 이후 [건축](../features/building.md)으로 **농장을 건설**할 수 있다(건설 중 → 완성). `production`/`build_turns`/`build_cost`는 사용되며, `demolish_refund`(철거)는 아직 **미구현**이다.
 
 **중심 1헥스 + 주변 6헥스 = 총 7헥스**를 차지한다(현재 모든 종류 공통 발자국. 종류별 footprint는 **미구현**).
-헥스 중 하나라도 클릭되면 게임 쪽에서 [캠프 메뉴](../features/camp-menu.md)를 연다.
+헥스 중 하나라도 클릭되면 게임 쪽에서 종류에 따라 UI를 연다: **캠프**는 [캠프 메뉴](../features/camp-menu.md)(자원·건축), **그 외 건물(농장)**은 [건물 정보 패널](../features/building-info.md).
 `_draw()`로 종류별 색으로 부지 + 중심 텐트를 그린다.
 
 ## Properties
@@ -58,6 +58,7 @@
 - `is_complete() -> bool` — 건설이 끝났으면(건설 중이 아니면) 참.
 - `advance_construction() -> bool` — 건설을 1턴 진행. 이미 완성이면 `false`(불변). 건설 중이면 `remaining_turns -= 1`, 0 이하가 되면 완성 처리하고 **이번에 완성됐으면 `true`**, 아직 진행 중이면 `false`.
 - `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). **건설 중에는 빈 Dictionary**. 완성 후에는 카탈로그의 `production`(없으면 빈 Dictionary, 캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
+- `planned_production() -> Dictionary` — 완성 시 생산량(카탈로그 `production`). **건설 여부와 무관**하게 항상 반환(`production()`과 달리 건설 중에도 값이 있음). [건물 정보 패널](../features/building-info.md)이 건설 중에도 완성 시 생산량을 보여줄 때 쓴다.
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
   - 영지가 없으면(`territory == null`) 빈 배열.
   - 영지 이름이 있으면 첫 줄 = `{territory.name, 흰색}`.
@@ -79,6 +80,8 @@
 - [정상] `"camp"`로 setup 시 `building_type == "camp"`, `vision == 5`, `label() == "캠프"`
 - [경계] 알 수 없는 `type_id`로 setup 시 `vision == 0`, `label() == ""`
 - [경계] `production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}` (`test/unit/test_turn.gd`)
+- [정상] 완성 농장 `planned_production() == {밀:1}`, 캠프 `planned_production() == {}`
+- [정상] **건설 중** 농장도 `planned_production() == {밀:1}` (반면 `production() == {}`)
 - [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`, `production() == {}`
 - [정상] `advance_construction()`를 build_turns회 → 완성(`is_complete()`), 완성되는 호출만 `true`; 완성 후 `production() == {밀:1}`
 - [경계] 완성된 건물에 `advance_construction()` → `false`, 상태 불변
@@ -91,4 +94,4 @@
 - 종류별 스펙은 [data/buildings.md](../data/buildings.md) 참고.
 - 소속 영지·세력은 [Territory](Territory.md) / [Faction](Faction.md) 엔티티 참고.
 - 시야는 [Fog of War](../features/fog-of-war.md)에서 주인공 시야와 합산된다.
-- 영지명·세력은 [Camp Menu](../features/camp-menu.md)에 표시된다.
+- 영지명·세력은 [Camp Menu](../features/camp-menu.md)(캠프)·[Building Info](../features/building-info.md)(그 외 건물)에 표시된다.

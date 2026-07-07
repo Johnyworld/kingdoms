@@ -81,6 +81,11 @@ func production() -> Dictionary:
 		return {}
 	return _spec.get("production", {})
 
+## 완성 시 생산량(자원명→수량). production()과 달리 건설 여부와 무관하게 항상 카탈로그값을 반환한다.
+## 건물 정보 패널이 건설 중에도 "완성하면 이만큼 생산"을 보여줄 때 쓴다.
+func planned_production() -> Dictionary:
+	return _spec.get("production", {})
+
 ## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
 ## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.
 func map_label_lines() -> Array:

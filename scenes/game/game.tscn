@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1"]
 [ext_resource type="TileSet" path="res://tiles/grass_tileset.tres" id="2"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scenes/party/party_info.gd" id="10"]
 [ext_resource type="Script" path="res://scenes/game/build_area_overlay.gd" id="11"]
 [ext_resource type="Script" path="res://scenes/party/party_roster.gd" id="12"]
+[ext_resource type="Script" path="res://scenes/building/building_info.gd" id="13"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1")
@@ -53,3 +54,6 @@ script = ExtResource("10")
 
 [node name="PartyRoster" type="CanvasLayer" parent="."]
 script = ExtResource("12")
+
+[node name="BuildingInfo" type="CanvasLayer" parent="."]
+script = ExtResource("13")

@@ -41,7 +41,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
 - [Fog of War (전장의 안개)](features/fog-of-war.md)
-- [Camp Menu (캠프 메뉴)](features/camp-menu.md)
+- [Camp Menu (캠프 메뉴)](features/camp-menu.md) — 캠프 클릭 시 영지 자원·건축 메뉴
+- [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 
@@ -69,6 +70,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 부대 일람 | `scenes/party/party_roster.gd` |
 | 사람(데이터) | `scenes/human/human.gd` |
 | 건물 | `scenes/building/building.gd` |
+| 건물 정보 패널 | `scenes/building/building_info.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |
 | 건설 배치 유틸 | `scenes/building/build_planner.gd` |
 | 영지 | `scenes/territory/territory.gd` |

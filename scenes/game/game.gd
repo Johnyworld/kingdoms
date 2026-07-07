@@ -29,6 +29,7 @@ const PAN_ZOOM_SPEED := 0.05   # 트랙패드 두 손가락 스크롤(PanGesture
 @onready var build_area = $BuildArea
 @onready var party_info = $PartyInfo
 @onready var party_roster = $PartyRoster
+@onready var building_info = $BuildingInfo
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -135,13 +136,16 @@ func _update_fog() -> void:
 	fog.update_visible(visible)
 
 ## 좌클릭 처리. 우선순위 판정은 순수 함수 ClickRouter.resolve에 위임하고 여기서는 실행만 한다.
-## - 부대 우선(캠프 위 재클릭 시 메뉴) → 선택 중 이동(건물 위 통행) → 캠프 메뉴 → 선택 해제.
+## - 부대 우선(캠프 위 재클릭 시 메뉴) → 선택 중 이동(건물 위 통행) → 캠프 메뉴 → 건물 정보 → 선택 해제.
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
 	var party_cell := terrain.local_to_map(party.position)
 	var reachable: bool = _reachable.has(cell) and _reachable[cell] >= 1 and _reachable[cell] <= party.movement()
+	var clicked := _building_at(cell)   # 캠프는 CAMP_MENU, 그 외 건물은 BUILDING_INFO로 분기.
+	var on_camp := clicked != null and clicked.building_type == BuildingTypes.CAMP
+	var on_building := clicked != null and clicked.building_type != BuildingTypes.CAMP
 
-	match ClickRouter.resolve(cell == party_cell, building.contains_cell(cell), _selected, reachable, party_info.visible):
+	match ClickRouter.resolve(cell == party_cell, on_camp, on_building, _selected, reachable, party_info.visible):
 		ClickRouter.MOVE:
 			party.position = terrain.map_to_local(cell)
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
@@ -153,6 +157,13 @@ func _handle_click(world_pos: Vector2) -> void:
 				_deselect()
 			_hide_party_info()
 			camp_menu.open(building)
+		ClickRouter.BUILDING_INFO:
+			if _selected:
+				_deselect()
+			# 부대 정보·일람을 감추고 우측 상단에 건물 정보를 띄운다.
+			party_info.close()
+			party_roster.hide()
+			building_info.open(clicked)
 		ClickRouter.FOCUS_PARTY:
 			# 정보 패널은 항상 연다(이동 완료 부대 포함). 아직 선택 전이고 이동 가능하면 함께 선택.
 			_show_party_info(party)
@@ -161,6 +172,13 @@ func _handle_click(world_pos: Vector2) -> void:
 		ClickRouter.DESELECT:
 			_deselect()
 			_hide_party_info()
+
+## 셀을 점유한 건물을 찾는다(없으면 null). 캠프·건설된 농장 모두 _buildings에 있다.
+func _building_at(cell: Vector2i) -> Building:
+	for b in _buildings:
+		if b.contains_cell(cell):
+			return b
+	return null
 
 ## 주인공 부대를 선택하고 이동/공격 범위를 표시한다.
 func _select() -> void:
@@ -184,13 +202,15 @@ func _deselect() -> void:
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)
 
-## 부대 정보 패널을 연다. 우측 상단을 공유하는 부대 일람은 감춘다.
+## 부대 정보 패널을 연다. 우측 상단을 공유하는 부대 일람·건물 정보는 감춘다.
 func _show_party_info(party_to_show) -> void:
+	building_info.close()
 	party_info.open(party_to_show)
 	party_roster.hide()
 
-## 부대 정보 패널을 닫고, 부대 일람을 다시 표시한다.
+## 부대 정보·건물 정보 패널을 닫고, 부대 일람을 다시 표시한다.
 func _hide_party_info() -> void:
+	building_info.close()
 	party_info.close()
 	party_roster.show()
 

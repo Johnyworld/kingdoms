@@ -103,3 +103,18 @@ func test_advance_construction_on_complete_is_noop() -> void:
 	_camp()
 	assert_false(building.advance_construction(), "완성 건물은 no-op false")
 	assert_true(building.is_complete(), "상태 불변")
+
+# --- 완성 시 생산량 (planned_production) — 건설 여부와 무관 ---
+
+func test_planned_production_farm_complete() -> void:
+	building.setup(terrain, _center(), "farm")
+	assert_eq(building.planned_production(), {"밀": 1}, "완성 농장 완성 시 생산 = 밀 1")
+
+func test_planned_production_camp_empty() -> void:
+	_camp()
+	assert_eq(building.planned_production(), {}, "캠프는 생산 없음")
+
+func test_planned_production_ignores_construction() -> void:
+	building.setup(terrain, _center(), "farm", true)
+	assert_eq(building.production(), {}, "건설 중 production은 빈 Dictionary")
+	assert_eq(building.planned_production(), {"밀": 1}, "건설 중에도 완성 시 생산은 밀 1")
