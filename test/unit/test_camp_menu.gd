@@ -12,7 +12,7 @@ func before_each() -> void:
 	menu = load("res://scenes/camp/camp_menu.gd").new()
 	add_child_autofree(menu)
 	terrain = TileMapLayer.new()
-	terrain.tile_set = load("res://tiles/grass_tileset.tres")
+	terrain.tile_set = load("res://tiles/terrain_tileset.tres")
 	add_child_autofree(terrain)
 	building = load("res://scenes/building/building.gd").new()
 	add_child_autofree(building)

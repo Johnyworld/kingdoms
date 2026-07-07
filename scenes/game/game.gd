@@ -4,8 +4,6 @@ extends Node2D
 
 const MAP_WIDTH := 300
 const MAP_HEIGHT := 300
-const GRASS_SOURCE_ID := 0
-const GRASS_ATLAS := Vector2i(0, 0)
 
 const CAM_SPEED := 900.0    # 픽셀/초
 const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)
@@ -35,7 +33,7 @@ var _min_pos: Vector2
 var _max_pos: Vector2
 var _zoom_level := 1.0
 
-# 현재 도달 가능한 셀 → 시작점으로부터의 거리. 클릭 이동 판정에 사용.
+# 현재 이동 가능한 목적지 셀 집합(지형 상한 반영) → true. 클릭 이동 판정에 사용.
 var _reachable: Dictionary = {}
 # 주인공이 선택되었는지. 선택 상태에서만 범위 표시 + 이동이 가능하다.
 var _selected := false
@@ -71,17 +69,36 @@ func _ready() -> void:
 	turn_hud.ended.connect(_on_turn_ended)
 	camp_menu.build_selected.connect(_on_build_selected)
 
-## 맵 전체를 초원 타일로 채운다.
+## 맵 전체를 초원 타일로 채운 뒤, 시작 지점 근처에 숲을 조금 배치한다.
 func _generate_map() -> void:
 	for y in MAP_HEIGHT:
 		for x in MAP_WIDTH:
-			terrain.set_cell(Vector2i(x, y), GRASS_SOURCE_ID, GRASS_ATLAS)
+			terrain.set_cell(Vector2i(x, y), Terrain.GRASS, Terrain.ATLAS)
+
+	_place_starting_terrain()
 
 	# 카메라 이동 범위(월드 좌표) 계산 — 맵 밖으로 벗어나지 않도록 클램프용.
 	var corner_a := terrain.map_to_local(Vector2i(0, 0))
 	var corner_b := terrain.map_to_local(Vector2i(MAP_WIDTH - 1, MAP_HEIGHT - 1))
 	_min_pos = Vector2(min(corner_a.x, corner_b.x), min(corner_a.y, corner_b.y))
 	_max_pos = Vector2(max(corner_a.x, corner_b.x), max(corner_a.y, corner_b.y))
+
+## 시작 지점(중앙 캠프) 근처에 방향별 지형 덩어리를 배치한다.
+## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산. 캠프(중앙 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
+## (y가 커질수록 남쪽, x가 커질수록 동쪽.)
+func _place_starting_terrain() -> void:
+	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
+	_paint_patches([center + Vector2i(-6, -1), center + Vector2i(-8, 2)], Terrain.FOREST)   # 서쪽 숲
+	_paint_patches([center + Vector2i(6, -1), center + Vector2i(8, 2)], Terrain.SWAMP)      # 동쪽 습지
+	_paint_patches([center + Vector2i(0, -6), center + Vector2i(2, -7)], Terrain.DESERT)    # 북쪽 사막
+	_paint_patches([center + Vector2i(0, 7), center + Vector2i(-2, 8)], Terrain.MOUNTAIN)   # 남쪽 산
+
+## 씨앗 칸들 각각을 중심으로 (씨앗 + 이웃 6칸)을 해당 지형으로 칠한다.
+func _paint_patches(seeds: Array, source_id: int) -> void:
+	for center in seeds:
+		terrain.set_cell(center, source_id, Terrain.ATLAS)
+		for n in terrain.get_surrounding_cells(center):
+			terrain.set_cell(n, source_id, Terrain.ATLAS)
 
 ## 카메라를 맵 중앙 타일로 이동시킨다.
 func _center_camera() -> void:
@@ -116,13 +133,17 @@ func _place_party() -> void:
 	party.position = terrain.map_to_local(party_cell)
 
 ## 주인공 위치에서 이동력만큼 BFS로 도달 셀을 구하고, 범위를 갱신한다.
-## 거리 1~이동력 = 이동 범위(파랑), 이동력+1 = 공격 범위(빨강).
+## 이동 범위(파랑)는 지형 이동 상한(숲 ceil·습지 floor·산 불가)을 반영하고,
+## 공격 범위(빨강)는 그 이동 영역 바로 바깥 한 칸이다(자세히는 HexGrid.movement_ranges).
 func _update_ranges() -> void:
 	var start := terrain.local_to_map(party.position)
 	var ranges := HexGrid.movement_ranges(terrain, start, party.movement(), MAP_WIDTH, MAP_HEIGHT)
 	var move_cells: Array[Vector2i] = ranges["move"]
 	var attack_cells: Array[Vector2i] = ranges["attack"]
-	_reachable = ranges["dist"]
+	# 이동 판정은 지형 상한이 반영된 이동 목적지 집합으로 한다(원거리 map 거리로 판정하면 숲/습지 상한을 무시함).
+	_reachable = {}
+	for c in move_cells:
+		_reachable[c] = true
 	overlay.show_ranges(move_cells, attack_cells)
 
 ## 모든 시야원(주인공 부대 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
@@ -141,7 +162,7 @@ func _update_fog() -> void:
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
 	var party_cell := terrain.local_to_map(party.position)
-	var reachable: bool = _reachable.has(cell) and _reachable[cell] >= 1 and _reachable[cell] <= party.movement()
+	var reachable: bool = _reachable.has(cell)
 	var clicked := _building_at(cell)   # 캠프는 CAMP_MENU, 그 외 건물은 BUILDING_INFO로 분기.
 	var on_camp := clicked != null and clicked.building_type == BuildingTypes.CAMP
 	var on_building := clicked != null and clicked.building_type != BuildingTypes.CAMP

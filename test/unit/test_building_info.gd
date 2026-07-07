@@ -10,7 +10,7 @@ var terrain: TileMapLayer
 
 func before_each() -> void:
 	terrain = TileMapLayer.new()
-	terrain.tile_set = load("res://tiles/grass_tileset.tres")
+	terrain.tile_set = load("res://tiles/terrain_tileset.tres")
 	add_child_autofree(terrain)
 	panel = load("res://scenes/building/building_info.gd").new()
 	add_child_autofree(panel)

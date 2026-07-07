@@ -1,7 +1,7 @@
 [gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1"]
-[ext_resource type="TileSet" path="res://tiles/grass_tileset.tres" id="2"]
+[ext_resource type="TileSet" path="res://tiles/terrain_tileset.tres" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/party/party.tscn" id="3"]
 [ext_resource type="Script" path="res://scenes/game/range_overlay.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/building/building.gd" id="5"]

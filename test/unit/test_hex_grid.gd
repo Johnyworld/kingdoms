@@ -12,7 +12,7 @@ var terrain: TileMapLayer
 
 func before_each() -> void:
 	terrain = TileMapLayer.new()
-	terrain.tile_set = load("res://tiles/grass_tileset.tres")
+	terrain.tile_set = load("res://tiles/terrain_tileset.tres")
 	add_child_autofree(terrain)
 
 func _center() -> Vector2i:
@@ -78,8 +78,8 @@ func test_movement_range_one_partition() -> void:
 func test_movement_range_two_partition() -> void:
 	var r := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP)
 	assert_eq((r["move"] as Array).size(), 18, "이동력 2: 이동 = 거리1+2 링 (6+12)")
-	assert_eq((r["attack"] as Array).size(), 18, "이동력 2: 공격 = 거리3 링 18셀")
-	assert_eq((r["dist"] as Dictionary).size(), 37, "dist는 거리3까지 전체 맵 (누적 37셀)")
+	assert_eq((r["attack"] as Array).size(), 18, "이동력 2: 공격 = 이동영역 바로 바깥(평지=거리3 링) 18셀")
+	assert_eq((r["dist"] as Dictionary).size(), 19, "dist는 거리2까지 (누적 19셀)")
 
 func test_start_cell_excluded_from_ranges() -> void:
 	var r := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP)
@@ -89,6 +89,50 @@ func test_start_cell_excluded_from_ranges() -> void:
 func test_range_dist_includes_start() -> void:
 	var r := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP)
 	assert_true((r["dist"] as Dictionary).has(_center()), "dist 맵에는 시작칸 포함")
+
+# --- movement_ranges: 지형 반영 ---
+
+func test_mountain_neighbor_excluded_from_ranges() -> void:
+	# 인접 칸을 산으로 칠하면 진입·통과 불가 → dist/move/attack 모두에서 제외된다.
+	var mountain: Vector2i = terrain.get_surrounding_cells(_center())[0]
+	terrain.set_cell(mountain, Terrain.MOUNTAIN, Terrain.ATLAS)
+	var r := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP)
+	assert_false((r["dist"] as Dictionary).has(mountain), "산은 dist에서 제외(통과 불가)")
+	assert_does_not_have(r["move"], mountain, "산은 이동 범위 제외")
+	assert_does_not_have(r["attack"], mountain, "산은 공격 범위 제외")
+
+func test_swamp_neighbor_excluded_when_movement_one() -> void:
+	# 이동력 1 + 습지 이웃: floor(1/2)=0 → 그 칸은 이동 목적지가 될 수 없다.
+	var swamp: Vector2i = terrain.get_surrounding_cells(_center())[0]
+	terrain.set_cell(swamp, Terrain.SWAMP, Terrain.ATLAS)
+	var r := HexGrid.movement_ranges(terrain, _center(), 1, MAP, MAP)
+	assert_does_not_have(r["move"], swamp, "이동력 1이면 습지 이웃은 이동 불가(cap 0)")
+	assert_eq((r["move"] as Array).size(), 5, "이동력 1: 이웃 6 중 습지 1칸 빠져 5칸")
+
+func test_forest_reachable_where_swamp_is_not() -> void:
+	# 같은 거리(1)라도 숲은 ceil(1/2)=1로 도달, 습지는 floor(1/2)=0로 제외 — ceil/floor 차이.
+	var neighbors := terrain.get_surrounding_cells(_center())
+	terrain.set_cell(neighbors[0], Terrain.FOREST, Terrain.ATLAS)
+	terrain.set_cell(neighbors[1], Terrain.SWAMP, Terrain.ATLAS)
+	var r := HexGrid.movement_ranges(terrain, _center(), 1, MAP, MAP)
+	assert_has(r["move"], neighbors[0], "이동력 1: 숲 이웃은 도달(cap 1)")
+	assert_does_not_have(r["move"], neighbors[1], "이동력 1: 습지 이웃은 제외(cap 0)")
+
+func test_attack_hugs_move_frontier_on_slow_terrain() -> void:
+	# 이동력 1 + 습지 이웃: 그 칸은 이동 불가(cap 0)지만 시작칸에 인접하므로 공격 범위에 붙는다.
+	# (고정 거리 move_range+1 링이 아니라 실제 이동 프런티어 바깥 한 칸.)
+	var swamp: Vector2i = terrain.get_surrounding_cells(_center())[0]
+	terrain.set_cell(swamp, Terrain.SWAMP, Terrain.ATLAS)
+	var r := HexGrid.movement_ranges(terrain, _center(), 1, MAP, MAP)
+	assert_does_not_have(r["move"], swamp, "습지 이웃은 이동 불가(cap 0)")
+	assert_has(r["attack"], swamp, "이동 못 하는 습지 이웃도 인접하므로 공격 범위에 포함")
+
+func test_vision_ignores_mountains() -> void:
+	# 시야(cells_within 기본 blocked=[])는 지형에 막히지 않는다 — 산 이웃도 포함.
+	var mountain: Vector2i = terrain.get_surrounding_cells(_center())[0]
+	terrain.set_cell(mountain, Terrain.MOUNTAIN, Terrain.ATLAS)
+	var cells := HexGrid.cells_within(terrain, _center(), 1, MAP, MAP)
+	assert_has(cells, mountain, "시야는 산에 막히지 않아 산 칸도 보임")
 
 # --- hex_polygon / region_outline (건설 가능 영역 윤곽선) ---
 

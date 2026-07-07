@@ -8,7 +8,9 @@ extends RefCounted
 ## - 반환: { cell: distance } (start는 거리 0 포함).
 ## - max_dist 거리의 셀까지 포함하되, 그 셀에서 더 확장하지는 않는다.
 ## - 맵 범위 [0, map_w) x [0, map_h) 밖은 제외한다.
-static func bfs_distances(terrain: TileMapLayer, start: Vector2i, max_dist: int, map_w: int, map_h: int) -> Dictionary:
+## - blocked: 진입 불가 지형의 타일 source id 목록(예: 산). 그런 셀은 도달·통과 대상에서 제외한다.
+##   시야는 지형에 막히지 않으므로 기본값 []로 두고, 이동 계산에서만 넘긴다.
+static func bfs_distances(terrain: TileMapLayer, start: Vector2i, max_dist: int, map_w: int, map_h: int, blocked: Array = []) -> Dictionary:
 	var dist := {start: 0}
 	var frontier: Array[Vector2i] = [start]
 	while not frontier.is_empty():
@@ -19,30 +21,51 @@ static func bfs_distances(terrain: TileMapLayer, start: Vector2i, max_dist: int,
 		for n in terrain.get_surrounding_cells(cur):
 			if not _in_bounds(n, map_w, map_h) or dist.has(n):
 				continue
+			if not blocked.is_empty() and terrain.get_cell_source_id(n) in blocked:
+				continue
 			dist[n] = d + 1
 			frontier.append(n)
 	return dist
 
 ## start에서 radius(헥스 거리) 이내로 도달 가능한 셀 목록.
-static func cells_within(terrain: TileMapLayer, start: Vector2i, radius: int, map_w: int, map_h: int) -> Array:
-	return bfs_distances(terrain, start, radius, map_w, map_h).keys()
+static func cells_within(terrain: TileMapLayer, start: Vector2i, radius: int, map_w: int, map_h: int, blocked: Array = []) -> Array:
+	return bfs_distances(terrain, start, radius, map_w, map_h, blocked).keys()
 
-## 이동력 기준 이동/공격 범위를 분할해 돌려준다.
-## - move: 헥스 거리 1 ~ move_range (시작칸 거리 0은 제외)
-## - attack: 헥스 거리 move_range + 1 (마지막 링)
-## - dist: 시작칸 포함 전체 거리 맵 (이동 판정에 사용)
+## 이동력 기준 이동/공격 범위를 분할해 돌려준다(지형 반영).
+## - 산(Terrain.IMPASSABLE)은 진입·통과 불가라 dist에서 아예 제외된다.
+## - move: 각 셀의 지형 이동 상한(Terrain.move_cap) 이내로 도달 가능한 칸(시작칸 거리 0 제외).
+##   숲 칸은 ceil(이동력/2), 습지 칸은 floor(이동력/2)까지만 이동 목적지가 된다.
+## - attack: **이동 가능 영역(+시작칸) 바로 바깥 한 칸**. 숲/습지로 이동이 짧아진 방향에서도
+##   공격 링이 실제 이동 프런티어에 붙는다(평지에선 거리 move_range+1 링과 같다). 산 칸은 제외.
+## - dist: 시작칸 포함 거리 맵 (산 제외). max_dist = move_range.
 static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int) -> Dictionary:
-	var dist := bfs_distances(terrain, start, move_range + 1, map_w, map_h)
+	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE)
+	var move_set := {}
 	var move_cells: Array[Vector2i] = []
-	var attack_cells: Array[Vector2i] = []
 	for cell in dist:
 		var d: int = dist[cell]
 		if d == 0:
 			continue  # 주인공이 선 칸은 제외
-		elif d <= move_range:
+		if d <= Terrain.move_cap(terrain.get_cell_source_id(cell), move_range):
+			move_set[cell] = true
 			move_cells.append(cell)
-		else:
-			attack_cells.append(cell)
+
+	# 공격 = 이동 가능 칸 및 시작칸의 이웃 중, 이동칸/시작칸이 아니고 통과 가능한 칸.
+	var attack_set := {}
+	var seeds := move_cells.duplicate()
+	seeds.append(start)
+	for src in seeds:
+		for n in terrain.get_surrounding_cells(src):
+			if not _in_bounds(n, map_w, map_h) or n == start:
+				continue
+			if move_set.has(n) or attack_set.has(n):
+				continue
+			if terrain.get_cell_source_id(n) in Terrain.IMPASSABLE:
+				continue
+			attack_set[n] = true
+	var attack_cells: Array[Vector2i] = []
+	for cell in attack_set:
+		attack_cells.append(cell)
 	return {"move": move_cells, "attack": attack_cells, "dist": dist}
 
 static func _in_bounds(cell: Vector2i, map_w: int, map_h: int) -> bool:

@@ -1,0 +1,43 @@
+[gd_resource type="TileSet" load_steps=11 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/tiles/grass_hex.svg" id="1_grass"]
+[ext_resource type="Texture2D" path="res://assets/tiles/forest_hex.svg" id="2_forest"]
+[ext_resource type="Texture2D" path="res://assets/tiles/swamp_hex.svg" id="3_swamp"]
+[ext_resource type="Texture2D" path="res://assets/tiles/mountain_hex.svg" id="4_mountain"]
+[ext_resource type="Texture2D" path="res://assets/tiles/desert_hex.svg" id="5_desert"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_grass"]
+texture = ExtResource("1_grass")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_forest"]
+texture = ExtResource("2_forest")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_swamp"]
+texture = ExtResource("3_swamp")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_mountain"]
+texture = ExtResource("4_mountain")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_desert"]
+texture = ExtResource("5_desert")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[resource]
+tile_shape = 3
+tile_layout = 0
+tile_offset_axis = 0
+tile_size = Vector2i(64, 46)
+sources/0 = SubResource("TileSetAtlasSource_grass")
+sources/1 = SubResource("TileSetAtlasSource_forest")
+sources/2 = SubResource("TileSetAtlasSource_swamp")
+sources/3 = SubResource("TileSetAtlasSource_mountain")
+sources/4 = SubResource("TileSetAtlasSource_desert")

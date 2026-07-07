@@ -52,6 +52,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Resources (자원)](data/resources.md)
 - [Stats (능력치 정의)](data/stats.md)
 - [Buildings (건물 종류)](data/buildings.md)
+- [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
 
 ## 파일 매핑
 
@@ -78,7 +79,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 세력 | `scenes/faction/faction.gd` |
 | 턴 매니저 | `scenes/turn/turn_manager.gd` |
 | 턴 HUD | `scenes/turn/turn_hud.gd` |
-| 초원 타일셋 | `tiles/grass_tileset.tres` |
+| 지형 카탈로그 | `scenes/game/terrain.gd` |
+| 지형 타일셋 | `tiles/terrain_tileset.tres` |
 
 ---
 
@@ -90,7 +92,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - **`features/save-load.md`** — 세이브/로드. 게임 진행(주인공 위치, 자원, 탐험된 안개)을 직렬화하는 규칙.
 - **턴/행동력 확장** — 기본 턴 시스템([features/turn.md](features/turn.md))은 도입됨(턴 종료 · 1턴 1이동 · 자원 수입). 남은 것은 행동력(AP) · 공격/전투 행동 · 적 턴(AI) 등으로의 확장이다.
 - **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))·완성 건물 시야의 fog 반영([features/fog-of-war.md](features/fog-of-war.md))은 구현됨. 남은 것은 **캠프 건설**(새 영지 생성), **철거**(demolish_refund)다.
-- **`data/terrain.md`** — 현재는 초원 단일 타일. 지형 종류(숲/산/물)와 이동 비용 · 시야 차단 규칙을 정의하면 맵이 풍부해진다.
 - **`entities/Enemy.md`** — 공격 범위가 있으니 적/전투 대상 엔티티가 자연스러운 다음 단계.
 - **`data/items.md`** — 아이템/장비 리스트 (능력치 보정 등).
 - **`features/input-scheme.md`** — 키보드/마우스/게임패드/터치 입력 매핑을 한곳에 정리 (전 플랫폼 배포 목표에 맞춤).

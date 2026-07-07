@@ -8,7 +8,7 @@ var terrain: TileMapLayer
 
 func before_each() -> void:
 	terrain = TileMapLayer.new()
-	terrain.tile_set = load("res://tiles/grass_tileset.tres")
+	terrain.tile_set = load("res://tiles/terrain_tileset.tres")
 	add_child_autofree(terrain)
 
 func _center() -> Vector2i:
