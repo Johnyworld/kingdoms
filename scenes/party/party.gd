@@ -10,6 +10,7 @@ class_name Party extends Node2D
 
 # --- 멤버 ---
 var members: Array = []   # 이 부대에 속한 Human 목록.
+var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
 
 const _RADIUS := 12.0
 
@@ -24,6 +25,10 @@ func add_member(human) -> void:
 	if human in members:
 		return
 	members.append(human)
+
+## 지휘관 이름. 지휘관이 없으면(null) "—". 부대 일람(party_roster.gd) 표시에 사용.
+func commander_name() -> String:
+	return commander.human_name if commander else "—"
 
 ## 부대 이동력 = 멤버 이동력의 최소값(가장 느린 멤버). 멤버 없으면 0.
 func movement() -> int:

@@ -27,6 +27,7 @@ const ZOOM_STEP := 0.1
 @onready var build_preview = $BuildPreview
 @onready var build_area = $BuildArea
 @onready var party_info = $PartyInfo
+@onready var party_roster = $PartyRoster
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -62,6 +63,8 @@ func _ready() -> void:
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
 	_update_fog()
 	_units = [party]
+	party_roster.set_parties(_units)
+	party_roster.party_selected.connect(_on_party_focused)
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
 	camp_menu.build_selected.connect(_on_build_selected)
@@ -103,6 +106,7 @@ func _setup_party() -> void:
 	porter.movement = 2
 	party.add_member(testman)
 	party.add_member(porter)
+	party.commander = testman   # 주인공 부대의 지휘관은 테스트맨.
 
 ## 주인공 부대를 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_party() -> void:
@@ -142,20 +146,20 @@ func _handle_click(world_pos: Vector2) -> void:
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
 			_update_fog()
 			_deselect()
-			party_info.close()
+			_hide_party_info()
 		ClickRouter.CAMP_MENU:
 			if _selected:
 				_deselect()
-			party_info.close()
+			_hide_party_info()
 			camp_menu.open(building)
 		ClickRouter.FOCUS_PARTY:
 			# 정보 패널은 항상 연다(이동 완료 부대 포함). 아직 선택 전이고 이동 가능하면 함께 선택.
-			party_info.open(party)
+			_show_party_info(party)
 			if not _selected and party.can_move():
 				_select()
 		ClickRouter.DESELECT:
 			_deselect()
-			party_info.close()
+			_hide_party_info()
 
 ## 주인공 부대를 선택하고 이동/공격 범위를 표시한다.
 func _select() -> void:
@@ -167,7 +171,7 @@ func _select() -> void:
 func _on_turn_ended() -> void:
 	if _selected:
 		_deselect()
-	party_info.close()
+	_hide_party_info()
 	_turn.end_turn(_units, _territories)
 	turn_hud.set_turn(_turn.number)
 
@@ -178,6 +182,22 @@ func _deselect() -> void:
 	_reachable = {}
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)
+
+## 부대 정보 패널을 연다. 우측 상단을 공유하는 부대 일람은 감춘다.
+func _show_party_info(party_to_show) -> void:
+	party_info.open(party_to_show)
+	party_roster.hide()
+
+## 부대 정보 패널을 닫고, 부대 일람을 다시 표시한다.
+func _hide_party_info() -> void:
+	party_info.close()
+	party_roster.show()
+
+## 부대 일람에서 항목을 클릭하면 그 부대 위치로 카메라를 즉시 이동한다(맵 범위 클램프).
+func _on_party_focused(focused_party) -> void:
+	camera.position = focused_party.position
+	camera.position.x = clampf(camera.position.x, _min_pos.x, _max_pos.x)
+	camera.position.y = clampf(camera.position.y, _min_pos.y, _max_pos.y)
 
 ## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
 ## 건물을 지을 수 있는 영역(영지 시야) 윤곽선을 파랑으로 표시한다 — 시야는 배치 중 변하지 않으므로 한 번만 계산한다.

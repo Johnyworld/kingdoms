@@ -20,6 +20,7 @@
 | 속성 | 변수 | 타입 | 초기값 | 설명 |
 | --- | --- | --- | --- | --- |
 | 멤버 | `members` | `Array` | `[]` | 이 부대에 속한 [Human](Human.md) 목록 |
+| 지휘관 | `commander` | `Object` (Human) | `null` | 부대를 이끄는 [Human](Human.md). 멤버 중 하나를 가리킨다. 아직 편성 UI가 없어 생성 시 코드로 지정한다 |
 
 ### 유도 능력치 (Derived)
 
@@ -41,6 +42,7 @@
 ## 동작
 
 - `add_member(human) -> void` — 멤버를 `members`에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다.
+- `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
 - `movement() -> int` — 멤버 `movement`의 최소값(멤버 없으면 0). 이동/공격 범위 계산에 사용.
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
@@ -57,6 +59,8 @@
 - [정상] 생성 직후 `members`는 빈 배열, `movement() == 0`, `vision() == 0`
 - [정상] `add_member`로 멤버 추가 후 `members`에 들어감
 - [경계] 같은 멤버를 두 번 `add_member` 해도 크기는 1 (중복 방지)
+- [정상] 생성 직후 `commander`는 `null`, `commander_name() == "—"`
+- [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
 - [정상] 이동력 3·2 멤버 → `movement() == 2` (최소값, 가장 느린 멤버)
 - [정상] 시야 5·2 멤버 → `vision() == 5` (최대값)
 - [정상] 생성 직후 `moved_this_turn`은 거짓, `can_move()` 참

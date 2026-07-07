@@ -39,6 +39,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Map & Camera (맵과 카메라)](features/map-and-camera.md)
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
+- [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
 - [Fog of War (전장의 안개)](features/fog-of-war.md)
 - [Camp Menu (캠프 메뉴)](features/camp-menu.md)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
@@ -65,6 +66,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 전장의 안개 | `scenes/game/fog.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
+| 부대 일람 | `scenes/party/party_roster.gd` |
 | 사람(데이터) | `scenes/human/human.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |

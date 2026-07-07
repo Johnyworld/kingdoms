@@ -13,6 +13,9 @@ func _human(mv := 3, vis := 5) -> Object:
 	h.vision = vis
 	return h
 
+func _named_human(p_name: String) -> Object:
+	return load("res://scenes/human/human.gd").new(p_name)
+
 # --- 이름 ---
 
 func test_party_name_defaults_empty() -> void:
@@ -42,6 +45,20 @@ func test_add_member_no_duplicate() -> void:
 	p.add_member(h)
 	p.add_member(h)
 	assert_eq(p.members.size(), 1, "같은 멤버 중복 추가 방지")
+
+# --- 지휘관(commander) ---
+
+func test_commander_null_by_default() -> void:
+	var p := _party()
+	assert_null(p.commander, "생성 직후 지휘관 없음(null)")
+	assert_eq(p.commander_name(), "—", "지휘관 없으면 이름은 대시")
+
+func test_commander_name_from_member() -> void:
+	var p := _party()
+	var leader := _named_human("테스트맨")
+	p.add_member(leader)
+	p.commander = leader
+	assert_eq(p.commander_name(), "테스트맨", "지휘관 이름 = 지정한 멤버의 human_name")
 
 # --- 이동력(min) · 시야(max) 집계 ---
 

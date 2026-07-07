@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scenes/game/build_preview.gd" id="9"]
 [ext_resource type="Script" path="res://scenes/party/party_info.gd" id="10"]
 [ext_resource type="Script" path="res://scenes/game/build_area_overlay.gd" id="11"]
+[ext_resource type="Script" path="res://scenes/party/party_roster.gd" id="12"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1")
@@ -49,3 +50,6 @@ script = ExtResource("8")
 
 [node name="PartyInfo" type="CanvasLayer" parent="."]
 script = ExtResource("10")
+
+[node name="PartyRoster" type="CanvasLayer" parent="."]
+script = ExtResource("12")
