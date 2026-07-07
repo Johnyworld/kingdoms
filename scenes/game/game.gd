@@ -20,7 +20,7 @@ const ZOOM_STEP := 0.1
 @onready var camera: Camera2D = $Camera2D
 @onready var hero = $Hero
 @onready var overlay = $RangeOverlay
-@onready var camp = $Camp
+@onready var building = $Building
 @onready var camp_menu = $CampMenu
 @onready var fog = $Fog
 
@@ -37,7 +37,7 @@ func _ready() -> void:
 	_generate_map()
 	_center_camera()
 	overlay.setup(terrain)
-	camp.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2))
+	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), BuildingTypes.CAMP)
 	_setup_faction()
 	_place_hero()
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
@@ -61,11 +61,11 @@ func _center_camera() -> void:
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
 
-## 캠프에 이름("파리")을 붙이고 세력("프랑스")에 편입한다.
+## 캠프 건물에 이름("파리")을 붙이고 세력("프랑스")에 편입한다.
 func _setup_faction() -> void:
 	var france := Faction.new("프랑스", Color(0.2, 0.3, 0.8))
-	camp.camp_name = "파리"
-	france.add_camp(camp)
+	building.building_name = "파리"
+	france.add_building(building)
 
 ## 주인공을 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_hero() -> void:
@@ -88,7 +88,7 @@ func _update_fog() -> void:
 	var hero_cell := terrain.local_to_map(hero.position)
 	for c in HexGrid.cells_within(terrain, hero_cell, hero.vision, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
-	for c in HexGrid.cells_within(terrain, camp.center_cell(), camp.vision, MAP_WIDTH, MAP_HEIGHT):
+	for c in HexGrid.cells_within(terrain, building.center_cell(), building.vision, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
 	fog.update_visible(visible)
 
@@ -99,11 +99,11 @@ func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
 	var hero_cell := terrain.local_to_map(hero.position)
 
-	# 캠프 클릭이 최우선: 선택을 풀고 캠프 메뉴를 연다.
-	if camp.contains_cell(cell):
+	# 건물(캠프) 클릭이 최우선: 선택을 풀고 캠프 메뉴를 연다.
+	if building.contains_cell(cell):
 		if _selected:
 			_deselect()
-		camp_menu.open(camp)
+		camp_menu.open(building)
 		return
 
 	if not _selected:

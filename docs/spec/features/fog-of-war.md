@@ -14,10 +14,10 @@
 
 ## 시야 계산 (`game.gd` `_update_fog`)
 
-- 주인공 시야원 + 캠프 시야원을 합쳐 현재 시야 셀을 구한다.
+- 주인공 시야원 + 캠프(건물) 시야원을 합쳐 현재 시야 셀을 구한다.
 - 각 시야원은 `HexGrid.cells_within(terrain, start, radius, ...)` — BFS로 헥스 거리 반경 내 셀 (이동 범위 계산과 같은 헬퍼 공유).
   - 주인공: `hero.vision` 반경.
-  - 캠프: `camp.center_cell()` 기준 `camp.vision` 반경.
+  - 캠프(건물): `building.center_cell()` 기준 `building.vision` 반경.
 - 이동 후(`_handle_click`)와 시작 시 갱신.
 
 ## 상태 (`fog.gd`)

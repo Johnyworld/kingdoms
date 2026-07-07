@@ -27,6 +27,6 @@
 
 ## 게임 씬 구성 노드
 
-`TerrainLayer` · `Camp` · `RangeOverlay` · `Hero` · `Fog`(z_index 10) · `Camera2D` · `CampMenu`.
+`TerrainLayer` · `Building` · `RangeOverlay` · `Hero` · `Fog`(z_index 10) · `Camera2D` · `CampMenu`.
 
-시작 순서(`_ready`): 맵 생성 → 카메라 중앙 → 오버레이 setup → 캠프 배치(중앙) → 주인공 배치 → 안개 setup → 안개 갱신.
+시작 순서(`_ready`): 맵 생성 → 카메라 중앙 → 오버레이 setup → 건물 배치(중앙 캠프) → 세력 연결 → 주인공 배치 → 안개 setup → 안개 갱신.

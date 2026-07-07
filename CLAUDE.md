@@ -16,7 +16,9 @@ kingdoms/
 │   ├── title/               # 타이틀 메뉴
 │   ├── game/                # 게임 본편 (game / range_overlay / fog)
 │   ├── character/           # 주인공
-│   └── camp/                # 캠프 (camp / camp_menu)
+│   ├── building/            # 건물 (building / building_types 카탈로그)
+│   ├── faction/             # 세력 (faction — 데이터 전용, 씬 없음)
+│   └── camp/                # 캠프 메뉴 (camp_menu)
 ├── assets/                  # 원본 에셋
 │   └── tiles/               # 타일 이미지 (svg 등)
 ├── tiles/                   # 타일셋 리소스 (.tres)

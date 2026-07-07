@@ -95,18 +95,18 @@ func _build_menu_panel() -> Control:
 
 	return panel
 
-## 캠프 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
-func open(camp: Camp) -> void:
+## 건물 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
+func open(building: Building) -> void:
 	# 우측 패널: 이름 + 세력.
-	_camp_title.text = camp.camp_name
-	if camp.faction != null:
-		_faction_label.text = camp.faction.name
-		_faction_label.add_theme_color_override("font_color", camp.faction.color)
+	_camp_title.text = building.building_name
+	if building.faction != null:
+		_faction_label.text = building.faction.name
+		_faction_label.add_theme_color_override("font_color", building.faction.color)
 	else:
 		_faction_label.text = ""
 
 	# 좌측 패널: 자원 그리드.
-	var resources := camp.resources
+	var resources := building.resources
 	for child in _res_grid.get_children():
 		child.queue_free()
 	for res_name in resources:
