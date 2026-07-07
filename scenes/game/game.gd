@@ -18,14 +18,23 @@ const ZOOM_STEP := 0.1
 
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
+@onready var hero = $Hero
+@onready var overlay = $RangeOverlay
 
 var _min_pos: Vector2
 var _max_pos: Vector2
 var _zoom_level := 1.0
 
+# 현재 도달 가능한 셀 → 시작점으로부터의 거리. 클릭 이동 판정에 사용.
+var _reachable: Dictionary = {}
+# 주인공이 선택되었는지. 선택 상태에서만 범위 표시 + 이동이 가능하다.
+var _selected := false
+
 func _ready() -> void:
 	_generate_map()
 	_center_camera()
+	overlay.setup(terrain)
+	_place_hero()
 
 ## 맵 전체를 초원 타일로 채운다.
 func _generate_map() -> void:
@@ -45,6 +54,79 @@ func _center_camera() -> void:
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
 
+## 주인공을 맵 중앙 타일에 배치한다.
+func _place_hero() -> void:
+	var center_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
+	hero.position = terrain.map_to_local(center_cell)
+
+## 셀이 맵 범위 안인지 검사한다.
+func _in_bounds(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.x < MAP_WIDTH and cell.y >= 0 and cell.y < MAP_HEIGHT
+
+## 주인공 위치에서 이동력만큼 BFS로 도달 셀을 구하고, 범위를 갱신한다.
+## 거리 1~이동력 = 이동 범위(파랑), 이동력+1 = 공격 범위(빨강).
+func _update_ranges() -> void:
+	var start := terrain.local_to_map(hero.position)
+	var move_range: int = hero.movement
+
+	var dist := {start: 0}
+	var frontier: Array[Vector2i] = [start]
+	while not frontier.is_empty():
+		var cur: Vector2i = frontier.pop_front()
+		var d: int = dist[cur]
+		if d >= move_range + 1:
+			continue  # 공격 범위(마지막 링)에서는 더 확장하지 않는다.
+		for n in terrain.get_surrounding_cells(cur):
+			if not _in_bounds(n) or dist.has(n):
+				continue
+			dist[n] = d + 1
+			frontier.append(n)
+
+	var move_cells: Array[Vector2i] = []
+	var attack_cells: Array[Vector2i] = []
+	for cell in dist:
+		var d: int = dist[cell]
+		if d == 0:
+			continue  # 주인공이 선 칸은 제외
+		elif d <= move_range:
+			move_cells.append(cell)
+		else:
+			attack_cells.append(cell)
+
+	_reachable = dist
+	overlay.show_ranges(move_cells, attack_cells)
+
+## 좌클릭 처리.
+## - 선택 안 됨: 주인공 칸을 클릭하면 선택한다.
+## - 선택됨: 이동 범위 칸이면 이동, 그 외 칸이면 선택 해제한다.
+func _handle_click(world_pos: Vector2) -> void:
+	var cell := terrain.local_to_map(terrain.to_local(world_pos))
+	var hero_cell := terrain.local_to_map(hero.position)
+
+	if not _selected:
+		if cell == hero_cell:
+			_select()
+		return
+
+	# 여기부터는 선택된 상태.
+	if _reachable.has(cell) and _reachable[cell] >= 1 and _reachable[cell] <= hero.movement:
+		hero.position = terrain.map_to_local(cell)
+	_deselect()
+
+## 주인공을 선택하고 이동/공격 범위를 표시한다.
+func _select() -> void:
+	_selected = true
+	hero.set_selected(true)
+	_update_ranges()
+
+## 선택을 해제하고 범위 표시를 지운다.
+func _deselect() -> void:
+	_selected = false
+	hero.set_selected(false)
+	_reachable = {}
+	var empty: Array[Vector2i] = []
+	overlay.show_ranges(empty, empty)
+
 ## 마우스 휠로 줌 배율을 조절한다. 휠 위 = 확대, 휠 아래 = 축소.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
@@ -52,6 +134,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_zoom(_zoom_level - ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom_level + ZOOM_STEP)
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			_handle_click(get_global_mouse_position())
 
 ## 줌 배율을 [ZOOM_MIN, ZOOM_MAX] 범위로 클램프해 카메라에 적용한다.
 func _set_zoom(level: float) -> void:
