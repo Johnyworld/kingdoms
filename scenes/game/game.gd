@@ -22,6 +22,7 @@ const ZOOM_STEP := 0.1
 @onready var overlay = $RangeOverlay
 @onready var camp = $Camp
 @onready var camp_menu = $CampMenu
+@onready var fog = $Fog
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -38,6 +39,8 @@ func _ready() -> void:
 	overlay.setup(terrain)
 	camp.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2))
 	_place_hero()
+	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
+	_update_fog()
 
 ## 맵 전체를 초원 타일로 채운다.
 func _generate_map() -> void:
@@ -99,6 +102,32 @@ func _update_ranges() -> void:
 	_reachable = dist
 	overlay.show_ranges(move_cells, attack_cells)
 
+## 시작 셀에서 반경(헥스 거리)만큼 도달 가능한 셀들을 BFS로 구한다.
+func _cells_within(start: Vector2i, radius: int) -> Array:
+	var dist := {start: 0}
+	var frontier: Array[Vector2i] = [start]
+	while not frontier.is_empty():
+		var cur: Vector2i = frontier.pop_front()
+		var d: int = dist[cur]
+		if d >= radius:
+			continue
+		for n in terrain.get_surrounding_cells(cur):
+			if not _in_bounds(n) or dist.has(n):
+				continue
+			dist[n] = d + 1
+			frontier.append(n)
+	return dist.keys()
+
+## 모든 시야원(주인공 + 캠프)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
+func _update_fog() -> void:
+	var visible := {}
+	var hero_cell := terrain.local_to_map(hero.position)
+	for c in _cells_within(hero_cell, hero.vision):
+		visible[c] = true
+	for c in _cells_within(camp.center_cell(), camp.vision):
+		visible[c] = true
+	fog.update_visible(visible)
+
 ## 좌클릭 처리.
 ## - 선택 안 됨: 주인공 칸을 클릭하면 선택한다.
 ## - 선택됨: 이동 범위 칸이면 이동, 그 외 칸이면 선택 해제한다.
@@ -121,6 +150,7 @@ func _handle_click(world_pos: Vector2) -> void:
 	# 여기부터는 선택된 상태.
 	if _reachable.has(cell) and _reachable[cell] >= 1 and _reachable[cell] <= hero.movement:
 		hero.position = terrain.map_to_local(cell)
+		_update_fog()
 	_deselect()
 
 ## 주인공을 선택하고 이동/공격 범위를 표시한다.

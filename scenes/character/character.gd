@@ -9,6 +9,7 @@ extends Node2D
 @export var charm := 10        # 매력
 @export var luck := 8          # 행운
 @export var movement := 5      # 이동력
+@export var vision := 5        # 시야
 @export var leadership := 7    # 지휘력
 @export var eloquence := 9     # 화술
 @export var diligence := 5     # 성실함

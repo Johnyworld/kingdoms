@@ -16,6 +16,9 @@ var resources := {
 	"철괴": 10,
 }
 
+# --- 능력치 ---
+var vision := 5   # 시야
+
 var cells: Array[Vector2i] = []
 var _terrain: TileMapLayer
 var _center_cell: Vector2i
@@ -32,6 +35,10 @@ func setup(terrain: TileMapLayer, center_cell: Vector2i) -> void:
 ## 해당 셀이 캠프 영역에 포함되는지.
 func contains_cell(cell: Vector2i) -> bool:
 	return cell in cells
+
+## 캠프 중심 셀(시야 계산 기준점).
+func center_cell() -> Vector2i:
+	return _center_cell
 
 func _draw() -> void:
 	if _terrain == null:
