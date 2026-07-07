@@ -14,11 +14,11 @@
 
 ## 시야 계산 (`game.gd` `_update_fog`)
 
-- 주인공 [부대](../entities/Party.md) 시야원 + 캠프(건물) 시야원을 합쳐 현재 시야 셀을 구한다.
+- 주인공 [부대](../entities/Party.md) 시야원 + **모든 완성 건물**(캠프·농장 등) 시야원을 합쳐 현재 시야 셀을 구한다.
 - 각 시야원은 `HexGrid.cells_within(terrain, start, radius, ...)` — BFS로 헥스 거리 반경 내 셀 (이동 범위 계산과 같은 헬퍼 공유).
   - 부대: `party.vision()` 반경 — 멤버 시야의 **최대값**(가장 멀리 보는 멤버).
-  - 캠프(건물): `building.center_cell()` 기준 `building.vision` 반경.
-- 이동 후(`_handle_click`)와 시작 시 갱신.
+  - 건물: `BuildPlanner.buildings_vision(terrain, _buildings, ...)` — 맵의 모든 건물 중 **완성된 것**만 `center_cell()` 기준 `building.vision` 반경으로 합친다. 건설 중 건물은 시야에 기여하지 않는다.
+- 이동 후(`_handle_click`)와 시작 시, 그리고 턴 종료 시(건설이 진행돼 농장이 완성되면 그 시야를 반영) 갱신.
 
 ## 상태 (`fog.gd`)
 

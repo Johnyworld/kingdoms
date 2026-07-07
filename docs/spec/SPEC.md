@@ -89,7 +89,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - **`features/settings.md`** — 타이틀의 "설정" 버튼이 아직 `TODO`다. 해상도 · 사운드 · 언어 등 저장 가능한 설정 화면을 정의하면 좋다.
 - **`features/save-load.md`** — 세이브/로드. 게임 진행(주인공 위치, 자원, 탐험된 안개)을 직렬화하는 규칙.
 - **턴/행동력 확장** — 기본 턴 시스템([features/turn.md](features/turn.md))은 도입됨(턴 종료 · 1턴 1이동 · 자원 수입). 남은 것은 행동력(AP) · 공격/전투 행동 · 적 턴(AI) 등으로의 확장이다.
-- **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))는 모두 구현됨. 남은 것은 **완성 농장의 시야를 fog에 반영**하는 작업, **캠프 건설**(새 영지 생성), **철거**(demolish_refund)다.
+- **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))·완성 건물 시야의 fog 반영([features/fog-of-war.md](features/fog-of-war.md))은 구현됨. 남은 것은 **캠프 건설**(새 영지 생성), **철거**(demolish_refund)다.
 - **`data/terrain.md`** — 현재는 초원 단일 타일. 지형 종류(숲/산/물)와 이동 비용 · 시야 차단 규칙을 정의하면 맵이 풍부해진다.
 - **`entities/Enemy.md`** — 공격 범위가 있으니 적/전투 대상 엔티티가 자연스러운 다음 단계.
 - **`data/items.md`** — 아이템/장비 리스트 (능력치 보정 등).

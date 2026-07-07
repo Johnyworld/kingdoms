@@ -125,13 +125,14 @@ func _update_ranges() -> void:
 	_reachable = ranges["dist"]
 	overlay.show_ranges(move_cells, attack_cells)
 
-## 모든 시야원(주인공 + 캠프)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
+## 모든 시야원(주인공 부대 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
 func _update_fog() -> void:
 	var visible := {}
 	var party_cell := terrain.local_to_map(party.position)
 	for c in HexGrid.cells_within(terrain, party_cell, party.vision(), MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
-	for c in HexGrid.cells_within(terrain, building.center_cell(), building.vision, MAP_WIDTH, MAP_HEIGHT):
+	# 완성 건물(캠프·농장 등)의 시야. 건설 중 건물은 buildings_vision이 제외한다.
+	for c in BuildPlanner.buildings_vision(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
 	fog.update_visible(visible)
 
@@ -193,6 +194,7 @@ func _on_turn_ended() -> void:
 	_hide_party_info()
 	_turn.end_turn(_units, _territories)
 	turn_hud.set_turn(_turn.number)
+	_update_fog()   # 건설이 완료된 농장이 있으면 그 시야를 안개에 반영.
 
 ## 선택을 해제하고 범위 표시를 지운다.
 func _deselect() -> void:

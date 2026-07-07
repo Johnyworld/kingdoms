@@ -46,6 +46,30 @@ func test_under_construction_gives_no_vision() -> void:
 	var vis := BuildPlanner.territory_vision(terrain, t, MAP, MAP)
 	assert_eq(vis.size(), 0, "건설 중 건물은 시야에 기여 안 함")
 
+# --- buildings_vision (맵의 모든 건물 시야 합집합, fog 계산이 사용) ---
+
+func test_buildings_vision_from_complete_building() -> void:
+	var camp := _building(_center(), "camp")  # 시야 5, 완성
+	var vis := BuildPlanner.buildings_vision(terrain, [camp], MAP, MAP)
+	# 반경 5 누적 = 1 + 3*5*6 = 91 (territory_vision과 같은 규칙)
+	assert_eq(vis.size(), 91, "완성 건물 시야(5) 반경 셀 합집합")
+	assert_true(vis.has(_center()), "중심 포함")
+
+func test_buildings_vision_completed_farm_contributes() -> void:
+	var farm := _building(_center(), "farm")  # 시야 4, 완성
+	var vis := BuildPlanner.buildings_vision(terrain, [farm], MAP, MAP)
+	# 반경 4 누적 = 1 + 3*4*5 = 61
+	assert_eq(vis.size(), 61, "완성 농장 시야(4) 반경 셀 합집합")
+
+func test_buildings_vision_skips_under_construction() -> void:
+	var camp := _building(_center(), "camp")                       # 완성, 시야 5
+	var farm := _building(_center() + Vector2i(20, 0), "farm", true)  # 건설 중, 기여 X
+	var vis := BuildPlanner.buildings_vision(terrain, [camp, farm], MAP, MAP)
+	assert_eq(vis.size(), 91, "건설 중 농장은 시야에 기여 안 함(완성 캠프만)")
+
+func test_buildings_vision_empty() -> void:
+	assert_eq(BuildPlanner.buildings_vision(terrain, [], MAP, MAP).size(), 0, "건물 없으면 빈 시야")
+
 # --- occupied_cells ---
 
 func test_occupied_cells_one_building() -> void:

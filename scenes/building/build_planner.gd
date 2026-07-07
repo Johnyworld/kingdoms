@@ -11,17 +11,21 @@ static func footprint(terrain: TileMapLayer, center: Vector2i) -> Array[Vector2i
 		cells.append(n)
 	return cells
 
-## 영지의 완성 건물들 시야(각 center_cell 기준 vision 반경) 합집합 { cell: true }.
-## 건설 중 건물은 시야에 기여하지 않는다.
-## territory는 Territory지만 순환 타입 참조를 피하려 untyped로 둔다.
-static func territory_vision(terrain: TileMapLayer, territory, map_w: int, map_h: int) -> Dictionary:
+## 건물 목록의 완성 건물들 시야(각 center_cell 기준 vision 반경) 합집합 { cell: true }.
+## 건설 중 건물은 시야에 기여하지 않는다. fog 계산(맵의 모든 건물)·영지 시야(영지 건물)가 공유한다.
+static func buildings_vision(terrain: TileMapLayer, buildings: Array, map_w: int, map_h: int) -> Dictionary:
 	var vis := {}
-	for building in territory.buildings:
+	for building in buildings:
 		if not building.is_complete():
 			continue
 		for c in HexGrid.cells_within(terrain, building.center_cell(), building.vision, map_w, map_h):
 			vis[c] = true
 	return vis
+
+## 영지의 완성 건물들 시야 합집합. buildings_vision을 영지의 건물 목록으로 부른다.
+## territory는 Territory지만 순환 타입 참조를 피하려 untyped로 둔다.
+static func territory_vision(terrain: TileMapLayer, territory, map_w: int, map_h: int) -> Dictionary:
+	return buildings_vision(terrain, territory.buildings, map_w, map_h)
 
 ## 건물 목록의 점유 셀(building.cells) 합집합 { cell: true }. 겹침 검사에 쓴다.
 static func occupied_cells(buildings: Array) -> Dictionary:

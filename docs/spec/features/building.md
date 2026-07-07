@@ -91,7 +91,8 @@
 > `class_name BuildPlanner extends RefCounted` — 시각 요소 없는 static 헥스 유틸(`scenes/game/hex_grid.gd`의 `HexGrid`와 같은 성격, `HexGrid`를 재사용).
 
 - `footprint(terrain, center) -> Array[Vector2i]` — 중심 + 이웃 6칸(총 7헥스). [Building](../entities/Building.md)의 점유 셀과 같은 규칙.
-- `territory_vision(terrain, territory, map_w, map_h) -> Dictionary` — 영지의 **완성 건물**들에 대해 각 `center_cell` 기준 `vision` 반경 안 셀을 합집합으로 모은 `{cell: true}`. 건설 중 건물은 제외한다.
+- `buildings_vision(terrain, buildings, map_w, map_h) -> Dictionary` — 건물 목록의 **완성 건물**들에 대해 각 `center_cell` 기준 `vision` 반경 안 셀을 합집합으로 모은 `{cell: true}`. 건설 중 건물은 제외한다. 배치 유효성(영지 건물)과 [전장의 안개](fog-of-war.md)(맵의 모든 건물)가 공유한다.
+- `territory_vision(terrain, territory, map_w, map_h) -> Dictionary` — 영지의 완성 건물 시야 합집합. `buildings_vision`을 영지의 건물 목록(`territory.buildings`)으로 부른다.
 - `occupied_cells(buildings) -> Dictionary` — 건물 목록의 점유 셀(`building.cells`) 합집합 `{cell: true}`. 겹침 검사에 쓴다.
 - `can_place(terrain, center, map_w, map_h, vision_cells, occupied) -> bool` — 중심 `center`에 건물을 놓을 수 있는지. footprint 7헥스가 **모두**:
   1. 맵 범위 `[0, map_w) × [0, map_h)` 안이고,
@@ -121,6 +122,7 @@
   - [예외] footprint가 기존 건물과 겹침 → 거짓
   - [예외] 맵 가장자리라 이웃이 범위를 벗어남 → 거짓
   - [정상] `territory_vision`은 완성 건물만 반영(건설 중 건물은 시야에 기여 안 함)
+  - [정상] `buildings_vision`은 완성 건물의 시야 합집합(캠프 반경5=91셀·농장 반경4=61셀), 건설 중 건물은 제외, 빈 목록은 빈 시야
   - [정상] `footprint`는 7헥스(중심+이웃 6)
   - [정상] `occupied_cells`는 건물들의 점유 셀 합집합(건물 1개면 7셀, 겹치지 않는 2개면 14셀)
 - `test/unit/test_hex_grid.gd` (영역 윤곽선, `HexGrid.region_outline`)
