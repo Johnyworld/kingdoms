@@ -25,7 +25,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 게임 내 데이터 모델. 각 문서에 속성(properties) 목록을 정리한다.
 
 - [Character](entities/Character.md) — 주인공 캐릭터 (능력치 · 자원)
-- [Camp](entities/Camp.md) — 중앙 캠프 (7헥스 · 보유 자원 · 시야)
+- [Camp](entities/Camp.md) — 중앙 캠프 (7헥스 · 보유 자원 · 시야 · 이름 · 세력)
+- [Faction](entities/Faction.md) — 세력 (이름 · 색상 · 소속 캠프)
 
 ### 기능 (`features/`)
 동작하는 기능 정의.
@@ -57,6 +58,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 주인공 | `scenes/character/character.gd` |
 | 캠프 | `scenes/camp/camp.gd` |
 | 캠프 메뉴 | `scenes/camp/camp_menu.gd` |
+| 세력 | `scenes/faction/faction.gd` |
 | 초원 타일셋 | `tiles/grass_tileset.tres` |
 
 ---

@@ -1,10 +1,21 @@
-extends Node2D
+class_name Camp extends Node2D
 ## 중앙 캠프. 중심 1헥스 + 주변 6헥스 = 총 7헥스를 차지한다.
 ## 헥스 중 하나라도 클릭되면 게임 쪽에서 캠프 메뉴를 연다.
+## 캠프는 이름을 가지며 하나의 세력(Faction)에 소속된다.
 
 const FILL_COLOR := Color(0.52, 0.38, 0.24, 0.9)   # 캠프 부지(흙색)
 const EDGE_COLOR := Color(0.28, 0.19, 0.1)
 const TENT_COLOR := Color(0.85, 0.8, 0.68)
+
+# --- 정체성 --- (변경 시 맵 라벨을 다시 그리도록 setter에서 queue_redraw)
+var camp_name := "":        # 캠프 이름(예: "파리"). Node.name과 충돌을 피해 camp_name 사용.
+	set(value):
+		camp_name = value
+		queue_redraw()
+var faction: Faction = null: # 소속 세력. Faction.add_camp로 연결된다.
+	set(value):
+		faction = value
+		queue_redraw()
 
 # 자원 (초기값). 삽입 순서가 곧 메뉴 표시 순서.
 var resources := {
@@ -40,6 +51,16 @@ func contains_cell(cell: Vector2i) -> bool:
 func center_cell() -> Vector2i:
 	return _center_cell
 
+## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}.
+## 이름(흰색) → 세력명(세력 색). 둘 다 없으면 빈 배열.
+func map_label_lines() -> Array:
+	var lines := []
+	if camp_name != "":
+		lines.append({"text": camp_name, "color": Color.WHITE})
+	if faction != null:
+		lines.append({"text": faction.name, "color": faction.color})
+	return lines
+
 func _draw() -> void:
 	if _terrain == null:
 		return
@@ -70,3 +91,22 @@ func _draw() -> void:
 	])
 	draw_colored_polygon(tent, TENT_COLOR)
 	draw_line(center + Vector2(0, -hh * 0.6), center + Vector2(0, hh * 0.35), EDGE_COLOR, 1.5, true)
+
+	_draw_labels(center - Vector2(0, hh * 0.6))
+
+## 텐트 위쪽 중앙에 이름·세력 줄을 위→아래로 그린다.
+func _draw_labels(anchor: Vector2) -> void:
+	var lines := map_label_lines()
+	if lines.is_empty():
+		return
+	var font := ThemeDB.fallback_font
+	var font_size := 12
+	var line_h := font_size + 3
+	# anchor를 맨 아랫줄의 baseline으로 삼아 위로 쌓아 올린다.
+	var baseline := anchor.y - (lines.size() - 1) * line_h
+	for line in lines:
+		var text: String = line["text"]
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		draw_string(font, Vector2(anchor.x - w * 0.5, baseline), text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, line["color"])
+		baseline += line_h

@@ -38,6 +38,7 @@ func _ready() -> void:
 	_center_camera()
 	overlay.setup(terrain)
 	camp.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2))
+	_setup_faction()
 	_place_hero()
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
 	_update_fog()
@@ -59,6 +60,12 @@ func _center_camera() -> void:
 	var center_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
+
+## 캠프에 이름("파리")을 붙이고 세력("프랑스")에 편입한다.
+func _setup_faction() -> void:
+	var france := Faction.new("프랑스", Color(0.2, 0.3, 0.8))
+	camp.camp_name = "파리"
+	france.add_camp(camp)
 
 ## 주인공을 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_hero() -> void:
@@ -96,7 +103,7 @@ func _handle_click(world_pos: Vector2) -> void:
 	if camp.contains_cell(cell):
 		if _selected:
 			_deselect()
-		camp_menu.open(camp.resources)
+		camp_menu.open(camp)
 		return
 
 	if not _selected:

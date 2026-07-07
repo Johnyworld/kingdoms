@@ -46,3 +46,31 @@ func test_initial_resources() -> void:
 
 func test_default_vision() -> void:
 	assert_eq(camp.vision, 5, "캠프 기본 시야 5")
+
+func test_default_identity() -> void:
+	assert_eq(camp.camp_name, "", "기본 캠프 이름은 빈 문자열")
+	assert_null(camp.faction, "기본 소속 세력은 없음")
+
+const BLUE := Color(0.2, 0.3, 0.8)
+
+func test_map_labels_name_and_faction() -> void:
+	camp.camp_name = "파리"
+	load("res://scenes/faction/faction.gd").new("프랑스", BLUE).add_camp(camp)
+	var lines: Array = camp.map_label_lines()
+	assert_eq(lines.size(), 2, "이름 + 세력 = 2줄")
+	assert_eq(lines[0]["text"], "파리", "첫 줄은 캠프 이름")
+	assert_eq(lines[1]["text"], "프랑스", "둘째 줄은 세력명")
+
+func test_map_labels_faction_color() -> void:
+	camp.camp_name = "파리"
+	load("res://scenes/faction/faction.gd").new("프랑스", BLUE).add_camp(camp)
+	assert_eq(camp.map_label_lines()[1]["color"], BLUE, "세력 줄 색상 = 세력 색상")
+
+func test_map_labels_name_only() -> void:
+	camp.camp_name = "파리"
+	var lines: Array = camp.map_label_lines()
+	assert_eq(lines.size(), 1, "세력 없으면 이름 1줄")
+	assert_eq(lines[0]["text"], "파리", "이름 줄")
+
+func test_map_labels_empty() -> void:
+	assert_eq(camp.map_label_lines().size(), 0, "이름·세력 없으면 빈 배열")
