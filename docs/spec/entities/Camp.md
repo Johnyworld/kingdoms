@@ -41,6 +41,17 @@
 - `contains_cell(cell) -> bool` — 해당 셀이 캠프 영역에 포함되는지.
 - `center_cell() -> Vector2i` — 시야 계산 기준점 반환.
 
+## 테스트 시나리오
+
+`test/unit/test_camp.gd`.
+
+- [정상] `setup` 후 점유 셀 = **7헥스** (중심 + 이웃 6)
+- [정상] `center_cell()`은 `setup`에 넘긴 중심 셀
+- [정상] `contains_cell`이 중심·이웃 6칸에 대해 참
+- [경계] 먼 셀에 대해 `contains_cell` 거짓
+- [정상] 초기 자원 6종 값이 스펙과 일치 (밀 50 / 빵·나무·목재 20 / 철·철괴 10)
+- [정상] 기본 시야 `vision == 5`
+
 ## 관련
 
 - 보유 자원 목록은 [data/resources.md](../data/resources.md) 참고.

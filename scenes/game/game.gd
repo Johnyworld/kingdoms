@@ -65,66 +65,23 @@ func _place_hero() -> void:
 	var hero_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2 + 3)
 	hero.position = terrain.map_to_local(hero_cell)
 
-## 셀이 맵 범위 안인지 검사한다.
-func _in_bounds(cell: Vector2i) -> bool:
-	return cell.x >= 0 and cell.x < MAP_WIDTH and cell.y >= 0 and cell.y < MAP_HEIGHT
-
 ## 주인공 위치에서 이동력만큼 BFS로 도달 셀을 구하고, 범위를 갱신한다.
 ## 거리 1~이동력 = 이동 범위(파랑), 이동력+1 = 공격 범위(빨강).
 func _update_ranges() -> void:
 	var start := terrain.local_to_map(hero.position)
-	var move_range: int = hero.movement
-
-	var dist := {start: 0}
-	var frontier: Array[Vector2i] = [start]
-	while not frontier.is_empty():
-		var cur: Vector2i = frontier.pop_front()
-		var d: int = dist[cur]
-		if d >= move_range + 1:
-			continue  # 공격 범위(마지막 링)에서는 더 확장하지 않는다.
-		for n in terrain.get_surrounding_cells(cur):
-			if not _in_bounds(n) or dist.has(n):
-				continue
-			dist[n] = d + 1
-			frontier.append(n)
-
-	var move_cells: Array[Vector2i] = []
-	var attack_cells: Array[Vector2i] = []
-	for cell in dist:
-		var d: int = dist[cell]
-		if d == 0:
-			continue  # 주인공이 선 칸은 제외
-		elif d <= move_range:
-			move_cells.append(cell)
-		else:
-			attack_cells.append(cell)
-
-	_reachable = dist
+	var ranges := HexGrid.movement_ranges(terrain, start, hero.movement, MAP_WIDTH, MAP_HEIGHT)
+	var move_cells: Array[Vector2i] = ranges["move"]
+	var attack_cells: Array[Vector2i] = ranges["attack"]
+	_reachable = ranges["dist"]
 	overlay.show_ranges(move_cells, attack_cells)
-
-## 시작 셀에서 반경(헥스 거리)만큼 도달 가능한 셀들을 BFS로 구한다.
-func _cells_within(start: Vector2i, radius: int) -> Array:
-	var dist := {start: 0}
-	var frontier: Array[Vector2i] = [start]
-	while not frontier.is_empty():
-		var cur: Vector2i = frontier.pop_front()
-		var d: int = dist[cur]
-		if d >= radius:
-			continue
-		for n in terrain.get_surrounding_cells(cur):
-			if not _in_bounds(n) or dist.has(n):
-				continue
-			dist[n] = d + 1
-			frontier.append(n)
-	return dist.keys()
 
 ## 모든 시야원(주인공 + 캠프)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
 func _update_fog() -> void:
 	var visible := {}
 	var hero_cell := terrain.local_to_map(hero.position)
-	for c in _cells_within(hero_cell, hero.vision):
+	for c in HexGrid.cells_within(terrain, hero_cell, hero.vision, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
-	for c in _cells_within(camp.center_cell(), camp.vision):
+	for c in HexGrid.cells_within(terrain, camp.center_cell(), camp.vision, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
 	fog.update_visible(visible)
 

@@ -15,7 +15,7 @@
 ## 시야 계산 (`game.gd` `_update_fog`)
 
 - 주인공 시야원 + 캠프 시야원을 합쳐 현재 시야 셀을 구한다.
-- 각 시야원은 `_cells_within(start, radius)` — BFS로 헥스 거리 반경 내 셀.
+- 각 시야원은 `HexGrid.cells_within(terrain, start, radius, ...)` — BFS로 헥스 거리 반경 내 셀 (이동 범위 계산과 같은 헬퍼 공유).
   - 주인공: `hero.vision` 반경.
   - 캠프: `camp.center_cell()` 기준 `camp.vision` 반경.
 - 이동 후(`_handle_click`)와 시작 시 갱신.
@@ -33,3 +33,12 @@
 - **카메라에 보이는 셀 범위만** 계산해 그린다 (`_visible_cell_bounds`).
   - 뷰포트 네 모서리를 월드→셀 좌표로 역변환해 최소/최대 범위를 구하고 여유 마진 3칸.
 - 그 범위가 바뀔 때만(`_last_bounds` 비교) 다시 그린다 (카메라 이동/줌 감지).
+
+## 테스트 시나리오
+
+`test/unit/test_fog.gd`.
+
+- [정상] `update_visible`에 넘긴 셀이 현재 시야(`_visible`)에 기록됨
+- [정상] 새 `update_visible` 호출 시 현재 시야는 **교체**됨 (이전 시야 셀은 빠짐)
+- [정상] 한 번 본 셀은 탐험 기록(`_explored`)에 **누적**됨
+- [경계] 시야가 완전히 사라져도(`{}`) 탐험 기록은 **줄어들지 않음**
