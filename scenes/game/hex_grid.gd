@@ -47,3 +47,51 @@ static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: 
 
 static func _in_bounds(cell: Vector2i, map_w: int, map_h: int) -> bool:
 	return cell.x >= 0 and cell.x < map_w and cell.y >= 0 and cell.y < map_h
+
+## 셀의 헥스 6꼭짓점(뾰족한 위/아래, 타일셋 tile_size 기준). 월드 좌표.
+## 오버레이(RangeOverlay·BuildPreview)가 그리는 헥스와 동일한 모양이라, 인접 셀끼리 변이 정확히 맞닿는다.
+static func hex_polygon(terrain: TileMapLayer, cell: Vector2i) -> PackedVector2Array:
+	var c := terrain.map_to_local(cell)
+	var ts := Vector2(terrain.tile_set.tile_size)
+	var hw := ts.x * 0.5
+	var hh := ts.y * 0.5
+	return PackedVector2Array([
+		c + Vector2(0.0, -hh),
+		c + Vector2(hw, -hh * 0.5),
+		c + Vector2(hw, hh * 0.5),
+		c + Vector2(0.0, hh),
+		c + Vector2(-hw, hh * 0.5),
+		c + Vector2(-hw, -hh * 0.5),
+	])
+
+## 영역(cells: {cell: true} 또는 셀 배열)의 바깥 윤곽선을 이루는 변 목록.
+## 각 셀의 6변 중 이웃과 공유하지 않는 변만 남긴다(내부 변은 두 번 나와 상쇄).
+## 반환: 각 항목이 [시작점, 끝점]인 PackedVector2Array 배열(월드 좌표).
+static func region_outline(terrain: TileMapLayer, cells) -> Array:
+	var counts := {}   # 변 키 → 등장 횟수
+	var segs := {}     # 변 키 → PackedVector2Array([a, b])
+	for cell in cells:
+		var poly := hex_polygon(terrain, cell)
+		for i in 6:
+			var a := poly[i]
+			var b := poly[(i + 1) % 6]
+			var key := _edge_key(a, b)
+			counts[key] = counts.get(key, 0) + 1
+			if not segs.has(key):
+				segs[key] = PackedVector2Array([a, b])
+	var outline: Array = []
+	for key in counts:
+		if counts[key] == 1:
+			outline.append(segs[key])
+	return outline
+
+## 두 꼭짓점으로 만든 변의 정규 키. 순서 무관하게 같은 변이 같은 키를 갖도록 정렬하고,
+## 인접 헥스의 공유 변이 부동소수 오차로 어긋나지 않게 정수로 반올림해 비교한다.
+static func _edge_key(a: Vector2, b: Vector2) -> String:
+	var pa := Vector2i(roundi(a.x), roundi(a.y))
+	var pb := Vector2i(roundi(b.x), roundi(b.y))
+	if pb.x < pa.x or (pb.x == pa.x and pb.y < pa.y):
+		var t := pa
+		pa = pb
+		pb = t
+	return "%d,%d|%d,%d" % [pa.x, pa.y, pb.x, pb.y]

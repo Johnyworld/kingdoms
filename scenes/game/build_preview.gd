@@ -36,16 +36,4 @@ func _draw() -> void:
 
 ## 한 셀 위치에 타일 크기에 맞춘 헥스(뾰족한 위/아래)를 채워 그린다.
 func _draw_hex(cell: Vector2i, color: Color) -> void:
-	var c := _terrain.map_to_local(cell)
-	var ts := Vector2(_terrain.tile_set.tile_size)
-	var hw := ts.x * 0.5
-	var hh := ts.y * 0.5
-	var pts := PackedVector2Array([
-		c + Vector2(0.0, -hh),
-		c + Vector2(hw, -hh * 0.5),
-		c + Vector2(hw, hh * 0.5),
-		c + Vector2(0.0, hh),
-		c + Vector2(-hw, hh * 0.5),
-		c + Vector2(-hw, -hh * 0.5),
-	])
-	draw_colored_polygon(pts, color)
+	draw_colored_polygon(HexGrid.hex_polygon(_terrain, cell), color)

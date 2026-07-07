@@ -23,7 +23,7 @@ func test_camp_spec_values() -> void:
 func test_farm_spec_values() -> void:
 	var spec: Dictionary = types.get_type("farm")
 	assert_eq(spec["label"], "농장", "라벨은 농장")
-	assert_eq(spec["vision"], 2, "시야 2")
+	assert_eq(spec["vision"], 4, "시야 4")
 	for key in ["fill_color", "edge_color", "tent_color"]:
 		assert_true(spec.has(key), "farm 외형 색상 %s 키 존재" % key)
 

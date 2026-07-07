@@ -25,6 +25,7 @@ const ZOOM_STEP := 0.1
 @onready var fog = $Fog
 @onready var turn_hud = $TurnHud
 @onready var build_preview = $BuildPreview
+@onready var build_area = $BuildArea
 @onready var party_info = $PartyInfo
 
 var _min_pos: Vector2
@@ -52,6 +53,7 @@ func _ready() -> void:
 	_center_camera()
 	overlay.setup(terrain)
 	build_preview.setup(terrain)
+	build_area.setup(terrain)
 	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), BuildingTypes.CAMP)
 	_buildings = [building]
 	_setup_faction()
@@ -181,18 +183,21 @@ func _deselect() -> void:
 	overlay.show_ranges(empty, empty)
 
 ## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
+## 건물을 지을 수 있는 영역(영지 시야) 윤곽선을 파랑으로 표시한다 — 시야는 배치 중 변하지 않으므로 한 번만 계산한다.
 func _on_build_selected(type_id: String, territory: Territory) -> void:
 	_build_mode = true
 	_build_type = type_id
 	_build_territory = territory
 	build_preview.clear()
+	build_area.show_area(BuildPlanner.territory_vision(terrain, territory, MAP_WIDTH, MAP_HEIGHT))
 
-## 건설 모드를 끝내고 미리보기를 지운다.
+## 건설 모드를 끝내고 미리보기·영역 윤곽선을 지운다.
 func _exit_build_mode() -> void:
 	_build_mode = false
 	_build_type = ""
 	_build_territory = null
 	build_preview.clear()
+	build_area.clear()
 
 ## 현재 시야·점유를 기준으로 그 셀에 건물을 놓을 수 있는지.
 func _can_build_at(cell: Vector2i) -> bool:

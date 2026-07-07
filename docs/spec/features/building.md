@@ -26,12 +26,31 @@
 
 캠프 메뉴의 `build_selected(type_id, territory)`를 게임이 받아 **건설 모드**로 들어간다.
 
-- 진입: `_build_mode = true`, 건설할 종류·비용 지불 영지를 기억한다.
+- 진입: `_build_mode = true`, 건설할 종류·비용 지불 영지를 기억한다. **건설 가능 영역**(영지 시야) 윤곽선을 계산해 표시한다(아래 `BuildArea`).
 - **마우스 이동**: 커서 아래 셀을 중심으로 footprint 7헥스 **미리보기**를 그린다(`BuildPreview`). 배치 가능하면 초록, 불가하면 빨강.
   - 배치 가능 판정 = `BuildPlanner.can_place(...)`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)`.
 - **좌클릭**: 배치 가능한 자리면 → 영지에서 `build_cost` 차감(`spend`) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
-- **우클릭 / ESC**: 건설 모드 취소(미리보기 제거).
+- **우클릭 / ESC**: 건설 모드 취소(미리보기·영역 윤곽선 제거).
 - 건설 모드 중에는 유닛 선택·이동·캠프 메뉴 열기 등 일반 클릭이 동작하지 않는다.
+
+## 건설 가능 영역 표시 (`BuildArea` 오버레이)
+
+> 스크립트: `scenes/game/build_area_overlay.gd` (`extends Node2D`). 다른 오버레이처럼 `terrain.map_to_local`로 월드 좌표에 그린다. `z_index`를 안개(10)보다 높고 미리보기(20)보다 낮게 두어(15) 안개 위·footprint 아래에 표시한다.
+
+건설 모드에서 **어디에 건물을 지을 수 있는지**를 한눈에 보이도록, "건물을 지을 수 있는 영역"의 **바깥 윤곽선만 파랑 선**으로 그린다.
+
+- "건물을 지을 수 있는 영역" = 비용을 지불하는 **영지의 시야**(`BuildPlanner.territory_vision`) 전체. 개별 자리의 겹침·가장자리(footprint 유효성)는 이 영역이 아니라 hover 미리보기(초록/빨강)가 담당한다.
+- 시야는 배치하는 동안 변하지 않으므로 **건설 모드 진입 시 한 번** 계산해 그리고, 종료(배치/우클릭/ESC) 시 지운다. Node2D 월드 좌표라 카메라 이동·줌에는 자동으로 따라간다.
+- 윤곽선은 안개(z=10)보다 위(z=15)라 **안개 영역에서도 보인다**(어디에 지을 수 있는지 항상 표시). 다만 완성 농장 시야는 아직 [안개](fog-of-war.md)에 반영되지 않으므로, 캠프 시야를 벗어나 지은 완성 농장의 buildable 영역 경계가 안개 낀 곳에 파랑 선으로 보일 수 있다(농장 시야→안개 반영은 별도 TODO).
+- `setup(terrain)` · `show_area(cells)`(영역 셀 집합 → 윤곽선 계산 후 그림) · `clear()`.
+- 윤곽선은 `HexGrid.region_outline(terrain, cells)`로 계산한 경계 변들을 `draw_line`으로 그린다(파랑, 굵기 3).
+
+### 영역 윤곽선 계산 (`HexGrid`)
+
+> `HexGrid`(`scenes/game/hex_grid.gd`)에 순수 지오메트리 헬퍼로 추가한다. 반경/BFS와 같은 성격의 static 함수.
+
+- `hex_polygon(terrain, cell) -> PackedVector2Array` — 셀의 헥스 6꼭짓점(뾰족한 위/아래, 타일셋 `tile_size` 기준). 오버레이가 그리는 헥스와 동일한 모양.
+- `region_outline(terrain, cells) -> Array` — 영역(`{cell: true}` 또는 셀 배열)의 **바깥 윤곽선**을 이루는 변 목록. 각 셀의 6개 변 중 **이웃 셀과 공유하지 않는 변만** 남긴다(내부 변은 두 번 나와 상쇄). 반환 항목은 각각 `[시작점, 끝점]`인 `PackedVector2Array`(월드 좌표). 인접 헥스의 공유 변은 두 꼭짓점이 정확히 일치하므로(정수 반올림 키로 비교) 내부 변이 깔끔히 제거된다.
 
 > 완성 농장의 시야는 아직 [안개](fog-of-war.md)에 반영되지 않는다(안개는 주인공+캠프만 계산). 캠프 시야(5)를 벗어나 지은 농장은 안개에 가려 보일 수 있다 — 별도 TODO.
 
@@ -104,6 +123,11 @@
   - [정상] `territory_vision`은 완성 건물만 반영(건설 중 건물은 시야에 기여 안 함)
   - [정상] `footprint`는 7헥스(중심+이웃 6)
   - [정상] `occupied_cells`는 건물들의 점유 셀 합집합(건물 1개면 7셀, 겹치지 않는 2개면 14셀)
+- `test/unit/test_hex_grid.gd` (영역 윤곽선, `HexGrid.region_outline`)
+  - [정상] 단일 셀 → 경계 변 6개(헥스의 모든 변)
+  - [정상] 인접한 두 셀 → 경계 변 10개(총 12변 중 공유 변 1개 제외)
+  - [정상] 반경 1 디스크(7셀) → 경계 변 18개(바깥 링 6셀 × 바깥 변 3)
+  - [정상] `hex_polygon`은 꼭짓점 6개
 
 ## 관련
 

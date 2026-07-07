@@ -15,7 +15,7 @@
 | id | `label` | `vision` | 초기 `resources` (→ 생성 영지 초기 자원) | 외형 색상 |
 | --- | --- | --- | --- | --- |
 | `camp` | 캠프 | 5 | 인구 10 / 밀 50 / 빵 20 / 나무 20 / 목재 20 / 철 10 / 철괴 10 | 흙색 계열 |
-| `farm` | 농장 | 2 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
+| `farm` | 농장 | 4 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
 
 ### 건설 · 경제
 
@@ -47,7 +47,7 @@
 
 - [정상] `get_type("camp")`에 `label`·`vision`·`resources`·외형 색상 키가 모두 존재
 - [정상] `get_type("camp").vision == 5`, `label == "캠프"`, 자원 7종(인구 10 포함)
-- [정상] `get_type("farm").label == "농장"`, `vision == 2`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
+- [정상] `get_type("farm").label == "농장"`, `vision == 4`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
 - [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {인구2, 목재5, 밀5}`, `demolish_refund == {인구2, 목재1}`, `production == {밀1}`
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
 - [경계] `get_type("없는id")`는 빈 Dictionary

@@ -61,6 +61,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 게임 루트 | `scenes/game/game.gd` |
 | 범위 오버레이 | `scenes/game/range_overlay.gd` |
 | 건설 미리보기 오버레이 | `scenes/game/build_preview.gd` |
+| 건설 가능 영역 오버레이 | `scenes/game/build_area_overlay.gd` |
 | 전장의 안개 | `scenes/game/fog.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |

@@ -89,3 +89,25 @@ func test_start_cell_excluded_from_ranges() -> void:
 func test_range_dist_includes_start() -> void:
 	var r := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP)
 	assert_true((r["dist"] as Dictionary).has(_center()), "dist 맵에는 시작칸 포함")
+
+# --- hex_polygon / region_outline (건설 가능 영역 윤곽선) ---
+
+func test_hex_polygon_has_six_vertices() -> void:
+	assert_eq(HexGrid.hex_polygon(terrain, _center()).size(), 6, "헥스 꼭짓점 6개")
+
+func test_region_outline_single_cell_has_six_edges() -> void:
+	var outline := HexGrid.region_outline(terrain, [_center()])
+	assert_eq(outline.size(), 6, "셀 하나의 윤곽선 = 변 6개")
+
+func test_region_outline_two_adjacent_shares_one_edge() -> void:
+	# 인접한 두 셀: 총 12변 중 공유 변 1개가 상쇄돼 경계 변 10개.
+	var pair: Array[Vector2i] = [_center()]
+	pair.append(terrain.get_surrounding_cells(_center())[0])
+	var outline := HexGrid.region_outline(terrain, pair)
+	assert_eq(outline.size(), 10, "인접 두 셀 = 12변 - 공유 변 2(=변 1개) = 10")
+
+func test_region_outline_radius_one_disk() -> void:
+	# 반경 1 디스크(7셀)의 바깥 링: 6셀 × 바깥 변 3 = 18.
+	var cells := HexGrid.cells_within(terrain, _center(), 1, MAP, MAP)
+	var outline := HexGrid.region_outline(terrain, cells)
+	assert_eq(outline.size(), 18, "반경 1 디스크 윤곽선 = 18변")

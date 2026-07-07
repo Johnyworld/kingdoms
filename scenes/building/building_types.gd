@@ -34,7 +34,7 @@ const CATALOG := {
 	},
 	"farm": {
 		"label": "농장",
-		"vision": 2,
+		"vision": 4,
 		# 외형(녹색 밭 계열). 농장 전용 렌더링은 Phase 2에서 다듬는다.
 		"fill_color": Color(0.45, 0.62, 0.28, 0.9),
 		"edge_color": Color(0.28, 0.4, 0.16),
