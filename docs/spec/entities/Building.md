@@ -8,7 +8,9 @@
 건물은 하나의 [영지(Territory)](Territory.md)에 소속된다. **자원·이름·세력은 건물이 아니라 영지가 보유**한다
 (구조: 세력 → 영지 → 건물). 건물이 표시하는 이름/세력/자원은 모두 자기 영지에서 온다.
 
-> Phase 1 현재 맵에 배치되는 건물은 캠프뿐이다. 농장은 카탈로그에 정의만 되어 있고, 건설/배치 흐름은 **Phase 2**다. 경제 필드 중 `production`은 [턴](../features/turn.md) 종료 시 영지 수입으로 **이미 사용**되며, `build_turns`/`build_cost`/`demolish_refund`(건설·철거) 소비 로직은 **Phase 2**다.
+건물은 **건설 중**(`under_construction`) 또는 **완성** 상태를 가진다. 건설 중에는 생산·시야가 없고, 턴마다 `advance_construction()`으로 진행하다가 `build_turns`만큼 지나면 완성된다([건축](../features/building.md) 참고).
+
+> 게임 시작 시 캠프가 배치되고(즉시 완성), 이후 [건축](../features/building.md)으로 **농장을 건설**할 수 있다(건설 중 → 완성). `production`/`build_turns`/`build_cost`는 사용되며, `demolish_refund`(철거)는 아직 **미구현**이다.
 
 **중심 1헥스 + 주변 6헥스 = 총 7헥스**를 차지한다(현재 모든 종류 공통 발자국. 종류별 footprint는 **미구현**).
 헥스 중 하나라도 클릭되면 게임 쪽에서 [캠프 메뉴](../features/camp-menu.md)를 연다.
@@ -27,7 +29,14 @@
 
 | 속성 | 변수 | 타입 | 설명 |
 | --- | --- | --- | --- |
-| 시야 | `vision` | `int` | 종류의 시야. 안개 밝힘 반경 |
+| 시야 | `vision` | `int` | 종류의 시야. 안개 밝힘 반경 (건설 중에는 시야에 기여 안 함) |
+
+### 건설 상태 (Runtime)
+
+| 속성 | 변수 | 타입 | 초기값 | 설명 |
+| --- | --- | --- | --- | --- |
+| 건설 중 | `under_construction` | `bool` | `false` | 참이면 건설 중(생산·시야 없음). 완성되면 거짓 |
+| 남은 턴 | `remaining_turns` | `int` | `0` | 완성까지 남은 턴. `setup`에서 `build_turns`로 채워짐. 완성 시 0 |
 
 > 자원은 건물이 아니라 [영지](Territory.md)가 보유한다. 캠프 카탈로그의 `resources`는 **건설 시 생성되는 영지의 초기 자원**으로 쓰인다.
 
@@ -42,11 +51,13 @@
 
 ## 동작
 
-- `setup(terrain, center_cell, type_id) -> void` — 종류 스펙을 카탈로그에서 읽어 `building_type`·`vision`을 채우고, 중심 셀 + 이웃 6칸을 점유 셀로 설정. 알 수 없는 `type_id`면 빈 스펙(시야 0·라벨 "")이 되고, `_draw`는 중립 회색으로 그린다(캠프로 위장하지 않도록).
+- `setup(terrain, center_cell, type_id, under_construction := false) -> void` — 종류 스펙을 카탈로그에서 읽어 `building_type`·`vision`을 채우고, 중심 셀 + 이웃 6칸을 점유 셀로 설정. `under_construction`이 참이면 건설 중 상태로 두고 `remaining_turns`를 카탈로그 `build_turns`로 채운다(기본값 거짓 = 즉시 완성). 알 수 없는 `type_id`면 빈 스펙(시야 0·라벨 "")이 되고, `_draw`는 중립 회색으로 그린다(캠프로 위장하지 않도록).
 - `contains_cell(cell) -> bool` — 해당 셀이 건물 영역에 포함되는지.
 - `center_cell() -> Vector2i` — 시야 계산 기준점 반환.
 - `label() -> String` — 종류 라벨(예: "캠프"). 카탈로그의 `label`.
-- `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). 카탈로그의 `production`. 없으면 빈 Dictionary(캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
+- `is_complete() -> bool` — 건설이 끝났으면(건설 중이 아니면) 참.
+- `advance_construction() -> bool` — 건설을 1턴 진행. 이미 완성이면 `false`(불변). 건설 중이면 `remaining_turns -= 1`, 0 이하가 되면 완성 처리하고 **이번에 완성됐으면 `true`**, 아직 진행 중이면 `false`.
+- `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). **건설 중에는 빈 Dictionary**. 완성 후에는 카탈로그의 `production`(없으면 빈 Dictionary, 캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
   - 영지가 없으면(`territory == null`) 빈 배열.
   - 영지 이름이 있으면 첫 줄 = `{territory.name, 흰색}`.
@@ -56,7 +67,7 @@
 
 `_draw()`가 중심 텐트 **위쪽 중앙**에 `map_label_lines()`의 줄들을 위→아래로 그린다.
 영지명은 흰색, 세력명은 세력 색상. 월드 좌표라 카메라 줌에 따라 함께 확대·축소된다.
-(현재 배치 건물이 캠프뿐이라 캠프가 영지 라벨을 그린다. 여러 건물 배치 시의 표시 규칙은 **Phase 2**에서 다듬는다.)
+(영지에 속한 건물은 각자 영지 라벨을 그리므로, 같은 영지의 농장도 영지명/세력명을 표시한다. 여러 건물이 겹쳐 라벨이 중복돼 보이는 정리는 **미구현 · TODO**.)
 
 ## 테스트 시나리오
 
@@ -68,6 +79,9 @@
 - [정상] `"camp"`로 setup 시 `building_type == "camp"`, `vision == 5`, `label() == "캠프"`
 - [경계] 알 수 없는 `type_id`로 setup 시 `vision == 0`, `label() == ""`
 - [경계] `production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}` (`test/unit/test_turn.gd`)
+- [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`, `production() == {}`
+- [정상] `advance_construction()`를 build_turns회 → 완성(`is_complete()`), 완성되는 호출만 `true`; 완성 후 `production() == {밀:1}`
+- [경계] 완성된 건물에 `advance_construction()` → `false`, 상태 불변
 - [정상] 기본 `territory == null`
 - [정상] 영지(이름·세력 포함)에 편입되면 `map_label_lines()` = [영지명(흰색), 세력명(세력색)] 2줄
 - [경계] `territory == null`이면 `map_label_lines()`는 빈 배열

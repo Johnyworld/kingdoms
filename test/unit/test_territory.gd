@@ -32,3 +32,27 @@ func test_add_building_no_duplicate() -> void:
 	t.add_building(building)
 	t.add_building(building)
 	assert_eq(t.buildings.size(), 1, "같은 건물 중복 추가 방지")
+
+# --- 자원 검사·차감 (건축) ---
+
+func test_can_afford_true_when_enough() -> void:
+	var t := _territory("파리", {"목재": 10, "밀": 10})
+	assert_true(t.can_afford({"목재": 5, "밀": 5}), "자원이 충분하면 참")
+
+func test_can_afford_false_when_short() -> void:
+	var t := _territory("파리", {"목재": 3})
+	assert_false(t.can_afford({"목재": 5}), "자원이 부족하면 거짓")
+
+func test_can_afford_empty_cost_always_true() -> void:
+	var t := _territory("파리", {})
+	assert_true(t.can_afford({}), "빈 비용은 항상 참")
+
+func test_can_afford_missing_resource_false() -> void:
+	var t := _territory("파리", {})  # 철 보유 없음
+	assert_false(t.can_afford({"철": 1}), "보유 없는 자원 요구는 거짓")
+
+func test_spend_deducts_resources() -> void:
+	var t := _territory("파리", {"목재": 10, "밀": 10})
+	t.spend({"목재": 5, "밀": 5})
+	assert_eq(t.resources["목재"], 5, "목재 5 차감")
+	assert_eq(t.resources["밀"], 5, "밀 5 차감")

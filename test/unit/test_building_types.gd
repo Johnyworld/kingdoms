@@ -44,3 +44,9 @@ func test_camp_economy() -> void:
 
 func test_unknown_type_empty() -> void:
 	assert_eq(types.get_type("없는id").size(), 0, "없는 종류는 빈 Dictionary")
+
+# --- 건축 가능 목록 ---
+
+func test_buildable_ids() -> void:
+	assert_has(types.BUILDABLE_IDS, "farm", "농장은 건축 가능")
+	assert_does_not_have(types.BUILDABLE_IDS, "camp", "캠프는 건축 목록에서 제외")

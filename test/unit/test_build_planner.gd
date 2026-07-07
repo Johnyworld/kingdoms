@@ -1,0 +1,95 @@
+extends GutTest
+## BuildPlanner 배치 유효성 테스트 — footprint · 영지 시야(완성 건물만) · 겹침 · 맵 범위.
+## 헥스 인접·반경은 엔진에 의존하므로 실제 헥스 타일셋을 가진 TileMapLayer로 검증한다.
+
+const MAP := 41  # 중앙 기준 반경 5까지 경계에 안 닿을 만큼 넉넉한 정사각 맵.
+
+var terrain: TileMapLayer
+
+func before_each() -> void:
+	terrain = TileMapLayer.new()
+	terrain.tile_set = load("res://tiles/grass_tileset.tres")
+	add_child_autofree(terrain)
+
+func _center() -> Vector2i:
+	return Vector2i(MAP / 2, MAP / 2)
+
+func _building(center: Vector2i, type_id: String, under_construction := false) -> Node2D:
+	var b: Node2D = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.setup(terrain, center, type_id, under_construction)
+	return b
+
+func _territory_with(b) -> Object:
+	var t = load("res://scenes/territory/territory.gd").new("파리", {})
+	t.add_building(b)
+	return t
+
+# --- footprint ---
+
+func test_footprint_is_seven() -> void:
+	assert_eq(BuildPlanner.footprint(terrain, _center()).size(), 7, "footprint = 중심 + 이웃 6")
+
+# --- territory_vision ---
+
+func test_territory_vision_from_complete_building() -> void:
+	var camp := _building(_center(), "camp")  # 시야 5, 완성
+	var t := _territory_with(camp)
+	var vis := BuildPlanner.territory_vision(terrain, t, MAP, MAP)
+	# 반경 5 누적 = 1 + 3*5*6 = 91
+	assert_eq(vis.size(), 91, "완성 캠프 시야(5) 반경 셀 합집합")
+	assert_true(vis.has(_center()), "중심 포함")
+
+func test_under_construction_gives_no_vision() -> void:
+	var farm := _building(_center(), "farm", true)  # 건설 중
+	var t := _territory_with(farm)
+	var vis := BuildPlanner.territory_vision(terrain, t, MAP, MAP)
+	assert_eq(vis.size(), 0, "건설 중 건물은 시야에 기여 안 함")
+
+# --- occupied_cells ---
+
+func test_occupied_cells_one_building() -> void:
+	var b := _building(_center(), "camp")
+	assert_eq(BuildPlanner.occupied_cells([b]).size(), 7, "건물 1개 = 7셀")
+
+func test_occupied_cells_two_disjoint_buildings() -> void:
+	var a := _building(_center(), "camp")
+	var b := _building(_center() + Vector2i(10, 0), "farm")  # 충분히 떨어져 안 겹침
+	assert_eq(BuildPlanner.occupied_cells([a, b]).size(), 14, "안 겹치는 건물 2개 = 14셀")
+
+func test_occupied_cells_empty() -> void:
+	assert_eq(BuildPlanner.occupied_cells([]).size(), 0, "건물 없으면 빈 집합")
+
+# --- can_place ---
+
+func _camp_vision() -> Dictionary:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with(camp)
+	return BuildPlanner.territory_vision(terrain, t, MAP, MAP)
+
+func test_can_place_in_vision_on_empty_land() -> void:
+	var vis := _camp_vision()
+	var spot := _center() + Vector2i(3, 0)  # 시야(5) 안, 캠프와 안 겹침
+	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}), "시야 안 빈 땅은 배치 가능")
+
+func test_cannot_place_outside_vision() -> void:
+	var vis := _camp_vision()
+	var far := _center() + Vector2i(20, 0)  # 시야 밖
+	assert_false(BuildPlanner.can_place(terrain, far, MAP, MAP, vis, {}), "시야 밖은 배치 불가")
+
+func test_cannot_place_overlapping_building() -> void:
+	var vis := _camp_vision()
+	var occupied := {}
+	for c in BuildPlanner.footprint(terrain, _center()):
+		occupied[c] = true  # 캠프가 점유한 셀
+	var spot := _center() + Vector2i(1, 0)  # 캠프 footprint와 겹치는 곳
+	assert_false(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, occupied), "기존 건물과 겹치면 불가")
+
+func test_cannot_place_at_map_edge() -> void:
+	# 모서리(0,0)는 이웃이 맵 밖 → footprint 일부가 범위 밖.
+	# 시야는 footprint 전부를 포함시켜, 오직 '범위 밖' 조건만으로 걸리는지 확인한다.
+	var edge := Vector2i(0, 0)
+	var vis := {}
+	for c in BuildPlanner.footprint(terrain, edge):
+		vis[c] = true
+	assert_false(BuildPlanner.can_place(terrain, edge, MAP, MAP, vis, {}), "맵 가장자리는 이웃이 범위 밖 → 불가")

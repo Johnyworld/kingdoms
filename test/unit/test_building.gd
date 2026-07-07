@@ -78,3 +78,28 @@ func test_map_labels_from_territory() -> void:
 func test_map_labels_empty_without_territory() -> void:
 	_camp()
 	assert_eq(building.map_label_lines().size(), 0, "영지 없으면 빈 배열")
+
+# --- 건설 중 상태 (건축) ---
+
+func test_complete_by_default() -> void:
+	_camp()
+	assert_true(building.is_complete(), "기본 setup은 즉시 완성")
+
+func test_farm_under_construction() -> void:
+	building.setup(terrain, _center(), "farm", true)
+	assert_false(building.is_complete(), "건설 중 상태")
+	assert_eq(building.remaining_turns, 3, "농장 build_turns = 3")
+	assert_eq(building.production(), {}, "건설 중엔 생산 없음")
+
+func test_advance_construction_completes_on_last_turn() -> void:
+	building.setup(terrain, _center(), "farm", true)
+	assert_false(building.advance_construction(), "1턴: 아직 미완성")
+	assert_false(building.advance_construction(), "2턴: 아직 미완성")
+	assert_true(building.advance_construction(), "3턴: 완성되는 호출만 true")
+	assert_true(building.is_complete(), "완성됨")
+	assert_eq(building.production(), {"밀": 1}, "완성 후 생산 시작")
+
+func test_advance_construction_on_complete_is_noop() -> void:
+	_camp()
+	assert_false(building.advance_construction(), "완성 건물은 no-op false")
+	assert_true(building.is_complete(), "상태 불변")

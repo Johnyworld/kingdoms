@@ -24,6 +24,7 @@ const ZOOM_STEP := 0.1
 @onready var camp_menu = $CampMenu
 @onready var fog = $Fog
 @onready var turn_hud = $TurnHud
+@onready var build_preview = $BuildPreview
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -38,12 +39,20 @@ var _selected := false
 var _turn := TurnManager.new()
 var _units: Array = []          # 턴당 1회 이동하는 유닛(주인공 등).
 var _territories: Array = []    # 자원 수입을 받는 영지.
+var _buildings: Array = []      # 맵의 모든 건물(캠프 + 건설된 농장). 겹침 검사·추적용.
+
+# 건설 모드. 캠프 메뉴에서 건물을 고르면 진입 — 맵을 클릭해 배치한다.
+var _build_mode := false
+var _build_type := ""
+var _build_territory: Territory = null
 
 func _ready() -> void:
 	_generate_map()
 	_center_camera()
 	overlay.setup(terrain)
+	build_preview.setup(terrain)
 	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), BuildingTypes.CAMP)
+	_buildings = [building]
 	_setup_faction()
 	_place_hero()
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
@@ -51,6 +60,7 @@ func _ready() -> void:
 	_units = [hero]
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
+	camp_menu.build_selected.connect(_on_build_selected)
 
 ## 맵 전체를 초원 타일로 채운다.
 func _generate_map() -> void:
@@ -154,8 +164,65 @@ func _deselect() -> void:
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)
 
+## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
+func _on_build_selected(type_id: String, territory: Territory) -> void:
+	_build_mode = true
+	_build_type = type_id
+	_build_territory = territory
+	build_preview.clear()
+
+## 건설 모드를 끝내고 미리보기를 지운다.
+func _exit_build_mode() -> void:
+	_build_mode = false
+	_build_type = ""
+	_build_territory = null
+	build_preview.clear()
+
+## 현재 시야·점유를 기준으로 그 셀에 건물을 놓을 수 있는지.
+func _can_build_at(cell: Vector2i) -> bool:
+	var vision := BuildPlanner.territory_vision(terrain, _build_territory, MAP_WIDTH, MAP_HEIGHT)
+	var occupied := BuildPlanner.occupied_cells(_buildings)
+	return BuildPlanner.can_place(terrain, cell, MAP_WIDTH, MAP_HEIGHT, vision, occupied)
+
+## 커서 아래의 맵 셀.
+func _mouse_cell() -> Vector2i:
+	return terrain.local_to_map(terrain.to_local(get_global_mouse_position()))
+
+## 건설 모드 입력: 이동=미리보기, 좌클릭=배치, 우클릭/ESC=취소.
+func _handle_build_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var cell := _mouse_cell()
+		build_preview.show_preview(BuildPlanner.footprint(terrain, cell), _can_build_at(cell))
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_try_place(_mouse_cell())
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			_exit_build_mode()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_exit_build_mode()
+
+## 그 셀에 건물을 배치한다: 자원 차감 → 건설 중 건물 생성 → 영지 편입 → 건설 모드 종료.
+## 배치 불가하거나 자원 부족이면 아무 일도 하지 않고 모드를 유지한다.
+func _try_place(cell: Vector2i) -> void:
+	if not _can_build_at(cell):
+		return
+	var cost: Dictionary = BuildingTypes.get_type(_build_type).get("build_cost", {})
+	if not _build_territory.can_afford(cost):
+		return
+	_build_territory.spend(cost)
+	var b := Building.new()
+	add_child(b)
+	b.setup(terrain, cell, _build_type, true)   # 건설 중으로 생성
+	_build_territory.add_building(b)
+	_buildings.append(b)
+	_exit_build_mode()
+
 ## 마우스 휠로 줌 배율을 조절한다. 휠 위 = 확대, 휠 아래 = 축소.
 func _unhandled_input(event: InputEvent) -> void:
+	# 건설 모드에서는 배치 입력만 처리한다(일반 클릭·선택 차단).
+	if _build_mode:
+		_handle_build_input(event)
+		return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_set_zoom(_zoom_level - ZOOM_STEP)

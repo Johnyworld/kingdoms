@@ -21,9 +21,26 @@ func add_building(building) -> void:
 	building.territory = self
 
 ## 턴 종료 시 호출. 소속 건물들의 생산량(production)을 자원에 합산한다.
-## 영지에 없던 자원 키는 새로 만들어 더한다. 생산이 없는 건물(캠프 등)은 자원을 바꾸지 않는다.
+## 영지에 없던 자원 키는 새로 만들어 더한다. 생산이 없는 건물(캠프 등)·건설 중 건물(생산 0)은 자원을 바꾸지 않는다.
 func collect_income() -> void:
 	for building in buildings:
 		var prod: Dictionary = building.production()
 		for res_name in prod:
 			resources[res_name] = resources.get(res_name, 0) + prod[res_name]
+
+## 이 비용을 지불할 자원이 충분한지. cost의 모든 자원에 대해 보유량 >= 요구량이면 참. 빈 비용은 참.
+func can_afford(cost: Dictionary) -> bool:
+	for res_name in cost:
+		if resources.get(res_name, 0) < cost[res_name]:
+			return false
+	return true
+
+## 비용만큼 자원을 차감한다. 음수 방지는 하지 않으므로 호출 전 can_afford로 확인한다.
+func spend(cost: Dictionary) -> void:
+	for res_name in cost:
+		resources[res_name] = resources.get(res_name, 0) - cost[res_name]
+
+## 턴 종료 시 호출. 소속 건물들의 건설을 1턴씩 진행한다(건설 중 건물만 영향).
+func advance_construction() -> void:
+	for building in buildings:
+		building.advance_construction()

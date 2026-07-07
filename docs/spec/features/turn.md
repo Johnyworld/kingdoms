@@ -3,13 +3,12 @@
 > 스크립트: `scenes/turn/turn_manager.gd` (`class_name TurnManager extends RefCounted`) · `scenes/turn/turn_hud.gd` (`extends CanvasLayer`)
 
 게임을 **턴** 단위로 진행한다. 플레이어는 유닛을 움직인 뒤 **턴 종료**를 눌러 다음 턴으로 넘어간다.
-턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 유닛의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받는다.
+턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 유닛의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된다.
 
 ## 규칙
 
 - **유닛 이동은 턴당 1회.** 이동한 유닛은 그 턴에는 다시 선택·이동할 수 없다([Selection & Movement](selection-and-movement.md) 참고).
-- **건물 건설은 턴 제한을 받지 않는다.** 턴당 1회 제한은 **유닛 이동에만** 적용된다.
-  - (건설 흐름 자체는 아직 **미구현 · Phase 2**다. 여기서는 "건설은 턴에 구애받지 않는다"는 규칙만 명시한다.)
+- **건물 건설 시작은 턴 제한을 받지 않는다.** 턴당 1회 제한은 **유닛 이동에만** 적용된다. 단 건설 자체는 시작 후 `build_turns`만큼 턴이 지나야 완성된다([건축](building.md) 참고).
 - 턴 번호는 **1부터** 시작한다.
 
 ## 턴 매니저 (`turn_manager.gd`)
@@ -24,6 +23,8 @@
   1. `number += 1`
   2. 각 `unit`에 대해 `unit.reset_turn()` — 이동 상태 리셋.
   3. 각 `territory`에 대해 `territory.collect_income()` — 건물 생산을 자원에 합산.
+  4. 각 `territory`에 대해 `territory.advance_construction()` — 건설 중 건물을 1턴 진행.
+  - **수입 정산(3) 뒤에 건설 진행(4)** 하므로, 이번 턴에 완성된 건물은 다음 턴부터 생산한다.
 
 ## 자원 수입 (`Territory.collect_income` + `Building.production`)
 
@@ -58,6 +59,8 @@
 - [정상] 캠프만 가진 영지는 `end_turn` 후 자원 변화 없음(`production` 없음)
 - [경계] `Building.production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}`
 - [경계] `Territory.collect_income()` — 영지에 없던 자원 키도 생산되면 새로 생겨 더해짐
+- [정상] 건설 중 농장을 가진 영지를 `end_turn` → 건설 1턴 진행, 완성 전엔 밀 수입 없음
+- [정상] build_turns회 `end_turn` 후 농장 완성, 그 **다음** 턴 종료부터 밀 수입 발생
 
 ## 관련
 

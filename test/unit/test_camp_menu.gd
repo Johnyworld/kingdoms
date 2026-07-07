@@ -18,11 +18,18 @@ func before_each() -> void:
 	add_child_autofree(building)
 	building.setup(terrain, Vector2i(20, 20), "camp")
 
-func _join_territory() -> void:
+func _join_territory() -> Object:
 	var f = load("res://scenes/faction/faction.gd").new("프랑스", BLUE)
 	var t = load("res://scenes/territory/territory.gd").new("파리", RES.duplicate(true))
 	f.add_territory(t)
 	t.add_building(building)
+	return t
+
+## 자원이 부족한(빈) 영지에 건물을 편입한다.
+func _join_poor_territory() -> Object:
+	var t = load("res://scenes/territory/territory.gd").new("가난", {})
+	t.add_building(building)
+	return t
 
 func test_shows_territory_name_and_faction() -> void:
 	_join_territory()
@@ -54,3 +61,52 @@ func test_resource_grid_filled() -> void:
 	menu.open(building)
 	# 자원 7종 × 2열(이름/값) = 14개 자식.
 	assert_eq(menu._res_grid.get_child_count(), 14, "자원 그리드가 영지 자원 7종으로 채워진다")
+
+# --- 건축 리스트 (2a) ---
+
+func _farm_item() -> Button:
+	return menu._build_list.get_child(0) as Button
+
+func test_build_opens_list_with_farm() -> void:
+	_join_territory()  # 자원 충분
+	menu.open(building)
+	menu._on_build_pressed()
+	assert_true(menu._build_list.visible, "건축 후 리스트 표시")
+	assert_gt(menu._build_list.get_child_count(), 0, "리스트에 항목 존재")
+	assert_false(_farm_item().disabled, "자원 충분하면 농장 항목 활성")
+
+func test_farm_item_text_has_label_and_cost() -> void:
+	_join_territory()
+	menu.open(building)
+	menu._on_build_pressed()
+	var text := _farm_item().text
+	assert_string_contains(text, "농장", "항목에 라벨 포함")
+	assert_string_contains(text, "목재", "항목에 비용(목재) 포함")
+
+func test_farm_item_disabled_when_poor() -> void:
+	_join_poor_territory()
+	menu.open(building)
+	menu._on_build_pressed()
+	assert_true(_farm_item().disabled, "자원 부족하면 농장 항목 비활성")
+
+func test_farm_item_disabled_without_territory() -> void:
+	menu.open(building)  # 영지 없음
+	menu._on_build_pressed()
+	assert_true(_farm_item().disabled, "영지 없으면 농장 항목 비활성")
+
+func test_selecting_farm_emits_signal() -> void:
+	var t := _join_territory()
+	menu.open(building)
+	menu._on_build_pressed()
+	watch_signals(menu)
+	_farm_item().pressed.emit()
+	assert_signal_emitted_with_parameters(menu, "build_selected", ["farm", t])
+
+func test_reopen_resets_to_info_view() -> void:
+	_join_territory()
+	menu.open(building)
+	menu._on_build_pressed()
+	assert_true(menu._build_list.visible, "건축으로 리스트 열림")
+	menu.open(building)
+	assert_false(menu._build_list.visible, "재오픈 시 리스트 숨김")
+	assert_true(menu._build_btn.visible, "재오픈 시 건축 버튼 표시")

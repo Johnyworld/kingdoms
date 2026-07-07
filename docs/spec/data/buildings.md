@@ -20,7 +20,7 @@
 ### 건설 · 경제
 
 `production`은 [턴](../features/turn.md) 종료 시 영지 수입으로 **사용된다**(`Building.production` → `Territory.collect_income`).
-`build_turns`/`build_cost`/`demolish_refund`(건설·철거) 소비 로직은 아직 **Phase 2 미구현**이다.
+`build_cost`(자원 차감)와 `build_turns`(건설 소요 턴) 소비 로직은 [건축](../features/building.md) 슬라이스 1에서 **구현됨**(단 게임 플로우 배선은 슬라이스 2). `demolish_refund`(철거)는 아직 **미구현**이다.
 
 | id | `build_turns` | `build_cost` | `demolish_refund` | `production` | 특수 효과 |
 | --- | --- | --- | --- | --- | --- |
@@ -31,13 +31,14 @@
 - 외형 색상 필드: `fill_color`(부지) · `edge_color`(테두리) · `tent_color`(중심 표식).
   - 농장 전용 렌더링(작물 표현 등)은 배치가 생기는 **Phase 2**에서 다듬는다.
 - `build_cost`·`demolish_refund`·`production`은 자원명→수량 Dictionary. `build_turns`는 건설 소요 턴.
-- **농장 턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과 등 건설 관련 특수 효과는 **Phase 2**다.
+- **농장 턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과는 아직 **미구현**이다(농장 건설만 다룸, [건축](../features/building.md) 참고).
 - 발자국(footprint)은 현재 카탈로그에 없다 — 모든 종류가 **중심+6=7헥스** 공통. 종류별 footprint는 **미구현(TODO)**.
 
 ## 동작
 
 - `BuildingTypes.CAMP` — 캠프 종류 id 상수(`"camp"`).
 - `BuildingTypes.FARM` — 농장 종류 id 상수(`"farm"`).
+- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["farm"]`. 캠프는 새 영지 생성이라 제외(미구현).
 - `BuildingTypes.get_type(type_id) -> Dictionary` — 종류 스펙 반환. 없는 id면 빈 Dictionary.
 
 ## 테스트 시나리오
@@ -50,9 +51,10 @@
 - [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {인구2, 목재5, 밀5}`, `demolish_refund == {인구2, 목재1}`, `production == {밀1}`
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
 - [경계] `get_type("없는id")`는 빈 Dictionary
+- [정상] `BUILDABLE_IDS`에 `"farm"` 포함, `"camp"` 미포함
 
 ## 관련
 
 - 종류를 배치·사용하는 주체: [Building 엔티티](../entities/Building.md)
 - 자원 목록: [resources.md](resources.md)
-- 생산(`production`) 로직은 [턴](../features/turn.md)에서 구현됨. 건설(자원 소비·배치)·철거 로직은 **Phase 2 · 미구현**. [추천 스펙](../SPEC.md#추천-스펙-미구현--제안) 참고.
+- 생산(`production`) 로직은 [턴](../features/turn.md)에서 구현됨. 건설 코어 로직(자원 소비·건설 중 상태·배치 유효성)은 [건축](../features/building.md) 슬라이스 1에서 구현됨. 건설 모드 UI(배치)·철거는 아직 **미구현**.

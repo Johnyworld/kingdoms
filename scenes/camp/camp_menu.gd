@@ -2,10 +2,16 @@ extends CanvasLayer
 ## 캠프 메뉴 오버레이. 좌측에 자원 정보, 우측에 선택 메뉴를 표시한다.
 ## 배경(어두운 영역)이나 닫기 버튼을 누르면 닫힌다.
 
+## 건설 리스트에서 건물 종류를 선택하면 방출. 게임이 받아 건설 모드로 처리한다(2b, 미구현).
+signal build_selected(type_id: String, territory: Territory)
+
 var _root: Control
 var _res_grid: GridContainer
 var _camp_title: Label     # 우측 패널 제목 = 영지 이름
 var _faction_label: Label  # 제목 아래 세력명(세력 색상)
+var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
+var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
+var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
 
 func _ready() -> void:
 	layer = 64
@@ -78,10 +84,16 @@ func _build_menu_panel() -> Control:
 	vbox.add_child(_faction_label)
 	vbox.add_child(HSeparator.new())
 
-	var build_btn := Button.new()
-	build_btn.text = "건축"
-	build_btn.pressed.connect(_on_build_pressed)
-	vbox.add_child(build_btn)
+	_build_btn = Button.new()
+	_build_btn.text = "건축"
+	_build_btn.pressed.connect(_on_build_pressed)
+	vbox.add_child(_build_btn)
+
+	# 건설 가능 건물 리스트. 건축 버튼을 누르면 채워져 표시된다.
+	_build_list = VBoxContainer.new()
+	_build_list.add_theme_constant_override("separation", 6)
+	_build_list.hide()
+	vbox.add_child(_build_list)
 
 	# 남는 공간을 밀어내고 하단에 닫기 버튼.
 	var spacer := Control.new()
@@ -98,6 +110,11 @@ func _build_menu_panel() -> Control:
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
 func open(building: Building) -> void:
 	var territory := building.territory
+	_territory = territory
+
+	# 정보 화면으로 초기화(이전 오픈에서 건설 리스트가 열려 있던 상태를 지운다).
+	_build_list.hide()
+	_build_btn.show()
 
 	# 우측 패널: 영지 이름 + 세력.
 	_camp_title.text = territory.name if territory != null else ""
@@ -133,6 +150,30 @@ func _on_background_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		close_menu()
 
+## 건축 버튼: 우측 패널을 건설 가능 건물 리스트로 전환한다.
 func _on_build_pressed() -> void:
-	# 아직 기능 없음.
-	pass
+	for child in _build_list.get_children():
+		child.queue_free()
+	for type_id in BuildingTypes.BUILDABLE_IDS:
+		var spec := BuildingTypes.get_type(type_id)
+		var cost: Dictionary = spec.get("build_cost", {})
+		var item := Button.new()
+		item.text = "%s  %s" % [spec.get("label", type_id), _format_cost(cost)]
+		# 영지가 없거나 비용을 감당 못 하면 비활성.
+		item.disabled = _territory == null or not _territory.can_afford(cost)
+		item.pressed.connect(_on_build_item_selected.bind(type_id))
+		_build_list.add_child(item)
+	_build_btn.hide()
+	_build_list.show()
+
+## 리스트 항목 선택: 종류·영지를 시그널로 알리고 메뉴를 닫는다. 실제 배치는 게임이 처리(2b).
+func _on_build_item_selected(type_id: String) -> void:
+	build_selected.emit(type_id, _territory)
+	close_menu()
+
+## 건설 비용(자원명→수량)을 "인구 2 · 목재 5 · 밀 5" 형태 문자열로.
+func _format_cost(cost: Dictionary) -> String:
+	var parts := []
+	for res_name in cost:
+		parts.append("%s %d" % [res_name, cost[res_name]])
+	return " · ".join(parts)

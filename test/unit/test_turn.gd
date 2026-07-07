@@ -25,6 +25,12 @@ func _building(type_id: String) -> Node2D:
 	b.setup(terrain, Vector2i(MAP / 2, MAP / 2), type_id)
 	return b
 
+func _building_uc(type_id: String) -> Node2D:
+	var b: Node2D = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.setup(terrain, Vector2i(MAP / 2, MAP / 2), type_id, true)  # 건설 중
+	return b
+
 func _territory(res := {}) -> Object:
 	return load("res://scenes/territory/territory.gd").new("파리", res)
 
@@ -102,3 +108,27 @@ func test_end_turn_collects_income() -> void:
 	t.add_building(_building("farm"))
 	tm.end_turn([], [t])
 	assert_eq(t.resources["밀"], 51, "턴 종료 시 영지 수입 적용")
+
+# --- 건설 진행 (건축) ---
+
+func test_end_turn_advances_construction() -> void:
+	var tm := _turn_manager()
+	var t := _territory({"밀": 50})
+	var farm := _building_uc("farm")  # build_turns 3
+	t.add_building(farm)
+	tm.end_turn([], [t])
+	assert_eq(farm.remaining_turns, 2, "턴 종료 시 건설 1턴 진행")
+	assert_eq(t.resources["밀"], 50, "완성 전엔 밀 수입 없음")
+
+func test_construction_completes_then_produces_next_turn() -> void:
+	var tm := _turn_manager()
+	var t := _territory({"밀": 50})
+	var farm := _building_uc("farm")  # build_turns 3
+	t.add_building(farm)
+	tm.end_turn([], [t])  # 3 → 2
+	tm.end_turn([], [t])  # 2 → 1
+	tm.end_turn([], [t])  # 1 → 0 완성 (수입 정산이 먼저라 이 턴엔 미생산)
+	assert_true(farm.is_complete(), "3턴 후 완성")
+	assert_eq(t.resources["밀"], 50, "완성되는 턴엔 아직 생산 안 함")
+	tm.end_turn([], [t])  # 완성 상태 → 생산
+	assert_eq(t.resources["밀"], 51, "다음 턴부터 밀 수입 발생")

@@ -6,6 +6,9 @@ class_name BuildingTypes
 const CAMP := "camp"
 const FARM := "farm"
 
+# 건축(캠프 메뉴)에서 지을 수 있는 종류. 캠프는 새 영지 생성이라 제외(미구현).
+const BUILDABLE_IDS := ["farm"]
+
 const CATALOG := {
 	"camp": {
 		"label": "캠프",
