@@ -15,7 +15,7 @@ kingdoms/
 │   ├── splash/              # 스플래시 (진입점)
 │   ├── title/               # 타이틀 메뉴
 │   ├── game/                # 게임 본편 (game / range_overlay / fog)
-│   ├── character/           # 주인공
+│   ├── human/               # 사람 (주인공은 이 Human의 객체)
 │   ├── building/            # 건물 (building / building_types 카탈로그)
 │   ├── territory/           # 영지 (territory — 데이터 전용, 씬 없음)
 │   ├── faction/             # 세력 (faction — 데이터 전용, 씬 없음)
@@ -81,7 +81,7 @@ godot --headless -s addons/gut/gut_cmdln.gd -gconfig=.gutconfig.json
   | `chore` | 설정 · 빌드 · 기타 잡무 |
   | `style` | 포맷팅(로직 변화 없음) |
 
-- **스코프(scope)**: 선택. 씬/기능 단위로 적는다 — `fog`, `camp`, `character`, `camera`, `title`, `splash` 등.
+- **스코프(scope)**: 선택. 씬/기능 단위로 적는다 — `fog`, `camp`, `human`, `camera`, `title`, `splash` 등.
 - **내용은 한국어**로, 무엇을 했는지 간결하게. 필요하면 효과·수치를 괄호로 덧붙인다. 체언/명사형 종결, 불필요한 마침표 생략.
   - 예: `feat(fog): 주인공/캠프 시야(5) 기준 2레이어 안개 추가`
   - 예: `feat(camp): 중앙 캠프 + 클릭 메뉴(자원 정보 / 건축)`

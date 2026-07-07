@@ -14,8 +14,8 @@ func before_each() -> void:
 func _turn_manager() -> Object:
 	return load("res://scenes/turn/turn_manager.gd").new()
 
-func _character() -> Node2D:
-	var c: Node2D = load("res://scenes/character/character.gd").new()
+func _human() -> Node2D:
+	var c: Node2D = load("res://scenes/human/human.gd").new()
 	add_child_autofree(c)
 	return c
 
@@ -46,21 +46,31 @@ func test_end_turn_increments_number() -> void:
 	tm.end_turn([], [])
 	assert_eq(tm.number, 3, "턴 종료 2회 → 3")
 
+# --- 사람(Human) 이름 ---
+
+func test_human_name_defaults_empty() -> void:
+	assert_eq(_human().human_name, "", "기본 이름은 빈 문자열")
+
+func test_human_name_settable() -> void:
+	var c := _human()
+	c.human_name = "테스트맨"
+	assert_eq(c.human_name, "테스트맨", "이름을 설정할 수 있다")
+
 # --- 유닛 1턴 1이동 ---
 
-func test_character_can_move_by_default() -> void:
-	var c := _character()
+func test_human_can_move_by_default() -> void:
+	var c := _human()
 	assert_false(c.moved_this_turn, "생성 직후 이동 안 함")
 	assert_true(c.can_move(), "생성 직후 이동 가능")
 
 func test_mark_moved_blocks_move() -> void:
-	var c := _character()
+	var c := _human()
 	c.mark_moved()
 	assert_true(c.moved_this_turn, "mark_moved 후 이동함 표시")
 	assert_false(c.can_move(), "이동한 유닛은 이동 불가")
 
 func test_reset_turn_restores_move() -> void:
-	var c := _character()
+	var c := _human()
 	c.mark_moved()
 	c.reset_turn()
 	assert_false(c.moved_this_turn, "reset_turn 후 이동 안 함으로 리셋")
@@ -68,7 +78,7 @@ func test_reset_turn_restores_move() -> void:
 
 func test_end_turn_resets_units() -> void:
 	var tm := _turn_manager()
-	var c := _character()
+	var c := _human()
 	c.mark_moved()
 	tm.end_turn([c], [])
 	assert_false(c.moved_this_turn, "턴 종료 시 유닛 이동 상태 리셋")

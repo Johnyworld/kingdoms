@@ -24,7 +24,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 ### 엔티티 (`entities/`)
 게임 내 데이터 모델. 각 문서에 속성(properties) 목록을 정리한다.
 
-- [Character](entities/Character.md) — 주인공 캐릭터 (능력치 · 자원)
+- [Human](entities/Human.md) — 사람 (능력치 · 자원). 주인공은 이 Human의 객체
 - [Building](entities/Building.md) — 맵에 배치된 건물 (7헥스 · 종류 · 시야 · 소속 영지)
 - [Territory](entities/Territory.md) — 영지 (이름 · 모든 자원 보유 · 소속 건물)
 - [Faction](entities/Faction.md) — 세력 (이름 · 색상 · 소속 영지)
@@ -60,7 +60,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 범위 오버레이 | `scenes/game/range_overlay.gd` |
 | 건설 미리보기 오버레이 | `scenes/game/build_preview.gd` |
 | 전장의 안개 | `scenes/game/fog.gd` |
-| 주인공 | `scenes/character/character.gd` |
+| 사람(주인공) | `scenes/human/human.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |
 | 건설 배치 유틸 | `scenes/building/build_planner.gd` |

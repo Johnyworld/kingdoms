@@ -1,6 +1,10 @@
 extends Node2D
-## 주인공 캐릭터. 능력치를 보유하고 맵 위에 표시된다.
+## 사람(Human). 능력치를 보유하고 맵 위에 표시된다. 주인공은 이 Human의 객체다.
 ## 지금은 임시 플레이스홀더(원형 마커)로 그려지며, 이후 스프라이트로 교체한다.
+
+# --- 정체 ---
+## 이름. 엔진 내장 프로퍼티 `name`(노드 이름)과 충돌하므로 별도 변수로 둔다.
+@export var human_name := ""
 
 # --- 능력치 (초기값) ---
 @export var strength := 8      # 힘
@@ -8,7 +12,7 @@ extends Node2D
 @export var agility := 6       # 민첩
 @export var charm := 10        # 매력
 @export var luck := 8          # 행운
-@export var movement := 5      # 이동력
+@export var movement := 3      # 이동력
 @export var vision := 5        # 시야
 @export var leadership := 7    # 지휘력
 @export var eloquence := 9     # 화술

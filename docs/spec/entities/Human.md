@@ -1,12 +1,19 @@
-# Entity: Character (주인공)
+# Entity: Human (사람)
 
-> 스크립트: `scenes/character/character.gd` (`extends Node2D`)
-> 씬: `scenes/character/character.tscn`
+> 스크립트: `scenes/human/human.gd` (`extends Node2D`)
+> 씬: `scenes/human/human.tscn`
 
-맵 위에 표시되는 주인공. 능력치와 자원을 보유하며, 선택 시 강조 링이 표시된다.
+맵 위에 표시되는 사람. 능력치와 자원을 보유하며, 선택 시 강조 링이 표시된다.
+**주인공은 이 Human의 객체**다 (`game.tscn`의 `Hero` 인스턴스, `human_name = "테스트맨"`).
 현재 외형은 임시 플레이스홀더(원형 마커, 반지름 12px)로 `_draw()`에서 직접 그려진다.
 
 ## Properties
+
+### 정체 (Identity)
+
+| 속성 | export 변수 | 초기값 | 설명 |
+| --- | --- | --- | --- |
+| 이름 | `human_name` | `""` | 사람의 이름. 엔진 내장 `name`(노드 이름)과 충돌하므로 별도 변수로 둔다. 주인공은 `"테스트맨"` |
 
 ### 능력치 (Stats)
 
@@ -17,7 +24,7 @@
 | 민첩 | `agility` | 6 | |
 | 매력 | `charm` | 10 | |
 | 행운 | `luck` | 8 | |
-| 이동력 | `movement` | 5 | 한 번에 이동 가능한 헥스 거리 (범위·이동 판정에 사용) |
+| 이동력 | `movement` | 3 | 한 번에 이동 가능한 헥스 거리 (범위·이동 판정에 사용) |
 | 시야 | `vision` | 5 | 전장의 안개를 밝히는 반경 |
 | 지휘력 | `leadership` | 7 | |
 | 화술 | `eloquence` | 9 | |
