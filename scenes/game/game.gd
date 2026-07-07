@@ -20,6 +20,8 @@ const ZOOM_STEP := 0.1
 @onready var camera: Camera2D = $Camera2D
 @onready var hero = $Hero
 @onready var overlay = $RangeOverlay
+@onready var camp = $Camp
+@onready var camp_menu = $CampMenu
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -34,6 +36,7 @@ func _ready() -> void:
 	_generate_map()
 	_center_camera()
 	overlay.setup(terrain)
+	camp.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2))
 	_place_hero()
 
 ## 맵 전체를 초원 타일로 채운다.
@@ -54,10 +57,10 @@ func _center_camera() -> void:
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
 
-## 주인공을 맵 중앙 타일에 배치한다.
+## 주인공을 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_hero() -> void:
-	var center_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
-	hero.position = terrain.map_to_local(center_cell)
+	var hero_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2 + 3)
+	hero.position = terrain.map_to_local(hero_cell)
 
 ## 셀이 맵 범위 안인지 검사한다.
 func _in_bounds(cell: Vector2i) -> bool:
@@ -102,6 +105,13 @@ func _update_ranges() -> void:
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
 	var hero_cell := terrain.local_to_map(hero.position)
+
+	# 캠프 클릭이 최우선: 선택을 풀고 캠프 메뉴를 연다.
+	if camp.contains_cell(cell):
+		if _selected:
+			_deselect()
+		camp_menu.open(camp.resources)
+		return
 
 	if not _selected:
 		if cell == hero_cell:
