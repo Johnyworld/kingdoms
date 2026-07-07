@@ -10,11 +10,18 @@ const GRASS_ATLAS := Vector2i(0, 0)
 const CAM_SPEED := 900.0    # 픽셀/초
 const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)
 
+# 줌 배율(값이 작을수록 확대). 0.5 = 확대, 1 = 기본, 3 = 축소.
+# Camera2D.zoom 은 값이 클수록 확대되므로 실제로는 (1 / 배율)로 변환해 적용한다.
+const ZOOM_MIN := 0.5
+const ZOOM_MAX := 3.0
+const ZOOM_STEP := 0.1
+
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
 
 var _min_pos: Vector2
 var _max_pos: Vector2
+var _zoom_level := 1.0
 
 func _ready() -> void:
 	_generate_map()
@@ -37,6 +44,19 @@ func _center_camera() -> void:
 	var center_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
+
+## 마우스 휠로 줌 배율을 조절한다. 휠 위 = 확대, 휠 아래 = 축소.
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_set_zoom(_zoom_level - ZOOM_STEP)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_set_zoom(_zoom_level + ZOOM_STEP)
+
+## 줌 배율을 [ZOOM_MIN, ZOOM_MAX] 범위로 클램프해 카메라에 적용한다.
+func _set_zoom(level: float) -> void:
+	_zoom_level = clampf(level, ZOOM_MIN, ZOOM_MAX)
+	camera.zoom = Vector2.ONE / _zoom_level
 
 func _process(delta: float) -> void:
 	var dir := Vector2.ZERO
