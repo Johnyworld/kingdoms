@@ -1,14 +1,15 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1"]
 [ext_resource type="TileSet" path="res://tiles/grass_tileset.tres" id="2"]
-[ext_resource type="PackedScene" path="res://scenes/human/human.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/party/party.tscn" id="3"]
 [ext_resource type="Script" path="res://scenes/game/range_overlay.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/building/building.gd" id="5"]
 [ext_resource type="Script" path="res://scenes/camp/camp_menu.gd" id="6"]
 [ext_resource type="Script" path="res://scenes/game/fog.gd" id="7"]
 [ext_resource type="Script" path="res://scenes/turn/turn_hud.gd" id="8"]
 [ext_resource type="Script" path="res://scenes/game/build_preview.gd" id="9"]
+[ext_resource type="Script" path="res://scenes/party/party_info.gd" id="10"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1")
@@ -22,8 +23,8 @@ script = ExtResource("5")
 [node name="RangeOverlay" type="Node2D" parent="."]
 script = ExtResource("4")
 
-[node name="Hero" parent="." instance=ExtResource("3")]
-human_name = "테스트맨"
+[node name="Party" parent="." instance=ExtResource("3")]
+party_name = "주인공 부대"
 
 [node name="Fog" type="Node2D" parent="."]
 z_index = 10
@@ -40,3 +41,6 @@ script = ExtResource("6")
 
 [node name="TurnHud" type="CanvasLayer" parent="."]
 script = ExtResource("8")
+
+[node name="PartyInfo" type="CanvasLayer" parent="."]
+script = ExtResource("10")

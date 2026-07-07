@@ -2,13 +2,13 @@
 
 > 스크립트: `scenes/turn/turn_manager.gd` (`class_name TurnManager extends RefCounted`) · `scenes/turn/turn_hud.gd` (`extends CanvasLayer`)
 
-게임을 **턴** 단위로 진행한다. 플레이어는 유닛을 움직인 뒤 **턴 종료**를 눌러 다음 턴으로 넘어간다.
-턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 유닛의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된다.
+게임을 **턴** 단위로 진행한다. 플레이어는 [부대](../entities/Party.md)를 움직인 뒤 **턴 종료**를 눌러 다음 턴으로 넘어간다.
+턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된다.
 
 ## 규칙
 
-- **유닛 이동은 턴당 1회.** 이동한 유닛은 그 턴에는 다시 선택·이동할 수 없다([Selection & Movement](selection-and-movement.md) 참고).
-- **건물 건설 시작은 턴 제한을 받지 않는다.** 턴당 1회 제한은 **유닛 이동에만** 적용된다. 단 건설 자체는 시작 후 `build_turns`만큼 턴이 지나야 완성된다([건축](building.md) 참고).
+- **부대 이동은 턴당 1회.** 이동한 부대는 그 턴에는 다시 선택·이동할 수 없다([Selection & Movement](selection-and-movement.md) 참고).
+- **건물 건설 시작은 턴 제한을 받지 않는다.** 턴당 1회 제한은 **부대 이동에만** 적용된다. 단 건설 자체는 시작 후 `build_turns`만큼 턴이 지나야 완성된다([건축](building.md) 참고).
 - 턴 번호는 **1부터** 시작한다.
 
 ## 턴 매니저 (`turn_manager.gd`)
@@ -19,9 +19,9 @@
 | --- | --- | --- | --- | --- |
 | 턴 번호 | `number` | `int` | `1` | 현재 턴. `end_turn` 시 +1 |
 
-- `end_turn(units: Array, territories: Array) -> void` — 한 번의 턴 종료 처리를 모아서 실행한다.
+- `end_turn(units: Array, territories: Array) -> void` — 한 번의 턴 종료 처리를 모아서 실행한다. `units`에는 [부대](../entities/Party.md)가 들어간다.
   1. `number += 1`
-  2. 각 `unit`에 대해 `unit.reset_turn()` — 이동 상태 리셋.
+  2. 각 `unit`(부대)에 대해 `unit.reset_turn()` — 이동 상태 리셋.
   3. 각 `territory`에 대해 `territory.collect_income()` — 건물 생산을 자원에 합산.
   4. 각 `territory`에 대해 `territory.advance_construction()` — 건설 중 건물을 1턴 진행.
   - **수입 정산(3) 뒤에 건설 진행(4)** 하므로, 이번 턴에 완성된 건물은 다음 턴부터 생산한다.
@@ -54,7 +54,7 @@
 
 - [정상] 생성 직후 `TurnManager.number == 1`
 - [정상] `end_turn([], [])` 후 `number == 2`, 두 번 호출하면 `3`
-- [정상] `end_turn`에 넘긴 유닛의 `moved_this_turn`이 `true`였다면 호출 후 `false`로 리셋
+- [정상] `end_turn`에 넘긴 부대의 `moved_this_turn`이 `true`였다면 호출 후 `false`로 리셋
 - [정상] 농장 건물을 가진 영지를 `end_turn`에 넘기면 `resources["밀"]`가 생산량(1)만큼 증가
 - [정상] 캠프만 가진 영지는 `end_turn` 후 자원 변화 없음(`production` 없음)
 - [경계] `Building.production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}`
@@ -64,6 +64,6 @@
 
 ## 관련
 
-- 유닛 이동 1회 제한·흐림 표시는 [Selection & Movement](selection-and-movement.md).
+- 부대 이동 1회 제한·흐림 표시는 [Selection & Movement](selection-and-movement.md). 부대 이동 상태(`moved_this_turn` 등)의 상세 테스트는 `test/unit/test_party.gd`.
 - 생산량 데이터는 [buildings.md](../data/buildings.md)의 `production`.
 - 영지 자원은 [Territory](../entities/Territory.md), [Camp Menu](camp-menu.md)에 표시.

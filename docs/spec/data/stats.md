@@ -11,8 +11,8 @@
 | 민첩 | `agility` | 6 | (미사용) |
 | 매력 | `charm` | 10 | (미사용) |
 | 행운 | `luck` | 8 | (미사용) |
-| 이동력 | `movement` | 3 | **이동/공격 범위 계산** |
-| 시야 | `vision` | 5 | **전장의 안개 밝힘 반경** |
+| 이동력 | `movement` | 3 | **이동/공격 범위 계산** — [부대](../entities/Party.md) `movement()`가 멤버 중 **최소값**으로 집계 |
+| 시야 | `vision` | 5 | **전장의 안개 밝힘 반경** — [부대](../entities/Party.md) `vision()`이 멤버 중 **최대값**으로 집계 |
 | 지휘력 | `leadership` | 7 | (미사용) |
 | 화술 | `eloquence` | 9 | (미사용) |
 | 성실함 | `diligence` | 5 | (미사용) |

@@ -24,7 +24,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 ### 엔티티 (`entities/`)
 게임 내 데이터 모델. 각 문서에 속성(properties) 목록을 정리한다.
 
-- [Human](entities/Human.md) — 사람 (능력치 · 자원). 주인공은 이 Human의 객체
+- [Party](entities/Party.md) — 부대 (맵에서 움직이는 유닛 · 멤버 Human 보유 · 이동력=min·시야=max)
+- [Human](entities/Human.md) — 사람 (능력치 · 자원, 순수 데이터). 주인공은 부대의 멤버
 - [Building](entities/Building.md) — 맵에 배치된 건물 (7헥스 · 종류 · 시야 · 소속 영지)
 - [Territory](entities/Territory.md) — 영지 (이름 · 모든 자원 보유 · 소속 건물)
 - [Faction](entities/Faction.md) — 세력 (이름 · 색상 · 소속 영지)
@@ -37,9 +38,10 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Title (타이틀 메뉴)](features/title.md)
 - [Map & Camera (맵과 카메라)](features/map-and-camera.md)
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
+- [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
 - [Fog of War (전장의 안개)](features/fog-of-war.md)
 - [Camp Menu (캠프 메뉴)](features/camp-menu.md)
-- [Turn (턴)](features/turn.md) — 턴 종료 · 유닛 1턴 1이동 · 영지 자원 수입 · 건설 진행
+- [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 
 ### 데이터 (`data/`)
@@ -60,7 +62,9 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 범위 오버레이 | `scenes/game/range_overlay.gd` |
 | 건설 미리보기 오버레이 | `scenes/game/build_preview.gd` |
 | 전장의 안개 | `scenes/game/fog.gd` |
-| 사람(주인공) | `scenes/human/human.gd` |
+| 부대(맵 토큰) | `scenes/party/party.gd` |
+| 부대 정보 패널 | `scenes/party/party_info.gd` |
+| 사람(데이터) | `scenes/human/human.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |
 | 건설 배치 유틸 | `scenes/building/build_planner.gd` |

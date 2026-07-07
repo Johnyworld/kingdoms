@@ -18,13 +18,14 @@ const ZOOM_STEP := 0.1
 
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
-@onready var hero = $Hero
+@onready var party = $Party
 @onready var overlay = $RangeOverlay
 @onready var building = $Building
 @onready var camp_menu = $CampMenu
 @onready var fog = $Fog
 @onready var turn_hud = $TurnHud
 @onready var build_preview = $BuildPreview
+@onready var party_info = $PartyInfo
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -37,7 +38,7 @@ var _selected := false
 
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
 var _turn := TurnManager.new()
-var _units: Array = []          # 턴당 1회 이동하는 유닛(주인공 등).
+var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
 var _territories: Array = []    # 자원 수입을 받는 영지.
 var _buildings: Array = []      # 맵의 모든 건물(캠프 + 건설된 농장). 겹침 검사·추적용.
 
@@ -54,10 +55,11 @@ func _ready() -> void:
 	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), BuildingTypes.CAMP)
 	_buildings = [building]
 	_setup_faction()
-	_place_hero()
+	_setup_party()
+	_place_party()
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
 	_update_fog()
-	_units = [hero]
+	_units = [party]
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
 	camp_menu.build_selected.connect(_on_build_selected)
@@ -91,16 +93,25 @@ func _setup_faction() -> void:
 	paris.add_building(building)
 	_territories = [paris]
 
-## 주인공을 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
-func _place_hero() -> void:
-	var hero_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2 + 3)
-	hero.position = terrain.map_to_local(hero_cell)
+## 주인공 부대의 멤버를 구성한다. 테스트맨(이동력 3) + 짐꾼(이동력 2).
+## 부대 이동력은 멤버 중 최소값이라 이 구성에서는 2가 된다.
+func _setup_party() -> void:
+	var testman := Human.new("테스트맨")
+	var porter := Human.new("짐꾼")
+	porter.movement = 2
+	party.add_member(testman)
+	party.add_member(porter)
+
+## 주인공 부대를 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
+func _place_party() -> void:
+	var party_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2 + 3)
+	party.position = terrain.map_to_local(party_cell)
 
 ## 주인공 위치에서 이동력만큼 BFS로 도달 셀을 구하고, 범위를 갱신한다.
 ## 거리 1~이동력 = 이동 범위(파랑), 이동력+1 = 공격 범위(빨강).
 func _update_ranges() -> void:
-	var start := terrain.local_to_map(hero.position)
-	var ranges := HexGrid.movement_ranges(terrain, start, hero.movement, MAP_WIDTH, MAP_HEIGHT)
+	var start := terrain.local_to_map(party.position)
+	var ranges := HexGrid.movement_ranges(terrain, start, party.movement(), MAP_WIDTH, MAP_HEIGHT)
 	var move_cells: Array[Vector2i] = ranges["move"]
 	var attack_cells: Array[Vector2i] = ranges["attack"]
 	_reachable = ranges["dist"]
@@ -109,8 +120,8 @@ func _update_ranges() -> void:
 ## 모든 시야원(주인공 + 캠프)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
 func _update_fog() -> void:
 	var visible := {}
-	var hero_cell := terrain.local_to_map(hero.position)
-	for c in HexGrid.cells_within(terrain, hero_cell, hero.vision, MAP_WIDTH, MAP_HEIGHT):
+	var party_cell := terrain.local_to_map(party.position)
+	for c in HexGrid.cells_within(terrain, party_cell, party.vision(), MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
 	for c in HexGrid.cells_within(terrain, building.center_cell(), building.vision, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
@@ -121,45 +132,50 @@ func _update_fog() -> void:
 ## - 선택됨: 이동 범위 칸이면 이동, 그 외 칸이면 선택 해제한다.
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
-	var hero_cell := terrain.local_to_map(hero.position)
+	var party_cell := terrain.local_to_map(party.position)
 
-	# 건물(캠프) 클릭이 최우선: 선택을 풀고 캠프 메뉴를 연다.
+	# 건물(캠프) 클릭이 최우선: 선택·정보 패널을 닫고 캠프 메뉴를 연다.
 	if building.contains_cell(cell):
 		if _selected:
 			_deselect()
+		party_info.close()
 		camp_menu.open(building)
 		return
 
-	if not _selected:
-		# 이번 턴에 이미 이동한 유닛은 선택되지 않는다.
-		if cell == hero_cell and hero.can_move():
+	# 부대 칸 클릭: 정보 패널은 항상 연다(이동 완료 부대 포함).
+	# 아직 선택 전이고 이동 가능하면 함께 선택해 이동 범위도 표시한다.
+	if cell == party_cell:
+		party_info.open(party)
+		if not _selected and party.can_move():
 			_select()
 		return
 
-	# 여기부터는 선택된 상태.
-	if _reachable.has(cell) and _reachable[cell] >= 1 and _reachable[cell] <= hero.movement:
-		hero.position = terrain.map_to_local(cell)
-		hero.mark_moved()   # 유닛은 한 턴에 1회만 이동.
+	# 그 외 칸 클릭: 선택 상태면 이동 범위 칸으로 이동. 이후 선택·정보 패널을 닫는다.
+	if _selected and _reachable.has(cell) and _reachable[cell] >= 1 and _reachable[cell] <= party.movement():
+		party.position = terrain.map_to_local(cell)
+		party.mark_moved()   # 부대는 한 턴에 1회만 이동.
 		_update_fog()
 	_deselect()
+	party_info.close()
 
-## 주인공을 선택하고 이동/공격 범위를 표시한다.
+## 주인공 부대를 선택하고 이동/공격 범위를 표시한다.
 func _select() -> void:
 	_selected = true
-	hero.set_selected(true)
+	party.set_selected(true)
 	_update_ranges()
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
 	if _selected:
 		_deselect()
+	party_info.close()
 	_turn.end_turn(_units, _territories)
 	turn_hud.set_turn(_turn.number)
 
 ## 선택을 해제하고 범위 표시를 지운다.
 func _deselect() -> void:
 	_selected = false
-	hero.set_selected(false)
+	party.set_selected(false)
 	_reachable = {}
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)
