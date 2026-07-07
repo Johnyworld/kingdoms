@@ -7,7 +7,7 @@
 ## 개요
 
 - **엔진**: Godot 4.7, GL Compatibility (전 플랫폼 배포 목표)
-- **해상도**: 1280×720 기준, `canvas_items` 스트레치 / `expand` 종횡비
+- **해상도**: 1920×1080 기준, `canvas_items` 스트레치 / `expand` 종횡비
 - **좌표계**: 뾰족한 위/아래(pointy-top) 헥스 타일, 타일 크기 64×46
 - **진입점**: `res://scenes/splash/splash.tscn`
 - **싱글턴(Autoload)**: `SceneManager` — 모든 씬 전환을 페이드로 처리
