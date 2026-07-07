@@ -51,6 +51,11 @@ func center_cell() -> Vector2i:
 func label() -> String:
 	return _spec.get("label", "")
 
+## 종류의 턴당 생산량(자원명→수량). 없으면 빈 Dictionary(캠프 등).
+## 턴 종료 시 영지 수입(Territory.collect_income)에 쓰인다.
+func production() -> Dictionary:
+	return _spec.get("production", {})
+
 ## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
 ## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.
 func map_label_lines() -> Array:

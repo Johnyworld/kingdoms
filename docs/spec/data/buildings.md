@@ -17,9 +17,10 @@
 | `camp` | 캠프 | 5 | 인구 10 / 밀 50 / 빵 20 / 나무 20 / 목재 20 / 철 10 / 철괴 10 | 흙색 계열 |
 | `farm` | 농장 | 2 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
 
-### 건설 · 경제 (Phase 2에서 사용 · 현재 소비 로직 없음)
+### 건설 · 경제
 
-아래 필드는 데이터로만 기록되며, 이를 소비하는 **턴/건설/생산 시스템은 Phase 2 미구현**이다.
+`production`은 [턴](../features/turn.md) 종료 시 영지 수입으로 **사용된다**(`Building.production` → `Territory.collect_income`).
+`build_turns`/`build_cost`/`demolish_refund`(건설·철거) 소비 로직은 아직 **Phase 2 미구현**이다.
 
 | id | `build_turns` | `build_cost` | `demolish_refund` | `production` | 특수 효과 |
 | --- | --- | --- | --- | --- | --- |
@@ -30,7 +31,7 @@
 - 외형 색상 필드: `fill_color`(부지) · `edge_color`(테두리) · `tent_color`(중심 표식).
   - 농장 전용 렌더링(작물 표현 등)은 배치가 생기는 **Phase 2**에서 다듬는다.
 - `build_cost`·`demolish_refund`·`production`은 자원명→수량 Dictionary. `build_turns`는 건설 소요 턴.
-- **캠프 건설 → 새 영지 생성** 효과, 농장 턴당 생산 등 특수 효과의 실제 동작은 **Phase 2**다.
+- **농장 턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과 등 건설 관련 특수 효과는 **Phase 2**다.
 - 발자국(footprint)은 현재 카탈로그에 없다 — 모든 종류가 **중심+6=7헥스** 공통. 종류별 footprint는 **미구현(TODO)**.
 
 ## 동작
@@ -54,4 +55,4 @@
 
 - 종류를 배치·사용하는 주체: [Building 엔티티](../entities/Building.md)
 - 자원 목록: [resources.md](resources.md)
-- 건설(자원 소비·배치)·철거·생산 로직은 **Phase 2 · 미구현**. [추천 스펙](../SPEC.md#추천-스펙-미구현--제안) 참고.
+- 생산(`production`) 로직은 [턴](../features/turn.md)에서 구현됨. 건설(자원 소비·배치)·철거 로직은 **Phase 2 · 미구현**. [추천 스펙](../SPEC.md#추천-스펙-미구현--제안) 참고.

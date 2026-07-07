@@ -23,6 +23,7 @@ const ZOOM_STEP := 0.1
 @onready var building = $Building
 @onready var camp_menu = $CampMenu
 @onready var fog = $Fog
+@onready var turn_hud = $TurnHud
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -33,6 +34,11 @@ var _reachable: Dictionary = {}
 # 주인공이 선택되었는지. 선택 상태에서만 범위 표시 + 이동이 가능하다.
 var _selected := false
 
+# 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
+var _turn := TurnManager.new()
+var _units: Array = []          # 턴당 1회 이동하는 유닛(주인공 등).
+var _territories: Array = []    # 자원 수입을 받는 영지.
+
 func _ready() -> void:
 	_generate_map()
 	_center_camera()
@@ -42,6 +48,9 @@ func _ready() -> void:
 	_place_hero()
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
 	_update_fog()
+	_units = [hero]
+	turn_hud.set_turn(_turn.number)
+	turn_hud.ended.connect(_on_turn_ended)
 
 ## 맵 전체를 초원 타일로 채운다.
 func _generate_map() -> void:
@@ -70,6 +79,7 @@ func _setup_faction() -> void:
 	var france := Faction.new("프랑스", Color(0.2, 0.3, 0.8))
 	france.add_territory(paris)
 	paris.add_building(building)
+	_territories = [paris]
 
 ## 주인공을 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_hero() -> void:
@@ -111,13 +121,15 @@ func _handle_click(world_pos: Vector2) -> void:
 		return
 
 	if not _selected:
-		if cell == hero_cell:
+		# 이번 턴에 이미 이동한 유닛은 선택되지 않는다.
+		if cell == hero_cell and hero.can_move():
 			_select()
 		return
 
 	# 여기부터는 선택된 상태.
 	if _reachable.has(cell) and _reachable[cell] >= 1 and _reachable[cell] <= hero.movement:
 		hero.position = terrain.map_to_local(cell)
+		hero.mark_moved()   # 유닛은 한 턴에 1회만 이동.
 		_update_fog()
 	_deselect()
 
@@ -126,6 +138,13 @@ func _select() -> void:
 	_selected = true
 	hero.set_selected(true)
 	_update_ranges()
+
+## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입. 진행 중 선택은 해제한다.
+func _on_turn_ended() -> void:
+	if _selected:
+		_deselect()
+	_turn.end_turn(_units, _territories)
+	turn_hud.set_turn(_turn.number)
 
 ## 선택을 해제하고 범위 표시를 지운다.
 func _deselect() -> void:

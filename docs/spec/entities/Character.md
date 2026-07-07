@@ -37,13 +37,18 @@
 | 속성 | 변수 | 설명 |
 | --- | --- | --- |
 | 선택됨 | `selected` | 선택 상태. `set_selected(value)`로 변경 시 강조 링을 다시 그린다 |
+| 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지. `true`면 재선택·재이동 불가 + 흐리게 표시 |
 
 ## 동작
 
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
-- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원 + 외곽선을 그린다.
+- `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn`).
+- `mark_moved() -> void` — 이동 완료 표시(`moved_this_turn = true`). 흐리게(반투명) 다시 그린다.
+- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn = false`로 되돌리고 불투명하게 다시 그린다.
+- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원 + 외곽선을 그린다. `moved_this_turn`이면 전체를 반투명하게 그린다.
 
 ## 관련
 
 - 이동력·시야는 [Selection & Movement](../features/selection-and-movement.md), [Fog of War](../features/fog-of-war.md)에서 사용.
+- 턴당 1회 이동 제한(`moved_this_turn`/`can_move`/`mark_moved`/`reset_turn`)은 [Turn](../features/turn.md)에서 사용. 관련 테스트는 `test/unit/test_turn.gd`.
 - 능력치 정의는 [data/stats.md](../data/stats.md) 참고.

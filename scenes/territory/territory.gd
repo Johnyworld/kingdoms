@@ -19,3 +19,11 @@ func add_building(building) -> void:
 		return
 	buildings.append(building)
 	building.territory = self
+
+## 턴 종료 시 호출. 소속 건물들의 생산량(production)을 자원에 합산한다.
+## 영지에 없던 자원 키는 새로 만들어 더한다. 생산이 없는 건물(캠프 등)은 자원을 바꾸지 않는다.
+func collect_income() -> void:
+	for building in buildings:
+		var prod: Dictionary = building.production()
+		for res_name in prod:
+			resources[res_name] = resources.get(res_name, 0) + prod[res_name]

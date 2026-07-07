@@ -8,7 +8,7 @@
 건물은 하나의 [영지(Territory)](Territory.md)에 소속된다. **자원·이름·세력은 건물이 아니라 영지가 보유**한다
 (구조: 세력 → 영지 → 건물). 건물이 표시하는 이름/세력/자원은 모두 자기 영지에서 온다.
 
-> Phase 1 현재 맵에 배치되는 건물은 캠프뿐이다. 농장은 카탈로그에 정의만 되어 있고, 건설/배치·경제 필드(`build_turns`/`build_cost`/`demolish_refund`/`production`) 소비 로직은 **Phase 2**다.
+> Phase 1 현재 맵에 배치되는 건물은 캠프뿐이다. 농장은 카탈로그에 정의만 되어 있고, 건설/배치 흐름은 **Phase 2**다. 경제 필드 중 `production`은 [턴](../features/turn.md) 종료 시 영지 수입으로 **이미 사용**되며, `build_turns`/`build_cost`/`demolish_refund`(건설·철거) 소비 로직은 **Phase 2**다.
 
 **중심 1헥스 + 주변 6헥스 = 총 7헥스**를 차지한다(현재 모든 종류 공통 발자국. 종류별 footprint는 **미구현**).
 헥스 중 하나라도 클릭되면 게임 쪽에서 [캠프 메뉴](../features/camp-menu.md)를 연다.
@@ -46,6 +46,7 @@
 - `contains_cell(cell) -> bool` — 해당 셀이 건물 영역에 포함되는지.
 - `center_cell() -> Vector2i` — 시야 계산 기준점 반환.
 - `label() -> String` — 종류 라벨(예: "캠프"). 카탈로그의 `label`.
+- `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). 카탈로그의 `production`. 없으면 빈 Dictionary(캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
   - 영지가 없으면(`territory == null`) 빈 배열.
   - 영지 이름이 있으면 첫 줄 = `{territory.name, 흰색}`.
@@ -66,6 +67,7 @@
 - [정상] `contains_cell`이 중심·이웃 6칸에 대해 참, 먼 셀에 대해 거짓
 - [정상] `"camp"`로 setup 시 `building_type == "camp"`, `vision == 5`, `label() == "캠프"`
 - [경계] 알 수 없는 `type_id`로 setup 시 `vision == 0`, `label() == ""`
+- [경계] `production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}` (`test/unit/test_turn.gd`)
 - [정상] 기본 `territory == null`
 - [정상] 영지(이름·세력 포함)에 편입되면 `map_label_lines()` = [영지명(흰색), 세력명(세력색)] 2줄
 - [경계] `territory == null`이면 `map_label_lines()`는 빈 배열

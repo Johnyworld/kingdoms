@@ -24,6 +24,7 @@
 
 - `_init(name := "", resources := {})` — 이름과 자원(복사본 권장)을 받아 생성. `buildings`는 빈 배열로 시작.
 - `add_building(building) -> void` — 건물을 `buildings`에 추가하고 **동시에** `building.territory = self`로 설정한다(양방향). 이미 포함된 건물은 중복 추가하지 않는다.
+- `collect_income() -> void` — [턴](../features/turn.md) 종료 시 호출. 소속 건물들의 `production()`(자원명→수량)을 순회하며 `resources[자원] += 수량`. 영지에 없던 자원 키는 새로 만들어 더한다. 생산이 없는 건물(캠프 등)은 자원을 바꾸지 않는다.
 
 ## 테스트 시나리오
 
@@ -33,6 +34,8 @@
 - [정상] 생성 직후 `buildings`는 빈 배열, `faction`은 `null`
 - [정상] `add_building(b)` 후 `buildings`에 `b`가 들어가고 `b.territory`가 이 영지를 가리킨다(양방향)
 - [경계] 같은 건물을 두 번 `add_building` 해도 `buildings` 크기는 1 (중복 방지)
+- [정상] 농장 건물을 편입한 영지의 `collect_income()` 후 `resources["밀"]`가 생산량(1)만큼 증가 (`test/unit/test_turn.gd`)
+- [정상] 캠프만 가진 영지의 `collect_income()`은 자원 변화 없음 (`test/unit/test_turn.gd`)
 
 ## 관련
 
