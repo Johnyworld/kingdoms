@@ -51,6 +51,17 @@ kingdoms/
 
 새 엔티티/기능/데이터를 추가하면 해당 폴더에 문서를 만들고 `SPEC.md` 목차에 링크를 추가한다.
 
+## 테스트
+
+[GUT](https://github.com/bitwes/Gut) 9.x를 쓴다. 테스트는 `test/unit/`에 `test_*.gd`로 둔다.
+
+실행 (헤드리스):
+```
+godot --headless -s addons/gut/gut_cmdln.gd -gconfig=.gutconfig.json
+```
+- GUT 클래스가 임포트 안 됐다는 에러가 나면 최초 1회 `godot --headless --import` 실행.
+- BFS 등 헥스 그리드 로직은 실제 `TileMapLayer` + 헥스 타일셋을 테스트에서 생성해 검증한다(엔진 인접 동작에 의존하므로).
+
 ## 커밋 규칙
 
 **Conventional Commits** 컨벤션을 따른다. 형식: `type(scope): 내용`
