@@ -21,9 +21,20 @@
 
 ## 줌
 
-- 마우스 휠 위 = 확대, 아래 = 축소.
-- 줌 배율 `_zoom_level` 범위: `ZOOM_MIN 0.5` ~ `ZOOM_MAX 3.0`, 스텝 `0.1`.
+- **마우스 휠**: 위 = 확대, 아래 = 축소 (`InputEventMouseButton` WHEEL_UP/DOWN, 스텝 `0.1`).
+- **트랙패드 두 손가락 스크롤**(`InputEventPanGesture`): 위로 = 확대, 아래로 = 축소.
+  `_zoom_level += delta.y * PAN_ZOOM_SPEED(0.05)`.
+- **트랙패드 핀치**(`InputEventMagnifyGesture`): 벌리면(factor>1) 확대, 오므리면(factor<1) 축소.
+  `_zoom_level /= factor`.
+- 줌 배율 `_zoom_level` 범위: `ZOOM_MIN 0.5` ~ `ZOOM_MAX 3.0`.
 - 값이 작을수록 확대. `Camera2D.zoom = Vector2.ONE / _zoom_level`로 변환 적용.
+
+## 테스트 시나리오
+- [정상] 마우스 휠 위 → `_zoom_level` 감소(확대) / 휠 아래 → 증가(축소)
+- [정상] PanGesture `delta.y < 0`(위로 스크롤) → 확대 / `delta.y > 0` → 축소
+- [정상] MagnifyGesture `factor > 1`(핀치 아웃) → 확대 / `factor < 1` → 축소
+- [경계] 확대/축소가 `ZOOM_MIN`~`ZOOM_MAX` 범위로 클램프됨
+- [예외] MagnifyGesture `factor <= 0`(비정상 입력) → 무시(zoom 불변)
 
 ## 게임 씬 구성 노드
 

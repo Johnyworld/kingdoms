@@ -15,6 +15,7 @@ const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 3.0
 const ZOOM_STEP := 0.1
+const PAN_ZOOM_SPEED := 0.05   # 트랙패드 두 손가락 스크롤(PanGesture) delta.y → 줌 배율 계수
 
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
@@ -255,7 +256,8 @@ func _try_place(cell: Vector2i) -> void:
 	_buildings.append(b)
 	_exit_build_mode()
 
-## 마우스 휠로 줌 배율을 조절한다. 휠 위 = 확대, 휠 아래 = 축소.
+## 줌 조절: 마우스 휠 / 트랙패드 두 손가락 스크롤 / 트랙패드 핀치.
+## 값이 작을수록 확대이므로, 확대 = _zoom_level 감소.
 func _unhandled_input(event: InputEvent) -> void:
 	# 건설 모드에서는 배치 입력만 처리한다(일반 클릭·선택 차단).
 	if _build_mode:
@@ -268,6 +270,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			_handle_click(get_global_mouse_position())
+	elif event is InputEventPanGesture:
+		# 두 손가락 스크롤: 위로(delta.y<0) = 확대, 아래로 = 축소.
+		_set_zoom(_zoom_level + event.delta.y * PAN_ZOOM_SPEED)
+	elif event is InputEventMagnifyGesture and event.factor > 0.0:
+		# 핀치: 벌리면(factor>1) 확대, 오므리면(factor<1) 축소.
+		# factor<=0(비정상 입력)은 무시 — 0 나눗셈/NaN으로 zoom이 깨지지 않도록.
+		_set_zoom(_zoom_level / event.factor)
 
 ## 줌 배율을 [ZOOM_MIN, ZOOM_MAX] 범위로 클램프해 카메라에 적용한다.
 func _set_zoom(level: float) -> void:
