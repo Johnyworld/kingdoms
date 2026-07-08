@@ -4,7 +4,8 @@
 > 씬: `scenes/party/party.tscn`
 
 맵 위에서 **실제로 움직이는 유닛**. 여러 [Human](Human.md)을 멤버로 거느린다.
-**주인공은 이 부대의 멤버**(`human_name = "테스트맨"`)이고, 우리가 선택·이동시키는 대상은 개별 Human이 아니라 이 **부대**다.
+**주인공은 이 부대의 멤버**(`human_name = "아젤 하르윈"`)이고, 우리가 선택·이동시키는 대상은 개별 Human이 아니라 이 **부대**다.
+부대는 [유닛 카탈로그](../data/units.md)에서 생성되며, 플레이어 부대 외에 NPC 부대들도 맵에 존재한다([Parties](../features/parties.md)).
 현재 외형은 임시 플레이스홀더(원형 마커, 반지름 12px)로 `_draw()`에서 직접 그려진다(예전에 Human이 하던 역할을 이관).
 
 ## Properties
@@ -14,6 +15,7 @@
 | 속성 | export 변수 | 초기값 | 설명 |
 | --- | --- | --- | --- |
 | 이름 | `party_name` | `""` | 부대의 이름. 엔진 내장 `name`(노드 이름)과 충돌하므로 별도 변수로 둔다 |
+| 토큰 색 | `token_color` | `Color(0.92, 0.78, 0.35)` (금색) | 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다 |
 
 ### 멤버 (Members)
 
@@ -49,13 +51,14 @@
 - `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn`).
 - `mark_moved() -> void` — 이동 완료 표시(`moved_this_turn = true`). 흐리게(반투명) 다시 그린다.
 - `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn = false`로 되돌리고 불투명하게 다시 그린다.
-- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원 + 외곽선을 그린다. `moved_this_turn`이면 전체를 반투명하게 그린다.
+- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn`이면 전체를 반투명하게 그린다.
 
 ## 테스트 시나리오
 
 `test/unit/test_party.gd`.
 
 - [정상] `party_name` 기본값은 빈 문자열, 설정 가능
+- [정상] `token_color` 기본값은 금색 `Color(0.92, 0.78, 0.35)`, 설정 가능
 - [정상] 생성 직후 `members`는 빈 배열, `movement() == 0`, `vision() == 0`
 - [정상] `add_member`로 멤버 추가 후 `members`에 들어감
 - [경계] 같은 멤버를 두 번 `add_member` 해도 크기는 1 (중복 방지)

@@ -26,6 +26,16 @@ func test_party_name_settable() -> void:
 	p.party_name = "주인공 부대"
 	assert_eq(p.party_name, "주인공 부대", "이름을 설정할 수 있다")
 
+# --- 토큰 색 ---
+
+func test_token_color_default_gold() -> void:
+	assert_eq(_party().token_color, Color(0.92, 0.78, 0.35), "기본 토큰 색은 금색")
+
+func test_token_color_settable() -> void:
+	var p := _party()
+	p.token_color = Color(1, 0, 0)
+	assert_eq(p.token_color, Color(1, 0, 0), "토큰 색을 설정할 수 있다")
+
 # --- 멤버 ---
 
 func test_members_empty_at_start() -> void:

@@ -8,6 +8,9 @@ class_name Party extends Node2D
 ## 이름. 엔진 내장 프로퍼티 `name`(노드 이름)과 충돌하므로 별도 변수로 둔다.
 @export var party_name := ""
 
+## 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다.
+@export var token_color := Color(0.92, 0.78, 0.35)
+
 # --- 멤버 ---
 var members: Array = []   # 이 부대에 속한 Human 목록.
 var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
@@ -81,7 +84,9 @@ func _draw() -> void:
 	if selected:
 		draw_arc(Vector2(0, 4), _RADIUS * 1.4, 0.0, TAU, 40, Color(1.0, 0.95, 0.4, a), 3.0, true)
 
-	# 임시 플레이스홀더: 발밑 그림자 + 몸통 원 + 외곽선.
+	# 임시 플레이스홀더: 발밑 그림자 + 몸통 원(token_color) + 외곽선.
 	draw_circle(Vector2(0, 4), _RADIUS * 0.9, Color(0, 0, 0, 0.25 * a))
-	draw_circle(Vector2.ZERO, _RADIUS, Color(0.92, 0.78, 0.35, a))
+	var body := token_color
+	body.a *= a
+	draw_circle(Vector2.ZERO, _RADIUS, body)
 	draw_arc(Vector2.ZERO, _RADIUS, 0.0, TAU, 32, Color(0.25, 0.18, 0.08, a), 2.0, true)

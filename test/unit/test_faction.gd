@@ -6,14 +6,14 @@ const BLUE := Color(0.2, 0.3, 0.8)
 var territory: Object
 
 func before_each() -> void:
-	territory = load("res://scenes/territory/territory.gd").new("파리", {})
+	territory = load("res://scenes/territory/territory.gd").new("창천성", {})
 
-func _faction(name := "프랑스", color := BLUE) -> Object:
+func _faction(name := "푸른 왕국", color := BLUE) -> Object:
 	return load("res://scenes/faction/faction.gd").new(name, color)
 
 func test_init_sets_name_and_color() -> void:
-	var f := _faction("프랑스", BLUE)
-	assert_eq(f.name, "프랑스", "생성 시 이름 설정")
+	var f := _faction("푸른 왕국", BLUE)
+	assert_eq(f.name, "푸른 왕국", "생성 시 이름 설정")
 	assert_eq(f.color, BLUE, "생성 시 색상 설정")
 
 func test_territories_empty_on_create() -> void:

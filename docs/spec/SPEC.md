@@ -24,7 +24,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 ### 엔티티 (`entities/`)
 게임 내 데이터 모델. 각 문서에 속성(properties) 목록을 정리한다.
 
-- [Party](entities/Party.md) — 부대 (맵에서 움직이는 유닛 · 멤버 Human 보유 · 이동력=min·시야=max)
+- [Party](entities/Party.md) — 부대 (맵에서 움직이는 유닛 · 멤버 Human 보유 · 이동력=min·시야=max · 토큰 색)
 - [Human](entities/Human.md) — 사람 (능력치 · 자원, 순수 데이터). 주인공은 부대의 멤버
 - [Building](entities/Building.md) — 맵에 배치된 건물 (7헥스 · 종류 · 시야 · 소속 영지)
 - [Territory](entities/Territory.md) — 영지 (이름 · 모든 자원 보유 · 소속 건물)
@@ -37,6 +37,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Splash (스플래시)](features/splash.md)
 - [Title (타이틀 메뉴)](features/title.md)
 - [Map & Camera (맵과 카메라)](features/map-and-camera.md)
+- [Parties (부대 배치)](features/parties.md) — 유닛 카탈로그에서 플레이어 부대 + NPC 부대 3개 생성·배치 (NPC는 표시만)
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
@@ -51,6 +52,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 
 - [Resources (자원)](data/resources.md)
 - [Stats (능력치 정의)](data/stats.md)
+- [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 부대·멤버(이름·능력치·색) 데이터. game.gd가 여기서 부대 생성
 - [Buildings (건물 종류)](data/buildings.md)
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
 
@@ -70,6 +72,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
 | 사람(데이터) | `scenes/human/human.gd` |
+| 유닛·부대 카탈로그 | `scenes/party/unit_types.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 정보 패널 | `scenes/building/building_info.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |

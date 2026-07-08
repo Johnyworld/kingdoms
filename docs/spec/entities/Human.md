@@ -3,7 +3,7 @@
 > 스크립트: `scenes/human/human.gd` (`class_name Human extends RefCounted`)
 
 능력치와 자원을 보유하는 **순수 데이터** 사람. [부대(Party)](Party.md)의 멤버로 존재한다.
-**주인공은 이 Human의 객체**이자 주인공 부대의 멤버다 (`human_name = "테스트맨"`).
+**주인공은 이 Human의 객체**이자 주인공 부대의 멤버다 (`human_name = "아젤 하르윈"`). 부대 멤버는 [유닛 카탈로그](../data/units.md)에서 생성된다.
 
 시각 요소가 없는 데이터 엔티티라 씬(`.tscn`) 없이 스크립트만 둔다([Faction](Faction.md)·[Territory](Territory.md)와 동일 패턴).
 맵 위 표시·선택·이동은 개별 Human이 아니라 이들을 거느린 [부대(Party)](Party.md)가 담당한다.
@@ -14,7 +14,7 @@
 
 | 속성 | 변수 | 초기값 | 설명 |
 | --- | --- | --- | --- |
-| 이름 | `human_name` | `""` | 사람의 이름. `_init(p_name)`로 설정 가능. 주인공은 `"테스트맨"` |
+| 이름 | `human_name` | `""` | 사람의 이름. `_init(p_name)`로 설정 가능. 주인공은 `"아젤 하르윈"` |
 
 ### 능력치 (Stats)
 

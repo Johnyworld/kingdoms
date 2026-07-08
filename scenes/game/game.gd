@@ -15,6 +15,15 @@ const ZOOM_MAX := 3.0
 const ZOOM_STEP := 0.1
 const PAN_ZOOM_SPEED := 0.05   # 트랙패드 두 손가락 스크롤(PanGesture) delta.y → 줌 배율 계수
 
+const PARTY_SCENE := preload("res://scenes/party/party.tscn")
+
+# NPC 부대 배치 오프셋(맵 중앙 기준 칸). 초기 시야 안에 들도록 임시 배치한다.
+const NPC_OFFSETS := {
+	"qasim": Vector2i(5, 0),
+	"balthazar": Vector2i(0, -5),
+	"batur": Vector2i(-5, 1),
+}
+
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
 @onready var party = $Party
@@ -41,6 +50,7 @@ var _selected := false
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
 var _turn := TurnManager.new()
 var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
+var _npc_parties: Array = []    # NPC 부대(표시만 — 이동/선택/AI/안개 대상 아님).
 var _territories: Array = []    # 자원 수입을 받는 영지.
 var _buildings: Array = []      # 맵의 모든 건물(캠프 + 건설된 농장). 겹침 검사·추적용.
 
@@ -58,7 +68,7 @@ func _ready() -> void:
 	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), BuildingTypes.CAMP)
 	_buildings = [building]
 	_setup_faction()
-	_setup_party()
+	_setup_parties()
 	_place_party()
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
 	_update_fog()
@@ -106,26 +116,41 @@ func _center_camera() -> void:
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
 
-## 시작 영지("파리")를 만들어 세력("프랑스")에 편입하고, 캠프 건물을 그 영지에 넣는다.
-## 영지 초기 자원은 캠프 종류 카탈로그의 resources를 복사한다(인구 포함 7종).
+## 플레이어 시작 영지·세력을 유닛 카탈로그(플레이어 부대 스펙)에서 만든다.
+## 세력 "푸른 왕국" → 영지 "창천성"에 캠프를 넣는다. 초기 자원은 캠프 카탈로그 resources 복사.
 func _setup_faction() -> void:
 	var camp_spec := BuildingTypes.get_type(BuildingTypes.CAMP)
 	var start_res: Dictionary = (camp_spec.get("resources", {}) as Dictionary).duplicate(true)
-	var paris := Territory.new("파리", start_res)
-	var france := Faction.new("프랑스", Color(0.2, 0.3, 0.8))
-	france.add_territory(paris)
-	paris.add_building(building)
-	_territories = [paris]
+	var spec := UnitTypes.get_party(UnitTypes.PLAYER_ID)
+	var territory := Territory.new(spec["territory"], start_res)
+	var faction := Faction.new(spec["faction"], spec["color"])
+	faction.add_territory(territory)
+	territory.add_building(building)
+	_territories = [territory]
 
-## 주인공 부대의 멤버를 구성한다. 테스트맨(이동력 3) + 짐꾼(이동력 2).
-## 부대 이동력은 멤버 중 최소값이라 이 구성에서는 2가 된다.
-func _setup_party() -> void:
-	var testman := Human.new("테스트맨")
-	var porter := Human.new("짐꾼")
-	porter.movement = 2
-	party.add_member(testman)
-	party.add_member(porter)
-	party.commander = testman   # 주인공 부대의 지휘관은 테스트맨.
+## 부대를 유닛 카탈로그에서 생성한다.
+## 플레이어 부대(아젤 하르윈)는 기존 $Party 노드에 채우고 금색 유지.
+## NPC 부대 3개는 새로 인스턴스화해 세력 색으로 그리고 시작 지점 주변에 배치(표시만).
+func _setup_parties() -> void:
+	_populate_party(party, UnitTypes.PLAYER_ID)
+	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
+	for id in UnitTypes.NPC_IDS:
+		var p := PARTY_SCENE.instantiate()
+		add_child(p)
+		_populate_party(p, id)
+		p.token_color = UnitTypes.get_party(id)["color"]
+		p.position = terrain.map_to_local(center + NPC_OFFSETS[id])
+		_npc_parties.append(p)
+
+## 부대에 카탈로그 멤버를 채우고 이름·지휘관을 설정한다.
+func _populate_party(p, id: String) -> void:
+	var spec := UnitTypes.get_party(id)
+	p.party_name = spec["party_name"]
+	var members := UnitTypes.make_members(id)
+	for m in members:
+		p.add_member(m)
+	if not members.is_empty():
+		p.commander = members[0]
 
 ## 주인공 부대를 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_party() -> void:

@@ -45,7 +45,7 @@
 
 ## 게임 연동 (`game.gd`)
 
-- 게임 시작 시 `TurnManager`를 생성하고, 유닛 목록(주인공)·영지 목록(파리)을 보유한다.
+- 게임 시작 시 `TurnManager`를 생성하고, 유닛 목록(주인공 부대)·영지 목록(창천성)을 보유한다.
 - 턴 종료 버튼(`ended`) → `turn_manager.end_turn(units, territories)` → 유닛 강조/흐림 갱신 · HUD 턴 번호 갱신.
 
 ## 테스트 시나리오
