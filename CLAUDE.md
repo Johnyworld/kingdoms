@@ -24,17 +24,19 @@ kingdoms/
 │   └── tiles/               # 타일 이미지 (svg 등)
 ├── tiles/                   # 타일셋 리소스 (.tres)
 └── docs/
-    └── spec/                # 스펙 문서 (아래 구조 참고)
-        ├── SPEC.md
-        ├── entities/
-        ├── features/
-        └── data/
+    ├── spec/                # 스펙 문서 (아래 구조 참고)
+    │   ├── SPEC.md
+    │   ├── entities/
+    │   ├── features/
+    │   └── data/
+    └── plan/                # 사용자가 계획한 문서 (AI는 참고만, 수정 금지)
 ```
 
 규칙:
 - **씬은 기능 단위 폴더**로 묶고, 그 안에 씬 파일(`.tscn`)과 스크립트(`.gd`)를 함께 둔다.
 - **싱글턴**은 `autoload/`에 두고 `project.godot`의 `[autoload]`에 등록한다.
 - **원본 에셋**은 `assets/`, 이를 사용하는 **리소스(`.tres`)**는 종류별 폴더(예: `tiles/`)에 둔다.
+- **`docs/plan/*` 문서들은 AI 에이전트가 직접 수정하지 않는다.** 사용자가 계획한 문서이며, AI 에이전트는 참고용으로만 사용할 수 있다.
 
 ## 핵심 원칙: 스펙 · 테스트 · 코드는 항상 Sync
 
