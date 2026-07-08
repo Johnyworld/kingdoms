@@ -39,3 +39,18 @@ func test_explored_never_shrinks() -> void:
 	var before: int = fog._explored.size()
 	fog.update_visible(_cells([]))  # 시야가 완전히 사라져도
 	assert_eq(fog._explored.size(), before, "탐험 기록은 줄어들지 않는다")
+
+# --- 현재 시야 판정 (is_cell_visible) — NPC 부대 표시에 사용 ---
+
+func test_is_cell_visible_true_for_current() -> void:
+	fog.update_visible(_cells([Vector2i(4, 4)]))
+	assert_true(fog.is_cell_visible(Vector2i(4, 4)), "현재 시야 셀은 보임")
+
+func test_is_cell_visible_false_for_unseen() -> void:
+	fog.update_visible(_cells([Vector2i(4, 4)]))
+	assert_false(fog.is_cell_visible(Vector2i(9, 9)), "한 번도 본 적 없는 셀은 안 보임")
+
+func test_is_cell_visible_false_for_explored_only() -> void:
+	fog.update_visible(_cells([Vector2i(4, 4)]))  # 한 번 봄 → 탐험됨
+	fog.update_visible(_cells([Vector2i(5, 5)]))  # 시야가 옮겨감 → (4,4)는 탐험만 됨
+	assert_false(fog.is_cell_visible(Vector2i(4, 4)), "탐험만 되고 현재 시야 밖인 셀은 안 보임")

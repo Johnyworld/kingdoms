@@ -50,7 +50,7 @@ var _selected := false
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
 var _turn := TurnManager.new()
 var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
-var _npc_parties: Array = []    # NPC 부대(표시만 — 이동/선택/AI/안개 대상 아님).
+var _npc_parties: Array = []    # NPC 부대. 안개 표시·턴 리셋 대상. 일람·이동·AI는 아직 아님.
 var _territories: Array = []    # 자원 수입을 받는 영지.
 var _buildings: Array = []      # 맵의 모든 건물(캠프 + 건설된 농장). 겹침 검사·추적용.
 
@@ -181,6 +181,13 @@ func _update_fog() -> void:
 	for c in BuildPlanner.buildings_vision(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
 	fog.update_visible(visible)
+	_update_npc_visibility()
+
+## NPC 부대 토큰은 플레이어 현재 시야 안에 있을 때만 보이고, 시야 밖이면 안개에 가려 숨긴다.
+## (NPC는 시야를 밝히지 않으므로 _update_fog 시야 합산에는 넣지 않는다.)
+func _update_npc_visibility() -> void:
+	for p in _npc_parties:
+		p.visible = fog.is_cell_visible(terrain.local_to_map(p.position))
 
 ## 좌클릭 처리. 우선순위 판정은 순수 함수 ClickRouter.resolve에 위임하고 여기서는 실행만 한다.
 ## - 부대 우선(캠프 위 재클릭 시 메뉴) → 선택 중 이동(건물 위 통행) → 캠프 메뉴 → 건물 정보 → 선택 해제.
@@ -238,7 +245,8 @@ func _on_turn_ended() -> void:
 	if _selected:
 		_deselect()
 	_hide_party_info()
-	_turn.end_turn(_units, _territories)
+	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _units만 등록).
+	_turn.end_turn(_units + _npc_parties, _territories)
 	turn_hud.set_turn(_turn.number)
 	_update_fog()   # 건설이 완료된 농장이 있으면 그 시야를 안개에 반영.
 

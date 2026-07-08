@@ -20,11 +20,21 @@
   - 건물: `BuildPlanner.buildings_vision(terrain, _buildings, ...)` — 맵의 모든 건물 중 **완성된 것**만 `center_cell()` 기준 `building.vision` 반경으로 합친다. 건설 중 건물은 시야에 기여하지 않는다.
 - 이동 후(`_handle_click`)와 시작 시, 그리고 턴 종료 시(건설이 진행돼 농장이 완성되면 그 시야를 반영) 갱신.
 
+## NPC 부대 표시 (안개 반영)
+
+NPC [부대](../entities/Party.md) 토큰은 플레이어의 시야에 따라 보이거나 숨는다.
+
+- NPC 토큰은 플레이어의 **현재 시야 안에 있을 때만** 보인다. 시야 밖 셀에 있으면 안개에 가려 숨긴다(`Node2D.visible = false`).
+- NPC 부대는 플레이어의 시야를 **밝히지 않는다** — 적 부대이므로 `_update_fog`의 시야 합산에 기여하지 않는다.
+- 판정은 `fog.is_cell_visible(cell)` — 셀이 현재 시야(`_visible`)에 있으면 true. **탐험만 된 셀**(과거에 봤지만 지금은 시야 밖)은 false → NPC가 떠난 자리에 마지막 위치 잔상이 남지 않는다.
+- `game.gd` `_update_npc_visibility`가 `_update_fog` 갱신 직후 각 NPC 부대의 `visible`을 토글한다(시작 시·이동 후·턴 종료 시).
+
 ## 상태 (`fog.gd`)
 
 - `_visible` — 현재 시야에 들어온 셀 집합.
 - `_explored` — 한 번이라도 시야에 들어온 셀 집합 (영구 기록).
 - `update_visible(cells)` — 시야 갱신 + 새 셀을 탐험됨으로 기록 + 다시 그림.
+- `is_cell_visible(cell) -> bool` — 셀이 **현재 시야**(`_visible`)에 있는지. NPC 부대 표시 판정에 사용(탐험만 된 셀은 false).
 
 ## 성능 최적화
 
@@ -42,3 +52,6 @@
 - [정상] 새 `update_visible` 호출 시 현재 시야는 **교체**됨 (이전 시야 셀은 빠짐)
 - [정상] 한 번 본 셀은 탐험 기록(`_explored`)에 **누적**됨
 - [경계] 시야가 완전히 사라져도(`{}`) 탐험 기록은 **줄어들지 않음**
+- [정상] `is_cell_visible`은 현재 시야에 있는 셀에 대해 `true`
+- [예외] 한 번도 시야에 든 적 없는 셀은 `is_cell_visible`이 `false`
+- [경계] 봤다가 시야에서 벗어난 셀(탐험됨·현재 시야 밖)은 `is_cell_visible`이 `false`

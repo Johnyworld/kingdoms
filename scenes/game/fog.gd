@@ -34,6 +34,11 @@ func update_visible(cells: Dictionary) -> void:
 		_explored[c] = true
 	queue_redraw()
 
+## 셀이 현재 시야(_visible)에 있는지. NPC 부대 토큰 표시 판정에 쓴다.
+## 탐험만 된 셀(과거에 봤지만 지금은 시야 밖)은 false.
+func is_cell_visible(cell: Vector2i) -> bool:
+	return _visible.has(cell)
+
 func _process(_delta: float) -> void:
 	# 카메라가 움직이거나 줌이 바뀌어 보이는 셀 범위가 달라지면 다시 그린다.
 	if _terrain != null and _visible_cell_bounds() != _last_bounds:
