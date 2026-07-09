@@ -10,7 +10,8 @@ extends RefCounted
 ## - 맵 범위 [0, map_w) x [0, map_h) 밖은 제외한다.
 ## - blocked: 진입 불가 지형의 타일 source id 목록(예: 산). 그런 셀은 도달·통과 대상에서 제외한다.
 ##   시야는 지형에 막히지 않으므로 기본값 []로 두고, 이동 계산에서만 넘긴다.
-static func bfs_distances(terrain: TileMapLayer, start: Vector2i, max_dist: int, map_w: int, map_h: int, blocked: Array = []) -> Dictionary:
+## - blocked_cells: 진입 불가 개별 셀 집합({cell: true}). 유닛 점유 칸 등 지형과 무관한 장애물.
+static func bfs_distances(terrain: TileMapLayer, start: Vector2i, max_dist: int, map_w: int, map_h: int, blocked: Array = [], blocked_cells: Dictionary = {}) -> Dictionary:
 	var dist := {start: 0}
 	var frontier: Array[Vector2i] = [start]
 	while not frontier.is_empty():
@@ -22,6 +23,8 @@ static func bfs_distances(terrain: TileMapLayer, start: Vector2i, max_dist: int,
 			if not _in_bounds(n, map_w, map_h) or dist.has(n):
 				continue
 			if not blocked.is_empty() and terrain.get_cell_source_id(n) in blocked:
+				continue
+			if blocked_cells.has(n):
 				continue
 			dist[n] = d + 1
 			frontier.append(n)
@@ -38,8 +41,8 @@ static func cells_within(terrain: TileMapLayer, start: Vector2i, radius: int, ma
 ## - attack: **이동 가능 영역(+시작칸) 바로 바깥 한 칸**. 숲/습지로 이동이 짧아진 방향에서도
 ##   공격 링이 실제 이동 프런티어에 붙는다(평지에선 거리 move_range+1 링과 같다). 산 칸은 제외.
 ## - dist: 시작칸 포함 거리 맵 (산 제외). max_dist = move_range.
-static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int) -> Dictionary:
-	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE)
+static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Dictionary:
+	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE, blocked_cells)
 	var move_set := {}
 	var move_cells: Array[Vector2i] = []
 	for cell in dist:
@@ -69,13 +72,13 @@ static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: 
 	return {"move": move_cells, "attack": attack_cells, "dist": dist}
 
 ## start에서 dest까지 최단 헥스 경로(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적한다.
-## - 산(Terrain.IMPASSABLE)·맵 밖은 제외한다(이동 계산과 같은 규칙).
+## - 산(Terrain.IMPASSABLE)·맵 밖·blocked_cells(점유 칸)는 제외한다(이동 계산과 같은 규칙).
 ## - dest에 도달 불가하면 빈 배열, start == dest면 [start].
-## - NPC 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
-static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int) -> Array[Vector2i]:
+## - NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
+static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Array[Vector2i]:
 	if start == dest:
 		return [start]
-	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE)
+	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE, blocked_cells)
 	if not dist.has(dest):
 		return []
 	# dest에서 거리가 1씩 작은 이웃을 따라 start까지 거꾸로 짚어간다.

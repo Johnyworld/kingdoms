@@ -181,7 +181,7 @@ func _place_party() -> void:
 ## 공격 범위(빨강)는 그 이동 영역 바로 바깥 한 칸이다(자세히는 HexGrid.movement_ranges).
 func _update_ranges() -> void:
 	var start := terrain.local_to_map(party.position)
-	var ranges := HexGrid.movement_ranges(terrain, start, party.movement(), MAP_WIDTH, MAP_HEIGHT)
+	var ranges := HexGrid.movement_ranges(terrain, start, party.movement(), MAP_WIDTH, MAP_HEIGHT, _occupied_cells(party))
 	var move_cells: Array[Vector2i] = ranges["move"]
 	var attack_cells: Array[Vector2i] = ranges["attack"]
 	# 이동 판정은 지형 상한이 반영된 이동 목적지 집합으로 한다(원거리 map 거리로 판정하면 숲/습지 상한을 무시함).
@@ -266,6 +266,15 @@ func _npc_at(cell: Vector2i) -> Party:
 			return p
 	return null
 
+## exclude를 뺀 모든 부대(플레이어 + NPC)가 점유한 칸 집합({cell: true}). 이동 장애물로 넘긴다.
+func _occupied_cells(exclude) -> Dictionary:
+	var occ := {}
+	for p in [party] + _npc_parties:
+		if p == exclude:
+			continue
+		occ[terrain.local_to_map(p.position)] = true
+	return occ
+
 ## 주인공 부대를 선택하고 이동/공격 범위를 표시한다.
 func _select() -> void:
 	_selected = true
@@ -296,8 +305,9 @@ func _move_npcs() -> void:
 	var groups: Dictionary = {}
 	for p in _npc_parties:
 		var start := terrain.local_to_map(p.position)
-		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng)
-		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT)
+		var occ := _occupied_cells(p)   # 자기 외 모든 부대의 현재 위치를 장애물로.
+		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ)
+		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 		var f: String = p.faction_name
 		if not groups.has(f):
 			groups[f] = []
@@ -361,7 +371,7 @@ func _finish_pending_npc_moves() -> void:
 ## 플레이어 부대를 start_cell에서 dest_cell까지 경로 따라 애니메이션 이동한다.
 ## 이동 중에는 좌클릭을 잠그고(_player_moving), 각 칸 도착마다 _update_fog로 시야를 연다.
 func _move_player_to(start_cell: Vector2i, dest_cell: Vector2i) -> void:
-	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT)
+	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT, _occupied_cells(party))
 	_player_move_target = dest_cell
 	var tw := _animate_path(party, path, 0.0, func(_cell: Vector2i) -> void: _update_fog())
 	if tw == null:

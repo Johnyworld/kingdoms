@@ -208,3 +208,39 @@ func test_path_avoids_mountains() -> void:
 	var path := HexGrid.reconstruct_path(terrain, start, dest, 3, MAP, MAP)
 	for cell in path:
 		assert_false(terrain.get_cell_source_id(cell) == Terrain.MOUNTAIN, "경로에 산 칸 없음")
+
+# --- 유닛 점유(blocked_cells) — 다른 부대가 있는 칸을 장애물로 취급 ---
+
+func test_bfs_excludes_blocked_cell() -> void:
+	var start := _center()
+	var blocked: Vector2i = terrain.get_surrounding_cells(start)[0]
+	var dist := HexGrid.bfs_distances(terrain, start, 3, MAP, MAP, [], {blocked: true})
+	assert_false(dist.has(blocked), "점유 칸은 거리 맵에 없다(진입 불가)")
+
+func test_movement_ranges_excludes_occupied() -> void:
+	var start := _center()
+	var occ: Vector2i = terrain.get_surrounding_cells(start)[0]
+	var r := HexGrid.movement_ranges(terrain, start, 2, MAP, MAP, {occ: true})
+	assert_false(occ in r["move"], "점유된 이웃 칸은 이동 목적지에서 제외")
+
+func test_path_avoids_blocked_cell() -> void:
+	# 시작 이웃 하나를 점유로 막으면, 그 칸으로 향하는 목적지 경로는 우회한다.
+	var start := _center()
+	var dist := HexGrid.bfs_distances(terrain, start, 3, MAP, MAP, Terrain.IMPASSABLE)
+	var dest := start
+	for c in dist:
+		if dist[c] == 3:
+			dest = c
+			break
+	# dest로 가는 최단 경로의 첫 칸을 점유로 막는다. 우회로 거리가 늘 수 있어 이동력은 넉넉히(4).
+	var open_path := HexGrid.reconstruct_path(terrain, start, dest, 4, MAP, MAP)
+	var blocked: Vector2i = open_path[1]
+	var path := HexGrid.reconstruct_path(terrain, start, dest, 4, MAP, MAP, {blocked: true})
+	assert_false(blocked in path, "경로가 점유 칸을 우회")
+	assert_eq(path[path.size() - 1], dest, "우회해도 목적지에는 도달")
+
+func test_path_blocked_dest_returns_empty() -> void:
+	var start := _center()
+	var dest: Vector2i = terrain.get_surrounding_cells(start)[0]
+	var path := HexGrid.reconstruct_path(terrain, start, dest, 2, MAP, MAP, {dest: true})
+	assert_eq(path.size(), 0, "목적지가 점유 칸이면 도달 불가(빈 경로)")

@@ -61,3 +61,25 @@ func test_avoids_mountains() -> void:
 	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 1, MAP, MAP, _rng())
 	assert_eq(dest, open_cell, "산으로 막히면 유일한 초원 이웃으로 이동(산 칸은 목적지 아님)")
 	assert_false(terrain.get_cell_source_id(dest) == Terrain.MOUNTAIN, "목적지는 산이 아니다")
+
+# --- 유닛 점유(blocked_cells) 회피 ---
+
+func test_does_not_choose_occupied_cell() -> void:
+	# 이웃 6칸 중 5칸을 점유로 막으면 이동력 1 목적지는 남은 한 칸뿐.
+	var start := _center()
+	var neighbors := terrain.get_surrounding_cells(start)
+	var open_cell: Vector2i = neighbors[0]
+	var occ := {}
+	for i in range(1, neighbors.size()):
+		occ[neighbors[i]] = true
+	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 1, MAP, MAP, _rng(), occ)
+	assert_eq(dest, open_cell, "점유되지 않은 유일한 이웃으로 이동")
+	assert_false(occ.has(dest), "점유 칸은 목적지가 아니다")
+
+func test_all_neighbors_occupied_stays() -> void:
+	var start := _center()
+	var occ := {}
+	for n in terrain.get_surrounding_cells(start):
+		occ[n] = true
+	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 1, MAP, MAP, _rng(), occ)
+	assert_eq(dest, start, "이동력 1 + 이웃 전부 점유 → 제자리")

@@ -26,6 +26,16 @@
 > 건물이 이동을 막지 않는 것은 **BFS 범위 계산(`HexGrid`)이 건물을 장애물로 취급하지 않기** 때문이다(아래 범위 계산 참고). `ClickRouter`는 이동을 캠프 메뉴 열기보다 앞 순위에 둬 캠프 위로도 이동할 수 있게 한다.
 > 반면 **지형(산)은 이동을 막는다** — 건물이 아니라 타일 종류이며, BFS가 산 칸을 통과·진입 대상에서 제외한다([Terrain](../data/terrain.md)).
 
+## 유닛 점유(충돌)
+
+부대는 **다른 부대가 있는 칸을 통과하거나 그 칸에서 멈출 수 없다** — 점유된 칸을 산처럼 **완전 장애물**로 취급하며, BFS가 그 칸을 우회한다. 아군/적 구분 없이 **자기 외 모든 부대**([플레이어 부대 + NPC](../entities/Party.md))가 서로 막는다.
+
+- **건물은 계속 통행 가능**하다 — 충돌은 **유닛끼리만** 적용된다(건물 통행 규칙은 그대로).
+- 구현: `game.gd`가 "자기 외 모든 부대의 현재 칸" 집합(`_occupied_cells(exclude)`)을 만들어 `HexGrid`에 넘긴다. 이동 범위·클릭 이동 경로·NPC 목적지 계산이 모두 이를 반영한다.
+- `HexGrid`의 `bfs_distances`/`movement_ranges`/`reconstruct_path`는 **선택 인자 `blocked_cells: Dictionary`**(기본 `{}`)로 특정 칸을 막는다 — 산(`Terrain.IMPASSABLE` 지형)과 별개다. 시야 계산(`cells_within`)은 이 인자를 쓰지 않아 유닛에 막히지 않는다.
+- **점유는 이동(move)에만 반영**된다 — 공격 범위(빨강)는 점유 칸을 제외하지 않는다(인접한 적을 공격 대상으로 보는 게 자연스럽고, 전투가 아직 미구현이라 표시만 한다).
+- **점유 판정은 각 부대의 현재 칸**(`local_to_map(position)`)으로 한다. NPC 이동은 계획 전에 모두 목적지로 스냅되므로 정확하고, 드물게 NPC 애니메이션 중 플레이어가 이동하면 한 칸 근사일 수 있다(일시적).
+
 ## 범위 계산 (`_update_ranges` → `HexGrid.movement_ranges`)
 
 BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 분리되어 있다(시야 계산과 공유·테스트 용이).
@@ -43,7 +53,7 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 
 ### 경로 재구성 (`HexGrid.reconstruct_path`)
 
-`reconstruct_path(terrain, start, dest, move_range, map_w, map_h) -> Array[Vector2i]` — 시작에서 목적지까지 **최단 헥스 경로**(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적해 구한다. 산(`Terrain.IMPASSABLE`)·맵 밖은 제외한다. 도달 불가하면 빈 배열, `start == dest`면 `[start]`. NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
+`reconstruct_path(terrain, start, dest, move_range, map_w, map_h, blocked_cells := {}) -> Array[Vector2i]` — 시작에서 목적지까지 **최단 헥스 경로**(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적해 구한다. 산(`Terrain.IMPASSABLE`)·맵 밖·`blocked_cells`(점유 칸)는 제외한다. 도달 불가(목적지가 막혔거나 격리)하면 빈 배열, `start == dest`면 `[start]`. NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
 
 ### 이동 애니메이션 (`game.gd` `_animate_path`)
 
@@ -81,6 +91,10 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 - [지형] 같은 거리라도 숲(`ceil`)은 도달, 습지(`floor`)는 제외 — 이동력 1에서 확인
 - [지형] 공격 링이 이동 프런티어에 붙음 — 이동력 1 + 습지 이웃은 이동 불가지만 공격 범위엔 포함
 - [지형] 시야(`cells_within`)는 산에 막히지 않음(`blocked` 기본 `[]`)
+- [점유] `bfs_distances`에 `blocked_cells`로 준 칸은 거리 맵에 없음(진입 불가)
+- [점유] `movement_ranges`: 점유된 이웃 칸은 이동 목적지(move)에서 제외
+- [점유] `reconstruct_path`: 경로가 점유 칸을 우회(경로에 점유 칸 없음)
+- [점유] `reconstruct_path`: 목적지가 점유 칸이면 빈 경로(`[]`)
 
 ### 지형 이동 규칙 — `test/unit/test_terrain.gd`
 
