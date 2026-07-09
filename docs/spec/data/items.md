@@ -48,7 +48,7 @@
 
 ## 헬퍼
 
-- `weapon_attack(id) -> int` / `weapon_damage_type(id) -> String` — 없는(빈) id면 `0` / `""`.
+- `weapon_attack(id) -> int` / `weapon_damage_type(id) -> String` / `weapon_name(id) -> String` — 없는(빈) id면 `0` / `""` / `""`.
 - `armor_defense(id) -> int` / `armor_class(id) -> String` — 없는 id면 `0` / `""`.
 - `total_defense(ids: Array) -> int` — 방어구 id 목록의 방어력 합.
 - `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
@@ -63,7 +63,7 @@
 
 `test/unit/test_item_types.gd`.
 
-- [정상] `weapon_attack("sword") == 14`, `weapon_damage_type("wand") == "마법"`
+- [정상] `weapon_attack("sword") == 14`, `weapon_damage_type("wand") == "마법"`, `weapon_name("sword") == "검"`
 - [예외] 빈/없는 무기 id → `weapon_attack` `0`, `weapon_damage_type` `""`
 - [정상] `armor_defense("chain_mail") == 14`, `armor_class("robe") == "천"`
 - [정상] `total_defense`는 방어구 id 목록의 방어력 합

@@ -4,11 +4,13 @@ extends GutTest
 func test_weapon_attack_and_type() -> void:
 	assert_eq(ItemTypes.weapon_attack("sword"), 14, "검 공격력 14")
 	assert_eq(ItemTypes.weapon_damage_type("wand"), "마법", "완드 데미지 타입 마법")
+	assert_eq(ItemTypes.weapon_name("sword"), "검", "검 이름")
 
 func test_unknown_weapon_defaults() -> void:
 	assert_eq(ItemTypes.weapon_attack(""), 0, "빈 무기 공격력 0")
 	assert_eq(ItemTypes.weapon_attack("없음"), 0, "없는 무기 공격력 0")
 	assert_eq(ItemTypes.weapon_damage_type(""), "", "빈 무기 데미지 타입 빈 문자열")
+	assert_eq(ItemTypes.weapon_name(""), "", "빈 무기 이름 빈 문자열")
 
 func test_armor_defense_and_class() -> void:
 	assert_eq(ItemTypes.armor_defense("chain_mail"), 14, "사슬 갑옷 방어력 14")

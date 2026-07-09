@@ -43,6 +43,10 @@ static func weapon_attack(id: String) -> int:
 static func weapon_damage_type(id: String) -> String:
 	return WEAPONS.get(id, {}).get("damage_type", "")
 
+## 무기 이름(없는 id면 "").
+static func weapon_name(id: String) -> String:
+	return WEAPONS.get(id, {}).get("name", "")
+
 ## 방어구 방어력(없는 id면 0).
 static func armor_defense(id: String) -> int:
 	return ARMORS.get(id, {}).get("defense", 0)
