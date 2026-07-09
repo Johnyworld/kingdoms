@@ -46,6 +46,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Camp Menu (캠프 메뉴)](features/camp-menu.md) — 캠프 클릭 시 영지 자원·건축 메뉴
 - [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
+- [Combat (전투 판정)](features/combat.md) — 능력치 기반 1회 공방·3회 교대 교전 순수 로직(전투씬은 미구현)
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 
 ### 데이터 (`data/`)
@@ -70,6 +71,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 건설 가능 영역 오버레이 | `scenes/game/build_area_overlay.gd` |
 | 전장의 안개 | `scenes/game/fog.gd` |
 | NPC 이동 AI | `scenes/game/npc_ai.gd` |
+| 전투 판정 | `scenes/combat/combat_resolver.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
