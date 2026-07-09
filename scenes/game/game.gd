@@ -21,7 +21,7 @@ const PARTY_SCENE := preload("res://scenes/party/party.tscn")
 const NPC_OFFSETS := {
 	"qasim": Vector2i(5, 0),
 	"balthazar": Vector2i(0, -5),
-	"batur": Vector2i(-5, 1),
+	"batur": Vector2i(-7, 1),
 }
 
 @onready var terrain: TileMapLayer = $TerrainLayer
