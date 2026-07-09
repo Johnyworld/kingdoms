@@ -29,12 +29,17 @@ func test_destination_in_move_set() -> void:
 	var move_cells: Array = HexGrid.movement_ranges(terrain, start, 3, MAP, MAP)["move"]
 	assert_true(dest in move_cells, "목적지는 이동 가능 집합에 속한다")
 
-func test_destination_is_farthest() -> void:
-	# 초원에서는 이동 상한이 이동력 그대로라, 가장 먼 칸의 거리는 정확히 이동력이다.
+func test_wander_varies_distance() -> void:
+	# 배회는 거리 무관 무작위 — 여러 시드 중 최대 거리(3)보다 짧은 칸을 고르는 경우가 있어야 한다.
 	var start := _center()
-	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng())
 	var dist: Dictionary = HexGrid.movement_ranges(terrain, start, 3, MAP, MAP)["dist"]
-	assert_eq(dist[dest], 3, "목적지는 도달 가능한 최대 거리(=이동력) 칸")
+	var saw_shorter := false
+	for s in range(1, 30):
+		var dest: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(s))
+		if dist[dest] < 3:
+			saw_shorter = true
+			break
+	assert_true(saw_shorter, "배회는 최대 거리보다 짧은 칸도 고른다(항상 최대 이동력 아님)")
 
 func test_zero_movement_stays() -> void:
 	var start := _center()
@@ -83,3 +88,46 @@ func test_all_neighbors_occupied_stays() -> void:
 		occ[n] = true
 	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 1, MAP, MAP, _rng(), occ)
 	assert_eq(dest, start, "이동력 1 + 이웃 전부 점유 → 제자리")
+
+# --- 목표지향(targets) ---
+
+func _world_dist(a: Vector2i, b: Vector2i) -> float:
+	return terrain.map_to_local(a).distance_to(terrain.map_to_local(b))
+
+func test_moves_closer_to_target() -> void:
+	var start := _center()
+	var target := start + Vector2i(6, 0)   # 동쪽 멀리
+	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(), {}, [target])
+	assert_true(_world_dist(dest, target) < _world_dist(start, target), "타깃에 더 가까워지는 칸으로 이동")
+
+func test_destination_minimizes_distance_to_target() -> void:
+	var start := _center()
+	var target := start + Vector2i(6, 0)
+	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(), {}, [target])
+	# 이동 칸 전체에서 타깃과의 최소 거리를 직접 구해 비교.
+	var move_cells: Array = HexGrid.movement_ranges(terrain, start, 3, MAP, MAP)["move"]
+	var best := INF
+	for c in move_cells:
+		best = minf(best, _world_dist(c, target))
+	assert_almost_eq(_world_dist(dest, target), best, 0.01, "목적지는 타깃과의 거리가 최소인 칸")
+
+func test_nearest_of_multiple_targets() -> void:
+	var start := _center()
+	var far := start + Vector2i(6, 0)
+	var near := start + Vector2i(-2, 0)   # 서쪽 가까이
+	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(), {}, [far, near])
+	# 가장 가까운 타깃(near) 쪽으로 접근 → near에 더 가까워진다.
+	assert_true(_world_dist(dest, near) < _world_dist(start, near), "가장 가까운 타깃에 접근")
+
+func test_stays_when_cannot_get_closer() -> void:
+	var start := _center()
+	# 타깃이 시작 칸이면 어떤 이동칸도 더 가까워질 수 없다 → 제자리.
+	var dest: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(), {}, [start])
+	assert_eq(dest, start, "더 가까워지는 칸 없으면 제자리")
+
+func test_target_seeking_deterministic() -> void:
+	var start := _center()
+	var target := start + Vector2i(6, 0)
+	var a: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(9), {}, [target])
+	var b: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(9), {}, [target])
+	assert_eq(a, b, "같은 시드 → 같은 목적지")

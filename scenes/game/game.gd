@@ -378,8 +378,8 @@ func _move_npcs() -> void:
 	var groups: Dictionary = {}
 	for p in _npc_parties:
 		var start := terrain.local_to_map(p.position)
-		var occ := _occupied_cells(p)   # 자기 외 모든 부대의 현재 위치를 장애물로.
-		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ)
+		var occ := _occupied_cells(p)   # 자기 외 모든 부대의 현재 위치 = 이동 장애물이자 접근 타깃.
+		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, occ.keys())
 		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 		var f: String = p.faction_name
 		if not groups.has(f):
