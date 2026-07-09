@@ -22,3 +22,6 @@ mono_crash.*.json
 # 캡처 도구(tools/capture.gd) 산출물 — 생성물이라 추적하지 않음
 /_capture.png
 /_capture.png.import
+
+# 개인 할 일 메모 — 추적하지 않음
+/TODO.md
