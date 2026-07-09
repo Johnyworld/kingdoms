@@ -55,6 +55,15 @@ func vision() -> int:
 		v = maxi(v, h.vision)
 	return v
 
+## 부대 공격거리 = 멤버 무기 공격거리의 최대값(가장 사거리 긴 멤버). 멤버 없으면 0.
+func attack_range() -> int:
+	if members.is_empty():
+		return 0
+	var r := 0
+	for h in members:
+		r = maxi(r, ItemTypes.max_range(h.weapons))
+	return r
+
 ## 선택 상태를 바꾸고 다시 그린다.
 func set_selected(value: bool) -> void:
 	if selected == value:

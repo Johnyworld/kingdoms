@@ -58,9 +58,15 @@ func open(party) -> void:
 		child.free()   # 즉시 제거(다음 프레임까지 낡은 멤버 행이 남지 않도록)
 	for member in party.members:
 		var label := Label.new()
-		var weapon: String = ItemTypes.weapon_name(member.weapon)
+		var weapon: String = ItemTypes.weapon_name(ItemTypes.primary_weapon(member.weapons))
 		if weapon.is_empty():
 			weapon = "맨손"
+		# 무기를 여럿 들면 주무기 뒤에 보조무기 이름을 (+…)로 덧붙인다.
+		if member.weapons.size() > 1:
+			var extras: Array = []
+			for i in range(1, member.weapons.size()):
+				extras.append(ItemTypes.weapon_name(member.weapons[i]))
+			weapon += " (+%s)" % ", ".join(extras)
 		# 1줄: 이름·이동·시야, 2줄: 무기 · 공격(AT) · 방어(DF) · 회피(EV) [· 막기(방패 있을 때)].
 		label.text = "%s   이동 %d / 시야 %d\n  %s · 공격 %d · 방어 %d · 회피 %d" % [
 			member.human_name, member.movement, member.vision,

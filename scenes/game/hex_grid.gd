@@ -34,6 +34,26 @@ static func bfs_distances(terrain: TileMapLayer, start: Vector2i, max_dist: int,
 static func cells_within(terrain: TileMapLayer, start: Vector2i, radius: int, map_w: int, map_h: int, blocked: Array = []) -> Array:
 	return bfs_distances(terrain, start, radius, map_w, map_h, blocked).keys()
 
+## sources 중 어느 하나에서든 radius 이내인 셀 목록(다중 시작점 BFS). 맵 밖 제외, 지형 무관.
+## 공격 범위(이동 프런티어에서 공격거리 이내)를 구하는 데 쓴다.
+static func cells_within_any(terrain: TileMapLayer, sources: Array, radius: int, map_w: int, map_h: int) -> Array:
+	var dist := {}
+	var frontier: Array[Vector2i] = []
+	for s in sources:
+		if not dist.has(s):
+			dist[s] = 0
+			frontier.append(s)
+	while not frontier.is_empty():
+		var cur: Vector2i = frontier.pop_front()
+		var d: int = dist[cur]
+		if d >= radius:
+			continue
+		for n in terrain.get_surrounding_cells(cur):
+			if _in_bounds(n, map_w, map_h) and not dist.has(n):
+				dist[n] = d + 1
+				frontier.append(n)
+	return dist.keys()
+
 ## 이동력 기준 이동/공격 범위를 분할해 돌려준다(지형 반영).
 ## - 산(Terrain.IMPASSABLE)은 진입·통과 불가라 dist에서 아예 제외된다.
 ## - move: 각 셀의 지형 이동 상한(Terrain.move_cap) 이내로 도달 가능한 칸(시작칸 거리 0 제외).

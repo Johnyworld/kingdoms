@@ -31,7 +31,7 @@ func test_player_party_spec() -> void:
 
 func test_make_members_count_and_first() -> void:
 	var members: Array = types.make_members("azel")
-	assert_eq(members.size(), 4, "아젤 부대 4명")
+	assert_eq(members.size(), 5, "아젤 부대 5명(궁수 포함)")
 	assert_eq(members[0].human_name, "아젤 하르윈", "첫 멤버 = 지휘관")
 
 func test_make_members_stats_mapping() -> void:
@@ -48,17 +48,41 @@ func test_all_members_movement_vision_human_base() -> void:
 
 func test_members_get_faction_equipment() -> void:
 	var mage = types.make_members("balthazar")[0]
-	assert_eq(mage.weapon, "wand", "암흑 제국 멤버는 완드 장착")
+	assert_eq(mage.weapons, ["wand"], "암흑 제국 멤버는 완드 장착")
 	assert_false(mage.armor.is_empty(), "방어구 세트가 적용됨")
 
 func test_members_get_faction_shield() -> void:
 	assert_eq(types.make_members("azel")[0].shield, "round_shield", "푸른 왕국 멤버는 라운드 실드")
 
+func test_azel_commander_has_secondary_bow() -> void:
+	# 지휘관 아젤: 검+방패를 들고도 보조 활 — 다중 무기.
+	assert_eq(types.make_members("azel")[0].weapons, ["longsword", "bow"], "아젤은 장검+보조 활")
+
+func test_qasim_has_thrower() -> void:
+	# 투척 무기(javelin) 든 멤버가 사막 술탄국에 있다(곡도+투창).
+	var members: Array = types.make_members("qasim")
+	var thrower = null
+	for h in members:
+		if ItemTypes.throwing_weapon(h.weapons) == "javelin":
+			thrower = h
+	assert_not_null(thrower, "qasim에 투창(javelin) 든 멤버가 있다")
+	assert_eq(thrower.weapons, ["scimitar", "javelin"], "자밀라는 곡도+투창")
+
+func test_azel_has_ranged_member() -> void:
+	# 개별 override: 궁수 멤버는 부대 기본(장검·라운드실드)이 아니라 활·방패 없음.
+	var members: Array = types.make_members("azel")
+	var archer = null
+	for h in members:
+		if h.weapons == ["bow"]:
+			archer = h
+	assert_not_null(archer, "azel에 활(bow) 멤버가 있다")
+	assert_eq(archer.shield, "", "궁수는 방패 없음(개별 override)")
+
 func test_commander_name() -> void:
 	assert_eq(types.commander_name("qasim"), "카심 이븐 라시드", "지휘관 이름")
 
-func test_all_parties_have_four_members() -> void:
-	for id in _all_ids():
+func test_npc_parties_have_four_members() -> void:
+	for id in ["qasim", "balthazar", "batur"]:
 		assert_eq(types.make_members(id).size(), 4, "%s 멤버 4명" % id)
 
 # --- 경계 ---

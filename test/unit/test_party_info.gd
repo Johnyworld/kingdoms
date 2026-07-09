@@ -57,13 +57,21 @@ func test_member_label_has_name_and_stats() -> void:
 func test_member_label_shows_equipment() -> void:
 	var h := _human("전사", 3, 5)
 	h.strength = 78
-	h.weapon = "sword"                       # 공격력 14, AT = 14 + floor(78/5) = 29
+	h.weapons = ["sword"]                    # 공격력 14, AT = 14 + floor(78/5) = 29
 	h.armor = ["leather_armor"]              # 방어력 8
 	panel.open(_party([h]))
 	var text: String = (panel._member_list.get_child(0) as Label).text
 	assert_string_contains(text, "검", "장비 줄에 무기 이름 포함")
 	assert_string_contains(text, "29", "장비 줄에 공격(AT) 포함")
 	assert_string_contains(text, "8", "장비 줄에 방어(DF) 포함")
+
+func test_member_label_shows_secondary_weapon() -> void:
+	var h := _human("궁사겸용", 3, 5)
+	h.weapons = ["sword", "bow"]             # 주무기 검 + 보조 활
+	panel.open(_party([h]))
+	var text: String = (panel._member_list.get_child(0) as Label).text
+	assert_string_contains(text, "검", "주무기 이름 포함")
+	assert_string_contains(text, "단궁", "보조무기(활) 이름도 표시")
 
 func test_member_label_shows_barehand() -> void:
 	panel.open(_party([_human("맨손이", 3, 5)]))   # weapon "" → 맨손

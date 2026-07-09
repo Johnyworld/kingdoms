@@ -1,47 +1,50 @@
 class_name BattleSim
 extends RefCounted
 ## 오버레이 없이 두 부대의 교전 결과만 계산하는 순수 함수(테스트 용이).
-## 위치·이동을 무시하고 교전만 반복하는 추상 결산이라, 오버레이의 공간 전투와 결과가 다를 수 있다.
-## 플레이어가 보지 않는 NPC끼리 전투에만 쓴다. 판정은 CombatResolver 재사용.
+## 시간 기반 결산: BATTLE_TIME 동안 각 유닛이 최종 공격속도(초) 간격마다 상대에 1회 공격(resolve_hit)한다.
+## 위치·리치·투척은 무시하는 근사(공간 전투는 오버레이가 재현). 플레이어가 안 보는 NPC끼리 전투에만 쓴다.
 
-const MAX_ROUNDS := 20   # 양측이 계속 빗나가는 교착을 끊는 안전 상한.
+const BATTLE_TIME := 10.0   # 한 전투 지속 시간(초).
 
 ## a_members·b_members(Human 목록)의 교전을 결산한다. 반환: {a: 생존 human 목록, b: 생존 human 목록}.
-## 라운드마다 각 살아있는 유닛이 상대 팀의 살아있는 유닛 하나와 1회 교전한다.
-static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumberGenerator) -> Dictionary:
+## 각 유닛은 자기 공격 간격마다 상대 팀의 살아있는 유닛 하나를 공격한다(이산 이벤트 시뮬).
+static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumberGenerator, ranged_mode := false) -> Dictionary:
 	var units: Array = []
 	for h in a_members:
-		units.append({"human": h, "team": "a", "hp": int(h.hit_points), "alive": true})
+		units.append(_make_unit(h, "a", ranged_mode))
 	for h in b_members:
-		units.append({"human": h, "team": "b", "hp": int(h.hit_points), "alive": true})
+		units.append(_make_unit(h, "b", ranged_mode))
 
-	var rounds := 0
-	while _living(units, "a") and _living(units, "b") and rounds < MAX_ROUNDS:
-		rounds += 1
+	# 다음 공격 시점(next_t)이 가장 이른 유닛부터 처리. BATTLE_TIME을 넘으면 종료.
+	while true:
+		var actor: Dictionary = {}
+		var best_t := INF
 		for u in units:
-			if not u["alive"]:
-				continue
-			var enemy := _pick_enemy(units, u["team"])
-			if enemy.is_empty():
-				break   # 상대 팀 전멸 — 라운드 종료
-			var r := CombatResolver.resolve_engagement(u["human"], enemy["human"], u["hp"], enemy["hp"], rng)
-			u["hp"] = r["a_hp"]
-			enemy["hp"] = r["b_hp"]
-			if u["hp"] <= 0:
-				u["alive"] = false
-			if enemy["hp"] <= 0:
-				enemy["alive"] = false
+			if u["alive"] and u["can_attack"] and u["next_t"] < best_t:
+				best_t = u["next_t"]
+				actor = u
+		if actor.is_empty() or best_t > BATTLE_TIME:
+			break
+		var enemy := _pick_enemy(units, actor["team"])
+		if enemy.is_empty():
+			break   # 상대 팀 전멸
+		var r := CombatResolver.resolve_hit(actor["human"], enemy["human"], enemy["hp"], rng, actor["weapon"])
+		enemy["hp"] = r["hp"]
+		if enemy["hp"] <= 0:
+			enemy["alive"] = false
+		actor["next_t"] += actor["interval"]
 
 	return {"a": _survivors(units, "a"), "b": _survivors(units, "b")}
 
-## team의 살아있는 유닛이 하나라도 있는지.
-static func _living(units: Array, team: String) -> bool:
-	for u in units:
-		if u["team"] == team and u["alive"]:
-			return true
-	return false
+## Human을 전투 유닛으로 만든다. weapon = 모드별 활성 무기(근접=주무기, 원거리=활).
+## 원거리 모드에서 원거리 무기가 없으면 공격 불가(can_attack=false).
+static func _make_unit(h, team: String, ranged_mode: bool) -> Dictionary:
+	var w: String = ItemTypes.active_weapon(h.weapons, ranged_mode)
+	var can: bool = (not ranged_mode) or (w != "")
+	var interval: float = CombatResolver.attack_interval(h, w) if can else INF
+	return {"human": h, "team": team, "hp": int(h.hit_points), "alive": true, "weapon": w, "can_attack": can, "interval": interval, "next_t": interval}
 
-## team의 상대 팀에서 살아있는 유닛 하나(없으면 빈 Dictionary).
+## team의 상대 팀에서 살아있는 유닛 하나(없으면 빈 Dictionary). 위치가 없어 목록 앞쪽부터 고른다.
 static func _pick_enemy(units: Array, team: String) -> Dictionary:
 	for u in units:
 		if u["team"] != team and u["alive"]:

@@ -31,14 +31,15 @@ const CATALOG := {
 		"color": Color(0.2, 0.3, 0.8),
 		"territory": "창천성",
 		"commander": "아젤 하르윈",
-		"weapon": "longsword",
+		"weapons": ["longsword"],
 		"armor": ["leather_helm", "leather_armor", "leather_gloves", "leather_greaves"],
 		"shield": "round_shield",
 		"members": [
-			{"name": "아젤 하르윈", "strength": 78, "wisdom": 72, "agility": 65, "charm": 80, "luck": 55, "leadership": 88, "diligence": 82, "sensitivity": 45, "hit_points": 40, "stamina": 40, "morale": 90},
+			{"name": "아젤 하르윈", "strength": 78, "wisdom": 72, "agility": 65, "charm": 80, "luck": 55, "leadership": 88, "diligence": 82, "sensitivity": 45, "hit_points": 40, "stamina": 40, "morale": 90, "weapons": ["longsword", "bow"]},
 			{"name": "로엔 카스터", "strength": 70, "wisdom": 55, "agility": 68, "charm": 50, "luck": 48, "leadership": 42, "diligence": 65, "sensitivity": 50, "hit_points": 40, "stamina": 40, "morale": 75},
 			{"name": "미라 벨포드", "strength": 58, "wisdom": 62, "agility": 74, "charm": 66, "luck": 60, "leadership": 35, "diligence": 70, "sensitivity": 58, "hit_points": 40, "stamina": 40, "morale": 72},
 			{"name": "가레스 던", "strength": 82, "wisdom": 44, "agility": 60, "charm": 40, "luck": 52, "leadership": 30, "diligence": 60, "sensitivity": 38, "hit_points": 40, "stamina": 40, "morale": 68},
+			{"name": "엘윈 사수", "strength": 60, "wisdom": 58, "agility": 78, "charm": 55, "luck": 62, "leadership": 34, "diligence": 66, "sensitivity": 64, "hit_points": 40, "stamina": 40, "morale": 72, "weapons": ["bow"], "shield": ""},
 		],
 	},
 	"qasim": {
@@ -47,12 +48,12 @@ const CATALOG := {
 		"color": Color(0.78, 0.28, 0.22),
 		"territory": "",
 		"commander": "카심 이븐 라시드",
-		"weapon": "scimitar",
+		"weapons": ["scimitar"],
 		"armor": ["leather_helm", "leather_armor", "leather_greaves"],
 		"shield": "buckler",
 		"members": [
 			{"name": "카심 이븐 라시드", "strength": 75, "wisdom": 80, "agility": 62, "charm": 78, "luck": 58, "leadership": 85, "diligence": 78, "sensitivity": 52, "hit_points": 40, "stamina": 40, "morale": 88},
-			{"name": "자밀라", "strength": 55, "wisdom": 66, "agility": 72, "charm": 70, "luck": 64, "leadership": 38, "diligence": 68, "sensitivity": 60, "hit_points": 40, "stamina": 40, "morale": 74},
+			{"name": "자밀라", "strength": 55, "wisdom": 66, "agility": 72, "charm": 70, "luck": 64, "leadership": 38, "diligence": 68, "sensitivity": 60, "hit_points": 40, "stamina": 40, "morale": 74, "weapons": ["scimitar", "javelin"]},
 			{"name": "하산 알와히드", "strength": 76, "wisdom": 52, "agility": 64, "charm": 48, "luck": 50, "leadership": 33, "diligence": 62, "sensitivity": 42, "hit_points": 40, "stamina": 40, "morale": 70},
 			{"name": "유수프", "strength": 80, "wisdom": 46, "agility": 58, "charm": 44, "luck": 54, "leadership": 28, "diligence": 58, "sensitivity": 40, "hit_points": 40, "stamina": 40, "morale": 66},
 		],
@@ -63,7 +64,7 @@ const CATALOG := {
 		"color": Color(0.5, 0.24, 0.6),
 		"territory": "",
 		"commander": "발타자르",
-		"weapon": "wand",
+		"weapons": ["wand"],
 		"armor": ["cloth_hood", "robe"],
 		"members": [
 			{"name": "발타자르", "strength": 72, "wisdom": 84, "agility": 60, "charm": 66, "luck": 50, "leadership": 82, "diligence": 60, "sensitivity": 70, "hit_points": 40, "stamina": 40, "morale": 80},
@@ -78,7 +79,7 @@ const CATALOG := {
 		"color": Color(0.27, 0.55, 0.32),
 		"territory": "",
 		"commander": "바트르 칸",
-		"weapon": "battleaxe",
+		"weapons": ["battleaxe"],
 		"armor": ["chain_coif", "chain_mail"],
 		"shield": "tower_shield",
 		"members": [
@@ -102,7 +103,7 @@ static func commander_name(id: String) -> String:
 ## 없는 id면 빈 배열. Human(RefCounted)만 생성하므로 씬 트리 없이 동작한다.
 static func make_members(id: String) -> Array:
 	var spec := get_party(id)
-	var weapon: String = spec.get("weapon", "")
+	var weapons: Array = spec.get("weapons", [])
 	var armor: Array = spec.get("armor", [])
 	var shield: String = spec.get("shield", "")
 	var result: Array = []
@@ -112,8 +113,9 @@ static func make_members(id: String) -> Array:
 			h.set(key, m[key])
 		h.movement = HUMAN_MOVEMENT
 		h.vision = HUMAN_VISION
-		h.weapon = weapon
-		h.armor = armor.duplicate()   # 멤버끼리 배열 공유 방지
-		h.shield = shield
+		# 멤버 dict에 개별 장비가 있으면 부대 기본값을 덮어쓴다(예: 궁수, 다중 무기 지휘관).
+		h.weapons = (m["weapons"] if m.has("weapons") else weapons).duplicate()   # 멤버끼리 배열 공유 방지
+		h.armor = (m["armor"] if m.has("armor") else armor).duplicate()
+		h.shield = m.get("shield", shield)
 		result.append(h)
 	return result

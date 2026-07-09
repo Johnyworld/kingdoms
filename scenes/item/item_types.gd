@@ -3,16 +3,18 @@ class_name ItemTypes
 ## 기획 원본(docs/table/아이템/무기.md·방어구.md)에서 전투에 쓰는 필드만 옮긴 부분집합이다.
 ## 무게·공격거리·근접거리·생산비용·가치·부위 등은 미수록(관련 기능 도입 시 추가).
 
-# 무기: id → {name, attack, damage_type(참격|자돌|타격|원거리|마법)}.
+# 무기: id → {name, attack, damage_type(참격|자돌|타격|원거리|마법), weight, range, reach, attack_speed, throw_range?}.
+# reach(근접거리)=전투씬 근접 공격 개시 거리(원본 무기.md), 클수록 리치 김=선제. attack_speed=1회 공격 초(민첩 0 기준).
 const WEAPONS := {
-	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3},
-	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4},
-	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3},
-	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4},
-	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3},
-	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5},
-	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리", "weight": 2},
-	"wand": {"name": "완드", "attack": 8, "damage_type": "마법", "weight": 1},
+	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3, "range": 1, "reach": 1.2, "attack_speed": 2.0},
+	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4, "range": 1, "reach": 1.4, "attack_speed": 2.2},
+	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3, "range": 1, "reach": 1.1, "attack_speed": 1.8},
+	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4, "range": 1, "reach": 1.1, "attack_speed": 2.6},
+	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3, "range": 1, "reach": 2.0, "attack_speed": 2.4},
+	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5, "range": 1, "reach": 1.1, "attack_speed": 2.8},
+	"javelin": {"name": "투창", "attack": 10, "damage_type": "원거리", "weight": 2, "range": 1, "reach": 1.3, "attack_speed": 2.0, "throw_range": 2},
+	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리", "weight": 2, "range": 3, "reach": 0.7, "attack_speed": 3.3},
+	"wand": {"name": "완드", "attack": 8, "damage_type": "마법", "weight": 1, "range": 2, "reach": 0.5, "attack_speed": 2.6},
 }
 
 # 방어구: id → {name, defense, armor_class(천|가죽|사슬|판금)}.
@@ -58,6 +60,53 @@ static func weapon_name(id: String) -> String:
 ## 무기 무게(없는 id면 0).
 static func weapon_weight(id: String) -> int:
 	return WEAPONS.get(id, {}).get("weight", 0)
+
+## 무기 공격거리(헥스 거리). 없는(빈) id는 1(맨손 근접 기본).
+static func weapon_range(id: String) -> int:
+	return WEAPONS.get(id, {}).get("range", 1)
+
+## 투척 사거리(던지는 무기). 없거나 투척 불가면 0.
+static func weapon_throw_range(id: String) -> int:
+	return WEAPONS.get(id, {}).get("throw_range", 0)
+
+## 근접거리(리치). 전투씬 근접 공격 개시 거리 — 클수록 먼저 사거리에 들어와 선제. 맨손/없으면 1.0.
+static func weapon_reach(id: String) -> float:
+	return WEAPONS.get(id, {}).get("reach", 1.0)
+
+## 기본 공격속도(1회 공격 초, 민첩 0 기준). 맨손/없으면 2.0.
+static func weapon_attack_speed(id: String) -> float:
+	return WEAPONS.get(id, {}).get("attack_speed", 2.0)
+
+## --- 다중 무기(유닛은 무기 2~3개 소지, 첫 원소=주무기) ---
+
+## 주무기(목록 첫 원소). 비면 ""(맨손).
+static func primary_weapon(weapons: Array) -> String:
+	return weapons[0] if not weapons.is_empty() else ""
+
+## 목록 중 공격거리 ≥ 2인 첫 무기(활·완드 등). 없으면 "".
+static func ranged_weapon(weapons: Array) -> String:
+	for w in weapons:
+		if weapon_range(w) >= 2:
+			return w
+	return ""
+
+## 목록 중 throw_range > 0인 첫 무기(투창 등). 없으면 "".
+static func throwing_weapon(weapons: Array) -> String:
+	for w in weapons:
+		if weapon_throw_range(w) > 0:
+			return w
+	return ""
+
+## 목록 무기 공격거리의 최대값(월드맵 공격거리). 비면 1(맨손 근접).
+static func max_range(weapons: Array) -> int:
+	var r := 1
+	for w in weapons:
+		r = maxi(r, weapon_range(w))
+	return r
+
+## 전투에서 실제 쓸 무기. ranged_mode면 원거리 무기(없으면 "" → 공격 불가), 아니면 주무기.
+static func active_weapon(weapons: Array, ranged_mode: bool) -> String:
+	return ranged_weapon(weapons) if ranged_mode else primary_weapon(weapons)
 
 ## 방어구 방어력(없는 id면 0).
 static func armor_defense(id: String) -> int:

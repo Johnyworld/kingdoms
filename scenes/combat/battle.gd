@@ -7,20 +7,24 @@ extends CanvasLayer
 signal finished(a_survivors: Array, b_survivors: Array)
 
 const UNIT_SPEED := 260.0     # 토큰 이동 속도(px/s)
-const CONTACT_DIST := 46.0    # 이 거리 이하면 교전
-const ENGAGE_CD := 0.35       # 교전 후 쿨다운(초)
-const MAX_TIME := 20.0        # 안전 상한(무한 교착 방지)
+const MELEE_REACH_PX := 46.0  # 근접거리(리치) 1당 공격 개시 거리(px). 리치 긴 무기가 더 멀리서 선제
+const THROW_PX := 90.0        # 투척 사거리 1당 추가 거리(px)
+const BATTLE_TIME := 10.0     # 한 전투 지속 시간(초). 이 시간 동안 공격속도만큼 반복 공격
+const MAX_THROWS := 3         # 투척 무기 최대 투척 횟수(이후 근접 전환)
 const TOKEN_R := 18.0
+const PROJECTILE_TIME := 0.12 # 투사체가 대상까지 나는 시간(초)
 const END_DELAY := 0.6        # 종료 후 결과 방출까지 여유(마지막 상태 관전)
 
 var _units: Array = []
 var _rng := RandomNumberGenerator.new()
 var _elapsed := 0.0
 var _running := false
+var _ranged_mode := false   # 원거리 개시면 사거리<2 유닛은 정지(공격 불가)
 var _view: Control
 
-## 공격측(a)·방어측(b) 부대를 받아 전투를 시작한다.
-func start(attacker, defender) -> void:
+## 공격측(a)·방어측(b) 부대를 받아 전투를 시작한다. ranged_mode면 원거리 유닛만 행동한다.
+func start(attacker, defender, ranged_mode := false) -> void:
+	_ranged_mode = ranged_mode
 	layer = 60
 	_rng.randomize()
 	_build_bg()
@@ -49,10 +53,18 @@ func _spawn_team(party, team: String, x: float, vp: Vector2) -> void:
 		var pos := Vector2(x, lerpf(vp.y * 0.28, vp.y * 0.72, t))
 		var node := _make_token(party.token_color)
 		_view.add_child(node)
+		# 이 전투에서 쓸 무기(근접=주무기, 원거리=활). range는 그 무기의 공격거리.
+		var w: String = ItemTypes.active_weapon(members[i].weapons, _ranged_mode)
+		var thrw: String = ItemTypes.throwing_weapon(members[i].weapons)
+		var melee_reach: float = ItemTypes.weapon_reach(w) * MELEE_REACH_PX
 		var unit := {
 			"human": members[i], "team": team, "hp": int(members[i].hit_points),
 			"alive": true, "pos": pos, "cooldown": 0.0,
 			"node": node, "hp_label": node.get_node("hp"),
+			"weapon": w, "range": ItemTypes.weapon_range(w),
+			"melee_reach": melee_reach,
+			"throw": thrw, "throws": 0,
+			"throw_reach": melee_reach + ItemTypes.weapon_throw_range(thrw) * THROW_PX,
 		}
 		_units.append(unit)
 		_sync_node(unit)
@@ -74,42 +86,62 @@ func _process(delta: float) -> void:
 	if not _running:
 		return
 	_elapsed += delta
-	for u in _units:
-		if u["cooldown"] > 0.0:
-			u["cooldown"] = maxf(0.0, u["cooldown"] - delta)
+	if _elapsed >= BATTLE_TIME:
+		_finish()   # 전투 시간(10초) 종료
+		return
 
-	var engaged := {}   # 이번 프레임에 이미 교전한 human(중복 처리 방지)
 	for u in _units:
 		if not u["alive"]:
 			continue
-		var t: Dictionary = BattleField.nearest_enemy(u, _units)
+		if _ranged_mode and u["range"] < 2:
+			continue   # 원거리 개시: 원거리 무기 없는 근접 유닛은 닿지 않아 정지
+		u["cooldown"] = maxf(0.0, u["cooldown"] - delta)
+		var t: Dictionary = BattleField.nearest_enemy(u, _units)   # 매 프레임 최근접 적 재탐색
 		if t.is_empty():
 			continue
 		var dist: float = u["pos"].distance_to(t["pos"])
-		if dist <= CONTACT_DIST:
-			if u["cooldown"] <= 0.0 and t["cooldown"] <= 0.0 \
-					and not engaged.has(u["human"]) and not engaged.has(t["human"]):
-				_engage(u, t)
-				engaged[u["human"]] = true
-				engaged[t["human"]] = true
-		elif u["cooldown"] <= 0.0:
-			u["pos"] += (t["pos"] - u["pos"]).normalized() * UNIT_SPEED * delta
+		if u["range"] >= 2:
+			# 원거리(활·완드): 이동 없이 제자리에서 공격속도마다 사격.
+			if u["cooldown"] <= 0.0:
+				_attack(u, t, u["weapon"])
+		else:
+			# 근접/투척: 접근하며 투척 사거리에서 투척(최대 MAX_THROWS), 근접거리에서 근접 공격.
+			if u["throw"] != "" and u["throws"] < MAX_THROWS and dist > u["melee_reach"] and dist <= u["throw_reach"]:
+				if u["cooldown"] <= 0.0:
+					_attack(u, t, u["throw"])
+					u["throws"] += 1
+			if dist <= u["melee_reach"]:
+				if u["cooldown"] <= 0.0:
+					_attack(u, t, u["weapon"])
+			else:
+				u["pos"] += (t["pos"] - u["pos"]).normalized() * UNIT_SPEED * delta
 		_sync_node(u)
 
-	if BattleField.team_wiped(_units, "a") or BattleField.team_wiped(_units, "b") or _elapsed >= MAX_TIME:
+	# 한 팀 전멸 시 즉시 종료(시간 만료는 위에서 처리).
+	if BattleField.team_wiped(_units, "a") or BattleField.team_wiped(_units, "b"):
 		_finish()
 
-## 접촉한 두 유닛의 1회 교전. u가 접촉해 온 쪽이라 개시자(선공).
-func _engage(u: Dictionary, t: Dictionary) -> void:
-	var r := CombatResolver.resolve_engagement(u["human"], t["human"], u["hp"], t["hp"], _rng)
-	u["hp"] = r["a_hp"]
-	t["hp"] = r["b_hp"]
-	u["cooldown"] = ENGAGE_CD
-	t["cooldown"] = ENGAGE_CD
-	if u["hp"] <= 0:
-		_kill(u)
+## 1회 공격(일방). weapon으로 resolve_hit, 피해 적용, 쿨다운을 그 무기의 공격 간격으로 리셋.
+## 원거리·투척 무기면 투사체를 날린다.
+func _attack(u: Dictionary, t: Dictionary, weapon: String) -> void:
+	var r := CombatResolver.resolve_hit(u["human"], t["human"], t["hp"], _rng, weapon)
+	t["hp"] = r["hp"]
+	u["cooldown"] = CombatResolver.attack_interval(u["human"], weapon)
+	if ItemTypes.weapon_range(weapon) >= 2 or ItemTypes.weapon_throw_range(weapon) > 0:
+		_spawn_projectile(u["pos"], t["pos"])   # 원거리·투척 연출
 	if t["hp"] <= 0:
 		_kill(t)
+
+## 사수 위치에서 대상으로 작은 점을 날리는 시각 연출(피해는 이미 적용됨).
+func _spawn_projectile(from: Vector2, to: Vector2) -> void:
+	var dot := ColorRect.new()
+	dot.color = Color(1.0, 0.9, 0.4)
+	dot.size = Vector2(6, 6)
+	dot.position = from - Vector2(3, 3)
+	_view.add_child(dot)
+	var tw := create_tween()
+	tw.tween_property(dot, "position", to - Vector2(3, 3), PROJECTILE_TIME)
+	tw.tween_callback(dot.queue_free)
 
 func _kill(u: Dictionary) -> void:
 	u["alive"] = false

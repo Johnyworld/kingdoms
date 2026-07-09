@@ -94,6 +94,19 @@ func test_vision_is_max_of_members() -> void:
 	p.add_member(_human(2, 2))
 	assert_eq(p.vision(), 5, "시야는 멤버 중 최대값")
 
+func test_attack_range_is_max_of_members() -> void:
+	var p := _party()
+	var melee := _human()
+	melee.weapons = ["sword"]        # 공격거리 1
+	var archer := _human()
+	archer.weapons = ["sword", "bow"]   # 근접+활 → 최대 사거리 3
+	p.add_member(melee)
+	p.add_member(archer)
+	assert_eq(p.attack_range(), 3, "공격거리는 멤버별 최대 무기 사거리 중 최대")
+
+func test_attack_range_empty_zero() -> void:
+	assert_eq(_party().attack_range(), 0, "멤버 없으면 공격거리 0")
+
 # --- 턴당 1이동 상태 ---
 
 func test_can_move_by_default() -> void:

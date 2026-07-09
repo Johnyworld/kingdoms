@@ -192,14 +192,20 @@ func _update_ranges() -> void:
 	var move_range: int = party.movement() if party.can_move() else 0
 	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, _occupied_cells(party))
 	var move_cells: Array[Vector2i] = ranges["move"]
-	var attack_cells: Array[Vector2i] = ranges["attack"]
-	# 이동 판정은 지형 상한이 반영된 이동 목적지 집합으로, 공격 판정은 공격 범위 집합으로 한다.
+	# 이동 판정은 지형 상한이 반영된 이동 목적지 집합으로 한다.
 	_reachable = {}
 	for c in move_cells:
 		_reachable[c] = true
+	# 공격 범위 = 이동 프런티어(이동칸+시작칸)에서 부대 공격거리 이내 칸(이동칸·시작칸 제외).
+	var seeds := move_cells.duplicate()
+	seeds.append(start)
+	var attack_cells: Array[Vector2i] = []
 	_attackable = {}
-	for c in attack_cells:
+	for c in HexGrid.cells_within_any(terrain, seeds, party.attack_range(), MAP_WIDTH, MAP_HEIGHT):
+		if c == start or _reachable.has(c):
+			continue
 		_attackable[c] = true
+		attack_cells.append(c)
 	overlay.show_ranges(move_cells, attack_cells)
 
 ## 모든 시야원(주인공 부대 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
@@ -291,45 +297,56 @@ func _occupied_cells(exclude) -> Dictionary:
 		occ[terrain.local_to_map(p.position)] = true
 	return occ
 
-## 공격 범위(빨강)의 적을 공격한다. 인접하면 바로 전투하고, 아니면 적에 인접한
-## 도달 가능 칸으로 자동 이동한 뒤 전투한다.
+## 공격 범위(빨강)의 적을 공격한다. 적이 공격거리 이내면 그 자리에서(원거리 발사),
+## 아니면 적에 공격거리 이내인 도달 가능 칸으로 자동 이동한 뒤 전투한다.
 func _attack_enemy(enemy, enemy_cell: Vector2i) -> void:
 	var party_cell := terrain.local_to_map(party.position)
-	if enemy_cell in terrain.get_surrounding_cells(party_cell):
-		_begin_battle(enemy)   # 이미 인접 — 이동 없이 전투
+	# 적에 공격거리 이내인 칸 집합(사거리는 지형 무관).
+	var in_range := {}
+	for c in HexGrid.cells_within(terrain, enemy_cell, party.attack_range(), MAP_WIDTH, MAP_HEIGHT):
+		in_range[c] = true
+	if in_range.has(party_cell):
+		_begin_battle(enemy)   # 이미 사거리 안 — 이동 없이 전투
 		return
-	var stand := _stand_cell_next_to(enemy_cell)
+	var stand := _stand_cell_in_range(in_range)
 	if stand == party_cell:
-		_begin_battle(enemy)   # 인접 이동칸을 못 찾으면(예외) 제자리 전투
+		_begin_battle(enemy)   # 사거리 안 이동칸을 못 찾으면(예외) 제자리 전투
 		return
-	# 적에 인접한 이동칸으로 이동 후 전투.
+	# 적을 사거리 안에 두는 이동칸으로 이동 후 전투.
 	party.mark_moved()
 	_deselect()
 	_hide_party_info()
 	_move_player_to(party_cell, stand, enemy)
 
-## enemy_cell에 인접한 도달 가능 이동칸(빨강 아닌 파랑) 중 하나. 없으면 부대 현재 칸.
-func _stand_cell_next_to(enemy_cell: Vector2i) -> Vector2i:
-	for n in terrain.get_surrounding_cells(enemy_cell):
-		if _reachable.has(n):
-			return n
+## in_range(적에 사거리 이내 칸) 중 도달 가능한 이동칸 하나. 없으면 부대 현재 칸.
+func _stand_cell_in_range(in_range: Dictionary) -> Vector2i:
+	for c in in_range:
+		if _reachable.has(c):
+			return c
 	return terrain.local_to_map(party.position)
 
-## 플레이어가 인접 적에게 개시하는 전투. 공격은 플레이어 부대의 행동을 끝낸다(mark_attacked).
+## 플레이어가 적에게 개시하는 전투. 공격은 플레이어 부대의 행동을 끝낸다(mark_attacked).
+## 인접이 아니면(사거리 두고 침) 원거리 모드로 개시한다.
 func _begin_battle(defender) -> void:
 	party.mark_attacked()
 	if _selected:
 		_deselect()
 	_hide_party_info()
-	_run_battle(party, defender)   # 비차단(await로 백그라운드 진행)
+	_run_battle(party, defender, _is_ranged_engagement(party, defender))   # 비차단(await로 백그라운드 진행)
+
+## 개시 시 두 부대가 인접이 아니면(떨어져 있으면) 원거리 전투로 본다.
+func _is_ranged_engagement(a, b) -> bool:
+	var acell := terrain.local_to_map(a.position)
+	var bcell := terrain.local_to_map(b.position)
+	return acell != bcell and not (bcell in terrain.get_surrounding_cells(acell))
 
 ## 오버레이 전투를 띄우고 관전한다(입력 잠금). 종료까지 await 후 사상자를 반영한다.
 ## 플레이어가 참여하는 전투에 쓴다(공격 페이즈에서도 순차 await).
-func _run_battle(attacker, defender) -> void:
+func _run_battle(attacker, defender, ranged := false) -> void:
 	_in_battle = true
 	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
-	overlay.start(attacker, defender)
+	overlay.start(attacker, defender, ranged)
 	var result: Array = await overlay.finished   # [a_survivors, b_survivors]
 	_apply_survivors(attacker, result[0])
 	_apply_survivors(defender, result[1])
@@ -339,8 +356,8 @@ func _run_battle(attacker, defender) -> void:
 	party_roster.set_parties(_units)
 
 ## NPC끼리 전투를 화면 없이 즉시 결산한다(BattleSim). 사상자만 반영.
-func _resolve_battle_headless(attacker, defender) -> void:
-	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng)
+func _resolve_battle_headless(attacker, defender, ranged := false) -> void:
+	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, ranged)
 	_apply_survivors(attacker, result["a"])
 	_apply_survivors(defender, result["b"])
 
@@ -418,19 +435,23 @@ func _npc_attack_phase(epoch: int) -> void:
 		if target == null:
 			continue
 		attacker.mark_attacked()
+		var ranged := _is_ranged_engagement(attacker, target)
 		if target == party:
-			await _run_battle(attacker, target)   # 플레이어가 방어 → 오버레이 관전
+			await _run_battle(attacker, target, ranged)   # 플레이어가 방어 → 오버레이 관전
 		else:
-			_resolve_battle_headless(attacker, target)   # NPC끼리 → 즉시 결산
+			_resolve_battle_headless(attacker, target, ranged)   # NPC끼리 → 즉시 결산
 	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
 
-## attacker에 인접한(이웃 헥스) 자기 외 부대를 찾는다(멤버 있는 것만). 없으면 null.
+## attacker의 공격거리 이내에 있는 자기 외 부대를 찾는다(멤버 있는 것만). 없으면 null.
+## (NPC가 사거리를 유지하며 포지셔닝하는 AI는 미구현 — 접근해 붙은 뒤 사거리 판정만 반영.)
 func _adjacent_enemy(attacker):
-	var neighbors := terrain.get_surrounding_cells(terrain.local_to_map(attacker.position))
+	var in_range := {}
+	for c in HexGrid.cells_within(terrain, terrain.local_to_map(attacker.position), attacker.attack_range(), MAP_WIDTH, MAP_HEIGHT):
+		in_range[c] = true
 	for other in [party] + _npc_parties:
 		if other == attacker or other.members.is_empty():
 			continue
-		if terrain.local_to_map(other.position) in neighbors:
+		if in_range.has(terrain.local_to_map(other.position)):
 			return other
 	return null
 

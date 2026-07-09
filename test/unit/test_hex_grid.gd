@@ -136,6 +136,28 @@ func test_vision_ignores_mountains() -> void:
 
 # --- hex_polygon / region_outline (건설 가능 영역 윤곽선) ---
 
+func _to_set(a: Array) -> Dictionary:
+	var d := {}
+	for c in a:
+		d[c] = true
+	return d
+
+func test_cells_within_any_single_source_equals_cells_within() -> void:
+	var c := _center()
+	var multi := _to_set(HexGrid.cells_within_any(terrain, [c], 2, MAP, MAP))
+	var single := _to_set(HexGrid.cells_within(terrain, c, 2, MAP, MAP))
+	assert_eq(multi, single, "시작점 하나면 cells_within과 동일")
+
+func test_cells_within_any_is_union() -> void:
+	var c := _center()
+	var n: Vector2i = terrain.get_surrounding_cells(c)[3]
+	var cells := _to_set(HexGrid.cells_within_any(terrain, [c, n], 1, MAP, MAP))
+	# 두 시작점 각각의 반경 1을 모두 포함(합집합).
+	for x in HexGrid.cells_within(terrain, c, 1, MAP, MAP):
+		assert_true(cells.has(x), "c의 반경 포함")
+	for x in HexGrid.cells_within(terrain, n, 1, MAP, MAP):
+		assert_true(cells.has(x), "n의 반경 포함")
+
 func test_hex_polygon_has_six_vertices() -> void:
 	assert_eq(HexGrid.hex_polygon(terrain, _center()).size(), 6, "헥스 꼭짓점 6개")
 

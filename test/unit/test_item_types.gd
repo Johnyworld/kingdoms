@@ -32,6 +32,53 @@ func test_unknown_shield_defaults() -> void:
 	assert_eq(ItemTypes.shield_block("없음"), 0, "없는 방패 막기 0")
 	assert_eq(ItemTypes.shield_name(""), "", "빈 방패 이름 빈 문자열")
 
+func test_weapon_range() -> void:
+	assert_eq(ItemTypes.weapon_range("bow"), 3, "단궁 공격거리 3")
+	assert_eq(ItemTypes.weapon_range("sword"), 1, "검 공격거리 1")
+	assert_eq(ItemTypes.weapon_range(""), 1, "맨손은 근접 사거리 1")
+
+func test_weapon_reach() -> void:
+	assert_almost_eq(ItemTypes.weapon_reach("spear"), 2.0, 0.001, "장창 리치 2.0(가장 김)")
+	assert_almost_eq(ItemTypes.weapon_reach("sword"), 1.2, 0.001, "검 리치 1.2")
+	assert_almost_eq(ItemTypes.weapon_reach("scimitar"), 1.1, 0.001, "곡도 리치 1.1")
+	assert_almost_eq(ItemTypes.weapon_reach(""), 1.0, 0.001, "맨손 리치 1.0")
+
+func test_weapon_attack_speed() -> void:
+	assert_almost_eq(ItemTypes.weapon_attack_speed("sword"), 2.0, 0.001, "검 공격속도 2.0초")
+	assert_almost_eq(ItemTypes.weapon_attack_speed("bow"), 3.3, 0.001, "단궁 공격속도 3.3초")
+	assert_almost_eq(ItemTypes.weapon_attack_speed("scimitar"), 1.8, 0.001, "곡도 공격속도 1.8초")
+	assert_almost_eq(ItemTypes.weapon_attack_speed(""), 2.0, 0.001, "맨손 기본 공격속도 2.0초")
+
+func test_throw_range() -> void:
+	assert_eq(ItemTypes.weapon_range("javelin"), 1, "투창은 월드맵 근접(사거리 1)")
+	assert_eq(ItemTypes.weapon_throw_range("javelin"), 2, "투창 투척 사거리 2")
+	assert_eq(ItemTypes.weapon_throw_range("sword"), 0, "검은 투척 불가 0")
+	assert_eq(ItemTypes.weapon_throw_range(""), 0, "빈 무기 투척 0")
+
+func test_throwing_weapon() -> void:
+	assert_eq(ItemTypes.throwing_weapon(["scimitar", "javelin"]), "javelin", "목록 중 투척 무기")
+	assert_eq(ItemTypes.throwing_weapon(["sword", "bow"]), "", "투척 무기 없으면 빈 문자열")
+
+func test_primary_weapon() -> void:
+	assert_eq(ItemTypes.primary_weapon(["sword", "bow"]), "sword", "주무기는 목록 첫 원소")
+	assert_eq(ItemTypes.primary_weapon([]), "", "빈 목록이면 맨손")
+
+func test_ranged_weapon() -> void:
+	assert_eq(ItemTypes.ranged_weapon(["sword", "bow"]), "bow", "목록 중 원거리 무기(활)")
+	assert_eq(ItemTypes.ranged_weapon(["wand", "sword"]), "wand", "완드도 원거리(사거리 2)")
+	assert_eq(ItemTypes.ranged_weapon(["sword"]), "", "원거리 무기 없으면 빈 문자열")
+
+func test_max_range() -> void:
+	assert_eq(ItemTypes.max_range(["sword", "bow"]), 3, "보유 무기 중 최대 공격거리")
+	assert_eq(ItemTypes.max_range(["sword"]), 1, "근접만이면 1")
+	assert_eq(ItemTypes.max_range([]), 1, "맨손은 근접 사거리 1")
+
+func test_active_weapon() -> void:
+	assert_eq(ItemTypes.active_weapon(["sword", "bow"], false), "sword", "근접 전투 → 주무기")
+	assert_eq(ItemTypes.active_weapon(["sword", "bow"], true), "bow", "원거리 전투 → 활")
+	assert_eq(ItemTypes.active_weapon(["sword"], true), "", "원거리 무기 없으면 공격 불가(빈 문자열)")
+	assert_eq(ItemTypes.active_weapon([], false), "", "맨손 근접")
+
 func test_weights() -> void:
 	assert_eq(ItemTypes.weapon_weight("sword"), 3, "검 무게 3")
 	assert_eq(ItemTypes.armor_weight("chain_mail"), 8, "사슬 갑옷 무게 8")

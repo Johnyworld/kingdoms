@@ -8,9 +8,16 @@ func _human(strength := 0, agility := 0, luck := 0, hp := 40, weapon := "", armo
 	h.agility = agility
 	h.luck = luck
 	h.hit_points = hp
-	h.weapon = weapon
+	h.weapons = ([] if weapon == "" else [weapon])
 	h.armor = armor
 	h.shield = shield
+	return h
+
+func _human_weapons(strength := 0, weapons := []) -> Object:
+	var h: Object = load("res://scenes/human/human.gd").new()
+	h.strength = strength
+	h.agility = 0   # 공격 간격 테스트가 민첩 0 기준이 되도록 명시
+	h.weapons = weapons
 	return h
 
 func _rng(seed_val := 1) -> RandomNumberGenerator:
@@ -26,6 +33,16 @@ func test_attack_power_floor_of_strength_over_five() -> void:
 
 func test_attack_power_includes_weapon() -> void:
 	assert_eq(CombatResolver.attack_power(_human(78, 0, 0, 40, "sword")), 29, "검(14)+floor(78/5)=29")
+
+func test_attack_power_uses_primary_by_default() -> void:
+	# 검+활 소지 → 인자 생략 시 주무기(검, 14) 기준.
+	var h := _human_weapons(78, ["sword", "bow"])
+	assert_eq(CombatResolver.attack_power(h), 29, "생략 시 주무기 검(14)+15=29")
+
+func test_attack_power_explicit_weapon() -> void:
+	# 무기 id를 명시하면 그 무기로 계산 — 활(12)+15=27.
+	var h := _human_weapons(78, ["sword", "bow"])
+	assert_eq(CombatResolver.attack_power(h, "bow"), 27, "활(12)+floor(78/5)=27")
 
 func test_defense_sums_armor() -> void:
 	assert_eq(CombatResolver.defense(_human()), 0, "맨몸 방어력 0")
@@ -49,6 +66,11 @@ func test_equip_weight_sums() -> void:
 	# 검(3) + 사슬갑옷(8) + 타워실드(8) = 19.
 	var h := _human(0, 0, 0, 40, "sword", ["chain_mail"], "tower_shield")
 	assert_eq(CombatResolver.equip_weight(h), 19, "무기+방어구+방패 무게 합")
+
+func test_equip_weight_sums_all_weapons() -> void:
+	# 검(3) + 활(2) = 5 — 보유 무기 전부의 무게를 합산.
+	var h := _human_weapons(0, ["sword", "bow"])
+	assert_eq(CombatResolver.equip_weight(h), 5, "여러 무기 무게 전부 합산")
 
 func test_evasion_reduced_by_weight() -> void:
 	# 민첩 40 → 기본 20. 검(3)+사슬갑옷(8) 무게 11 → 20 − 11×0.3 = 20 − 3.3 = 16.7.
@@ -141,35 +163,26 @@ func test_no_shield_never_blocks() -> void:
 	var r := CombatResolver.resolve_hit(atk, def, 40, _rng())
 	assert_false(r["blocked"], "방패 없으면 막기 없음")
 
-# --- 교전 (resolve_engagement) ---
+# --- 공격 간격 (attack_interval, 시간 기반 전투) ---
 
-func test_engagement_all_miss_no_deaths() -> void:
-	var a := _human(78, 200)   # 둘 다 회피 100 → 항상 빗나감
-	var b := _human(78, 200)
-	var r := CombatResolver.resolve_engagement(a, b, 40, 40, _rng())
-	assert_eq(r["a_hp"], 40, "빗나가기만 하면 a hp 불변")
-	assert_eq(r["b_hp"], 40, "빗나가기만 하면 b hp 불변")
-	assert_false(r["a_dead"], "생존")
-	assert_false(r["b_dead"], "생존")
+func test_attack_interval_base_at_zero_agility() -> void:
+	# 민첩 0 → 무기 기본 공격속도 그대로. 검 2.0초.
+	assert_almost_eq(CombatResolver.attack_interval(_human(0, 0, 0, 40, "sword")), 2.0, 0.001, "민첩 0이면 기본 공격속도")
 
-func test_engagement_initiator_one_shots_and_takes_no_hit() -> void:
-	var a := _human(1000, 0, 0)     # AT 200 → 한 방에 즉사시킴
-	var b := _human(0, -100, 0)     # 회피 음수 → a의 공격 항상 명중
-	var r := CombatResolver.resolve_engagement(a, b, 40, 40, _rng())
-	assert_true(r["b_dead"], "개시자 선공에 대상 전투불능")
-	assert_false(r["a_dead"], "선공 이점 — 대상이 먼저 죽어 반격 없음")
-	assert_eq(r["a_hp"], 40, "개시자 hp 불변")
+func test_attack_interval_reduced_by_agility() -> void:
+	# 민첩 60 → 검 2.0 × (1 − 60×0.005) = 2.0 × 0.7 = 1.4초.
+	assert_almost_eq(CombatResolver.attack_interval(_human(0, 60, 0, 40, "sword")), 1.4, 0.001, "민첩이 공격 간격을 줄인다")
 
-func test_engagement_hp_never_increases() -> void:
-	var a := _human(50, 20, 40)
-	var b := _human(50, 20, 40)
-	var r := CombatResolver.resolve_engagement(a, b, 40, 40, _rng(3))
-	assert_true(r["a_hp"] <= 40, "a hp는 초기값을 넘지 않음")
-	assert_true(r["b_hp"] <= 40, "b hp는 초기값을 넘지 않음")
+func test_attack_interval_floor() -> void:
+	# 극단적으로 빠른 민첩이라도 하한(0.4초) 아래로 못 감.
+	assert_almost_eq(CombatResolver.attack_interval(_human(0, 500, 0, 40, "sword")), 0.4, 0.001, "공격 간격 하한 0.4초")
 
-func test_engagement_deterministic_same_seed() -> void:
-	var a := _human(50, 20, 40)
-	var b := _human(50, 20, 40)
-	var r1 := CombatResolver.resolve_engagement(a, b, 40, 40, _rng(5))
-	var r2 := CombatResolver.resolve_engagement(a, b, 40, 40, _rng(5))
-	assert_eq(r1, r2, "같은 시드 → 같은 결과")
+func test_attack_interval_explicit_weapon() -> void:
+	# 무기 명시 — 검+활 소지자에 활(기본 3.3) 지정, 민첩 0 → 3.3초.
+	var h := _human_weapons(0, ["sword", "bow"])
+	assert_almost_eq(CombatResolver.attack_interval(h, "bow"), 3.3, 0.001, "명시 무기(활)의 공격속도 사용")
+
+func test_attack_interval_uses_primary_by_default() -> void:
+	# 생략 시 주무기(곡도 1.8) 기준.
+	var h := _human_weapons(0, ["scimitar", "javelin"])
+	assert_almost_eq(CombatResolver.attack_interval(h), 1.8, 0.001, "생략 시 주무기 공격속도")
