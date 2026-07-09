@@ -39,7 +39,7 @@
 
 - 능력치 매핑: `strength`(힘) `wisdom`(지혜) `agility`(민첩) `charm`(매력) `luck`(행운) `leadership`(지휘력) `diligence`(성실함) `sensitivity`(예민함) `hit_points`(생명점) `stamina`(스태미나) `morale`(사기).
 - **이동력·시야**: 유닛.md에 개별값이 없어 종족(인간) 기본값 `movement = 4`, `vision = 7`을 모든 멤버에 적용한다.
-- **장비**: 부대 스펙의 `weapon`([ItemTypes](items.md) 무기 id)·`armor`(방어구 id 목록)를 그 부대의 **모든 멤버**에 적용한다(멤버별 개별 장비는 미구현). 세력마다 다른 세트로 상성 다양성을 준다 — 푸른왕국 장검+가죽, 사막술탄국 곡도+가죽, 암흑제국 완드(마법)+천, 초원칸국 전투도끼+사슬.
+- **장비**: 부대 스펙의 `weapon`([ItemTypes](items.md) 무기 id)·`armor`(방어구 id 목록)·`shield`(방패 id)를 그 부대의 **모든 멤버**에 적용한다(멤버별 개별 장비는 미구현). 세력마다 다른 세트로 상성 다양성을 준다 — 푸른왕국 장검+가죽+라운드실드, 사막술탄국 곡도+가죽+버클러, 암흑제국 완드(마법)+천(방패 없음), 초원칸국 전투도끼+사슬+타워실드.
 - 예시 앵커값 — 아젤 하르윈: `strength = 78`, `leadership = 88`, `morale = 90`.
 
 ## API
@@ -63,6 +63,7 @@
 - [정상] `make_members("azel")` 첫 멤버의 `strength == 78`, `leadership == 88`, `morale == 90` (유닛.md 매핑 확인)
 - [정상] 모든 멤버 `movement == 4`, `vision == 7` (인간 기본값)
 - [정상] `make_members("balthazar")` 멤버의 `weapon == "wand"`, `armor`에 방어구 id 포함(세력 장비 적용)
+- [정상] `make_members("azel")` 멤버의 `shield == "round_shield"`(세력 방패 적용)
 - [정상] `commander_name("qasim") == "카심 이븐 라시드"`
 - [경계] 없는 id → `get_party` 빈 Dictionary, `make_members` 빈 배열
 - [정상] 네 부대 모두 멤버 수 4

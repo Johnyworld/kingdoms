@@ -70,6 +70,16 @@ func test_member_label_shows_barehand() -> void:
 	var text: String = (panel._member_list.get_child(0) as Label).text
 	assert_string_contains(text, "맨손", "무기 없으면 '맨손' 표시")
 
+func test_member_label_shows_shield_block() -> void:
+	var shielded := _human("방패병", 3, 5)
+	shielded.shield = "tower_shield"   # 막기 40%
+	panel.open(_party([shielded]))
+	assert_string_contains((panel._member_list.get_child(0) as Label).text, "막기", "방패 들면 막기 표시")
+
+func test_member_label_no_shield_no_block() -> void:
+	panel.open(_party([_human("무방패", 3, 5)]))   # shield ""
+	assert_false("막기" in (panel._member_list.get_child(0) as Label).text, "방패 없으면 막기 미표시")
+
 func test_empty_party() -> void:
 	panel.open(_party([]))
 	assert_eq(panel._summary.text, "이동력 0 · 시야 0", "멤버 없으면 이동력·시야 0")

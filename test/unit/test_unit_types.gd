@@ -51,6 +51,9 @@ func test_members_get_faction_equipment() -> void:
 	assert_eq(mage.weapon, "wand", "암흑 제국 멤버는 완드 장착")
 	assert_false(mage.armor.is_empty(), "방어구 세트가 적용됨")
 
+func test_members_get_faction_shield() -> void:
+	assert_eq(types.make_members("azel")[0].shield, "round_shield", "푸른 왕국 멤버는 라운드 실드")
+
 func test_commander_name() -> void:
 	assert_eq(types.commander_name("qasim"), "카심 이븐 라시드", "지휘관 이름")
 

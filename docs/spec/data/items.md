@@ -35,6 +35,17 @@
 | `chain_coif` | 사슬 코이프 | 6 | 사슬 |
 | `chain_mail` | 사슬 갑옷 | 14 | 사슬 |
 
+## 방패 (`ItemTypes.SHIELDS`)
+
+`{id: {name, defense, block}}`. `defense`는 DF에 합산, `block`은 막기 확률(%). 유닛은 방패 id 하나(`""`=없음)를 든다. 무게·양손무기 제약은 미수록.
+
+| id | 이름 | 방어력 | 막기(%) |
+| --- | --- | --- | --- |
+| `buckler` | 버클러 | 2 | 15 |
+| `round_shield` | 라운드 실드 | 5 | 25 |
+| `kite_shield` | 카이트 실드 | 8 | 30 |
+| `tower_shield` | 타워 실드 | 12 | 40 |
+
 ## 상성표 (`ItemTypes.AFFINITY`)
 
 받는 피해에 곱하는 배율 `AFFINITY[방어구 분류][데미지 타입]`(1.0 = 기본). 기획 원본과 동일.
@@ -50,13 +61,15 @@
 
 - `weapon_attack(id) -> int` / `weapon_damage_type(id) -> String` / `weapon_name(id) -> String` — 없는(빈) id면 `0` / `""` / `""`.
 - `armor_defense(id) -> int` / `armor_class(id) -> String` — 없는 id면 `0` / `""`.
+- `shield_defense(id) -> int` / `shield_block(id) -> int` / `shield_name(id) -> String` — 없는(빈) id면 `0` / `0` / `""`.
 - `total_defense(ids: Array) -> int` — 방어구 id 목록의 방어력 합.
 - `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
 
 ## 미수록 / 미구현
 
-- 방패·무게·공격거리·근접거리·생산비용·가치·부위·직업 — 관련 기능(방패 막기, 무게 회피보정, 원거리, 생산) 도입 시 추가.
+- 무게·공격거리·근접거리·생산비용·가치·부위·직업 — 관련 기능(무게 회피보정, 원거리, 생산) 도입 시 추가.
+- 방패의 무게·양손무기 배타 제약은 미구현.
 - 수치는 기획 초안값(밸런스 조정 대상).
 
 ## 테스트 시나리오
@@ -67,6 +80,8 @@
 - [예외] 빈/없는 무기 id → `weapon_attack` `0`, `weapon_damage_type` `""`
 - [정상] `armor_defense("chain_mail") == 14`, `armor_class("robe") == "천"`
 - [정상] `total_defense`는 방어구 id 목록의 방어력 합
+- [정상] `shield_defense("tower_shield") == 12`, `shield_block("tower_shield") == 40`, `shield_name("buckler") == "버클러"`
+- [예외] 빈/없는 방패 id → `shield_defense`·`shield_block` `0`, `shield_name` `""`
 - [정상] `armor_class_of`는 방어력이 가장 큰 조각의 분류(예: 가죽 세트 → `가죽`)
 - [경계] `armor_class_of([])` → `""`
 - [정상] `affinity("판금", "마법") == 1.3`, `affinity("사슬", "참격") == 0.7`

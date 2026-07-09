@@ -27,6 +27,14 @@ const ARMORS := {
 	"chain_mail": {"name": "사슬 갑옷", "defense": 14, "armor_class": "사슬"},
 }
 
+# 방패: id → {name, defense(DF에 합산), block(막기 확률 %)}.
+const SHIELDS := {
+	"buckler": {"name": "버클러", "defense": 2, "block": 15},
+	"round_shield": {"name": "라운드 실드", "defense": 5, "block": 25},
+	"kite_shield": {"name": "카이트 실드", "defense": 8, "block": 30},
+	"tower_shield": {"name": "타워 실드", "defense": 12, "block": 40},
+}
+
 # 상성표: 방어구 분류 → { 데미지 타입 → 배율 }. 기획 원본과 동일.
 const AFFINITY := {
 	"천": {"참격": 1.2, "자돌": 1.2, "타격": 1.0, "원거리": 1.2, "마법": 0.6},
@@ -54,6 +62,18 @@ static func armor_defense(id: String) -> int:
 ## 방어구 분류(없는 id면 "").
 static func armor_class(id: String) -> String:
 	return ARMORS.get(id, {}).get("armor_class", "")
+
+## 방패 방어력(없는 id면 0).
+static func shield_defense(id: String) -> int:
+	return SHIELDS.get(id, {}).get("defense", 0)
+
+## 방패 막기 확률 %(없는 id면 0).
+static func shield_block(id: String) -> int:
+	return SHIELDS.get(id, {}).get("block", 0)
+
+## 방패 이름(없는 id면 "").
+static func shield_name(id: String) -> String:
+	return SHIELDS.get(id, {}).get("name", "")
 
 ## 방어구 id 목록의 방어력 합.
 static func total_defense(ids: Array) -> int:

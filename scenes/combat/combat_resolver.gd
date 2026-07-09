@@ -13,9 +13,13 @@ const EXCHANGES := 3      # 교전 시 각자 최대 타격 횟수.
 static func attack_power(h) -> int:
 	return ItemTypes.weapon_attack(h.weapon) + int(h.strength) / 5   # 정수 나눗셈(내림)
 
-## 방어력 DF = 착용 방어구 방어력 합. 방패는 미구현.
+## 방어력 DF = 착용 방어구 방어력 합 + 방패 방어력.
 static func defense(h) -> int:
-	return ItemTypes.total_defense(h.armor)
+	return ItemTypes.total_defense(h.armor) + ItemTypes.shield_defense(h.shield)
+
+## 막기 확률(%) = 방패 막기 확률. 방패 없으면 0.
+static func block_chance(h) -> int:
+	return ItemTypes.shield_block(h.shield)
 
 ## 회피율(%) = 민첩 × 0.5. 지형·장비무게 보정은 미구현.
 static func evasion(h) -> float:
@@ -43,11 +47,14 @@ static func resolve_hit(attacker, defender, defender_hp: int, rng: RandomNumberG
 	# 명중 = 굴린 값(0~100) < 명중률. 명중률이 0 이하면 무조건 빗나간다.
 	var hit := rng.randf() * 100.0 < hit_chance(attacker, defender)
 	if not hit:
-		return {"hit": false, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0}
+		return {"hit": false, "blocked": false, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0}
+	# 방패 막기: 성공하면 피해 완전 무효(치명·피해 계산 생략).
+	if rng.randf() * 100.0 < block_chance(defender):
+		return {"hit": true, "blocked": true, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0}
 	var crit := rng.randf() * 100.0 < crit_chance(attacker)
 	var dmg := hit_damage(attacker, defender, crit)
 	var hp := defender_hp - dmg
-	return {"hit": true, "crit": crit, "damage": dmg, "hp": hp, "dead": hp <= 0}
+	return {"hit": true, "blocked": false, "crit": crit, "damage": dmg, "hp": hp, "dead": hp <= 0}
 
 ## 근접 교전. 개시자 a가 선공하고 a→b, b→a를 최대 EXCHANGES 라운드 반복한다.
 ## 도중 한쪽 생명점이 0 이하가 되면 즉시 종료한다(선공 이점 — 남은 반격 없음).

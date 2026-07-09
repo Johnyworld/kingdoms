@@ -2,7 +2,7 @@ extends GutTest
 ## 전투 판정 로직(CombatResolver) 테스트 — 순수 함수. 능력치를 직접 설정한 Human으로 검증.
 ## 확률은 극단 능력치로 강제한다: 회피 100↑ → 항상 빗나감 / 회피 음수 → 항상 명중 / 행운 큼 → 항상 치명.
 
-func _human(strength := 0, agility := 0, luck := 0, hp := 40, weapon := "", armor := []) -> Object:
+func _human(strength := 0, agility := 0, luck := 0, hp := 40, weapon := "", armor := [], shield := "") -> Object:
 	var h: Object = load("res://scenes/human/human.gd").new()
 	h.strength = strength
 	h.agility = agility
@@ -10,6 +10,7 @@ func _human(strength := 0, agility := 0, luck := 0, hp := 40, weapon := "", armo
 	h.hit_points = hp
 	h.weapon = weapon
 	h.armor = armor
+	h.shield = shield
 	return h
 
 func _rng(seed_val := 1) -> RandomNumberGenerator:
@@ -30,6 +31,15 @@ func test_defense_sums_armor() -> void:
 	assert_eq(CombatResolver.defense(_human()), 0, "맨몸 방어력 0")
 	var set := ["leather_helm", "leather_armor", "leather_gloves", "leather_greaves"]  # 17
 	assert_eq(CombatResolver.defense(_human(0, 0, 0, 40, "", set)), 17, "가죽 세트 방어력 합 17")
+
+func test_defense_includes_shield() -> void:
+	# 가죽 세트(17) + 타워 실드(12) = 29.
+	var set := ["leather_helm", "leather_armor", "leather_gloves", "leather_greaves"]
+	assert_eq(CombatResolver.defense(_human(0, 0, 0, 40, "", set, "tower_shield")), 29, "방어구+방패 방어력 합")
+
+func test_block_chance() -> void:
+	assert_eq(CombatResolver.block_chance(_human()), 0, "방패 없으면 막기 0")
+	assert_eq(CombatResolver.block_chance(_human(0, 0, 0, 40, "", [], "tower_shield")), 40, "타워 실드 막기 40")
 
 func test_evasion_half_agility() -> void:
 	assert_eq(CombatResolver.evasion(_human(0, 40)), 20.0, "민첩 40 → 회피 20")
@@ -89,6 +99,31 @@ func test_hit_deterministic_same_seed() -> void:
 	var r1 := CombatResolver.resolve_hit(a, b, 40, _rng(7))
 	var r2 := CombatResolver.resolve_hit(a, b, 40, _rng(7))
 	assert_eq(r1, r2, "같은 시드 → 같은 결과")
+
+func test_shield_blocks_some_hits() -> void:
+	# 항상 명중(회피 음수)하는 방어자에 타워 실드(막기 40%)를 들리고 여러 시드를 돌린다.
+	var atk := _human(78, 0, 0, 40, "sword")            # 항상 명중용(방어자 회피 음수)
+	var blocked := false
+	var struck := false
+	for s in range(1, 40):
+		var def := _human(0, -100, 0, 40, "", [], "tower_shield")   # 항상 명중, 막기 40%
+		var r := CombatResolver.resolve_hit(atk, def, 40, _rng(s))
+		assert_true(r["hit"], "회피 음수 → 항상 명중")
+		if r["blocked"]:
+			blocked = true
+			assert_eq(r["damage"], 0, "막으면 피해 0")
+			assert_eq(r["hp"], 40, "막으면 hp 불변")
+		else:
+			struck = true
+			assert_true(r["damage"] > 0, "막지 못하면 피해 발생")
+	assert_true(blocked, "여러 시드 중 막힌 타격이 있다")
+	assert_true(struck, "여러 시드 중 막지 못한 타격도 있다")
+
+func test_no_shield_never_blocks() -> void:
+	var atk := _human(78, 0, 0, 40, "sword")
+	var def := _human(0, -100)   # 방패 없음, 항상 명중
+	var r := CombatResolver.resolve_hit(atk, def, 40, _rng())
+	assert_false(r["blocked"], "방패 없으면 막기 없음")
 
 # --- 교전 (resolve_engagement) ---
 
