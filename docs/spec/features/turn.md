@@ -7,7 +7,7 @@
 
 ## 규칙
 
-- **부대 이동은 턴당 1회.** 이동한 부대는 그 턴에는 다시 선택·이동할 수 없다([Selection & Movement](selection-and-movement.md) 참고).
+- **부대는 턴당 이동 1회 + 공격 1회.** 이동한 부대는 그 턴에 다시 이동할 수 없지만 공격은 아직 가능하고, 공격하면 이동·공격 모두 끝난다([Selection & Movement](selection-and-movement.md)·[Battle](battle.md)). 턴 종료 시 두 상태(`moved_this_turn`·`attacked_this_turn`)가 모두 리셋된다.
 - **건물 건설 시작은 턴 제한을 받지 않는다.** 턴당 1회 제한은 **부대 이동에만** 적용된다. 단 건설 자체는 시작 후 `build_turns`만큼 턴이 지나야 완성된다([건축](building.md) 참고).
 - 턴 번호는 **1부터** 시작한다.
 
@@ -21,7 +21,7 @@
 
 - `end_turn(units: Array, territories: Array) -> void` — 한 번의 턴 종료 처리를 모아서 실행한다. `units`에는 [부대](../entities/Party.md)가 들어간다.
   1. `number += 1`
-  2. 각 `unit`(부대)에 대해 `unit.reset_turn()` — 이동 상태 리셋.
+  2. 각 `unit`(부대)에 대해 `unit.reset_turn()` — 이동·공격 상태 리셋.
   3. 각 `territory`에 대해 `territory.collect_income()` — 건물 생산을 자원에 합산.
   4. 각 `territory`에 대해 `territory.advance_construction()` — 건설 중 건물을 1턴 진행.
   - **수입 정산(3) 뒤에 건설 진행(4)** 하므로, 이번 턴에 완성된 건물은 다음 턴부터 생산한다.

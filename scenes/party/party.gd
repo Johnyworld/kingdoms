@@ -24,7 +24,8 @@ const _RADIUS := 12.0
 const _MOVED_ALPHA := 0.4
 
 var selected := false
-var moved_this_turn := false   # 이번 턴에 이미 이동했는지. true면 재선택·재이동 불가.
+var moved_this_turn := false      # 이번 턴에 이미 이동했는지. true면 재이동 불가(공격은 아직 가능).
+var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
 
 ## 멤버를 부대에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다.
 func add_member(human) -> void:
@@ -61,9 +62,13 @@ func set_selected(value: bool) -> void:
 	selected = value
 	queue_redraw()
 
-## 이번 턴에 이동 가능한지(아직 이동 안 함).
+## 이번 턴에 이동 가능한지. 이동했거나 공격했으면(행동 종료) 불가.
 func can_move() -> bool:
-	return not moved_this_turn
+	return not moved_this_turn and not attacked_this_turn
+
+## 이번 턴에 공격 가능한지. 이동만 했으면 아직 가능, 공격했으면 불가.
+func can_attack() -> bool:
+	return not attacked_this_turn
 
 ## 이동 완료 표시. 흐리게(반투명) 다시 그린다.
 func mark_moved() -> void:
@@ -72,16 +77,24 @@ func mark_moved() -> void:
 	moved_this_turn = true
 	queue_redraw()
 
-## 턴 종료 시 호출. 이동 상태를 리셋하고 불투명하게 다시 그린다.
+## 공격 완료 표시(그 부대의 행동 종료). 흐리게 다시 그린다.
+func mark_attacked() -> void:
+	if attacked_this_turn:
+		return
+	attacked_this_turn = true
+	queue_redraw()
+
+## 턴 종료 시 호출. 이동·공격 상태를 리셋하고 불투명하게 다시 그린다.
 func reset_turn() -> void:
-	if not moved_this_turn:
+	if not moved_this_turn and not attacked_this_turn:
 		return
 	moved_this_turn = false
+	attacked_this_turn = false
 	queue_redraw()
 
 func _draw() -> void:
-	# 이번 턴에 이동을 마쳤으면 전체를 반투명하게.
-	var a := _MOVED_ALPHA if moved_this_turn else 1.0
+	# 이번 턴에 이동·공격 중 하나라도 했으면 전체를 반투명하게.
+	var a := _MOVED_ALPHA if (moved_this_turn or attacked_this_turn) else 1.0
 
 	# 선택되면 발밑에 강조 링을 먼저 그린다.
 	if selected:

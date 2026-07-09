@@ -79,6 +79,29 @@ func test_player_party_takes_priority_over_npc() -> void:
 		ClickRouter.resolve(true, true, false, false, false, false, false),
 		ClickRouter.FOCUS_PARTY, "플레이어 부대 칸이 NPC보다 앞 순위")
 
+# --- 전투 개시 (ATTACK) — 인자 마지막 enemy_attackable ---
+
+func test_npc_attackable_while_selected_attacks() -> void:
+	# 선택 중 + 공격 가능 범위의 적 → 전투 개시.
+	assert_eq(
+		ClickRouter.resolve(false, true, false, false, true, false, false, true),
+		ClickRouter.ATTACK, "선택 중 + 공격 범위 NPC → 공격")
+
+func test_npc_selected_not_attackable_focuses() -> void:
+	assert_eq(
+		ClickRouter.resolve(false, true, false, false, true, false, false, false),
+		ClickRouter.FOCUS_NPC, "선택 중이어도 공격 범위 밖이면 정보")
+
+func test_npc_attackable_not_selected_focuses() -> void:
+	assert_eq(
+		ClickRouter.resolve(false, true, false, false, false, false, false, true),
+		ClickRouter.FOCUS_NPC, "미선택이면 공격 범위여도 정보만")
+
+func test_player_party_priority_over_attack() -> void:
+	assert_eq(
+		ClickRouter.resolve(true, true, false, false, true, false, false, true),
+		ClickRouter.FOCUS_PARTY, "플레이어 부대 칸은 enemy_attackable와 무관하게 부대 우선")
+
 # --- 캠프 메뉴 / 건물 정보 / 선택 해제 ---
 
 func test_camp_cell_opens_menu() -> void:

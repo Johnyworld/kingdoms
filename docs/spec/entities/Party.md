@@ -40,7 +40,10 @@
 | --- | --- | --- |
 | 위치 | `position` | Node2D 위치. 맵 토큰으로서 부대가 선 칸 |
 | 선택됨 | `selected` | 선택 상태. `set_selected(value)`로 변경 시 강조 링을 다시 그린다 |
-| 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지. `true`면 재선택·재이동 불가 + 흐리게 표시 |
+| 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지 |
+| 이번 턴 공격함 | `attacked_this_turn` | 이번 턴에 이미 공격했는지. 공격은 그 부대의 행동을 끝낸다([전투](../features/battle.md)) |
+
+한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다.
 
 ## 동작
 
@@ -49,10 +52,12 @@
 - `movement() -> int` — 멤버 `movement`의 최소값(멤버 없으면 0). 이동/공격 범위 계산에 사용.
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
-- `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn`).
-- `mark_moved() -> void` — 이동 완료 표시(`moved_this_turn = true`). 흐리게(반투명) 다시 그린다.
-- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn = false`로 되돌리고 불투명하게 다시 그린다.
-- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn`이면 전체를 반투명하게 그린다.
+- `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn and not attacked_this_turn` — 공격했으면 이동 불가).
+- `can_attack() -> bool` — 이번 턴에 공격 가능한지(`not attacked_this_turn` — 이동만 했으면 아직 가능).
+- `mark_moved() -> void` — 이동 완료 표시(`moved_this_turn = true`). 흐리게 다시 그린다.
+- `mark_attacked() -> void` — 공격 완료 표시(`attacked_this_turn = true`). 흐리게 다시 그린다.
+- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`를 모두 `false`로 되돌리고 불투명하게 다시 그린다.
+- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다.
 
 ## 테스트 시나리오
 
@@ -68,9 +73,10 @@
 - [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
 - [정상] 이동력 3·2 멤버 → `movement() == 2` (최소값, 가장 느린 멤버)
 - [정상] 시야 5·2 멤버 → `vision() == 5` (최대값)
-- [정상] 생성 직후 `moved_this_turn`은 거짓, `can_move()` 참
-- [정상] `mark_moved()` 후 `moved_this_turn` 참, `can_move()` 거짓
-- [정상] `reset_turn()` 후 다시 `can_move()` 참
+- [정상] 생성 직후 `moved_this_turn`·`attacked_this_turn` 거짓, `can_move()`·`can_attack()` 참
+- [정상] `mark_moved()` 후 `moved_this_turn` 참, `can_move()` 거짓, `can_attack()`는 **여전히 참**(이동 후 공격 가능)
+- [정상] `mark_attacked()` 후 `can_attack()` 거짓, `can_move()`도 거짓(공격이 이동도 끝냄)
+- [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()` 참
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 
 ## 관련

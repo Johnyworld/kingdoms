@@ -114,6 +114,33 @@ func test_reset_turn_restores_move() -> void:
 	assert_false(p.moved_this_turn, "reset_turn 후 이동 안 함으로 리셋")
 	assert_true(p.can_move(), "reset_turn 후 다시 이동 가능")
 
+# --- 공격 상태 (이동 1 + 공격 1) ---
+
+func test_attack_defaults() -> void:
+	var p := _party()
+	assert_false(p.attacked_this_turn, "생성 직후 공격 안 함")
+	assert_true(p.can_attack(), "생성 직후 공격 가능")
+
+func test_moved_still_can_attack() -> void:
+	var p := _party()
+	p.mark_moved()
+	assert_false(p.can_move(), "이동 후 재이동 불가")
+	assert_true(p.can_attack(), "이동해도 공격은 아직 가능")
+
+func test_attacked_ends_actions() -> void:
+	var p := _party()
+	p.mark_attacked()
+	assert_false(p.can_attack(), "공격 후 재공격 불가")
+	assert_false(p.can_move(), "공격이 이동도 끝냄")
+
+func test_reset_turn_restores_attack() -> void:
+	var p := _party()
+	p.mark_moved()
+	p.mark_attacked()
+	p.reset_turn()
+	assert_true(p.can_move(), "reset 후 이동 가능")
+	assert_true(p.can_attack(), "reset 후 공격 가능")
+
 func test_end_turn_resets_party() -> void:
 	var tm: Object = load("res://scenes/turn/turn_manager.gd").new()
 	var p := _party()
