@@ -66,6 +66,11 @@ var _npc_tweens: Array = []          # 살아 있는 Tween 목록(재진입 시 
 var _npc_move_targets: Dictionary = {}   # party → 최종 목적지 칸(스냅용).
 var _npc_move_epoch := 0             # NPC 이동 세대. 새 라운드가 시작되면 이전 코루틴을 중단시킨다.
 
+# 진행 중인 플레이어 부대 이동 애니메이션. 이동 중에는 좌클릭을 잠근다.
+var _player_moving := false
+var _player_tween: Tween = null
+var _player_move_target: Vector2i
+
 # 건설 모드. 캠프 메뉴에서 건물을 고르면 진입 — 맵을 클릭해 배치한다.
 var _build_mode := false
 var _build_type := ""
@@ -216,11 +221,11 @@ func _handle_click(world_pos: Vector2) -> void:
 
 	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, _selected, reachable, party_info.visible):
 		ClickRouter.MOVE:
-			party.position = terrain.map_to_local(cell)
+			# 이동은 클릭 즉시 확정하고(재이동 불가·선택 해제), 토큰만 경로 따라 애니메이션한다.
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
-			_update_fog()
 			_deselect()
 			_hide_party_info()
+			_move_player_to(party_cell, cell)
 		ClickRouter.CAMP_MENU:
 			if _selected:
 				_deselect()
@@ -269,6 +274,7 @@ func _select() -> void:
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
+	_finish_player_move()   # 이동 애니메이션 중이면 목적지로 스냅한 뒤 턴을 넘긴다.
 	if _selected:
 		_deselect()
 	_hide_party_info()
@@ -351,6 +357,34 @@ func _finish_pending_npc_moves() -> void:
 	for party in _npc_move_targets:
 		party.position = terrain.map_to_local(_npc_move_targets[party])
 	_npc_move_targets.clear()
+
+## 플레이어 부대를 start_cell에서 dest_cell까지 경로 따라 애니메이션 이동한다.
+## 이동 중에는 좌클릭을 잠그고(_player_moving), 각 칸 도착마다 _update_fog로 시야를 연다.
+func _move_player_to(start_cell: Vector2i, dest_cell: Vector2i) -> void:
+	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT)
+	_player_move_target = dest_cell
+	var tw := _animate_path(party, path, 0.0, func(_cell: Vector2i) -> void: _update_fog())
+	if tw == null:
+		# 경로가 없으면(예외) 즉시 목적지로 마무리한다.
+		party.position = terrain.map_to_local(dest_cell)
+		_update_fog()
+		return
+	_player_moving = true
+	_player_tween = tw
+	tw.finished.connect(func() -> void:
+		_player_moving = false
+		_player_tween = null)
+
+## 진행 중인 플레이어 이동을 즉시 끝낸다(턴 종료 시): 트윈을 죽이고 목적지로 스냅 + 시야 갱신.
+func _finish_player_move() -> void:
+	if not _player_moving:
+		return
+	if is_instance_valid(_player_tween) and _player_tween.is_valid():
+		_player_tween.kill()
+	party.position = terrain.map_to_local(_player_move_target)
+	_player_moving = false
+	_player_tween = null
+	_update_fog()
 
 ## 선택을 해제하고 범위 표시를 지운다.
 func _deselect() -> void:
@@ -447,7 +481,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			_handle_click(get_global_mouse_position())
+			# 이동 애니메이션 중에는 새 클릭(이동·선택·메뉴)을 무시한다. 줌은 위에서 이미 처리됨.
+			if not _player_moving:
+				_handle_click(get_global_mouse_position())
 	elif event is InputEventPanGesture:
 		# 두 손가락 스크롤: 위로(delta.y<0) = 확대, 아래로 = 축소.
 		_set_zoom(_zoom_level + event.delta.y * PAN_ZOOM_SPEED)
