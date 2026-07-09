@@ -9,9 +9,13 @@ const BASE_HIT := 90.0    # 기본 명중률(%). 대상 회피율을 뺀다.
 const CRIT_MULT := 1.5    # 치명타 피해 배율.
 const EXCHANGES := 3      # 교전 시 각자 최대 타격 횟수.
 
-## 공격력 AT = floor(힘/5). 무기 공격력은 미구현(0).
+## 공격력 AT = 무기 공격력 + floor(힘/5).
 static func attack_power(h) -> int:
-	return int(h.strength) / 5   # 정수 나눗셈(내림)
+	return ItemTypes.weapon_attack(h.weapon) + int(h.strength) / 5   # 정수 나눗셈(내림)
+
+## 방어력 DF = 착용 방어구 방어력 합. 방패는 미구현.
+static func defense(h) -> int:
+	return ItemTypes.total_defense(h.armor)
 
 ## 회피율(%) = 민첩 × 0.5. 지형·장비무게 보정은 미구현.
 static func evasion(h) -> float:
@@ -25,10 +29,12 @@ static func hit_chance(attacker, defender) -> float:
 static func crit_chance(h) -> float:
 	return h.luck * 0.5
 
-## 한 번의 타격 피해 = floor(max(1, AT − DF) × 치명배율). DF는 미구현(0).
-static func hit_damage(attacker, crit: bool) -> int:
-	var base: int = maxi(1, attack_power(attacker))   # DF = 0
-	var mult := CRIT_MULT if crit else 1.0
+## 한 번의 타격 피해 = floor(max(1, AT − DF) × 상성배율 × 치명배율).
+## 상성 = 방어자 방어구분류 × 공격자 무기 데미지타입(ItemTypes).
+static func hit_damage(attacker, defender, crit: bool) -> int:
+	var base: int = maxi(1, attack_power(attacker) - defense(defender))
+	var aff := ItemTypes.affinity(ItemTypes.armor_class_of(defender.armor), ItemTypes.weapon_damage_type(attacker.weapon))
+	var mult := (CRIT_MULT if crit else 1.0) * aff
 	return int(floor(base * mult))
 
 ## 1회 공방 판정. defender_hp에서 피해를 뺀 결과를 반환한다.
@@ -39,7 +45,7 @@ static func resolve_hit(attacker, defender, defender_hp: int, rng: RandomNumberG
 	if not hit:
 		return {"hit": false, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0}
 	var crit := rng.randf() * 100.0 < crit_chance(attacker)
-	var dmg := hit_damage(attacker, crit)
+	var dmg := hit_damage(attacker, defender, crit)
 	var hp := defender_hp - dmg
 	return {"hit": true, "crit": crit, "damage": dmg, "hp": hp, "dead": hp <= 0}
 

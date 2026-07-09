@@ -46,6 +46,11 @@ func test_all_members_movement_vision_human_base() -> void:
 			assert_eq(h.movement, 4, "%s 이동력 4 (인간 기본)" % h.human_name)
 			assert_eq(h.vision, 7, "%s 시야 7 (인간 기본)" % h.human_name)
 
+func test_members_get_faction_equipment() -> void:
+	var mage = types.make_members("balthazar")[0]
+	assert_eq(mage.weapon, "wand", "암흑 제국 멤버는 완드 장착")
+	assert_false(mage.armor.is_empty(), "방어구 세트가 적용됨")
+
 func test_commander_name() -> void:
 	assert_eq(types.commander_name("qasim"), "카심 이븐 라시드", "지휘관 이름")
 

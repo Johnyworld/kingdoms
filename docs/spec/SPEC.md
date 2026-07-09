@@ -56,6 +56,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Resources (자원)](data/resources.md)
 - [Stats (능력치 정의)](data/stats.md)
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 부대·멤버(이름·능력치·색) 데이터. game.gd가 여기서 부대 생성
+- [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그 + 상성표. 전투 AT·DF·상성에 사용
 - [Buildings (건물 종류)](data/buildings.md)
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
 
@@ -76,6 +77,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 전투씬 오버레이 | `scenes/combat/battle.gd` |
 | 전투 공간 판정 | `scenes/combat/battle_field.gd` |
 | 헤드리스 전투 결산 | `scenes/combat/battle_sim.gd` |
+| 아이템(무기·방어구) 카탈로그 | `scenes/item/item_types.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |

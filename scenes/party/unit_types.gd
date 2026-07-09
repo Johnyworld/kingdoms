@@ -31,6 +31,8 @@ const CATALOG := {
 		"color": Color(0.2, 0.3, 0.8),
 		"territory": "창천성",
 		"commander": "아젤 하르윈",
+		"weapon": "longsword",
+		"armor": ["leather_helm", "leather_armor", "leather_gloves", "leather_greaves"],
 		"members": [
 			{"name": "아젤 하르윈", "strength": 78, "wisdom": 72, "agility": 65, "charm": 80, "luck": 55, "leadership": 88, "diligence": 82, "sensitivity": 45, "hit_points": 40, "stamina": 40, "morale": 90},
 			{"name": "로엔 카스터", "strength": 70, "wisdom": 55, "agility": 68, "charm": 50, "luck": 48, "leadership": 42, "diligence": 65, "sensitivity": 50, "hit_points": 40, "stamina": 40, "morale": 75},
@@ -44,6 +46,8 @@ const CATALOG := {
 		"color": Color(0.78, 0.28, 0.22),
 		"territory": "",
 		"commander": "카심 이븐 라시드",
+		"weapon": "scimitar",
+		"armor": ["leather_helm", "leather_armor", "leather_greaves"],
 		"members": [
 			{"name": "카심 이븐 라시드", "strength": 75, "wisdom": 80, "agility": 62, "charm": 78, "luck": 58, "leadership": 85, "diligence": 78, "sensitivity": 52, "hit_points": 40, "stamina": 40, "morale": 88},
 			{"name": "자밀라", "strength": 55, "wisdom": 66, "agility": 72, "charm": 70, "luck": 64, "leadership": 38, "diligence": 68, "sensitivity": 60, "hit_points": 40, "stamina": 40, "morale": 74},
@@ -57,6 +61,8 @@ const CATALOG := {
 		"color": Color(0.5, 0.24, 0.6),
 		"territory": "",
 		"commander": "발타자르",
+		"weapon": "wand",
+		"armor": ["cloth_hood", "robe"],
 		"members": [
 			{"name": "발타자르", "strength": 72, "wisdom": 84, "agility": 60, "charm": 66, "luck": 50, "leadership": 82, "diligence": 60, "sensitivity": 70, "hit_points": 40, "stamina": 40, "morale": 80},
 			{"name": "모르가나", "strength": 48, "wisdom": 78, "agility": 64, "charm": 74, "luck": 58, "leadership": 36, "diligence": 58, "sensitivity": 82, "hit_points": 40, "stamina": 40, "morale": 68},
@@ -70,6 +76,8 @@ const CATALOG := {
 		"color": Color(0.27, 0.55, 0.32),
 		"territory": "",
 		"commander": "바트르 칸",
+		"weapon": "battleaxe",
+		"armor": ["chain_coif", "chain_mail"],
 		"members": [
 			{"name": "바트르 칸", "strength": 84, "wisdom": 68, "agility": 72, "charm": 64, "luck": 60, "leadership": 86, "diligence": 70, "sensitivity": 48, "hit_points": 40, "stamina": 40, "morale": 85},
 			{"name": "테무르", "strength": 80, "wisdom": 50, "agility": 74, "charm": 48, "luck": 54, "leadership": 35, "diligence": 64, "sensitivity": 44, "hit_points": 40, "stamina": 40, "morale": 72},
@@ -87,15 +95,20 @@ static func get_party(id: String) -> Dictionary:
 static func commander_name(id: String) -> String:
 	return get_party(id).get("commander", "")
 
-## 스펙의 멤버들을 Human 객체로 생성한다. 능력치를 반영하고 이동력·시야는 인간 기본값.
+## 스펙의 멤버들을 Human 객체로 생성한다. 능력치·장비를 반영하고 이동력·시야는 인간 기본값.
 ## 없는 id면 빈 배열. Human(RefCounted)만 생성하므로 씬 트리 없이 동작한다.
 static func make_members(id: String) -> Array:
+	var spec := get_party(id)
+	var weapon: String = spec.get("weapon", "")
+	var armor: Array = spec.get("armor", [])
 	var result: Array = []
-	for m in get_party(id).get("members", []):
+	for m in spec.get("members", []):
 		var h := Human.new(m["name"])
 		for key in _STAT_KEYS:
 			h.set(key, m[key])
 		h.movement = HUMAN_MOVEMENT
 		h.vision = HUMAN_VISION
+		h.weapon = weapon
+		h.armor = armor.duplicate()   # 멤버끼리 배열 공유 방지
 		result.append(h)
 	return result

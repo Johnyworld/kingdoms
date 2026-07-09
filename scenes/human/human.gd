@@ -24,5 +24,9 @@ var hit_points := 20   # 히트포인트
 var stamina := 20      # 스태미나
 var morale := 20       # 사기
 
+# --- 장비 (ItemTypes id) ---
+var weapon := ""       # 무기 id. 전투 AT·데미지타입에 사용. ""=맨몸
+var armor: Array = []  # 착용 방어구 id 목록(최대 4). DF=방어력 합, 상성 분류=방어력 최대 조각
+
 func _init(p_name := "") -> void:
 	human_name = p_name
