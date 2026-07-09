@@ -315,26 +315,34 @@ func _stand_cell_next_to(enemy_cell: Vector2i) -> Vector2i:
 			return n
 	return terrain.local_to_map(party.position)
 
-## 전투 오버레이를 띄우고 관전한다(입력 잠금). 공격은 그 부대의 행동을 끝낸다(mark_attacked).
+## 플레이어가 인접 적에게 개시하는 전투. 공격은 플레이어 부대의 행동을 끝낸다(mark_attacked).
 func _begin_battle(defender) -> void:
 	party.mark_attacked()
 	if _selected:
 		_deselect()
 	_hide_party_info()
+	_run_battle(party, defender)   # 비차단(await로 백그라운드 진행)
+
+## 오버레이 전투를 띄우고 관전한다(입력 잠금). 종료까지 await 후 사상자를 반영한다.
+## 플레이어가 참여하는 전투에 쓴다(공격 페이즈에서도 순차 await).
+func _run_battle(attacker, defender) -> void:
 	_in_battle = true
 	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
-	overlay.finished.connect(_on_battle_finished.bind(party, defender, overlay))
-	overlay.start(party, defender)
-
-## 전투 종료: 양측 생존자를 부대에 반영하고 오버레이를 닫는다.
-func _on_battle_finished(a_survivors: Array, b_survivors: Array, attacker, defender, overlay) -> void:
-	_apply_survivors(attacker, a_survivors)
-	_apply_survivors(defender, b_survivors)
+	overlay.start(attacker, defender)
+	var result: Array = await overlay.finished   # [a_survivors, b_survivors]
+	_apply_survivors(attacker, result[0])
+	_apply_survivors(defender, result[1])
 	overlay.queue_free()
 	_in_battle = false
 	_update_fog()
 	party_roster.set_parties(_units)
+
+## NPC끼리 전투를 화면 없이 즉시 결산한다(BattleSim). 사상자만 반영.
+func _resolve_battle_headless(attacker, defender) -> void:
+	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng)
+	_apply_survivors(attacker, result["a"])
+	_apply_survivors(defender, result["b"])
 
 ## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, NPC 부대 전멸 시 맵에서 제거.
 ## 플레이어 부대는 전멸해도 노드를 유지한다(전멸 후 처리는 미구현).
@@ -392,6 +400,39 @@ func _move_npcs() -> void:
 		if epoch != _npc_move_epoch:
 			return   # 새 이동 라운드가 시작됨 → 이 코루틴은 중단(이중 이동 방지).
 		await _animate_faction(groups[f])
+
+	# 이동이 끝나면 공격 페이즈: 인접한 적이 있는 NPC가 차례로 전투를 건다.
+	if epoch == _npc_move_epoch:
+		await _npc_attack_phase(epoch)
+
+## 각 NPC가 이동 후 인접한 적에게 전투를 건다. 플레이어가 낀 전투는 오버레이(await), NPC끼리는 헤드리스.
+func _npc_attack_phase(epoch: int) -> void:
+	for attacker in _npc_parties.duplicate():
+		if epoch != _npc_move_epoch:
+			return   # 새 턴이 시작됨 → 중단.
+		if not is_instance_valid(attacker) or not (attacker in _npc_parties):
+			continue   # 이전 전투로 제거됨.
+		if not attacker.can_attack():
+			continue
+		var target = _adjacent_enemy(attacker)
+		if target == null:
+			continue
+		attacker.mark_attacked()
+		if target == party:
+			await _run_battle(attacker, target)   # 플레이어가 방어 → 오버레이 관전
+		else:
+			_resolve_battle_headless(attacker, target)   # NPC끼리 → 즉시 결산
+	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
+
+## attacker에 인접한(이웃 헥스) 자기 외 부대를 찾는다(멤버 있는 것만). 없으면 null.
+func _adjacent_enemy(attacker):
+	var neighbors := terrain.get_surrounding_cells(terrain.local_to_map(attacker.position))
+	for other in [party] + _npc_parties:
+		if other == attacker or other.members.is_empty():
+			continue
+		if terrain.local_to_map(other.position) in neighbors:
+			return other
+	return null
 
 ## 한 세력의 부대들을 동시에(부대마다 NPC_PARTY_STAGGER 지연) 애니메이션하고, 전부 끝날 때까지 대기한다.
 func _animate_faction(plans: Array) -> void:

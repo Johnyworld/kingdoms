@@ -75,6 +75,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 전투 판정 | `scenes/combat/combat_resolver.gd` |
 | 전투씬 오버레이 | `scenes/combat/battle.gd` |
 | 전투 공간 판정 | `scenes/combat/battle_field.gd` |
+| 헤드리스 전투 결산 | `scenes/combat/battle_sim.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
