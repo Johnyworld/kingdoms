@@ -32,6 +32,13 @@ func test_unknown_shield_defaults() -> void:
 	assert_eq(ItemTypes.shield_block("없음"), 0, "없는 방패 막기 0")
 	assert_eq(ItemTypes.shield_name(""), "", "빈 방패 이름 빈 문자열")
 
+func test_weights() -> void:
+	assert_eq(ItemTypes.weapon_weight("sword"), 3, "검 무게 3")
+	assert_eq(ItemTypes.armor_weight("chain_mail"), 8, "사슬 갑옷 무게 8")
+	assert_eq(ItemTypes.shield_weight("tower_shield"), 8, "타워 실드 무게 8")
+	assert_eq(ItemTypes.weapon_weight(""), 0, "빈 무기 무게 0")
+	assert_eq(ItemTypes.armor_weight("없음"), 0, "없는 방어구 무게 0")
+
 func test_total_defense_sums() -> void:
 	var set := ["leather_helm", "leather_armor", "leather_gloves", "leather_greaves"]  # 4+8+2+3
 	assert_eq(ItemTypes.total_defense(set), 17, "가죽 세트 방어력 합 17")

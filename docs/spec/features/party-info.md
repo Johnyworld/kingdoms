@@ -16,7 +16,7 @@
   - `HSeparator`.
   - **멤버 리스트**(VBox) — 멤버 한 명당 라벨. 이름·이동·시야 + **장비 줄**:
     - `"<이름>   이동 <movement> / 시야 <vision>"`
-    - `"  <무기이름> · 공격 <AT> · 방어 <DF>"` (방패를 들면 뒤에 `" · 막기 <N>%"`) — 무기이름은 [ItemTypes](../data/items.md), 없으면 `"맨손"`. AT=`CombatResolver.attack_power`(무기+힘/5), DF=`CombatResolver.defense`(방어구+방패 방어력), 막기=`CombatResolver.block_chance`(방패 막기%, 방패 없으면 표시 안 함).
+    - `"  <무기이름> · 공격 <AT> · 방어 <DF> · 회피 <EV>"` (방패를 들면 뒤에 `" · 막기 <N>%"`) — 무기이름은 [ItemTypes](../data/items.md), 없으면 `"맨손"`. AT=`CombatResolver.attack_power`, DF=`CombatResolver.defense`, EV=`CombatResolver.evasion`(무게 반영, 정수 반올림), 막기=`CombatResolver.block_chance`(방패 없으면 표시 안 함).
     - `"  방어구: <조각 이름들, 콤마 구분>"` — 착용 방어구 조각 이름(`ItemTypes.armor_name`). **방어구가 없으면(맨몸) 이 줄은 표시하지 않는다.** 방패는 위 막기%로 이미 표시.
 
 ## 표시 규칙 (`game.gd` `_handle_click`)
@@ -49,6 +49,7 @@
 - [정상] 장비 장착 멤버 라벨에 무기 이름·공격(AT)·방어(DF)가 포함됨
 - [정상] 무기가 없으면 멤버 라벨에 "맨손" 표시
 - [정상] 방패를 든 멤버 라벨에 "막기 N%"가 포함되고, 방패 없으면 "막기"가 없음
+- [정상] 멤버 라벨 전투 스탯 줄에 "회피"가 포함됨
 - [정상] 방어구를 착용한 멤버 라벨에 "방어구:"와 조각 이름이 포함됨
 - [정상] 맨몸(방어구 없음) 멤버 라벨에는 "방어구:" 줄이 없음
 - [경계] 멤버 없는 부대 `open` → 요약 `"이동력 0 · 시야 0"`, 멤버 리스트 비어 있음

@@ -70,6 +70,10 @@ func test_member_label_shows_barehand() -> void:
 	var text: String = (panel._member_list.get_child(0) as Label).text
 	assert_string_contains(text, "맨손", "무기 없으면 '맨손' 표시")
 
+func test_member_label_shows_evasion() -> void:
+	panel.open(_sample_party())
+	assert_string_contains((panel._member_list.get_child(0) as Label).text, "회피", "전투 스탯 줄에 회피 표시")
+
 func test_member_label_shows_armor_pieces() -> void:
 	var h := _human("갑옷병", 3, 5)
 	h.armor = ["leather_helm", "leather_armor"]

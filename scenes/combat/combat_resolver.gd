@@ -21,9 +21,16 @@ static func defense(h) -> int:
 static func block_chance(h) -> int:
 	return ItemTypes.shield_block(h.shield)
 
-## 회피율(%) = 민첩 × 0.5. 지형·장비무게 보정은 미구현.
+## 착용 장비 총무게 = 무기 + 방어구 합 + 방패 무게.
+static func equip_weight(h) -> int:
+	var w: int = ItemTypes.weapon_weight(h.weapon) + ItemTypes.shield_weight(h.shield)
+	for a in h.armor:
+		w += ItemTypes.armor_weight(a)
+	return w
+
+## 회피율(%) = 민첩 × 0.5 − 총장비무게 × 0.3. 지형 보정은 미구현.
 static func evasion(h) -> float:
-	return h.agility * 0.5
+	return h.agility * 0.5 - equip_weight(h) * 0.3
 
 ## 명중(%) = 90 − 대상 회피율. 상한 clamp 없음(0 이하면 무조건 빗나감).
 static func hit_chance(attacker, defender) -> float:

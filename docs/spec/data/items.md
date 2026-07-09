@@ -7,44 +7,44 @@
 
 ## 무기 (`ItemTypes.WEAPONS`)
 
-`{id: {name, attack, damage_type}}`. `damage_type` = `참격|자돌|타격|원거리|마법`([방어구 상성](#상성표)에 사용).
+`{id: {name, attack, damage_type, weight}}`. `damage_type` = `참격|자돌|타격|원거리|마법`([방어구 상성](#상성표)에 사용). `weight`는 회피 페널티에 사용([Combat](../features/combat.md)).
 
-| id | 이름 | 공격력 | 데미지 타입 |
-| --- | --- | --- | --- |
-| `sword` | 검 | 14 | 참격 |
-| `longsword` | 장검 | 18 | 참격 |
-| `scimitar` | 곡도 | 15 | 참격 |
-| `battleaxe` | 전투도끼 | 16 | 참격 |
-| `spear` | 장창 | 15 | 자돌 |
-| `mace` | 모닝스타 | 19 | 타격 |
-| `bow` | 단궁 | 12 | 원거리 |
-| `wand` | 완드 | 8 | 마법 |
+| id | 이름 | 공격력 | 데미지 타입 | 무게 |
+| --- | --- | --- | --- | --- |
+| `sword` | 검 | 14 | 참격 | 3 |
+| `longsword` | 장검 | 18 | 참격 | 4 |
+| `scimitar` | 곡도 | 15 | 참격 | 3 |
+| `battleaxe` | 전투도끼 | 16 | 참격 | 4 |
+| `spear` | 장창 | 15 | 자돌 | 3 |
+| `mace` | 모닝스타 | 19 | 타격 | 5 |
+| `bow` | 단궁 | 12 | 원거리 | 2 |
+| `wand` | 완드 | 8 | 마법 | 1 |
 
 ## 방어구 (`ItemTypes.ARMORS`)
 
-`{id: {name, defense, armor_class}}`. `armor_class` = `천|가죽|사슬|판금`. 부위(머리·몸통·팔·다리)는 미수록 — 유닛은 방어구 id 목록을 들고 DF는 그 합, 상성 분류는 방어력이 가장 큰 조각의 분류로 대표한다.
+`{id: {name, defense, armor_class, weight}}`. `armor_class` = `천|가죽|사슬|판금`. 부위(머리·몸통·팔·다리)는 미수록 — 유닛은 방어구 id 목록을 들고 DF는 그 합, 상성 분류는 방어력이 가장 큰 조각의 분류로 대표한다.
 
-| id | 이름 | 방어력 | 분류 |
-| --- | --- | --- | --- |
-| `cloth_hood` | 두건 | 2 | 천 |
-| `robe` | 로브 | 4 | 천 |
-| `leather_helm` | 가죽 투구 | 4 | 가죽 |
-| `leather_armor` | 가죽 갑옷 | 8 | 가죽 |
-| `leather_gloves` | 가죽 장갑 | 2 | 가죽 |
-| `leather_greaves` | 가죽 각반 | 3 | 가죽 |
-| `chain_coif` | 사슬 코이프 | 6 | 사슬 |
-| `chain_mail` | 사슬 갑옷 | 14 | 사슬 |
+| id | 이름 | 방어력 | 분류 | 무게 |
+| --- | --- | --- | --- | --- |
+| `cloth_hood` | 두건 | 2 | 천 | 1 |
+| `robe` | 로브 | 4 | 천 | 2 |
+| `leather_helm` | 가죽 투구 | 4 | 가죽 | 2 |
+| `leather_armor` | 가죽 갑옷 | 8 | 가죽 | 4 |
+| `leather_gloves` | 가죽 장갑 | 2 | 가죽 | 1 |
+| `leather_greaves` | 가죽 각반 | 3 | 가죽 | 2 |
+| `chain_coif` | 사슬 코이프 | 6 | 사슬 | 3 |
+| `chain_mail` | 사슬 갑옷 | 14 | 사슬 | 8 |
 
 ## 방패 (`ItemTypes.SHIELDS`)
 
-`{id: {name, defense, block}}`. `defense`는 DF에 합산, `block`은 막기 확률(%). 유닛은 방패 id 하나(`""`=없음)를 든다. 무게·양손무기 제약은 미수록.
+`{id: {name, defense, block, weight}}`. `defense`는 DF에 합산, `block`은 막기 확률(%), `weight`는 회피 페널티. 유닛은 방패 id 하나(`""`=없음)를 든다. 양손무기 제약은 미수록.
 
-| id | 이름 | 방어력 | 막기(%) |
-| --- | --- | --- | --- |
-| `buckler` | 버클러 | 2 | 15 |
-| `round_shield` | 라운드 실드 | 5 | 25 |
-| `kite_shield` | 카이트 실드 | 8 | 30 |
-| `tower_shield` | 타워 실드 | 12 | 40 |
+| id | 이름 | 방어력 | 막기(%) | 무게 |
+| --- | --- | --- | --- | --- |
+| `buckler` | 버클러 | 2 | 15 | 1 |
+| `round_shield` | 라운드 실드 | 5 | 25 | 3 |
+| `kite_shield` | 카이트 실드 | 8 | 30 | 5 |
+| `tower_shield` | 타워 실드 | 12 | 40 | 8 |
 
 ## 상성표 (`ItemTypes.AFFINITY`)
 
@@ -59,24 +59,25 @@
 
 ## 헬퍼
 
-- `weapon_attack(id) -> int` / `weapon_damage_type(id) -> String` / `weapon_name(id) -> String` — 없는(빈) id면 `0` / `""` / `""`.
-- `armor_defense(id) -> int` / `armor_class(id) -> String` / `armor_name(id) -> String` — 없는 id면 `0` / `""` / `""`.
-- `shield_defense(id) -> int` / `shield_block(id) -> int` / `shield_name(id) -> String` — 없는(빈) id면 `0` / `0` / `""`.
+- `weapon_attack(id) -> int` / `weapon_damage_type(id) -> String` / `weapon_name(id) -> String` / `weapon_weight(id) -> int` — 없는(빈) id면 `0` / `""` / `""` / `0`.
+- `armor_defense(id) -> int` / `armor_class(id) -> String` / `armor_name(id) -> String` / `armor_weight(id) -> int` — 없는 id면 `0` / `""` / `""` / `0`.
+- `shield_defense(id) -> int` / `shield_block(id) -> int` / `shield_name(id) -> String` / `shield_weight(id) -> int` — 없는(빈) id면 `0` / `0` / `""` / `0`.
 - `total_defense(ids: Array) -> int` — 방어구 id 목록의 방어력 합.
 - `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
 
 ## 미수록 / 미구현
 
-- 무게·공격거리·근접거리·생산비용·가치·부위·직업 — 관련 기능(무게 회피보정, 원거리, 생산) 도입 시 추가.
-- 방패의 무게·양손무기 배타 제약은 미구현.
+- 공격거리·근접거리·생산비용·가치·부위·직업 — 관련 기능(원거리, 생산) 도입 시 추가.
+- 방패의 양손무기 배타 제약은 미구현.
 - 수치는 기획 초안값(밸런스 조정 대상).
 
 ## 테스트 시나리오
 
 `test/unit/test_item_types.gd`.
 
-- [정상] `weapon_attack("sword") == 14`, `weapon_damage_type("wand") == "마법"`, `weapon_name("sword") == "검"`
+- [정상] `weapon_attack("sword") == 14`, `weapon_damage_type("wand") == "마법"`, `weapon_name("sword") == "검"`, `weapon_weight("sword") == 3`
+- [정상] `armor_weight("chain_mail") == 8`, `shield_weight("tower_shield") == 8`; 없는 id면 무게 0
 - [예외] 빈/없는 무기 id → `weapon_attack` `0`, `weapon_damage_type` `""`
 - [정상] `armor_defense("chain_mail") == 14`, `armor_class("robe") == "천"`, `armor_name("robe") == "로브"`
 - [정상] `total_defense`는 방어구 id 목록의 방어력 합

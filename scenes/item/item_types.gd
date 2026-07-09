@@ -5,34 +5,34 @@ class_name ItemTypes
 
 # 무기: id → {name, attack, damage_type(참격|자돌|타격|원거리|마법)}.
 const WEAPONS := {
-	"sword": {"name": "검", "attack": 14, "damage_type": "참격"},
-	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격"},
-	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격"},
-	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격"},
-	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌"},
-	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격"},
-	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리"},
-	"wand": {"name": "완드", "attack": 8, "damage_type": "마법"},
+	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3},
+	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4},
+	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3},
+	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4},
+	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3},
+	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5},
+	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리", "weight": 2},
+	"wand": {"name": "완드", "attack": 8, "damage_type": "마법", "weight": 1},
 }
 
 # 방어구: id → {name, defense, armor_class(천|가죽|사슬|판금)}.
 const ARMORS := {
-	"cloth_hood": {"name": "두건", "defense": 2, "armor_class": "천"},
-	"robe": {"name": "로브", "defense": 4, "armor_class": "천"},
-	"leather_helm": {"name": "가죽 투구", "defense": 4, "armor_class": "가죽"},
-	"leather_armor": {"name": "가죽 갑옷", "defense": 8, "armor_class": "가죽"},
-	"leather_gloves": {"name": "가죽 장갑", "defense": 2, "armor_class": "가죽"},
-	"leather_greaves": {"name": "가죽 각반", "defense": 3, "armor_class": "가죽"},
-	"chain_coif": {"name": "사슬 코이프", "defense": 6, "armor_class": "사슬"},
-	"chain_mail": {"name": "사슬 갑옷", "defense": 14, "armor_class": "사슬"},
+	"cloth_hood": {"name": "두건", "defense": 2, "armor_class": "천", "weight": 1},
+	"robe": {"name": "로브", "defense": 4, "armor_class": "천", "weight": 2},
+	"leather_helm": {"name": "가죽 투구", "defense": 4, "armor_class": "가죽", "weight": 2},
+	"leather_armor": {"name": "가죽 갑옷", "defense": 8, "armor_class": "가죽", "weight": 4},
+	"leather_gloves": {"name": "가죽 장갑", "defense": 2, "armor_class": "가죽", "weight": 1},
+	"leather_greaves": {"name": "가죽 각반", "defense": 3, "armor_class": "가죽", "weight": 2},
+	"chain_coif": {"name": "사슬 코이프", "defense": 6, "armor_class": "사슬", "weight": 3},
+	"chain_mail": {"name": "사슬 갑옷", "defense": 14, "armor_class": "사슬", "weight": 8},
 }
 
 # 방패: id → {name, defense(DF에 합산), block(막기 확률 %)}.
 const SHIELDS := {
-	"buckler": {"name": "버클러", "defense": 2, "block": 15},
-	"round_shield": {"name": "라운드 실드", "defense": 5, "block": 25},
-	"kite_shield": {"name": "카이트 실드", "defense": 8, "block": 30},
-	"tower_shield": {"name": "타워 실드", "defense": 12, "block": 40},
+	"buckler": {"name": "버클러", "defense": 2, "block": 15, "weight": 1},
+	"round_shield": {"name": "라운드 실드", "defense": 5, "block": 25, "weight": 3},
+	"kite_shield": {"name": "카이트 실드", "defense": 8, "block": 30, "weight": 5},
+	"tower_shield": {"name": "타워 실드", "defense": 12, "block": 40, "weight": 8},
 }
 
 # 상성표: 방어구 분류 → { 데미지 타입 → 배율 }. 기획 원본과 동일.
@@ -55,6 +55,10 @@ static func weapon_damage_type(id: String) -> String:
 static func weapon_name(id: String) -> String:
 	return WEAPONS.get(id, {}).get("name", "")
 
+## 무기 무게(없는 id면 0).
+static func weapon_weight(id: String) -> int:
+	return WEAPONS.get(id, {}).get("weight", 0)
+
 ## 방어구 방어력(없는 id면 0).
 static func armor_defense(id: String) -> int:
 	return ARMORS.get(id, {}).get("defense", 0)
@@ -67,6 +71,10 @@ static func armor_class(id: String) -> String:
 static func armor_name(id: String) -> String:
 	return ARMORS.get(id, {}).get("name", "")
 
+## 방어구 무게(없는 id면 0).
+static func armor_weight(id: String) -> int:
+	return ARMORS.get(id, {}).get("weight", 0)
+
 ## 방패 방어력(없는 id면 0).
 static func shield_defense(id: String) -> int:
 	return SHIELDS.get(id, {}).get("defense", 0)
@@ -78,6 +86,10 @@ static func shield_block(id: String) -> int:
 ## 방패 이름(없는 id면 "").
 static func shield_name(id: String) -> String:
 	return SHIELDS.get(id, {}).get("name", "")
+
+## 방패 무게(없는 id면 0).
+static func shield_weight(id: String) -> int:
+	return SHIELDS.get(id, {}).get("weight", 0)
 
 ## 방어구 id 목록의 방어력 합.
 static func total_defense(ids: Array) -> int:

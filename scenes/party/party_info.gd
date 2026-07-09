@@ -61,10 +61,11 @@ func open(party) -> void:
 		var weapon: String = ItemTypes.weapon_name(member.weapon)
 		if weapon.is_empty():
 			weapon = "맨손"
-		# 1줄: 이름·이동·시야, 2줄: 무기 · 공격(AT) · 방어(DF) [· 막기(방패 있을 때)].
-		label.text = "%s   이동 %d / 시야 %d\n  %s · 공격 %d · 방어 %d" % [
+		# 1줄: 이름·이동·시야, 2줄: 무기 · 공격(AT) · 방어(DF) · 회피(EV) [· 막기(방패 있을 때)].
+		label.text = "%s   이동 %d / 시야 %d\n  %s · 공격 %d · 방어 %d · 회피 %d" % [
 			member.human_name, member.movement, member.vision,
-			weapon, CombatResolver.attack_power(member), CombatResolver.defense(member)]
+			weapon, CombatResolver.attack_power(member), CombatResolver.defense(member),
+			roundi(CombatResolver.evasion(member))]
 		var block: int = CombatResolver.block_chance(member)
 		if block > 0:
 			label.text += " · 막기 %d%%" % block

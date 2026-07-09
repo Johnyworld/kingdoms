@@ -42,7 +42,23 @@ func test_block_chance() -> void:
 	assert_eq(CombatResolver.block_chance(_human(0, 0, 0, 40, "", [], "tower_shield")), 40, "타워 실드 막기 40")
 
 func test_evasion_half_agility() -> void:
-	assert_eq(CombatResolver.evasion(_human(0, 40)), 20.0, "민첩 40 → 회피 20")
+	assert_eq(CombatResolver.evasion(_human(0, 40)), 20.0, "맨몸 민첩 40 → 회피 20")
+
+func test_equip_weight_sums() -> void:
+	assert_eq(CombatResolver.equip_weight(_human()), 0, "맨몸 무게 0")
+	# 검(3) + 사슬갑옷(8) + 타워실드(8) = 19.
+	var h := _human(0, 0, 0, 40, "sword", ["chain_mail"], "tower_shield")
+	assert_eq(CombatResolver.equip_weight(h), 19, "무기+방어구+방패 무게 합")
+
+func test_evasion_reduced_by_weight() -> void:
+	# 민첩 40 → 기본 20. 검(3)+사슬갑옷(8) 무게 11 → 20 − 11×0.3 = 20 − 3.3 = 16.7.
+	var h := _human(0, 40, 0, 40, "sword", ["chain_mail"])
+	assert_almost_eq(CombatResolver.evasion(h), 16.7, 0.001, "무게가 회피를 깎는다")
+
+func test_heavier_gear_lower_evasion() -> void:
+	var light := _human(0, 60, 0, 40, "wand", ["robe"])              # 무게 1+2=3
+	var heavy := _human(0, 60, 0, 40, "mace", ["chain_mail"], "tower_shield")  # 무게 5+8+8=21
+	assert_true(CombatResolver.evasion(heavy) < CombatResolver.evasion(light), "같은 민첩이면 무거울수록 회피 낮음")
 
 func test_hit_chance_ninety_minus_evasion() -> void:
 	var attacker := _human()
