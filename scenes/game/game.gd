@@ -17,6 +17,10 @@ const PAN_ZOOM_SPEED := 0.05   # 트랙패드 두 손가락 스크롤(PanGesture
 
 const PARTY_SCENE := preload("res://scenes/party/party.tscn")
 
+# 부대 이동 애니메이션. 칸당 이동 시간(플레이어·NPC 공유) / 같은 세력 내 NPC 부대 시작 간격(스태거).
+const MOVE_STEP_TIME := 0.12
+const NPC_PARTY_STAGGER := 0.2
+
 # NPC 부대 배치 오프셋(맵 중앙 기준 칸). 초기 시야 안에 들도록 임시 배치한다.
 const NPC_OFFSETS := {
 	"qasim": Vector2i(5, 0),
@@ -50,9 +54,17 @@ var _selected := false
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
 var _turn := TurnManager.new()
 var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
-var _npc_parties: Array = []    # NPC 부대. 안개 표시·턴 리셋 대상. 일람·이동·AI는 아직 아님.
+var _npc_parties: Array = []    # NPC 부대. 안개 표시·턴 리셋·턴 종료 시 이동(NpcAi) 대상. 일람은 제외.
 var _territories: Array = []    # 자원 수입을 받는 영지.
 var _buildings: Array = []      # 맵의 모든 건물(캠프 + 건설된 농장). 겹침 검사·추적용.
+
+# NPC 이동 AI가 목적지를 무작위로 고를 때 쓰는 난수기(_ready에서 randomize).
+var _rng := RandomNumberGenerator.new()
+
+# 진행 중인 NPC 이동 애니메이션. 재진입(애니메이션 중 다시 턴 종료) 시 목적지로 스냅하는 데 쓴다.
+var _npc_tweens: Array = []          # 살아 있는 Tween 목록(재진입 시 kill).
+var _npc_move_targets: Dictionary = {}   # party → 최종 목적지 칸(스냅용).
+var _npc_move_epoch := 0             # NPC 이동 세대. 새 라운드가 시작되면 이전 코루틴을 중단시킨다.
 
 # 건설 모드. 캠프 메뉴에서 건물을 고르면 진입 — 맵을 클릭해 배치한다.
 var _build_mode := false
@@ -60,6 +72,7 @@ var _build_type := ""
 var _build_territory: Territory = null
 
 func _ready() -> void:
+	_rng.randomize()
 	_generate_map()
 	_center_camera()
 	overlay.setup(terrain)
@@ -254,7 +267,7 @@ func _select() -> void:
 	party.set_selected(true)
 	_update_ranges()
 
-## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입. 진행 중 선택은 해제한다.
+## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
 	if _selected:
 		_deselect()
@@ -262,7 +275,82 @@ func _on_turn_ended() -> void:
 	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _units만 등록).
 	_turn.end_turn(_units + _npc_parties, _territories)
 	turn_hud.set_turn(_turn.number)
-	_update_fog()   # 건설이 완료된 농장이 있으면 그 시야를 안개에 반영.
+	_update_fog()   # 건설 완료 농장 시야 + NPC 현재 위치 표시를 안개에 반영.
+	_move_npcs()    # 비차단: NPC를 경로 따라 애니메이션으로 이동(플레이어 조작 안 막음).
+
+## 각 NPC 부대를 목적지(NpcAi)까지 경로 따라 애니메이션으로 이동시킨다.
+## 세력 간 순차, 같은 세력 내 부대는 NPC_PARTY_STAGGER 간격으로 동시 이동. 비차단(await로 백그라운드 진행).
+func _move_npcs() -> void:
+	_finish_pending_npc_moves()   # 재진입: 진행 중이던 이동을 목적지로 스냅.
+	_npc_move_epoch += 1
+	var epoch := _npc_move_epoch   # 이 라운드의 세대. 도중 새 라운드가 시작되면 아래 루프를 빠져나온다.
+
+	# 세력별로 그룹핑(등장 순서 유지). 각 항목은 {party, path}.
+	var factions: Array = []
+	var groups: Dictionary = {}
+	for p in _npc_parties:
+		var start := terrain.local_to_map(p.position)
+		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng)
+		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT)
+		var f: String = p.faction_name
+		if not groups.has(f):
+			groups[f] = []
+			factions.append(f)
+		groups[f].append({"party": p, "path": path})
+
+	# 세력을 하나씩 순차로 애니메이션한다(한 세력이 끝나야 다음).
+	for f in factions:
+		if epoch != _npc_move_epoch:
+			return   # 새 이동 라운드가 시작됨 → 이 코루틴은 중단(이중 이동 방지).
+		await _animate_faction(groups[f])
+
+## 한 세력의 부대들을 동시에(부대마다 NPC_PARTY_STAGGER 지연) 애니메이션하고, 전부 끝날 때까지 대기한다.
+func _animate_faction(plans: Array) -> void:
+	var max_dur := 0.0
+	for i in plans.size():
+		var path: Array = plans[i]["path"]
+		var delay: float = i * NPC_PARTY_STAGGER
+		_start_party_animation(plans[i]["party"], path, delay)
+		var steps: int = maxi(0, path.size() - 1)
+		max_dur = maxf(max_dur, delay + steps * MOVE_STEP_TIME)
+	if max_dur > 0.0:
+		await get_tree().create_timer(max_dur).timeout
+
+## 부대를 경로(path)의 칸을 차례로 지나도록 Tween으로 이동시킨다(칸당 MOVE_STEP_TIME). delay 후 시작.
+## 각 칸에 도착할 때마다 on_arrive.call(cell)을 실행한다(도착 시점이라 party.position == 그 칸).
+## 플레이어·NPC 이동이 공유한다. 이동할 칸이 없으면(path < 2) null을 돌려준다.
+func _animate_path(party, path: Array, delay: float, on_arrive: Callable) -> Tween:
+	if path.size() < 2:
+		return null
+	var tw := create_tween()
+	if delay > 0.0:
+		tw.tween_interval(delay)
+	for i in range(1, path.size()):
+		var cell: Vector2i = path[i]
+		tw.tween_property(party, "position", terrain.map_to_local(cell), MOVE_STEP_TIME)
+		tw.tween_callback(on_arrive.bind(cell))
+	return tw
+
+## NPC 한 부대의 이동 애니메이션. 각 칸 도착 시 그 칸의 시야 여부로 토큰 표시를 토글한다(안개).
+func _start_party_animation(party, path: Array, delay: float) -> void:
+	var tw := _animate_path(party, path, delay, func(cell: Vector2i) -> void:
+		party.visible = fog.is_cell_visible(cell))
+	if tw == null:
+		return   # 제자리/도달 불가 — 이동 없음.
+	_npc_move_targets[party] = path[path.size() - 1]
+	tw.tween_callback(func() -> void: _npc_move_targets.erase(party))
+	_npc_tweens.append(tw)
+	tw.finished.connect(func() -> void: _npc_tweens.erase(tw))
+
+## 진행 중인 NPC 이동을 즉시 끝낸다: 트윈을 죽이고 각 부대를 최종 목적지 칸으로 스냅.
+func _finish_pending_npc_moves() -> void:
+	for t in _npc_tweens.duplicate():
+		if is_instance_valid(t) and t.is_valid():
+			t.kill()
+	_npc_tweens.clear()
+	for party in _npc_move_targets:
+		party.position = terrain.map_to_local(_npc_move_targets[party])
+	_npc_move_targets.clear()
 
 ## 선택을 해제하고 범위 표시를 지운다.
 func _deselect() -> void:

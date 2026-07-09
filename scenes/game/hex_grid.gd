@@ -68,6 +68,28 @@ static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: 
 		attack_cells.append(cell)
 	return {"move": move_cells, "attack": attack_cells, "dist": dist}
 
+## start에서 dest까지 최단 헥스 경로(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적한다.
+## - 산(Terrain.IMPASSABLE)·맵 밖은 제외한다(이동 계산과 같은 규칙).
+## - dest에 도달 불가하면 빈 배열, start == dest면 [start].
+## - NPC 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
+static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int) -> Array[Vector2i]:
+	if start == dest:
+		return [start]
+	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE)
+	if not dist.has(dest):
+		return []
+	# dest에서 거리가 1씩 작은 이웃을 따라 start까지 거꾸로 짚어간다.
+	var path: Array[Vector2i] = [dest]
+	var cur := dest
+	while cur != start:
+		for n in terrain.get_surrounding_cells(cur):
+			if dist.get(n, -1) == dist[cur] - 1:
+				cur = n
+				path.append(cur)
+				break
+	path.reverse()
+	return path
+
 static func _in_bounds(cell: Vector2i, map_w: int, map_h: int) -> bool:
 	return cell.x >= 0 and cell.x < map_w and cell.y >= 0 and cell.y < map_h
 

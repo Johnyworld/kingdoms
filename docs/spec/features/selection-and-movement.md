@@ -41,6 +41,10 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 - 부대가 선 칸(거리 0)은 제외.
 - 클릭 이동 판정(`reachable`)은 이 **이동 목적지 집합**의 포함 여부로 한다(단순 거리로 판정하면 숲/습지 상한을 무시하므로).
 
+### 경로 재구성 (`HexGrid.reconstruct_path`)
+
+`reconstruct_path(terrain, start, dest, move_range, map_w, map_h) -> Array[Vector2i]` — 시작에서 목적지까지 **최단 헥스 경로**(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적해 구한다. 산(`Terrain.IMPASSABLE`)·맵 밖은 제외한다. 도달 불가하면 빈 배열, `start == dest`면 `[start]`. [NPC 이동 애니메이션](npc-movement.md)이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
+
 ## 범위 오버레이 (`range_overlay.gd`)
 
 > `extends Node2D`

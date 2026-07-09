@@ -3,7 +3,7 @@
 > 스크립트: `scenes/turn/turn_manager.gd` (`class_name TurnManager extends RefCounted`) · `scenes/turn/turn_hud.gd` (`extends CanvasLayer`)
 
 게임을 **턴** 단위로 진행한다. 플레이어는 [부대](../entities/Party.md)를 움직인 뒤 **턴 종료**를 눌러 다음 턴으로 넘어간다.
-턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된다.
+턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된 뒤, ⑤ **NPC 부대가 이동**한다([NPC Movement](npc-movement.md)).
 
 ## 규칙
 
@@ -46,7 +46,8 @@
 ## 게임 연동 (`game.gd`)
 
 - 게임 시작 시 `TurnManager`를 생성하고, 유닛 목록(맵의 모든 부대 — 플레이어 + NPC)·영지 목록(창천성)을 보유한다. 턴 종료 시 NPC 부대의 이동 상태도 함께 리셋된다.
-- 턴 종료 버튼(`ended`) → `turn_manager.end_turn(units, territories)` → 유닛 강조/흐림 갱신 · HUD 턴 번호 갱신.
+- 턴 종료 버튼(`ended`) → `turn_manager.end_turn(units, territories)` → **NPC 이동**(`_move_npcs`) → 안개·HUD 턴 번호 갱신. NPC 이동은 `TurnManager` 밖(`game.gd`)에서 처리한다(씬 트리·터레인 의존이라 순수 데이터 계층인 `TurnManager`에 넣지 않는다).
+- NPC 이동은 **경로를 따라가는 애니메이션(비차단)**으로 재생된다([NPC Movement](npc-movement.md)) — 재생 중에도 플레이어는 조작할 수 있다.
 
 ## 테스트 시나리오
 

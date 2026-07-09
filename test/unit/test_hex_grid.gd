@@ -155,3 +155,56 @@ func test_region_outline_radius_one_disk() -> void:
 	var cells := HexGrid.cells_within(terrain, _center(), 1, MAP, MAP)
 	var outline := HexGrid.region_outline(terrain, cells)
 	assert_eq(outline.size(), 18, "반경 1 디스크 윤곽선 = 18변")
+
+# --- 경로 재구성 (reconstruct_path) — NPC 이동 애니메이션에 사용 ---
+
+func test_path_plains_length_and_endpoints() -> void:
+	var start := _center()
+	var dist := HexGrid.bfs_distances(terrain, start, 3, MAP, MAP, Terrain.IMPASSABLE)
+	# 거리 3인 아무 칸을 목적지로 고른다(초원이라 거리 3 링이 존재).
+	var dest := start
+	for c in dist:
+		if dist[c] == 3:
+			dest = c
+			break
+	var path := HexGrid.reconstruct_path(terrain, start, dest, 3, MAP, MAP)
+	assert_eq(path.size(), 4, "거리 3 경로는 칸 4개(start 포함)")
+	assert_eq(path[0], start, "경로 첫 칸은 start")
+	assert_eq(path[path.size() - 1], dest, "경로 끝 칸은 dest")
+	# 이웃끼리 인접하고 거리가 1씩 증가.
+	for i in range(1, path.size()):
+		assert_true(path[i] in terrain.get_surrounding_cells(path[i - 1]), "연속 칸은 헥스 이웃")
+		assert_eq(dist[path[i]], dist[path[i - 1]] + 1, "경로를 따라 거리 단조 증가")
+
+func test_path_start_equals_dest() -> void:
+	var start := _center()
+	var path := HexGrid.reconstruct_path(terrain, start, start, 3, MAP, MAP)
+	assert_eq(path, [start] as Array[Vector2i], "start == dest면 경로는 [start]")
+
+func test_path_adjacent_length_two() -> void:
+	var start := _center()
+	var dest: Vector2i = terrain.get_surrounding_cells(start)[0]
+	var path := HexGrid.reconstruct_path(terrain, start, dest, 1, MAP, MAP)
+	assert_eq(path.size(), 2, "인접 칸 경로는 [start, dest]")
+
+func test_path_unreachable_returns_empty() -> void:
+	# start를 산으로 둘러싸면 어떤 목적지에도 도달 못 한다.
+	var start := _center()
+	for n in terrain.get_surrounding_cells(start):
+		terrain.set_cell(n, Terrain.MOUNTAIN, Terrain.ATLAS)
+	var far: Vector2i = start + Vector2i(3, 0)
+	var path := HexGrid.reconstruct_path(terrain, start, far, 3, MAP, MAP)
+	assert_eq(path.size(), 0, "도달 불가한 목적지면 빈 경로")
+
+func test_path_avoids_mountains() -> void:
+	# 직선 방향에 산을 놓아도 경로는 산 칸을 통과하지 않는다.
+	var start := _center()
+	var dist := HexGrid.bfs_distances(terrain, start, 3, MAP, MAP, Terrain.IMPASSABLE)
+	var dest := start
+	for c in dist:
+		if dist[c] == 3:
+			dest = c
+			break
+	var path := HexGrid.reconstruct_path(terrain, start, dest, 3, MAP, MAP)
+	for cell in path:
+		assert_false(terrain.get_cell_source_id(cell) == Terrain.MOUNTAIN, "경로에 산 칸 없음")

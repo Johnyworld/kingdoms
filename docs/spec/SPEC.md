@@ -37,7 +37,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Splash (스플래시)](features/splash.md)
 - [Title (타이틀 메뉴)](features/title.md)
 - [Map & Camera (맵과 카메라)](features/map-and-camera.md)
-- [Parties (부대 배치)](features/parties.md) — 유닛 카탈로그에서 플레이어 부대 + NPC 부대 3개 생성·배치 (NPC는 표시만)
+- [Parties (부대 배치)](features/parties.md) — 유닛 카탈로그에서 플레이어 부대 + NPC 부대 3개 생성·배치
+- [NPC Movement (NPC 이동 AI)](features/npc-movement.md) — 턴 종료 시 NPC가 도달 가능한 가장 먼 칸으로 무작위 이동
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
@@ -68,6 +69,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 건설 미리보기 오버레이 | `scenes/game/build_preview.gd` |
 | 건설 가능 영역 오버레이 | `scenes/game/build_area_overlay.gd` |
 | 전장의 안개 | `scenes/game/fog.gd` |
+| NPC 이동 AI | `scenes/game/npc_ai.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
