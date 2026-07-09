@@ -63,6 +63,10 @@ static func armor_defense(id: String) -> int:
 static func armor_class(id: String) -> String:
 	return ARMORS.get(id, {}).get("armor_class", "")
 
+## 방어구 이름(없는 id면 "").
+static func armor_name(id: String) -> String:
+	return ARMORS.get(id, {}).get("name", "")
+
 ## 방패 방어력(없는 id면 0).
 static func shield_defense(id: String) -> int:
 	return SHIELDS.get(id, {}).get("defense", 0)

@@ -70,6 +70,19 @@ func test_member_label_shows_barehand() -> void:
 	var text: String = (panel._member_list.get_child(0) as Label).text
 	assert_string_contains(text, "맨손", "무기 없으면 '맨손' 표시")
 
+func test_member_label_shows_armor_pieces() -> void:
+	var h := _human("갑옷병", 3, 5)
+	h.armor = ["leather_helm", "leather_armor"]
+	panel.open(_party([h]))
+	var text: String = (panel._member_list.get_child(0) as Label).text
+	assert_string_contains(text, "방어구:", "방어구 줄 표시")
+	assert_string_contains(text, "가죽 투구", "조각 이름 포함")
+	assert_string_contains(text, "가죽 갑옷", "조각 이름 포함")
+
+func test_member_label_no_armor_no_line() -> void:
+	panel.open(_party([_human("맨몸이", 3, 5)]))   # armor []
+	assert_false("방어구:" in (panel._member_list.get_child(0) as Label).text, "맨몸이면 방어구 줄 없음")
+
 func test_member_label_shows_shield_block() -> void:
 	var shielded := _human("방패병", 3, 5)
 	shielded.shield = "tower_shield"   # 막기 40%

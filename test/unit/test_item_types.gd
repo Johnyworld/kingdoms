@@ -15,10 +15,12 @@ func test_unknown_weapon_defaults() -> void:
 func test_armor_defense_and_class() -> void:
 	assert_eq(ItemTypes.armor_defense("chain_mail"), 14, "사슬 갑옷 방어력 14")
 	assert_eq(ItemTypes.armor_class("robe"), "천", "로브 분류 천")
+	assert_eq(ItemTypes.armor_name("robe"), "로브", "로브 이름")
 
 func test_unknown_armor_defaults() -> void:
 	assert_eq(ItemTypes.armor_defense("없음"), 0, "없는 방어구 방어력 0")
 	assert_eq(ItemTypes.armor_class(""), "", "빈 방어구 분류 빈 문자열")
+	assert_eq(ItemTypes.armor_name(""), "", "빈 방어구 이름 빈 문자열")
 
 func test_shield_stats() -> void:
 	assert_eq(ItemTypes.shield_defense("tower_shield"), 12, "타워 실드 방어력 12")

@@ -68,6 +68,12 @@ func open(party) -> void:
 		var block: int = CombatResolver.block_chance(member)
 		if block > 0:
 			label.text += " · 막기 %d%%" % block
+		# 3줄: 착용 방어구 조각 이름(맨몸이면 줄 없음).
+		if not member.armor.is_empty():
+			var pieces: Array = []
+			for a in member.armor:
+				pieces.append(ItemTypes.armor_name(a))
+			label.text += "\n  방어구: %s" % ", ".join(pieces)
 		_member_list.add_child(label)
 
 	show()
