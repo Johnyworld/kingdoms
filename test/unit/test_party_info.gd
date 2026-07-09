@@ -28,6 +28,17 @@ func test_shows_party_name() -> void:
 	panel.open(_sample_party())
 	assert_eq(panel._title.text, "주인공 부대", "제목 라벨 = 부대 이름")
 
+func test_shows_faction_name() -> void:
+	var p := _sample_party()
+	p.faction_name = "푸른 왕국"
+	panel.open(p)
+	assert_eq(panel._faction.text, "푸른 왕국", "세력 라벨 = 부대 세력명")
+	assert_true(panel._faction.visible, "세력명이 있으면 세력 라벨 표시")
+
+func test_hides_faction_when_empty() -> void:
+	panel.open(_sample_party())  # faction_name 기본 ""
+	assert_false(panel._faction.visible, "세력명이 비면 세력 라벨 숨김")
+
 func test_summary_shows_movement_and_vision() -> void:
 	panel.open(_sample_party())
 	assert_eq(panel._summary.text, "이동력 2 · 시야 5", "요약 = 집계 이동력(min)·시야(max)")

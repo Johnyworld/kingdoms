@@ -26,6 +26,16 @@ func test_party_name_settable() -> void:
 	p.party_name = "주인공 부대"
 	assert_eq(p.party_name, "주인공 부대", "이름을 설정할 수 있다")
 
+# --- 소속 세력 ---
+
+func test_faction_name_defaults_empty() -> void:
+	assert_eq(_party().faction_name, "", "기본 세력명은 빈 문자열")
+
+func test_faction_name_settable() -> void:
+	var p := _party()
+	p.faction_name = "푸른 왕국"
+	assert_eq(p.faction_name, "푸른 왕국", "세력명을 설정할 수 있다")
+
 # --- 토큰 색 ---
 
 func test_token_color_default_gold() -> void:

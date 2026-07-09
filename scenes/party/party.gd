@@ -8,6 +8,9 @@ class_name Party extends Node2D
 ## 이름. 엔진 내장 프로퍼티 `name`(노드 이름)과 충돌하므로 별도 변수로 둔다.
 @export var party_name := ""
 
+## 소속 세력 이름. 정보 패널에 표시해 아군/적을 구분한다. 카탈로그 생성 시 설정한다.
+@export var faction_name := ""
+
 ## 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다.
 @export var token_color := Color(0.92, 0.78, 0.35)
 

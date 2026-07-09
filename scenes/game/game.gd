@@ -146,6 +146,7 @@ func _setup_parties() -> void:
 func _populate_party(p, id: String) -> void:
 	var spec := UnitTypes.get_party(id)
 	p.party_name = spec["party_name"]
+	p.faction_name = spec["faction"]
 	var members := UnitTypes.make_members(id)
 	for m in members:
 		p.add_member(m)
@@ -196,10 +197,11 @@ func _handle_click(world_pos: Vector2) -> void:
 	var party_cell := terrain.local_to_map(party.position)
 	var reachable: bool = _reachable.has(cell)
 	var clicked := _building_at(cell)   # 캠프는 CAMP_MENU, 그 외 건물은 BUILDING_INFO로 분기.
+	var clicked_npc := _npc_at(cell)    # 보이는 NPC 부대가 있으면 그 정보를 띄운다.
 	var on_camp := clicked != null and clicked.building_type == BuildingTypes.CAMP
 	var on_building := clicked != null and clicked.building_type != BuildingTypes.CAMP
 
-	match ClickRouter.resolve(cell == party_cell, on_camp, on_building, _selected, reachable, party_info.visible):
+	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, _selected, reachable, party_info.visible):
 		ClickRouter.MOVE:
 			party.position = terrain.map_to_local(cell)
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
@@ -223,6 +225,11 @@ func _handle_click(world_pos: Vector2) -> void:
 			_show_party_info(party)
 			if not _selected and party.can_move():
 				_select()
+		ClickRouter.FOCUS_NPC:
+			# NPC는 정보만 표시한다(선택·이동 없음). 진행 중이던 선택은 해제한다.
+			if _selected:
+				_deselect()
+			_show_party_info(clicked_npc)
 		ClickRouter.DESELECT:
 			_deselect()
 			_hide_party_info()
@@ -232,6 +239,13 @@ func _building_at(cell: Vector2i) -> Building:
 	for b in _buildings:
 		if b.contains_cell(cell):
 			return b
+	return null
+
+## 그 셀에 선 NPC 부대를 찾는다(없으면 null). 안개에 가려 보이지 않는(visible == false) NPC는 제외한다.
+func _npc_at(cell: Vector2i) -> Party:
+	for p in _npc_parties:
+		if p.visible and terrain.local_to_map(p.position) == cell:
+			return p
 	return null
 
 ## 주인공 부대를 선택하고 이동/공격 범위를 표시한다.

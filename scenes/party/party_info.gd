@@ -5,6 +5,7 @@ extends CanvasLayer
 const MARGIN := 16
 
 var _title: Label          # 제목 = 부대 이름
+var _faction: Label        # 소속 세력 이름(비면 숨김)
 var _summary: Label        # 요약 = "이동력 N · 시야 M"
 var _member_list: VBoxContainer  # 멤버 한 명당 라벨 한 줄
 
@@ -34,6 +35,9 @@ func _build() -> void:
 	_title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(_title)
 
+	_faction = Label.new()
+	vbox.add_child(_faction)
+
 	_summary = Label.new()
 	vbox.add_child(_summary)
 
@@ -46,6 +50,8 @@ func _build() -> void:
 ## 부대 정보를 채우고 패널을 보인다. 멤버 리스트는 비우고 다시 채운다(재오픈 대비).
 func open(party) -> void:
 	_title.text = party.party_name
+	_faction.text = party.faction_name
+	_faction.visible = not party.faction_name.is_empty()   # 세력명이 없으면 줄을 숨긴다.
 	_summary.text = "이동력 %d · 시야 %d" % [party.movement(), party.vision()]
 
 	for child in _member_list.get_children():
