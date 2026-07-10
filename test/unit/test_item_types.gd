@@ -34,8 +34,13 @@ func test_unknown_shield_defaults() -> void:
 
 func test_weapon_range() -> void:
 	assert_eq(ItemTypes.weapon_range("bow"), 3, "단궁 공격거리 3")
-	assert_eq(ItemTypes.weapon_range("sword"), 1, "검 공격거리 1")
-	assert_eq(ItemTypes.weapon_range(""), 1, "맨손은 근접 사거리 1")
+	assert_eq(ItemTypes.weapon_range("sword"), 0, "검은 근접(월드맵 사거리 0)")
+	assert_eq(ItemTypes.weapon_range(""), 0, "맨손은 근접 0")
+
+func test_range_label() -> void:
+	assert_eq(ItemTypes.range_label(0), "근접", "0은 근접")
+	assert_eq(ItemTypes.range_label(3), "사거리 3", "3은 사거리 3")
+	assert_eq(ItemTypes.range_label(2), "사거리 2", "2는 사거리 2")
 
 func test_weapon_reach() -> void:
 	assert_almost_eq(ItemTypes.weapon_reach("spear"), 2.0, 0.001, "장창 리치 2.0(가장 김)")
@@ -50,7 +55,7 @@ func test_weapon_attack_speed() -> void:
 	assert_almost_eq(ItemTypes.weapon_attack_speed(""), 2.0, 0.001, "맨손 기본 공격속도 2.0초")
 
 func test_throw_range() -> void:
-	assert_eq(ItemTypes.weapon_range("javelin"), 1, "투창은 월드맵 근접(사거리 1)")
+	assert_eq(ItemTypes.weapon_range("javelin"), 0, "투창은 월드맵 근접(사거리 0)")
 	assert_eq(ItemTypes.weapon_throw_range("javelin"), 2, "투창 투척 사거리 2")
 	assert_eq(ItemTypes.weapon_throw_range("sword"), 0, "검은 투척 불가 0")
 	assert_eq(ItemTypes.weapon_throw_range(""), 0, "빈 무기 투척 0")
@@ -75,8 +80,8 @@ func test_melee_weapon() -> void:
 
 func test_max_range() -> void:
 	assert_eq(ItemTypes.max_range(["sword", "bow"]), 3, "보유 무기 중 최대 공격거리")
-	assert_eq(ItemTypes.max_range(["sword"]), 1, "근접만이면 1")
-	assert_eq(ItemTypes.max_range([]), 1, "맨손은 근접 사거리 1")
+	assert_eq(ItemTypes.max_range(["sword"]), 0, "근접만이면 0")
+	assert_eq(ItemTypes.max_range([]), 0, "맨손은 근접 0")
 
 func test_active_weapon() -> void:
 	assert_eq(ItemTypes.active_weapon(["sword", "bow"], false), "sword", "근접 전투 → 주무기")

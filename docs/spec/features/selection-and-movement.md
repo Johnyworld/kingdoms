@@ -2,22 +2,32 @@
 
 > 스크립트: `scenes/game/game.gd`, `scenes/game/range_overlay.gd`
 
-주인공 [부대](../entities/Party.md)를 선택하면 이동/공격 범위가 표시되고, 범위 안의 칸을 클릭해 이동한다.
+주인공 [부대](../entities/Party.md)를 선택하면 **이동 범위(파랑)** 가 표시되고 화면 중앙에 [행동 메뉴](party-action-menu.md)가 열린다. 이동은 범위 안의 칸을 클릭해서 하고, 공격·휴식은 메뉴로 한다.
 움직이는 대상은 개별 [Human](../entities/Human.md)이 아니라 **부대(Party)**다.
+
+## 상호작용 모드
+
+선택 후 두 모드가 있다([행동 메뉴](party-action-menu.md) 참조).
+- **`MOVE`(기본)**: 파랑 이동 범위 + **공격 가능한 적 타일(빨강)** + 중앙 메뉴([사격]·[휴식/대기]). 도달 빈칸 클릭 → 이동, **공격 가능 적 클릭 → 적 팝업**([이동][공격][사격]), 그 외 NPC 클릭 → 정보.
+- **`SHOOT`**(중앙 [사격]): 사격 가능 적 타일(빨강)만. 그 적 클릭 → 제자리 사격(전투), 그 외 클릭 → `MOVE` 취소.
+
+**공격 가능한 적**(빨강 타일): **근접**(현재 칸∪이동칸 중 그 적에 인접한 칸이 있음) 또는 **사격**(원거리 무기·현재 위치 사거리 내). 상세는 [행동 메뉴](party-action-menu.md)의 "공격 가능 판정".
+
+`ClickRouter`는 **`MOVE` 모드**의 빈칸/건물/부대 클릭만 다룬다. 공격 가능 적 클릭(팝업)·`SHOOT` 모드는 `game.gd`가 직접 처리한다(`ClickRouter`에 `ATTACK`은 없음).
 
 ## 좌클릭 처리 (`_handle_click` → `ClickRouter.resolve`)
 
 클릭이 어떤 동작을 할지는 순수 함수 `ClickRouter.resolve`(`scenes/game/click_router.gd`)가 우선순위에 따라 결정한다(노드 비의존이라 테스트하기 쉽다). `_handle_click`은 셀 정보를 넘겨 받은 동작을 실행만 한다.
 
-입력: `on_party`(플레이어 부대가 선 칸인지) · `on_npc`(보이는 NPC 부대가 선 칸인지) · `on_camp`(캠프 영역인지) · `selected` · `reachable`(이동 범위 칸인지) · `info_open`(부대 정보 패널이 이미 열려 있는지) · `enemy_attackable`(클릭한 적이 현재 공격 범위(빨강) 안이고 부대가 공격 가능한지).
+`ClickRouter`는 **`MOVE` 모드**의 클릭만 다룬다(`ATTACK` 모드는 `game.gd`가 직접 처리 — 적이면 전투, 아니면 취소).
+
+입력: `on_party`(플레이어 부대가 선 칸인지) · `on_npc`(보이는 NPC 부대가 선 칸인지) · `on_camp`(캠프 영역인지) · `selected` · `reachable`(이동 범위 칸인지) · `info_open`(부대 정보 패널이 이미 열려 있는지).
 
 우선순위 순서:
 
-1. **플레이어 부대 칸 클릭 → 부대 우선** (`FOCUS_PARTY`) — [부대 정보 패널](party-info.md)을 연다(이동 완료 부대 포함). 아직 선택 전이고 **이동 가능(`can_move()`)** 하면 함께 선택(`_select`)해 이동 범위도 표시한다. **이번 턴에 이미 이동한 부대는 선택되지 않으므로 이동 범위는 표시되지 않는다**(정보 패널만).
+1. **플레이어 부대 칸 클릭 → 부대 우선** (`FOCUS_PARTY`) — [부대 정보 패널](party-info.md)을 연다(이동 완료 부대 포함). 아직 선택 전이고 **행동 가능(`can_move()` 또는 `can_rest()`)** 하면 함께 선택(`_select`)해 이동 범위(파랑)와 [행동 메뉴](party-action-menu.md)(`MOVE` 모드)를 표시한다.
    - 예외: **부대가 캠프 위에 서 있고 정보 패널이 이미 열려 있으면**(= 같은 칸을 한 번 더 클릭) `CAMP_MENU` — [캠프 메뉴](camp-menu.md)를 연다. (캠프 위 부대는 첫 클릭 = 부대, 두 번째 클릭 = 캠프 메뉴)
-2. **NPC 부대 칸 클릭** — 선택 중이고 그 NPC가 **공격 범위(빨강) 안**이며 부대가 공격 가능하면(`enemy_attackable`) **전투 개시**(`ATTACK` → [Battle](battle.md)), 아니면 **NPC 정보**(`FOCUS_NPC`)를 연다.
-   - `ATTACK`: 적이 현재 위치에서 **공격거리(`party.attack_range()`) 이내**면 그 자리에서 전투하고(원거리 발사), 아니면 **적에 공격거리 이내인 도달 가능 칸으로 자동 이동한 뒤 전투**한다([Battle](battle.md)). 공격은 부대의 행동을 끝낸다.
-   - `FOCUS_NPC`: 그 NPC의 [정보 패널](party-info.md)만 연다(선택·이동 범위 없음). 선택 중이던 플레이어 부대는 해제한다.
+2. **NPC 부대 칸 클릭 → NPC 정보** (`FOCUS_NPC`) — 그 NPC의 [정보 패널](party-info.md)만 연다(선택·범위 없음). 선택 중이던 플레이어 부대는 해제한다. **공격은 여기서 하지 않는다** — `[공격]` 메뉴 → `ATTACK` 모드에서 한다([party-action-menu](party-action-menu.md)·[Battle](battle.md)).
    - **이동보다 앞 순위**라 이동 범위 안 NPC 칸을 클릭해도 이동하지 않는다. 안개에 가려 보이지 않는 NPC는 `on_npc = false`라 이 경로를 타지 않는다.
 3. **선택 중 + 이동 범위 칸 → 이동** (`MOVE`) — 시작 칸에서 목적지까지 **경로를 따라 애니메이션**으로 이동한다(아래). 클릭 즉시 `party.mark_moved()`로 **이번 턴 이동 완료** 처리(흐리게 표시, 재선택 불가)하고 선택 해제·정보 패널 닫기까지 확정한다. **건물 칸이어도 이동이 우선**이다 — 건물은 이동을 막지 않으므로 **모든 건물(캠프·농장·건설 중) 위로 통행**할 수 있다.
 4. **캠프 칸 클릭 → 캠프 메뉴** (`CAMP_MENU`) — 부대가 없거나 범위 밖이면. 선택 중이면 해제하고 정보 패널을 닫은 뒤 캠프 메뉴를 연다.
@@ -49,17 +59,19 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
   - 초원·사막: 거리 1 ~ `movement`.
   - **숲**: `ceil(movement/2)`, **습지**: `floor(movement/2)`까지만(목적지 지형이 이동력을 반감).
   - **산**: 진입·통과 불가. BFS가 산 칸을 건너뛰므로 `dist`에서 아예 빠진다.
-- **공격 범위**: **이동 가능 영역(+시작칸)에서 부대 공격거리(`attack_range()`) 이내** 칸 → 빨강 헥스. 근접(공격거리 1)이면 이동 프런티어 바로 바깥 한 칸, 원거리(활 3·완드 2)면 그만큼 넓어진다. 이동칸·시작칸은 제외. 공격거리 확장은 지형에 막히지 않는다(`HexGrid.cells_within_any` — 다중 시작점 BFS, 사거리는 지형 무관).
-- 부대가 선 칸(거리 0)은 제외.
+- **공격 가능 적(빨강)**: 범위 영역이 아니라 **적 타일 자체**에 빨강을 그린다. 각 보이는 NPC마다 근접(현재 칸∪이동칸 중 인접 칸 존재) 또는 사격(원거리 무기·`cells_within(시작칸, attack_range())` 안) 가능하면 그 타일을 빨강으로. 상세 판정은 [행동 메뉴](party-action-menu.md).
+- 부대가 선 칸(거리 0)은 이동 범위에서 제외.
 - 클릭 이동 판정(`reachable`)은 이 **이동 목적지 집합**의 포함 여부로 한다(단순 거리로 판정하면 숲/습지 상한을 무시하므로).
 
 ### 경로 재구성 (`HexGrid.reconstruct_path`)
 
 `reconstruct_path(terrain, start, dest, move_range, map_w, map_h, blocked_cells := {}) -> Array[Vector2i]` — 시작에서 목적지까지 **최단 헥스 경로**(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적해 구한다. 산(`Terrain.IMPASSABLE`)·맵 밖·`blocked_cells`(점유 칸)는 제외한다. 도달 불가(목적지가 막혔거나 격리)하면 빈 배열, `start == dest`면 `[start]`. NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
 
-### 공격 범위 (`HexGrid.cells_within_any`)
+### 사거리 판정 (`HexGrid.cells_within`)
 
-`cells_within_any(terrain, sources: Array, radius, map_w, map_h) -> Array` — **다중 시작점** BFS로 `sources` 중 어느 하나에서든 헥스 거리 `radius` 이내인 모든 칸(맵 밖 제외, 지형 무관). 공격 범위 = `cells_within_any(이동칸+시작칸, attack_range())`에서 이동칸·시작칸을 뺀 것. 공격 개시 시 "적이 사거리 내인가"·"적에 사거리 내인 도달 가능 칸"을 구하는 데도 쓴다(단일 시작점은 `cells_within`).
+`cells_within(terrain, center, radius, map_w, map_h) -> Array` — 시작점에서 헥스 거리 `radius` 이내 칸(맵 밖 제외, 지형 무관). **사격 가능** 판정 = 적 타일이 `cells_within(시작칸, attack_range())`에 있는지. **근접 가능** 판정 = 적 타일이 (현재 칸∪이동칸)의 이웃인지(`terrain.get_surrounding_cells`).
+
+- `cells_within_any(terrain, sources: Array, radius, ...)` — 다중 시작점 합집합 버전. **현재는 미사용**(헬퍼·테스트만 유지).
 
 ### 이동 애니메이션 (`game.gd` `_animate_path`)
 
@@ -80,14 +92,14 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 
 ## 선택 상태
 
-- 부대를 선택할 수 있는 조건: `can_move()` **또는** `can_attack()`. 이미 공격까지 마친(둘 다 불가) 부대는 이번 턴 할 행동이 없어 선택되지 않는다(정보 패널만).
-- **범위 표시 모드**(`_update_ranges`):
-  - **이동 가능**(`can_move()`): 이동력 기준 이동(파랑) + 공격(빨강) 범위를 모두 표시한다.
-  - **이동 완료·공격만 가능**(`can_attack()`): 이동 범위 없이 **현재 칸 인접(빨강)만** 표시한다(`movement_ranges`에 이동력 0을 넘김 → 이동 목적지 없음, 공격 범위 = 이웃 칸).
-- **이동 후 자동 재표시**: 이동 애니메이션이 끝나면, 공격 가능하고 공격 범위(빨강) 안에 **보이는 적**이 있으면 빨강만 다시 표시하고 부대를 공격 대기 상태로 유지한다. 없으면 선택을 해제한다.
-- `_select()` — 선택 플래그 on, 부대 강조 링 표시, 범위 계산(위 모드).
-- `_deselect()` — 플래그 off, 강조 링 제거, 이동·공격 범위 표시 지움.
-- 클릭 이동 판정은 이동 범위 집합(`_reachable`), 공격 대상 판정은 공격 범위 집합(`_attackable`)으로 한다.
+- 부대를 선택할 수 있는 조건: `can_move()` **또는** `can_rest()`(= `can_attack()`). 이미 공격/휴식까지 마친 부대는 이번 턴 할 행동이 없어 선택되지 않는다(정보 패널만).
+- **범위 표시는 모드에 따른다**([party-action-menu](party-action-menu.md)):
+  - **`MOVE` 모드**: `can_move()`면 이동 범위(파랑) + **공격 가능한 적 타일(빨강)**. 이동 완료 부대는 파랑 없이 빨강(사격 가능 적)만.
+  - **`SHOOT` 모드**(중앙 [사격]): **사격 가능한 적 타일(빨강)만** 표시.
+- **이동 후**: 이동 애니메이션이 끝나면 다시 `MOVE` 모드로 서서, 아직 행동 가능하면 행동 메뉴([사격]·[대기])와 빨강 적 타일을 갱신한다. 행동을 마쳤으면 선택을 해제한다.
+- `_select()` — 선택 플래그 on, 부대 강조 링 표시, `MOVE` 모드 진입(파랑 범위 + 메뉴).
+- `_deselect()` — 플래그 off, 강조 링 제거, 범위·메뉴 닫기.
+- 클릭 이동 판정은 이동 범위 집합(`_reachable`), 공격 대상 판정은 공격 가능 적 목록(`_attack_targets`: 칸→{enemy, melee, shoot, moveadj})으로 한다.
 
 ## 테스트 시나리오
 
@@ -123,10 +135,8 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 - [부대우선] 부대 칸 클릭(정보 닫힘) → `FOCUS_PARTY`
 - [부대우선] 부대 칸 + 선택 중 + 이동 범위 → `FOCUS_PARTY` (부대 칸은 이동보다 앞 순위)
 - [NPC우선] NPC 칸 클릭(미선택) → `FOCUS_NPC`
-- [NPC우선] NPC 칸 + 선택 중 + 이동 범위 → `FOCUS_NPC` (NPC 정보는 이동보다 앞 순위)
-- [공격] NPC 칸 + 선택 중 + 공격 가능 범위(`enemy_attackable`) → `ATTACK`
-- [공격] NPC 칸 + 선택 중 + 공격 범위 밖 → `FOCUS_NPC`
-- [공격] NPC 칸 + 미선택 + 공격 범위 → `FOCUS_NPC`(정보만)
+- [NPC우선] NPC 칸 + 선택 중 + 이동 범위 → `FOCUS_NPC` (NPC 정보는 이동보다 앞 순위, 공격은 안 함)
+- [NPC우선] NPC 칸 + 미선택 → `FOCUS_NPC`(정보만)
 - [부대우선] 플레이어 부대 칸 + NPC 칸 동시(경계) → `FOCUS_PARTY` (플레이어 부대가 NPC보다 앞 순위)
 - [부대우선] 부대가 캠프 위 + 정보 닫힘(첫 클릭) → `FOCUS_PARTY`
 - [한번더] 부대가 캠프 위 + 정보 열림(두 번째 클릭) → `CAMP_MENU`

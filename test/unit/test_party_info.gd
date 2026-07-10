@@ -41,7 +41,7 @@ func test_hides_faction_when_empty() -> void:
 
 func test_summary_shows_movement_and_vision() -> void:
 	panel.open(_sample_party())
-	assert_eq(panel._summary.text, "이동력 2 · 시야 5", "요약 = 집계 이동력(min)·시야(max)")
+	assert_eq(panel._summary.text, "이동력 2 · 시야 5 · 사거리 근접", "요약 = 이동력(min)·시야(max)·사거리(근접)")
 
 func test_member_list_count() -> void:
 	panel.open(_sample_party())
@@ -115,7 +115,7 @@ func test_member_label_no_shield_no_block() -> void:
 
 func test_empty_party() -> void:
 	panel.open(_party([]))
-	assert_eq(panel._summary.text, "이동력 0 · 시야 0", "멤버 없으면 이동력·시야 0")
+	assert_eq(panel._summary.text, "이동력 0 · 시야 0 · 사거리 근접", "멤버 없으면 이동력·시야 0, 사거리 근접")
 	assert_eq(panel._member_list.get_child_count(), 0, "멤버 리스트 비어 있음")
 
 func test_reopen_replaces_members() -> void:

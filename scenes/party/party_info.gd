@@ -52,7 +52,7 @@ func open(party) -> void:
 	_title.text = party.party_name
 	_faction.text = party.faction_name
 	_faction.visible = not party.faction_name.is_empty()   # 세력명이 없으면 줄을 숨긴다.
-	_summary.text = "이동력 %d · 시야 %d" % [party.movement(), party.vision()]
+	_summary.text = "이동력 %d · 시야 %d · 사거리 %s" % [party.movement(), party.vision(), ItemTypes.range_label(party.attack_range())]
 
 	for child in _member_list.get_children():
 		child.free()   # 즉시 제거(다음 프레임까지 낡은 멤버 행이 남지 않도록)

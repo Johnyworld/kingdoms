@@ -6,13 +6,13 @@ class_name ItemTypes
 # 무기: id → {name, attack, damage_type(참격|자돌|타격|원거리|마법), weight, range, reach, attack_speed, throw_range?}.
 # reach(근접거리)=전투씬 근접 공격 개시 거리(원본 무기.md), 클수록 리치 김=선제. attack_speed=1회 공격 초(민첩 0 기준).
 const WEAPONS := {
-	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3, "range": 1, "reach": 1.2, "attack_speed": 2.0},
-	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4, "range": 1, "reach": 1.4, "attack_speed": 2.2},
-	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3, "range": 1, "reach": 1.1, "attack_speed": 1.8},
-	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4, "range": 1, "reach": 1.1, "attack_speed": 2.6},
-	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3, "range": 1, "reach": 2.0, "attack_speed": 2.4},
-	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5, "range": 1, "reach": 1.1, "attack_speed": 2.8},
-	"javelin": {"name": "투창", "attack": 10, "damage_type": "원거리", "weight": 2, "range": 1, "reach": 1.3, "attack_speed": 2.0, "throw_range": 2},
+	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.2, "attack_speed": 2.0},
+	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.4, "attack_speed": 2.2},
+	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.1, "attack_speed": 1.8},
+	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.1, "attack_speed": 2.6},
+	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3, "range": 0, "reach": 2.0, "attack_speed": 2.4},
+	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5, "range": 0, "reach": 1.1, "attack_speed": 2.8},
+	"javelin": {"name": "투창", "attack": 10, "damage_type": "원거리", "weight": 2, "range": 0, "reach": 1.3, "attack_speed": 2.0, "throw_range": 2},
 	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리", "weight": 2, "range": 3, "reach": 0.7, "attack_speed": 3.3},
 	"wand": {"name": "완드", "attack": 8, "damage_type": "마법", "weight": 1, "range": 2, "reach": 0.5, "attack_speed": 2.6},
 }
@@ -61,9 +61,13 @@ static func weapon_name(id: String) -> String:
 static func weapon_weight(id: String) -> int:
 	return WEAPONS.get(id, {}).get("weight", 0)
 
-## 무기 공격거리(헥스 거리). 없는(빈) id는 1(맨손 근접 기본).
+## 무기 월드맵 공격거리(헥스 거리). 근접 0, 활 3, 완드 2. 없는(빈) id는 0(맨손 근접).
 static func weapon_range(id: String) -> int:
-	return WEAPONS.get(id, {}).get("range", 1)
+	return WEAPONS.get(id, {}).get("range", 0)
+
+## 사거리 표기. 0 → "근접", 그 외 "사거리 N". 부대 정보·행동 판단에 쓴다.
+static func range_label(r: int) -> String:
+	return "근접" if r <= 0 else "사거리 %d" % r
 
 ## 투척 사거리(던지는 무기). 없거나 투척 불가면 0.
 static func weapon_throw_range(id: String) -> int:
@@ -104,9 +108,9 @@ static func melee_weapon(weapons: Array) -> String:
 			return w
 	return ""
 
-## 목록 무기 공격거리의 최대값(월드맵 공격거리). 비면 1(맨손 근접).
+## 목록 무기 공격거리의 최대값(부대 월드맵 사거리). 비면 0(맨손 근접). 근접만이면 0, 활 소지면 3.
 static func max_range(weapons: Array) -> int:
-	var r := 1
+	var r := 0
 	for w in weapons:
 		r = maxi(r, weapon_range(w))
 	return r

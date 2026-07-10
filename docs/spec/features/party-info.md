@@ -12,7 +12,7 @@
 - 세로(VBox)로 쌓는다:
   - **제목** — 부대 이름(`party_name`), 글자 크기 20.
   - **세력** — 소속 세력 이름(`faction_name`). 비어 있으면 이 줄을 숨긴다.
-  - **요약** — `"이동력 N · 시야 M"` (부대 집계값 `party.movement()`/`party.vision()`).
+  - **요약** — `"이동력 N · 시야 M · 사거리 <근접|N>"` (`party.movement()`·`party.vision()`·`ItemTypes.range_label(party.attack_range())` — 근접 무기만이면 "근접").
   - `HSeparator`.
   - **멤버 리스트**(VBox) — 멤버 한 명당 라벨. 이름·이동·시야 + **장비 줄**:
     - `"<이름>   HP <hit_points>/<max_hp()>   이동 <movement> / 시야 <vision>"` (HP는 [Human](../entities/Human.md)의 현재 생명점 / 계산된 최대 생명점 — 전투 후 지속됨)
@@ -32,7 +32,7 @@
 - `open(party) -> void` — 부대 정보를 채우고 패널을 보인다.
   - 제목 = `party.party_name`.
   - 세력 = `party.faction_name`. 빈 문자열이면 세력 라벨을 숨긴다(`visible = false`).
-  - 요약 = `"이동력 %d · 시야 %d"` (`party.movement()`, `party.vision()`).
+  - 요약 = `"이동력 %d · 시야 %d · 사거리 %s"` (`party.movement()`·`party.vision()`·`ItemTypes.range_label(party.attack_range())`).
   - 멤버 리스트를 **비우고** 다시 채운다(재오픈 시 이전 멤버가 남지 않도록). 각 멤버 = 이름·HP(현재/최대)·이동·시야 줄 + 장비 줄(무기 이름·공격 AT·방어 DF).
 - `close() -> void` — 숨긴다.
 
@@ -43,7 +43,7 @@
 - [정상] `open(party)` → 제목 라벨 = `party_name`("주인공 부대")
 - [정상] `faction_name`이 설정된 부대 `open` → 세력 라벨 = `faction_name`, `visible == true`
 - [경계] `faction_name`이 빈 문자열인 부대 `open` → 세력 라벨 숨김(`visible == false`)
-- [정상] 요약 라벨 = `"이동력 2 · 시야 5"` (이동력 3·2 → min 2, 시야 5·5 → max 5)
+- [정상] 요약 라벨 = `"이동력 2 · 시야 5 · 사거리 근접"` (이동력 min 2·시야 max 5·근접 무기 → "근접")
 - [정상] 멤버 리스트 자식 수 = 멤버 수(2)
 - [정상] 멤버 라벨에 이름·이동력·시야가 포함됨("테스트맨", "3", "5")
 - [정상] 멤버 라벨에 `HP <현재>/<max_hp()>`가 포함됨(예: `hit_points 25`·힘<10(`max_hp()==40`) → `"HP 25/40"`)

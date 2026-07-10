@@ -26,6 +26,7 @@ const _MOVED_ALPHA := 0.4
 var selected := false
 var moved_this_turn := false      # 이번 턴에 이미 이동했는지. true면 재이동 불가(공격은 아직 가능).
 var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
+var rested_this_turn := false     # 이번 턴 휴식/대기 선택했는지. 회복 연동은 미구현(party_action_menu).
 
 ## 멤버를 부대에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다.
 func add_member(human) -> void:
@@ -79,6 +80,10 @@ func can_move() -> bool:
 func can_attack() -> bool:
 	return not attacked_this_turn
 
+## 이번 턴에 휴식(대기) 가능한지. 아직 행동을 끝내지 않았으면 가능.
+func can_rest() -> bool:
+	return not attacked_this_turn
+
 ## 이동 완료 표시. 흐리게(반투명) 다시 그린다.
 func mark_moved() -> void:
 	if moved_this_turn:
@@ -93,12 +98,21 @@ func mark_attacked() -> void:
 	attacked_this_turn = true
 	queue_redraw()
 
-## 턴 종료 시 호출. 이동·공격 상태를 리셋하고 불투명하게 다시 그린다.
+## 휴식(대기) 표시. 행동을 끝낸다(attacked_this_turn=true). 이동 여부(moved_this_turn)는 유지.
+func mark_rested() -> void:
+	if rested_this_turn:
+		return
+	rested_this_turn = true
+	attacked_this_turn = true
+	queue_redraw()
+
+## 턴 종료 시 호출. 이동·공격·휴식 상태를 리셋하고 불투명하게 다시 그린다.
 func reset_turn() -> void:
-	if not moved_this_turn and not attacked_this_turn:
+	if not moved_this_turn and not attacked_this_turn and not rested_this_turn:
 		return
 	moved_this_turn = false
 	attacked_this_turn = false
+	rested_this_turn = false
 	queue_redraw()
 
 func _draw() -> void:

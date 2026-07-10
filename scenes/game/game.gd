@@ -48,10 +48,19 @@ var _zoom_level := 1.0
 
 # 현재 이동 가능한 목적지 셀 집합(지형 상한 반영) → true. 클릭 이동 판정에 사용.
 var _reachable: Dictionary = {}
-# 현재 공격 범위(빨강) 셀 집합 → true. 빨강 클릭으로 공격 대상 판정에 사용.
-var _attackable: Dictionary = {}
 # 주인공이 선택되었는지. 선택 상태에서만 범위 표시 + 이동이 가능하다.
 var _selected := false
+# 상호작용 모드. MOVE=파랑 이동 범위+공격가능 적(빨강)+중앙 메뉴, SHOOT=사격 가능 적(빨강)만.
+const MODE_MOVE := "move"
+const MODE_SHOOT := "shoot"
+var _mode := MODE_MOVE
+var _move_cells: Array[Vector2i] = []     # 이동 범위(파랑) 표시용
+# 공격 가능한 적: enemy 칸 → {enemy, melee, shoot, moveadj}. 빨강 오버레이·팝업·사격 판단에 쓴다.
+var _attack_targets: Dictionary = {}
+var _attack_cells: Array[Vector2i] = []   # 공격 가능 적 칸(MOVE에서 빨강)
+var _shoot_cells: Array[Vector2i] = []    # 사격 가능 적 칸(SHOOT에서 빨강)
+var _popup_target = null                  # 적 클릭 팝업의 대상 항목(없으면 중앙 메뉴)
+var party_action_menu: PartyActionMenu    # 부대 행동 메뉴(코드 생성, _ready에서 추가)
 
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
 var _turn := TurnManager.new()
@@ -103,6 +112,9 @@ func _ready() -> void:
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
 	camp_menu.build_selected.connect(_on_build_selected)
+	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
+	add_child(party_action_menu)
+	party_action_menu.action_selected.connect(_on_party_action)
 
 ## 맵 전체를 초원 타일로 채운 뒤, 시작 지점 근처에 숲을 조금 배치한다.
 func _generate_map() -> void:
@@ -118,7 +130,7 @@ func _generate_map() -> void:
 	_min_pos = Vector2(min(corner_a.x, corner_b.x), min(corner_a.y, corner_b.y))
 	_max_pos = Vector2(max(corner_a.x, corner_b.x), max(corner_a.y, corner_b.y))
 
-## 시작 지점(중앙 캠프) 근처에 방향별 지형 덩어리를 배치한다.
+## 시작 지점(중앙 캠프) 근처에 방ㄴ향별 지형 덩어리를 배치한다.
 ## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산. 캠프(중앙 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
 ## (y가 커질수록 남쪽, x가 커질수록 동쪽.)
 func _place_starting_terrain() -> void:
@@ -183,30 +195,66 @@ func _place_party() -> void:
 	var party_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2 + 3)
 	party.position = terrain.map_to_local(party_cell)
 
-## 주인공 위치에서 이동력만큼 BFS로 도달 셀을 구하고, 범위를 갱신한다.
-## 이동 범위(파랑)는 지형 이동 상한(숲 ceil·습지 floor·산 불가)을 반영하고,
-## 공격 범위(빨강)는 그 이동 영역 바로 바깥 한 칸이다(자세히는 HexGrid.movement_ranges).
+## 주인공 위치에서 이동력만큼 BFS로 도달 셀(파랑)을 구하고, 공격 가능한 적(빨강)을 분류한다.
 func _update_ranges() -> void:
 	var start := terrain.local_to_map(party.position)
-	# 이동 가능하면 이동력만큼, 이동을 마쳤으면(공격만 가능) 0 → 이동칸 없이 인접(공격 범위)만.
 	var move_range: int = party.movement() if party.can_move() else 0
 	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, _occupied_cells(party))
 	var move_cells: Array[Vector2i] = ranges["move"]
-	# 이동 판정은 지형 상한이 반영된 이동 목적지 집합으로 한다.
 	_reachable = {}
 	for c in move_cells:
 		_reachable[c] = true
-	# 공격 범위 = 이동 프런티어(이동칸+시작칸)에서 부대 공격거리 이내 칸(이동칸·시작칸 제외).
-	var seeds := move_cells.duplicate()
-	seeds.append(start)
-	var attack_cells: Array[Vector2i] = []
-	_attackable = {}
-	for c in HexGrid.cells_within_any(terrain, seeds, party.attack_range(), MAP_WIDTH, MAP_HEIGHT):
-		if c == start or _reachable.has(c):
+	_move_cells = move_cells
+	_compute_attack_targets(start)
+	_refresh_overlay()
+
+## 보이는 각 NPC를 공격 가능 여부로 분류한다. 근접=(현재∪이동칸 중 인접칸 존재), 사격=(원거리 무기·현재 위치 사거리 내).
+func _compute_attack_targets(start: Vector2i) -> void:
+	_attack_targets = {}
+	_attack_cells = []
+	_shoot_cells = []
+	var rng: int = party.attack_range()
+	var shoot_area := {}
+	if rng >= 2:
+		for c in HexGrid.cells_within(terrain, start, rng, MAP_WIDTH, MAP_HEIGHT):
+			shoot_area[c] = true
+	for p in _npc_parties:
+		if not p.visible:
 			continue
-		_attackable[c] = true
-		attack_cells.append(c)
-	overlay.show_ranges(move_cells, attack_cells)
+		var ec: Vector2i = terrain.local_to_map(p.position)
+		var melee := _cell_melee_reachable(ec, start)
+		var shoot: bool = rng >= 2 and shoot_area.has(ec)
+		var moveadj := _cell_move_adjacent(ec, start)
+		if melee or shoot:
+			_attack_targets[ec] = {"enemy": p, "cell": ec, "melee": melee, "shoot": shoot, "moveadj": moveadj}
+			_attack_cells.append(ec)
+			if shoot:
+				_shoot_cells.append(ec)
+
+## 그 적에 인접한 칸이 (현재 칸 ∪ 이동칸)에 있으면 근접 가능(이동해서 붙을 수 있음).
+func _cell_melee_reachable(enemy_cell: Vector2i, start: Vector2i) -> bool:
+	for n in terrain.get_surrounding_cells(enemy_cell):
+		if n == start or _reachable.has(n):
+			return true
+	return false
+
+## [이동]으로 그 적에 붙을 수 있는지. 이미 인접하면 false(이동 불필요), 아니면 인접 도달칸이 있으면 true.
+func _cell_move_adjacent(enemy_cell: Vector2i, start: Vector2i) -> bool:
+	var neighbors := terrain.get_surrounding_cells(enemy_cell)
+	if start in neighbors:
+		return false   # 이미 인접 — [이동] 불필요(바로 [공격])
+	for n in neighbors:
+		if _reachable.has(n):
+			return true
+	return false
+
+## 현재 모드에 맞는 오버레이. MOVE=파랑 이동+빨강 공격가능 적, SHOOT=빨강 사격가능 적만.
+func _refresh_overlay() -> void:
+	var none: Array[Vector2i] = []
+	if _mode == MODE_SHOOT:
+		overlay.show_ranges(none, _shoot_cells)
+	else:
+		overlay.show_ranges(_move_cells, _attack_cells)
 
 ## 모든 시야원(주인공 부대 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
 func _update_fog() -> void:
@@ -236,10 +284,22 @@ func _handle_click(world_pos: Vector2) -> void:
 	var clicked_npc := _npc_at(cell)    # 보이는 NPC 부대가 있으면 정보 표시/공격 대상.
 	var on_camp := clicked != null and clicked.building_type == BuildingTypes.CAMP
 	var on_building := clicked != null and clicked.building_type != BuildingTypes.CAMP
-	# 공격 판정: 클릭한 적이 현재 공격 범위(빨강) 안이고 부대가 공격 가능한가.
-	var enemy_attackable: bool = clicked_npc != null and _attackable.has(cell) and party.can_attack()
 
-	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, _selected, reachable, party_info.visible, enemy_attackable):
+	# SHOOT 모드: 사격 가능 적을 클릭하면 제자리 사격, 그 외 클릭은 MOVE 모드로 취소.
+	if _selected and _mode == MODE_SHOOT:
+		if _attack_targets.has(cell) and _attack_targets[cell]["shoot"] and party.can_attack():
+			var e: Dictionary = _attack_targets[cell]
+			_shoot_enemy(e["enemy"])
+		else:
+			_enter_move_mode()
+		return
+
+	# MOVE 모드: 공격 가능한 적(빨강)을 클릭하면 [이동][공격][사격] 팝업.
+	if _selected and _mode == MODE_MOVE and _attack_targets.has(cell) and party.can_attack():
+		_open_enemy_popup(_attack_targets[cell])
+		return
+
+	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, _selected, reachable, party_info.visible):
 		ClickRouter.MOVE:
 			# 이동은 클릭 즉시 확정하고(재이동 불가·선택 해제), 토큰만 경로 따라 애니메이션한다.
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
@@ -259,17 +319,17 @@ func _handle_click(world_pos: Vector2) -> void:
 			party_roster.hide()
 			building_info.open(clicked)
 		ClickRouter.FOCUS_PARTY:
-			# 정보 패널은 항상 연다. 아직 선택 전이고 이동/공격 중 하나라도 가능하면 함께 선택(범위 표시).
+			# 정보 패널은 항상 연다. 아직 선택 전이고 행동 가능하면 함께 선택(파랑 범위 + 행동 메뉴).
 			_show_party_info(party)
-			if not _selected and (party.can_move() or party.can_attack()):
+			if not _selected and (party.can_move() or party.can_rest()):
 				_select()
+			elif _selected:
+				_enter_move_mode()   # 재클릭 = 팝업/사격 취소하고 중앙 메뉴로 복귀
 		ClickRouter.FOCUS_NPC:
 			# NPC는 정보만 표시한다(선택·이동 없음). 진행 중이던 선택은 해제한다.
 			if _selected:
 				_deselect()
 			_show_party_info(clicked_npc)
-		ClickRouter.ATTACK:
-			_attack_enemy(clicked_npc, cell)
 		ClickRouter.DESELECT:
 			_deselect()
 			_hide_party_info()
@@ -297,42 +357,53 @@ func _occupied_cells(exclude) -> Dictionary:
 		occ[terrain.local_to_map(p.position)] = true
 	return occ
 
-## 공격 범위(빨강)의 적을 공격한다. 적이 공격거리 이내면 그 자리에서(원거리 발사),
-## 아니면 적에 공격거리 이내인 도달 가능 칸으로 자동 이동한 뒤 전투한다.
-func _attack_enemy(enemy, enemy_cell: Vector2i) -> void:
-	var party_cell := terrain.local_to_map(party.position)
-	# 적에 공격거리 이내인 칸 집합(사거리는 지형 무관).
-	var in_range := {}
-	for c in HexGrid.cells_within(terrain, enemy_cell, party.attack_range(), MAP_WIDTH, MAP_HEIGHT):
-		in_range[c] = true
-	if in_range.has(party_cell):
-		_begin_battle(enemy)   # 이미 사거리 안 — 이동 없이 전투
+## [이동]: 그 적에 인접한 도달 칸으로 이동만(전투 없음).
+func _move_adjacent_to(entry: Dictionary) -> void:
+	var start := terrain.local_to_map(party.position)
+	var stand := _adjacent_stand(entry["cell"], start)
+	if stand == start:
+		_enter_move_mode()   # 이미 인접 — 이동 불필요, 메뉴 복귀
 		return
-	var stand := _stand_cell_in_range(in_range)
-	if stand == party_cell:
-		_begin_battle(enemy)   # 사거리 안 이동칸을 못 찾으면(예외) 제자리 전투
-		return
-	# 적을 사거리 안에 두는 이동칸으로 이동 후 전투.
 	party.mark_moved()
 	_deselect()
 	_hide_party_info()
-	_move_player_to(party_cell, stand, enemy)
+	_move_player_to(start, stand)
 
-## in_range(적에 사거리 이내 칸) 중 도달 가능한 이동칸 하나. 없으면 부대 현재 칸.
-func _stand_cell_in_range(in_range: Dictionary) -> Vector2i:
-	for c in in_range:
-		if _reachable.has(c):
-			return c
-	return terrain.local_to_map(party.position)
+## [공격] 근접: 적 인접 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령.
+func _melee_attack(entry: Dictionary) -> void:
+	var start := terrain.local_to_map(party.position)
+	var ecell: Vector2i = entry["cell"]
+	var stand := _adjacent_stand(ecell, start)
+	if stand == start:
+		_begin_battle(entry["enemy"], false, ecell)   # 이미 인접 — 제자리 근접 전투
+		return
+	party.mark_moved()
+	_deselect()
+	_hide_party_info()
+	_move_player_to(start, stand, {"enemy": entry["enemy"], "occupy": ecell})
 
-## 플레이어가 적에게 개시하는 전투. 공격은 플레이어 부대의 행동을 끝낸다(mark_attacked).
-## 인접이 아니면(사거리 두고 침) 원거리 모드로 개시한다.
-func _begin_battle(defender) -> void:
+## [사격]: 현재 위치에서 원거리 전투(이동·점령 없음).
+func _shoot_enemy(enemy) -> void:
+	_begin_battle(enemy, true, Vector2i(-1, -1))
+
+## 적 인접 칸: 이미 인접이면 현재 칸, 아니면 인접한 도달 칸 하나, 없으면 현재 칸.
+func _adjacent_stand(enemy_cell: Vector2i, start: Vector2i) -> Vector2i:
+	var neighbors := terrain.get_surrounding_cells(enemy_cell)
+	if start in neighbors:
+		return start
+	for n in neighbors:
+		if _reachable.has(n):
+			return n
+	return start
+
+## 플레이어가 적에게 개시하는 전투. 공격은 부대 행동을 끝낸다(mark_attacked).
+## ranged=원거리 모드, occupy_cell=근접 승리 시 이동할 수비 타일((-1,-1)이면 점령 없음).
+func _begin_battle(defender, ranged: bool, occupy_cell: Vector2i) -> void:
 	party.mark_attacked()
 	if _selected:
 		_deselect()
 	_hide_party_info()
-	_run_battle(party, defender, _is_ranged_engagement(party, defender))   # 비차단(await로 백그라운드 진행)
+	_run_battle(party, defender, ranged, occupy_cell)   # 비차단(await로 백그라운드 진행)
 
 ## 개시 시 두 부대가 인접이 아니면(떨어져 있으면) 원거리 전투로 본다.
 func _is_ranged_engagement(a, b) -> bool:
@@ -341,8 +412,8 @@ func _is_ranged_engagement(a, b) -> bool:
 	return acell != bcell and not (bcell in terrain.get_surrounding_cells(acell))
 
 ## 오버레이 전투를 띄우고 관전한다(입력 잠금). 종료까지 await 후 사상자를 반영한다.
-## 플레이어가 참여하는 전투에 쓴다(공격 페이즈에서도 순차 await).
-func _run_battle(attacker, defender, ranged := false) -> void:
+## occupy_cell != (-1,-1)이고 근접 승리(수비 전멸·공격 생존)면 공격 부대를 그 타일로 이동(점령).
+func _run_battle(attacker, defender, ranged := false, occupy_cell := Vector2i(-1, -1)) -> void:
 	_in_battle = true
 	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
@@ -352,6 +423,8 @@ func _run_battle(attacker, defender, ranged := false) -> void:
 	_apply_survivors(defender, result[1])
 	overlay.queue_free()
 	_in_battle = false
+	if occupy_cell != Vector2i(-1, -1) and defender.members.is_empty() and not attacker.members.is_empty():
+		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
 	_update_fog()
 	party_roster.set_parties(_units)
 
@@ -371,11 +444,61 @@ func _apply_survivors(p, survivors: Array) -> void:
 		_npc_parties.erase(p)
 		p.queue_free()
 
-## 주인공 부대를 선택하고 이동/공격 범위를 표시한다.
+## 주인공 부대를 선택하고 이동 범위·공격 가능 적·중앙 메뉴를 표시한다.
 func _select() -> void:
 	_selected = true
 	party.set_selected(true)
+	_mode = MODE_MOVE
 	_update_ranges()
+	_open_action_menu()
+
+## MOVE 모드로 (재)진입: 파랑 범위 + 빨강 적 + 중앙 메뉴. 팝업/사격 취소 시에도 쓴다.
+func _enter_move_mode() -> void:
+	_mode = MODE_MOVE
+	_refresh_overlay()
+	_open_action_menu()
+
+## SHOOT 모드: 사격 가능 적(빨강)만, 메뉴 감춤. 그 적을 클릭하면 제자리 사격.
+func _enter_shoot_mode() -> void:
+	_mode = MODE_SHOOT
+	_refresh_overlay()
+	party_action_menu.close()
+
+## 중앙 부대 메뉴를 연다(팝업 아님). 행동 가능할 때만.
+func _open_action_menu() -> void:
+	_popup_target = null
+	if party.can_rest():
+		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty()))
+	else:
+		party_action_menu.close()
+
+## 공격 가능한 적 클릭 팝업을 연다([이동][공격][사격]). 대상 항목을 _popup_target에 둔다.
+func _open_enemy_popup(entry: Dictionary) -> void:
+	_popup_target = entry
+	party_action_menu.open(PartyActionMenu.enemy_actions(entry["moveadj"], entry["melee"], entry["shoot"]))
+
+## 메뉴 버튼 처리. 팝업(적 대상)이면 이동/공격/사격을 그 적에, 중앙 메뉴면 사격 모드/휴식.
+func _on_party_action(id: String) -> void:
+	if not _selected:
+		return
+	if _popup_target != null:
+		var entry: Dictionary = _popup_target
+		_popup_target = null
+		match id:
+			"move":
+				_move_adjacent_to(entry)
+			"attack":
+				_melee_attack(entry)
+			"shoot":
+				_shoot_enemy(entry["enemy"])
+		return
+	match id:
+		"shoot":
+			_enter_shoot_mode()
+		"rest":
+			party.mark_rested()   # 회복 효과는 다음 슬라이스
+			_deselect()
+			_hide_party_info()
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
@@ -445,8 +568,10 @@ func _npc_attack_phase(epoch: int) -> void:
 ## attacker의 공격거리 이내에 있는 자기 외 부대를 찾는다(멤버 있는 것만). 없으면 null.
 ## (NPC가 사거리를 유지하며 포지셔닝하는 AI는 미구현 — 접근해 붙은 뒤 사거리 판정만 반영.)
 func _adjacent_enemy(attacker):
+	# 근접(사거리 0)은 인접(1)까지, 원거리는 사거리까지 공격 대상으로 본다.
+	var reach: int = maxi(attacker.attack_range(), 1)
 	var in_range := {}
-	for c in HexGrid.cells_within(terrain, terrain.local_to_map(attacker.position), attacker.attack_range(), MAP_WIDTH, MAP_HEIGHT):
+	for c in HexGrid.cells_within(terrain, terrain.local_to_map(attacker.position), reach, MAP_WIDTH, MAP_HEIGHT):
 		in_range[c] = true
 	for other in [party] + _npc_parties:
 		if other == attacker or other.members.is_empty():
@@ -524,23 +649,15 @@ func _move_player_to(start_cell: Vector2i, dest_cell: Vector2i, then_attack = nu
 		_player_tween = null
 		_after_move(then_attack))
 
-## 이동 완료 후 처리. then_attack가 있으면 전투 개시, 없으면 공격 범위에 적이 있으면 빨강만 재표시.
+## 이동 완료 후 처리. then_attack({enemy, occupy})가 있으면 근접 전투 개시, 없으면 재선택(메뉴·빨강 갱신).
 func _after_move(then_attack) -> void:
 	if then_attack != null:
-		_begin_battle(then_attack)
+		_begin_battle(then_attack["enemy"], false, then_attack["occupy"])   # 이동 후 근접 전투
 		return
-	if not party.can_attack():
+	if not party.can_rest():
 		return
-	_select()   # 이동을 마쳤으므로 _update_ranges가 공격 범위(빨강)만 표시한다.
-	if not _has_attackable_enemy():
-		_deselect()   # 공격할 적이 없으면 빈 범위를 남기지 않는다.
-
-## 현재 공격 범위(_attackable) 안에 보이는 적 NPC가 있는지.
-func _has_attackable_enemy() -> bool:
-	for p in _npc_parties:
-		if p.visible and _attackable.has(terrain.local_to_map(p.position)):
-			return true
-	return false
+	# 이동 후에도 선택을 유지해 행동 메뉴([사격]·[대기])와 빨강 적 타일을 갱신한다.
+	_select()
 
 ## 진행 중인 플레이어 이동을 즉시 끝낸다(턴 종료 시): 트윈을 죽이고 목적지로 스냅 + 시야 갱신.
 func _finish_player_move() -> void:
@@ -557,8 +674,14 @@ func _finish_player_move() -> void:
 func _deselect() -> void:
 	_selected = false
 	party.set_selected(false)
+	_mode = MODE_MOVE
+	_popup_target = null
 	_reachable = {}
-	_attackable = {}
+	_attack_targets = {}
+	_move_cells = []
+	_attack_cells = []
+	_shoot_cells = []
+	party_action_menu.close()
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)
 
