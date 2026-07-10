@@ -116,6 +116,7 @@ var _game_over := false
 var result_overlay: ResultOverlay   # 결과 화면(코드 생성, _ready에서 추가)
 var split_panel: SplitPanel         # 부대 분할 패널(코드 생성, _ready에서 추가)
 var _split_new = null               # 분할 중 새로 만든 부대(닫을 때 비어 있으면 취소·제거)
+var toast: Toast                    # 점령/함락 알림(코드 생성, _ready에서 추가)
 
 const BATTLE_SCENE := preload("res://scenes/combat/battle.gd")
 const TITLE_SCENE := "res://scenes/title/title.tscn"
@@ -157,6 +158,8 @@ func _ready() -> void:
 	add_child(split_panel)
 	split_panel.changed.connect(_on_split_changed)
 	split_panel.closed.connect(_on_split_closed)
+	toast = Toast.new()   # 점령/함락 알림(코드 생성)
+	add_child(toast)
 
 ## 맵 전체를 초원 타일로 채운 뒤, 시작 지점 근처에 숲을 조금 배치한다.
 func _generate_map() -> void:
@@ -769,10 +772,17 @@ func _do_capture(camp, absorb: bool) -> void:
 ## 플레이어면 _buildings(시야·건축·수입 획득), NPC면 _npc_buildings(수입 제외). 라벨색·시야는 이후 _update_fog가 반영.
 func _transfer_camp(camp, new_faction) -> void:
 	var territory = camp.territory
+	var terr_name: String = territory.name if territory != null else ""
+	var old_name: String = territory.faction.name if (territory != null and territory.faction != null) else ""
 	if territory != null:
 		if territory.faction != null:
 			territory.faction.remove_territory(territory)
 		new_faction.add_territory(territory)
+	# 알림: 플레이어가 얻으면 점령, 플레이어가 잃으면 함락(NPC↔NPC는 조용히).
+	if new_faction == _player_faction:
+		toast.show_message("%s 점령!" % terr_name)
+	elif old_name == _player_faction.name:
+		toast.show_message("%s 함락!" % terr_name)
 	_buildings.erase(camp)
 	_npc_buildings.erase(camp)
 	if new_faction == _player_faction:
@@ -788,10 +798,12 @@ func _transfer_camp(camp, new_faction) -> void:
 
 ## 파괴: 캠프를 영지·맵에서 제거한다(획득 없음). 영지·세력은 남지만 캠프 0개가 된다(소멸 판정은 다음 슬라이스).
 func _destroy_camp(camp) -> void:
+	var terr_name: String = camp.territory.name if camp.territory != null else ""
 	if camp.territory != null:
 		camp.territory.remove_building(camp)
 	_npc_buildings.erase(camp)
 	camp.queue_free()
+	toast.show_message("%s 파괴!" % terr_name)   # 플레이어만 파괴 → 항상 플레이어 행동
 
 ## 적 인접 칸: 이미 인접이면 현재 칸, 아니면 인접한 도달 칸 하나, 없으면 현재 칸.
 func _adjacent_stand(enemy_cell: Vector2i, start: Vector2i) -> Vector2i:
