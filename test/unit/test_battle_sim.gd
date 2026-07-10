@@ -85,6 +85,51 @@ func test_ranged_mode_both_melee_no_damage() -> void:
 	assert_eq(r["a"].size(), 1, "근접만이라 A 공격 못 함 → 생존")
 	assert_eq(r["b"].size(), 1, "근접만이라 B 공격 못 함 → 생존")
 
+# --- 상태이상(출혈·기절) 연동 ---
+# docs/spec/features/status-effects.md 참조. 극단 능력치로 명중·치명을 강제해 결정적으로 검증.
+
+func _full(strength := 0, agility := 0, luck := 0, hp := 40, weapon := "", armor := []) -> Object:
+	var h: Object = load("res://scenes/human/human.gd").new()
+	h.strength = strength
+	h.agility = agility
+	h.luck = luck
+	h.hit_points = hp
+	h.weapons = ([] if weapon == "" else [weapon])
+	h.armor = armor
+	return h
+
+func test_bleed_speeds_up_wipe() -> void:
+	# 방어자 B: 사슬갑옷(DF8), hp40, 회피 음수(A가 항상 명중).
+	# A: 검(참격), 힘0(AT14), 민첩0(간격2.0 → 10초에 5타), hp 거대(반격에 안 죽음).
+	#   참격 vs 사슬 0.7 → 치명 직격 = floor(6×0.7×1.5)=6. 5타 = 30 < 40 (직격만으론 못 죽임).
+	#   ⇒ B가 죽으면 그 초과분은 출혈 도트의 기여다.
+	# 대조군: A 행운 0 → 치명·출혈 없음, 직격 = floor(6×0.7)=4, 5타=20 < 40 → B 생존.
+	var a_bleed := [_full(0, 0, 200, 100000, "sword")]   # 항상 치명 → 출혈
+	var b1 := [_full(0, -100, 0, 40, "sword", ["chain_mail"])]
+	var r_bleed := BattleSim.resolve_battle(a_bleed, b1, _rng())
+	assert_eq(r_bleed["b"].size(), 0, "출혈 도트가 더해져 B 전멸")
+
+	var a_plain := [_full(0, 0, 0, 100000, "sword")]      # 치명 없음 → 출혈 없음
+	var b2 := [_full(0, -100, 0, 40, "sword", ["chain_mail"])]
+	var r_plain := BattleSim.resolve_battle(a_plain, b2, _rng())
+	assert_eq(r_plain["b"].size(), 1, "직격만으론(치명·출혈 없음) B 생존")
+
+func test_stun_prevents_attacks() -> void:
+	# A: 모닝스타(타격), 힘0, 민첩-100(간격 2.8×1.5=4.2 → 4.2·8.4 공격), 행운200(항상 치명→기절),
+	#    회피 -50(B가 항상 명중), hp50.
+	# B: 검, 힘100(AT34), 민첩-100(간격 3.0 → 3·6·9), 회피 -50(A가 항상 명중), hp 거대.
+	#   기절이 있으면: B는 t=3.0에 1회만 공격(A hp50→16), 이후 t=6·9는 기절로 스킵 → A 생존.
+	#   기절이 없으면(대조군, A가 자돌 창): B가 t=3·6에 공격 → A(50) 2타(68)로 사망.
+	var a_stun := [_full(0, -100, 200, 50, "mace")]
+	var b1 := [_full(100, -100, 0, 100000, "sword")]
+	var r_stun := BattleSim.resolve_battle(a_stun, b1, _rng())
+	assert_eq(r_stun["a"].size(), 1, "기절한 B가 이후 공격을 못 해 A 생존")
+
+	var a_ctrl := [_full(0, -100, 200, 50, "spear")]   # 자돌 치명 → 상태이상 없음(대조)
+	var b2 := [_full(100, -100, 0, 100000, "sword")]
+	var r_ctrl := BattleSim.resolve_battle(a_ctrl, b2, _rng())
+	assert_eq(r_ctrl["a"].size(), 0, "기절 없으면 B가 반복 공격해 A 처치")
+
 func test_deterministic_same_seed() -> void:
 	var a := [_human(60, 20), _human(55, 25)]
 	var b := [_human(58, 22), _human(52, 28)]

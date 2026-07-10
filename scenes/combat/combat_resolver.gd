@@ -3,7 +3,8 @@ extends RefCounted
 ## 두 부대 멤버(Human)의 교전을 능력치로 판정하는 순수 로직. 씬·시각 요소 없이 데이터만 다룬다.
 ## 확률은 넘겨받은 RandomNumberGenerator로 굴려 시드 고정 시 결정적이다(HexGrid·ClickRouter와 같은 헬퍼 패턴).
 ## 기획 원본(docs/table/시스템/전투.md) 중 현재 능력치로 가능한 부분만 구현했다.
-## 무기·방어구·방패·상성·마법·상태이상·지형·원거리·리치 선제권은 미구현.
+## 무기·방어구·방패·상성·원거리는 구현. 치명타 연동 상태이상은 inflict로 알린다(StatusEffects).
+## 마법 전용 위력 공식·지형 보정은 미구현.
 
 const BASE_HIT := 90.0    # 기본 명중률(%). 대상 회피율을 뺀다.
 const CRIT_MULT := 1.5    # 치명타 피해 배율.
@@ -60,16 +61,22 @@ static func hit_damage(attacker, defender, crit: bool, atk_weapon := "") -> int:
 	return int(floor(base * mult))
 
 ## 1회 공방 판정. defender_hp에서 피해를 뺀 결과를 반환한다. atk_weapon 생략 시 주무기.
-## 반환: {hit, crit, damage, hp(차감 후), dead}.
+## 반환: {hit, blocked, crit, damage, hp(차감 후), dead, inflict}.
+## inflict = 치명타로 피해가 들어간 타격이 부여할 상태이상 id(참격→bleed, 타격→stun), 그 외 "".
 static func resolve_hit(attacker, defender, defender_hp: int, rng: RandomNumberGenerator, atk_weapon := "") -> Dictionary:
 	# 명중 = 굴린 값(0~100) < 명중률. 명중률이 0 이하면 무조건 빗나간다.
 	var hit := rng.randf() * 100.0 < hit_chance(attacker, defender)
 	if not hit:
-		return {"hit": false, "blocked": false, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0}
-	# 방패 막기: 성공하면 피해 완전 무효(치명·피해 계산 생략).
+		return {"hit": false, "blocked": false, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0, "inflict": ""}
+	# 방패 막기: 성공하면 피해 완전 무효(치명·피해·상태이상 계산 생략).
 	if rng.randf() * 100.0 < block_chance(defender):
-		return {"hit": true, "blocked": true, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0}
+		return {"hit": true, "blocked": true, "crit": false, "damage": 0, "hp": defender_hp, "dead": defender_hp <= 0, "inflict": ""}
 	var crit := rng.randf() * 100.0 < crit_chance(attacker)
 	var dmg := hit_damage(attacker, defender, crit, atk_weapon)
 	var hp := defender_hp - dmg
-	return {"hit": true, "blocked": false, "crit": crit, "damage": dmg, "hp": hp, "dead": hp <= 0}
+	# 치명타면 사용 무기 데미지타입에 따라 상태이상을 부여한다(참격→출혈, 타격→기절).
+	var inflict := ""
+	if crit:
+		var w: String = atk_weapon if atk_weapon != "" else ItemTypes.primary_weapon(attacker.weapons)
+		inflict = StatusEffects.on_crit(ItemTypes.weapon_damage_type(w))
+	return {"hit": true, "blocked": false, "crit": crit, "damage": dmg, "hp": hp, "dead": hp <= 0, "inflict": inflict}

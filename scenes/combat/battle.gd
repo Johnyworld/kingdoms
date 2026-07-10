@@ -65,6 +65,7 @@ func _spawn_team(party, team: String, x: float, vp: Vector2) -> void:
 			"melee_reach": melee_reach,
 			"throw": thrw, "throws": 0,
 			"throw_reach": melee_reach + ItemTypes.weapon_throw_range(thrw) * THROW_PX,
+			"effects": {},
 		}
 		_units.append(unit)
 		_sync_node(unit)
@@ -90,11 +91,24 @@ func _process(delta: float) -> void:
 		_finish()   # 전투 시간(10초) 종료
 		return
 
+	# 상태이상 진행(모든 생존 유닛): 출혈 도트를 hp에서 빼고, 죽으면 전투불능 처리.
+	for u in _units:
+		if not u["alive"]:
+			continue
+		var dot := StatusEffects.advance(u["effects"], delta)
+		if dot > 0:
+			u["hp"] -= dot
+			if u["hp"] <= 0:
+				_kill(u)
+		_sync_node(u)
+
 	for u in _units:
 		if not u["alive"]:
 			continue
 		if _ranged_mode and u["range"] < 2:
 			continue   # 원거리 개시: 원거리 무기 없는 근접 유닛은 닿지 않아 정지
+		if StatusEffects.is_stunned(u["effects"]):
+			continue   # 기절: 이번 프레임 이동·공격 안 함
 		u["cooldown"] = maxf(0.0, u["cooldown"] - delta)
 		var t: Dictionary = BattleField.nearest_enemy(u, _units)   # 매 프레임 최근접 적 재탐색
 		if t.is_empty():
@@ -126,6 +140,8 @@ func _process(delta: float) -> void:
 func _attack(u: Dictionary, t: Dictionary, weapon: String) -> void:
 	var r := CombatResolver.resolve_hit(u["human"], t["human"], t["hp"], _rng, weapon)
 	t["hp"] = r["hp"]
+	if r["inflict"] != "":
+		StatusEffects.apply(t["effects"], r["inflict"])   # 치명타 → 출혈/기절 부여
 	u["cooldown"] = CombatResolver.attack_interval(u["human"], weapon)
 	if ItemTypes.weapon_range(weapon) >= 2 or ItemTypes.weapon_throw_range(weapon) > 0:
 		_spawn_projectile(u["pos"], t["pos"])   # 원거리·투척 연출
@@ -145,12 +161,20 @@ func _spawn_projectile(from: Vector2, to: Vector2) -> void:
 
 func _kill(u: Dictionary) -> void:
 	u["alive"] = false
-	u["node"].modulate.a = 0.3   # 전투불능 — 흐리게
+	u["node"].modulate = Color(1.0, 1.0, 1.0, 0.3)   # 전투불능 — 흐리게(상태이상 tint 제거)
 
 ## 토큰 노드 위치·생명점 표시를 상태에 맞춘다(중심이 pos에 오도록).
+## 최소 상태이상 표시: 기절=흐림(회색), 출혈=붉은 tint. 전투불능은 _kill이 alpha로 처리.
 func _sync_node(u: Dictionary) -> void:
 	u["node"].position = u["pos"] - Vector2(TOKEN_R, TOKEN_R)
 	u["hp_label"].text = str(maxi(0, u["hp"]))
+	if u["alive"]:
+		if StatusEffects.is_stunned(u["effects"]):
+			u["node"].modulate = Color(0.6, 0.6, 0.6, 1.0)
+		elif u["effects"].has("bleed"):
+			u["node"].modulate = Color(1.0, 0.5, 0.5, 1.0)
+		else:
+			u["node"].modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 func _finish() -> void:
 	_running = false

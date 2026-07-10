@@ -163,6 +163,52 @@ func test_no_shield_never_blocks() -> void:
 	var r := CombatResolver.resolve_hit(atk, def, 40, _rng())
 	assert_false(r["blocked"], "방패 없으면 막기 없음")
 
+# --- 치명타 → 상태이상 부여 (inflict) ---
+
+func test_inflict_bleed_on_slash_crit() -> void:
+	# 참격 무기(검) + 행운 200(항상 치명) + 방어자 회피 음수(항상 명중) → 출혈 부여.
+	var atk := _human(78, 0, 200, 40, "sword")
+	var def := _human(0, -100)
+	var r := CombatResolver.resolve_hit(atk, def, 40, _rng())
+	assert_true(r["crit"], "행운 200이면 항상 치명")
+	assert_eq(r["inflict"], "bleed", "참격 치명타 → 출혈")
+
+func test_inflict_stun_on_blunt_crit() -> void:
+	# 타격 무기(모닝스타) + 항상 치명·명중 → 기절 부여.
+	var atk := _human(78, 0, 200, 40, "mace")
+	var def := _human(0, -100)
+	var r := CombatResolver.resolve_hit(atk, def, 40, _rng())
+	assert_true(r["crit"], "항상 치명")
+	assert_eq(r["inflict"], "stun", "타격 치명타 → 기절")
+
+func test_inflict_empty_when_not_crit() -> void:
+	# 행운 0 → 치명 없음 → 상태이상 부여 없음.
+	var atk := _human(78, 0, 0, 40, "sword")
+	var def := _human(0, -100)
+	var r := CombatResolver.resolve_hit(atk, def, 40, _rng())
+	assert_false(r["crit"], "행운 0이면 치명 없음")
+	assert_eq(r["inflict"], "", "비치명 → 부여 없음")
+
+func test_inflict_empty_when_miss() -> void:
+	# 빗나가면 치명 무관하게 부여 없음.
+	var atk := _human(78, 0, 200, 40, "sword")
+	var def := _human(0, 300)   # 회피 과다 → 항상 빗나감
+	var r := CombatResolver.resolve_hit(atk, def, 40, _rng())
+	assert_false(r["hit"], "회피 과다 → 빗나감")
+	assert_eq(r["inflict"], "", "빗나가면 부여 없음")
+
+func test_inflict_empty_when_blocked() -> void:
+	# 막힌 타격은 치명·부여를 건너뛴다 — 여러 시드 중 막힌 것들은 모두 inflict "".
+	var atk := _human(78, 0, 200, 40, "sword")   # 항상 치명 시도
+	var saw_blocked := false
+	for s in range(1, 40):
+		var def := _human(0, -100, 0, 40, "", [], "tower_shield")   # 항상 명중, 막기 40%
+		var r := CombatResolver.resolve_hit(atk, def, 40, _rng(s))
+		if r["blocked"]:
+			saw_blocked = true
+			assert_eq(r["inflict"], "", "막힌 타격은 상태이상 부여 없음")
+	assert_true(saw_blocked, "여러 시드 중 막힌 타격이 있다")
+
 # --- 공격 간격 (attack_interval, 시간 기반 전투) ---
 
 func test_attack_interval_base_at_zero_agility() -> void:
