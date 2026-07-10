@@ -31,3 +31,27 @@ func test_add_territory_no_duplicate() -> void:
 	f.add_territory(territory)
 	f.add_territory(territory)
 	assert_eq(f.territories.size(), 1, "같은 영지 중복 추가 방지")
+
+# --- 영지 제거·이전 (캠프 점령 흡수) ---
+
+func test_remove_territory_unlinks_both_ways() -> void:
+	var f := _faction()
+	f.add_territory(territory)
+	f.remove_territory(territory)
+	assert_false(territory in f.territories, "territories에서 제거된다")
+	assert_null(territory.faction, "territory.faction이 null로 되돌아간다")
+
+func test_transfer_territory_between_factions() -> void:
+	var old_f := _faction("사막 술탄국")
+	var new_f := _faction("푸른 왕국")
+	old_f.add_territory(territory)
+	old_f.remove_territory(territory)
+	new_f.add_territory(territory)
+	assert_eq(territory.faction, new_f, "이전 후 소속은 새 세력")
+	assert_true(territory in new_f.territories, "새 세력에 포함")
+	assert_false(territory in old_f.territories, "이전 세력에서 제외")
+
+func test_remove_territory_not_owned_is_noop() -> void:
+	var f := _faction()
+	f.remove_territory(territory)   # 보유한 적 없음
+	assert_eq(f.territories.size(), 0, "보유하지 않은 영지 제거는 no-op")

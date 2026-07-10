@@ -20,6 +20,13 @@ func add_building(building) -> void:
 	buildings.append(building)
 	building.territory = self
 
+## 건물을 이 영지에서 뗀다. buildings에서 제거하고, 그 건물의 소속이 이 영지면 null로 되돌린다(양방향 해제).
+## 보유하지 않은 건물이면 no-op. 캠프 점령(파괴) 시 영지에서 캠프를 떼어낼 때 쓴다.
+func remove_building(building) -> void:
+	buildings.erase(building)
+	if building.territory == self:
+		building.territory = null
+
 ## 턴 종료 시 호출. 소속 건물들의 생산량(production)을 자원에 합산한다.
 ## 영지에 없던 자원 키는 새로 만들어 더한다. 생산이 없는 건물(캠프 등)·건설 중 건물(생산 0)은 자원을 바꾸지 않는다.
 func collect_income() -> void:

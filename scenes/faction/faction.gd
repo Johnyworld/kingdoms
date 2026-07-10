@@ -17,3 +17,10 @@ func add_territory(territory: Territory) -> void:
 		return
 	territories.append(territory)
 	territory.faction = self
+
+## 영지를 이 세력에서 뗀다. territories에서 제거하고, 그 영지의 소속이 이 세력이면 null로 되돌린다(양방향 해제).
+## 보유하지 않은 영지면 no-op. 캠프 점령(흡수) 시 이전 세력에서 영지를 떼어낼 때 쓴다.
+func remove_territory(territory: Territory) -> void:
+	territories.erase(territory)
+	if territory.faction == self:
+		territory.faction = null

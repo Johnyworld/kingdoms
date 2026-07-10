@@ -53,6 +53,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
 - [Combat Feedback (전투 연출)](features/combat-feedback.md) — 대미지 숫자·타격 반짝임·흔들림·돌진·상태이상 텍스트·사망 넉백
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
+- [Camp Capture (캠프 점령)](features/camp-capture.md) — 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
 - [Victory & Defeat (승패)](features/victory.md) — 승패 판정(현재 플레이어 부대 전멸 → 패배) · 결과 오버레이 · 타이틀 복귀
 
 ### 데이터 (`data/`)

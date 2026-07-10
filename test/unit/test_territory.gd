@@ -33,6 +33,20 @@ func test_add_building_no_duplicate() -> void:
 	t.add_building(building)
 	assert_eq(t.buildings.size(), 1, "같은 건물 중복 추가 방지")
 
+# --- 건물 제거 (캠프 점령 파괴) ---
+
+func test_remove_building_unlinks_both_ways() -> void:
+	var t := _territory()
+	t.add_building(building)
+	t.remove_building(building)
+	assert_false(building in t.buildings, "buildings에서 제거된다")
+	assert_null(building.territory, "building.territory가 null로 되돌아간다")
+
+func test_remove_building_not_owned_is_noop() -> void:
+	var t := _territory()
+	t.remove_building(building)   # 편입한 적 없음
+	assert_eq(t.buildings.size(), 0, "보유하지 않은 건물 제거는 no-op")
+
 # --- 자원 검사·차감 (건축) ---
 
 func test_can_afford_true_when_enough() -> void:

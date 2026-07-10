@@ -31,6 +31,13 @@ static func enemy_actions(can_melee: bool, can_shoot: bool) -> Array:
 		{"id": "shoot", "label": "사격", "enabled": can_shoot},
 	]
 
+## 적 거점 클릭 팝업 버튼 [흡수][파괴]. 인접 가능한 캠프에서만 열리므로 둘 다 활성.
+static func capture_actions() -> Array:
+	return [
+		{"id": "absorb", "label": "흡수", "enabled": true},
+		{"id": "destroy", "label": "파괴", "enabled": true},
+	]
+
 func _ready() -> void:
 	layer = 50
 	_build()

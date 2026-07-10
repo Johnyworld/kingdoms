@@ -69,11 +69,14 @@ NPC 거점은 NPC 부대와 같은 원칙으로 안개를 따른다. → [Fog of
 
 `game.gd`(`_handle_click`)는 `_npc_building_at(cell)`로 **발견된**(`visible`) NPC 거점을 찾아 `on_npc_building`을 넘기고, `NPC_BASE_INFO` 결과면 그 거점으로 `building_info.open(...)`을 호출한다(플레이어 부대 정보·일람은 감춘다). `BUILDING_INFO`·`NPC_BASE_INFO`는 같은 패널 열기 로직(`_open_building_info`)을 공유한다.
 
-## 이번 슬라이스 제외 (미구현)
+## 관련 후속
 
-- 거점 **공격·점령**(현재는 정보 표시만).
-- **승리조건**(세력 소멸·거점 점령 등 → [승리조건](../../table/시스템/승리조건.md)).
-- NPC의 **거점 기반 생산·AI**(자원 수입, 거점 방어/확장).
+- 거점 **점령**(흡수/파괴)은 [Camp Capture](camp-capture.md)에서 구현됐다(발견된 거점 인접 시).
+
+## 미구현
+
+- **승리조건**(세력 소멸·정복 승리 → [승패](victory.md), [승리조건](../../table/시스템/승리조건.md)).
+- 캠프 **수비대**·NPC의 **거점 기반 생산·AI**(자원 수입, 거점 방어/확장).
 
 ## 테스트 시나리오
 

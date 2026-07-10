@@ -52,3 +52,13 @@ func test_enemy_actions_shoot_only() -> void:
 	var a := PartyActionMenu.enemy_actions(false, true)
 	assert_false(_by_id(a, "attack")["enabled"], "근접 불가 → 공격 비활성")
 	assert_true(_by_id(a, "shoot")["enabled"], "사거리 내 → 사격 활성")
+
+# --- 거점 점령 팝업 (capture_actions) ---
+
+func test_capture_actions_buttons() -> void:
+	assert_eq(_ids(PartyActionMenu.capture_actions()), ["absorb", "destroy"], "점령 팝업 [흡수][파괴]")
+
+func test_capture_actions_both_enabled() -> void:
+	var a := PartyActionMenu.capture_actions()
+	assert_true(_by_id(a, "absorb")["enabled"], "흡수 활성")
+	assert_true(_by_id(a, "destroy")["enabled"], "파괴 활성")

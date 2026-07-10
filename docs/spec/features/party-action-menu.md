@@ -31,6 +31,8 @@
   - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
 - `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
+- `capture_actions() -> Array` — **적 거점 클릭 팝업** `[흡수][파괴]`(둘 다 활성). → [Camp Capture](camp-capture.md).
+  - `{id="absorb", label="흡수", enabled=true}` · `{id="destroy", label="파괴", enabled=true}`.
 
 ## UI (`party_action_menu.gd`)
 

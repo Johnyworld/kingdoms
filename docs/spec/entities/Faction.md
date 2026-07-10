@@ -22,6 +22,7 @@
 
 - `_init(name := "", color := Color.WHITE)` — 이름·색상을 받아 생성. `territories`는 빈 배열로 시작.
 - `add_territory(territory) -> void` — 영지를 `territories`에 추가하고 **동시에** `territory.faction = self`로 설정한다(양방향 동기화). 이미 포함된 영지는 중복 추가하지 않는다.
+- `remove_territory(territory) -> void` — 영지를 `territories`에서 제거하고, `territory.faction`이 이 세력이면 `null`로 되돌린다(양방향 해제). 없으면 no-op. [캠프 점령](../features/camp-capture.md) 흡수 시 이전 세력에서 영지를 떼어낼 때 쓴다.
 
 ## 테스트 시나리오
 
@@ -31,6 +32,9 @@
 - [정상] 생성 직후 `territories`는 빈 배열
 - [정상] `add_territory(t)` 후 `territories`에 `t`가 들어가고, `t.faction`이 이 세력을 가리킨다 (양방향)
 - [경계] 같은 영지를 두 번 `add_territory` 해도 `territories` 크기는 1 (중복 방지)
+- [정상] `remove_territory(t)` 후 `territories`에서 빠지고 `t.faction == null`
+- [정상] 이전: `old.remove_territory(t)` → `new.add_territory(t)` 후 `t.faction == new`, `new`에 포함·`old`에서 제외
+- [경계] 보유하지 않은 영지를 `remove_territory` → no-op(크래시 없음)
 
 ## 관련
 
