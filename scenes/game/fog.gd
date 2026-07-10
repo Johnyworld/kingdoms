@@ -39,6 +39,11 @@ func update_visible(cells: Dictionary) -> void:
 func is_cell_visible(cell: Vector2i) -> bool:
 	return _visible.has(cell)
 
+## 셀이 한 번이라도 시야에 든 적 있는지(탐험됨). NPC 거점 표시 판정에 쓴다.
+## 현재 시야뿐 아니라 과거에 봤던 셀도 true — 정적 구조물(거점)은 발견 후 계속 보인다.
+func is_cell_explored(cell: Vector2i) -> bool:
+	return _explored.has(cell)
+
 func _process(_delta: float) -> void:
 	# 카메라가 움직이거나 줌이 바뀌어 보이는 셀 범위가 달라지면 다시 그린다.
 	if _terrain != null and _visible_cell_bounds() != _last_bounds:

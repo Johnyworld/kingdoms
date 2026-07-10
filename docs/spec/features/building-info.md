@@ -26,18 +26,21 @@
 ## 클릭 라우팅
 
 좌클릭 우선순위는 순수 함수 [`ClickRouter.resolve`](../../scenes/game/click_router.gd)가 결정한다.
-인자: `resolve(on_party, on_camp, on_building, selected, reachable, info_open)`.
+인자: `resolve(on_party, on_npc, on_camp, on_building, on_npc_building, selected, reachable, info_open)`.
 
 우선순위(위에서부터):
 
-1. **부대 칸** → 부대 우선(`FOCUS_PARTY`). 단 캠프 위에 서 있고 정보가 이미 열려 있으면 `CAMP_MENU`.
-2. **선택 중 + 이동 범위 칸** → `MOVE`. 건물(캠프·농장) 칸이어도 이동이 우선(건물 위 통행).
-3. **캠프 칸** → `CAMP_MENU` (자원·건축).
-4. **그 외 건물 칸**(`on_building`, 캠프 아님) → `BUILDING_INFO` (이 패널).
-5. 그 외 → `DESELECT`.
+1. **플레이어 부대 칸** → 부대 우선(`FOCUS_PARTY`). 단 캠프 위에 서 있고 정보가 이미 열려 있으면 `CAMP_MENU`.
+2. **NPC 부대 칸** → `FOCUS_NPC` (정보).
+3. **선택 중 + 이동 범위 칸** → `MOVE`. 건물(플레이어·NPC) 칸이어도 이동이 우선(건물 위 통행).
+4. **플레이어 캠프 칸** → `CAMP_MENU` (자원·건축).
+5. **그 외 플레이어 건물 칸**(`on_building`, 캠프 아님) → `BUILDING_INFO` (이 패널).
+6. **발견된 NPC 거점 칸**(`on_npc_building`) → `NPC_BASE_INFO` (이 패널, 정보만). → [NPC Bases](npc-bases.md).
+7. 그 외 → `DESELECT`.
 
-`game.gd`(`_handle_click`)는 `_building_at(cell)`로 클릭된 건물을 찾아 **캠프**(`building_type == "camp"`)면 `on_camp`,
-그 외 건물이면 `on_building`으로 분류해 넘긴다. `BUILDING_INFO` 결과면 찾은 건물로 `building_info.open(building)`.
+`game.gd`(`_handle_click`)는 `_building_at(cell)`로 클릭된 **플레이어** 건물을 찾아 **캠프**(`building_type == "camp"`)면 `on_camp`,
+그 외 건물이면 `on_building`으로 분류하고, `_npc_building_at(cell)`로 발견된 NPC 거점이면 `on_npc_building`으로 넘긴다.
+`BUILDING_INFO`·`NPC_BASE_INFO` 결과면 각각의 건물로 `building_info.open(building)`을 호출한다(공유 헬퍼 `_open_building_info`).
 
 ## 표시 규칙 (`game.gd` `_handle_click`)
 
@@ -65,11 +68,16 @@
 - [경계] 영지 있는 농장으로 연 뒤 영지 없는 건물로 재오픈 → 정보 리스트가 교체됨(이전 영지 줄 사라짐)
 - [정상] `open` 후 `visible == true`, `close()` 후 `false`
 
+캠프 표시(NPC 거점도 이 패널로 정보만):
+
+- [정상] 영지·세력에 편입된 캠프 `open` → 제목 "캠프", 요약 "완성 · 시야 5", 영지·세력 줄, 생산 줄 없음
+
 클릭 라우팅은 `test/unit/test_click_router.gd`:
 
 - [정상] 농장 칸(`on_building=true`, 부대·선택 아님) → `BUILDING_INFO`
 - [정상] 선택 중 + 범위 + 농장 칸 → `MOVE`(건물 위 통행이 우선)
 - [정상] 캠프 칸(`on_camp=true`) → `CAMP_MENU` (캠프가 건물 정보보다 우선)
+- [정상] NPC 거점 칸(`on_npc_building=true`) → `NPC_BASE_INFO` ([NPC Bases](npc-bases.md))
 
 ## 관련
 

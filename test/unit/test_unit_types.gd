@@ -27,6 +27,17 @@ func test_player_party_spec() -> void:
 	assert_eq(spec["party_name"], "아젤 하르윈 부대", "부대명")
 	assert_eq(spec["commander"], "아젤 하르윈", "지휘관")
 
+# --- 수도(영지명) — NPC 거점 배치에 사용 ---
+
+func test_player_territory_is_changcheon() -> void:
+	assert_eq(types.get_party("azel")["territory"], "창천성", "플레이어 수도 = 창천성")
+
+func test_npc_territory_names() -> void:
+	# NPC 세력별 수도(영지.md 기준). 이전엔 "" 였으나 거점 배치를 위해 채운다.
+	assert_eq(types.get_party("qasim")["territory"], "알사바흐", "사막 술탄국 수도 = 알사바흐")
+	assert_eq(types.get_party("balthazar")["territory"], "흑요요새", "암흑 제국 수도 = 흑요요새")
+	assert_eq(types.get_party("batur")["territory"], "텡그리 언덕", "초원 칸국 수도 = 텡그리 언덕")
+
 func test_members_start_at_full_hp() -> void:
 	# 생성 시 hit_points = max_hp()(시작 풀피). 전투 후 지속(hit_points만 감소)의 기준.
 	# max_hp() = 40 + floor(힘/10) × level(1). 데이터에 hit_points를 두지 않고 계산해 채운다.

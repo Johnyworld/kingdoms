@@ -28,7 +28,7 @@
 
 - 진입: `_build_mode = true`, 건설할 종류·비용 지불 영지를 기억한다. **건설 가능 영역**(영지 시야) 윤곽선을 계산해 표시한다(아래 `BuildArea`).
 - **마우스 이동**: 커서 아래 셀을 중심으로 footprint 7헥스 **미리보기**를 그린다(`BuildPreview`). 배치 가능하면 초록, 불가하면 빨강.
-  - 배치 가능 판정 = `BuildPlanner.can_place(...)`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)`.
+  - 배치 가능 판정 = `BuildPlanner.can_place(...)`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)` — 플레이어 건물(`_buildings`) + [NPC 거점](npc-bases.md)(`_npc_buildings`)을 합쳐 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
 - **좌클릭**: 배치 가능한 자리면 → 영지에서 `build_cost` 차감(`spend`) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
 - **우클릭 / ESC**: 건설 모드 취소(미리보기·영역 윤곽선 제거).
 - 건설 모드 중에는 유닛 선택·이동·캠프 메뉴 열기 등 일반 클릭이 동작하지 않는다.

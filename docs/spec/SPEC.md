@@ -38,6 +38,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Title (타이틀 메뉴)](features/title.md)
 - [Map & Camera (맵과 카메라)](features/map-and-camera.md)
 - [Parties (부대 배치)](features/parties.md) — 유닛 카탈로그에서 플레이어 부대 + NPC 부대 3개 생성·배치
+- [NPC Bases (NPC 세력 거점)](features/npc-bases.md) — NPC 세력별 수도 영지·캠프 배치, 안개(발견 후 상시 표시)·클릭 정보
 - [NPC Movement (NPC 이동 AI)](features/npc-movement.md) — 턴 종료 시 NPC가 도달 가능한 가장 먼 칸으로 무작위 이동
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시

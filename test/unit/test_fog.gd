@@ -54,3 +54,19 @@ func test_is_cell_visible_false_for_explored_only() -> void:
 	fog.update_visible(_cells([Vector2i(4, 4)]))  # 한 번 봄 → 탐험됨
 	fog.update_visible(_cells([Vector2i(5, 5)]))  # 시야가 옮겨감 → (4,4)는 탐험만 됨
 	assert_false(fog.is_cell_visible(Vector2i(4, 4)), "탐험만 되고 현재 시야 밖인 셀은 안 보임")
+
+# --- 탐험됨 판정 (is_cell_explored) — NPC 거점 표시에 사용(발견 후 상시) ---
+
+func test_is_cell_explored_true_for_current() -> void:
+	fog.update_visible(_cells([Vector2i(4, 4)]))
+	assert_true(fog.is_cell_explored(Vector2i(4, 4)), "현재 시야 셀은 탐험됨")
+
+func test_is_cell_explored_true_for_explored_only() -> void:
+	# 부대와 다르게, 한 번 본 셀은 시야를 벗어나도 탐험됨으로 남는다(거점은 계속 표시).
+	fog.update_visible(_cells([Vector2i(4, 4)]))
+	fog.update_visible(_cells([Vector2i(5, 5)]))
+	assert_true(fog.is_cell_explored(Vector2i(4, 4)), "탐험만 되고 시야 밖이어도 탐험됨은 true")
+
+func test_is_cell_explored_false_for_unseen() -> void:
+	fog.update_visible(_cells([Vector2i(4, 4)]))
+	assert_false(fog.is_cell_explored(Vector2i(9, 9)), "한 번도 본 적 없는 셀은 탐험 안 됨")

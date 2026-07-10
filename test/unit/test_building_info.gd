@@ -79,6 +79,18 @@ func test_reopen_replaces_info_lines() -> void:
 	panel.open(_building("farm"))   # 영지 없는 건물로 재오픈
 	assert_false(_info_text().contains("파리"), "재오픈 시 이전 영지 줄이 남지 않음")
 
+func test_camp_shows_territory_faction_no_production() -> void:
+	# NPC 거점(캠프)도 이 패널로 정보만 표시한다: 제목 "캠프" · 요약 "완성 · 시야 5" · 영지·세력, 생산 줄 없음.
+	var b := _building("camp")
+	_join_territory(b)
+	panel.open(b)
+	assert_eq(panel._title.text, "캠프", "제목 = 캠프")
+	assert_eq(panel._summary.text, "완성 · 시야 5", "완성 캠프 요약 = 완성 · 시야 5")
+	var text := _info_text()
+	assert_string_contains(text, "파리", "영지명 포함")
+	assert_string_contains(text, "프랑스", "세력명 포함")
+	assert_false(text.contains("/ 턴"), "캠프는 생산 줄 없음")
+
 func test_open_shows_close_hides() -> void:
 	panel.open(_building("farm"))
 	assert_true(panel.visible, "open 후 표시")

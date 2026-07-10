@@ -28,6 +28,14 @@ const NPC_OFFSETS := {
 	"batur": Vector2i(-7, 1),
 }
 
+# NPC 세력 거점(캠프) 배치 오프셋(맵 중앙 기준 칸). 각 부대와 같은 방향의 바깥쪽 —
+# 초기 시야 밖이라 처음엔 안개에 가려지고, 플레이어가 다가가 발견하면 드러난다.
+const NPC_BASE_OFFSETS := {
+	"qasim": Vector2i(11, 0),      # 사막 술탄국 — 동
+	"balthazar": Vector2i(0, -11), # 암흑 제국 — 북
+	"batur": Vector2i(-12, 1),     # 초원 칸국 — 서
+}
+
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
 @onready var party = $Party
@@ -69,8 +77,9 @@ var party_action_menu: PartyActionMenu    # 부대 행동 메뉴(코드 생성, 
 var _turn := TurnManager.new()
 var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
 var _npc_parties: Array = []    # NPC 부대. 안개 표시·턴 리셋·턴 종료 시 이동(NpcAi) 대상. 일람은 제외.
-var _territories: Array = []    # 자원 수입을 받는 영지.
-var _buildings: Array = []      # 맵의 모든 건물(캠프 + 건설된 농장). 겹침 검사·추적용.
+var _territories: Array = []    # 자원 수입을 받는 영지(플레이어). NPC 영지는 미포함(경제 미사용).
+var _buildings: Array = []      # 플레이어 건물(캠프 + 건설된 농장). 겹침 검사·시야 합산·추적용.
+var _npc_buildings: Array = []  # NPC 세력 거점(캠프). 안개(탐험됨) 표시 + 클릭 정보 대상. 시야 합산 제외.
 
 # NPC 이동 AI가 목적지를 무작위로 고를 때 쓰는 난수기(_ready에서 randomize).
 var _rng := RandomNumberGenerator.new()
@@ -104,7 +113,7 @@ func _ready() -> void:
 	build_area.setup(terrain)
 	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), BuildingTypes.CAMP)
 	_buildings = [building]
-	_setup_faction()
+	_setup_factions()
 	_setup_parties()
 	_place_party()
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
@@ -156,17 +165,38 @@ func _center_camera() -> void:
 	camera.position = terrain.map_to_local(center_cell)
 	camera.make_current()
 
-## 플레이어 시작 영지·세력을 유닛 카탈로그(플레이어 부대 스펙)에서 만든다.
-## 세력 "푸른 왕국" → 영지 "창천성"에 캠프를 넣는다. 초기 자원은 캠프 카탈로그 resources 복사.
-func _setup_faction() -> void:
-	var camp_spec := BuildingTypes.get_type(BuildingTypes.CAMP)
-	var start_res: Dictionary = (camp_spec.get("resources", {}) as Dictionary).duplicate(true)
+## 플레이어 + NPC 세력·영지·거점을 유닛 카탈로그에서 만든다.
+## 플레이어: 세력 "푸른 왕국" → 영지 "창천성"에 중앙 캠프를 넣는다(자원 수입 대상 _territories).
+## NPC 3세력: 각 부대 방향 바깥쪽에 수도 영지 + 완성 캠프를 배치한다(_npc_buildings, 경제 미사용).
+func _setup_factions() -> void:
 	var spec := UnitTypes.get_party(UnitTypes.PLAYER_ID)
-	var territory := Territory.new(spec["territory"], start_res)
+	var territory := Territory.new(spec["territory"], _camp_resources())
 	var faction := Faction.new(spec["faction"], spec["color"])
 	faction.add_territory(territory)
 	territory.add_building(building)
 	_territories = [territory]
+
+	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
+	for id in UnitTypes.NPC_IDS:
+		_npc_buildings.append(_setup_npc_base(id, center + NPC_BASE_OFFSETS[id]))
+
+## NPC 세력 하나의 거점을 만든다: 세력 → 수도 영지 → 완성 캠프(중심 base_cell). 캠프 노드를 반환한다.
+## 세력·영지는 캠프의 territory 참조로 살아 있게 유지된다(_npc_buildings가 캠프 노드를 보유).
+func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
+	var spec := UnitTypes.get_party(id)
+	var territory := Territory.new(spec["territory"], _camp_resources())
+	var faction := Faction.new(spec["faction"], spec["color"])
+	faction.add_territory(territory)
+	var camp := Building.new()
+	add_child(camp)
+	camp.setup(terrain, base_cell, BuildingTypes.CAMP)   # 완성 상태(건설 중 아님)
+	territory.add_building(camp)
+	return camp
+
+## 캠프 카탈로그의 초기 자원 사본(영지 생성 시 시작 자원). 플레이어·NPC 공용.
+func _camp_resources() -> Dictionary:
+	var camp_spec := BuildingTypes.get_type(BuildingTypes.CAMP)
+	return (camp_spec.get("resources", {}) as Dictionary).duplicate(true)
 
 ## 부대를 유닛 카탈로그에서 생성한다.
 ## 플레이어 부대(아젤 하르윈)는 기존 $Party 노드에 채우고 금색 유지.
@@ -263,6 +293,7 @@ func _update_fog() -> void:
 		visible[c] = true
 	fog.update_visible(visible)
 	_update_npc_visibility()
+	_update_npc_building_visibility()
 
 ## NPC 부대 토큰은 플레이어 현재 시야 안에 있을 때만 보이고, 시야 밖이면 안개에 가려 숨긴다.
 ## (NPC는 시야를 밝히지 않으므로 _update_fog 시야 합산에는 넣지 않는다.)
@@ -270,14 +301,29 @@ func _update_npc_visibility() -> void:
 	for p in _npc_parties:
 		p.visible = fog.is_cell_visible(terrain.local_to_map(p.position))
 
+## NPC 거점(캠프)은 한 번 발견(탐험)하면 계속 보인다(정적 구조물). 미발견이면 안개에 가려 숨긴다.
+## 부대와 달리 현재 시야가 아니라 탐험됨(fog.is_cell_explored)으로 판정 — 7칸 중 하나라도 본 적 있으면 발견.
+## (NPC 거점도 플레이어 시야를 밝히지 않으므로 _update_fog 시야 합산에는 넣지 않는다.)
+func _update_npc_building_visibility() -> void:
+	for b in _npc_buildings:
+		b.visible = _base_discovered(b)
+
+## 거점의 7칸(중심 + 이웃) 중 하나라도 탐험된 적 있으면 발견으로 본다.
+func _base_discovered(b) -> bool:
+	for c in b.cells:
+		if fog.is_cell_explored(c):
+			return true
+	return false
+
 ## 좌클릭 처리. 우선순위 판정은 순수 함수 ClickRouter.resolve에 위임하고 여기서는 실행만 한다.
 ## - 부대 우선(캠프 위 재클릭 시 메뉴) → 선택 중 이동(건물 위 통행) → 캠프 메뉴 → 건물 정보 → 선택 해제.
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
 	var party_cell := terrain.local_to_map(party.position)
 	var reachable: bool = _reachable.has(cell)
-	var clicked := _building_at(cell)   # 캠프는 CAMP_MENU, 그 외 건물은 BUILDING_INFO로 분기.
+	var clicked := _building_at(cell)   # 플레이어 건물. 캠프는 CAMP_MENU, 그 외는 BUILDING_INFO로 분기.
 	var clicked_npc := _npc_at(cell)    # 보이는 NPC 부대가 있으면 정보 표시/공격 대상.
+	var clicked_npc_building := _npc_building_at(cell)   # 발견된 NPC 거점이면 정보 표시(NPC_BASE_INFO).
 	var on_camp := clicked != null and clicked.building_type == BuildingTypes.CAMP
 	var on_building := clicked != null and clicked.building_type != BuildingTypes.CAMP
 
@@ -295,7 +341,7 @@ func _handle_click(world_pos: Vector2) -> void:
 		_open_enemy_popup(_attack_targets[cell])
 		return
 
-	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, _selected, reachable, party_info.visible):
+	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, clicked_npc_building != null, _selected, reachable, party_info.visible):
 		ClickRouter.MOVE:
 			# 이동은 클릭 즉시 확정하고(재이동 불가·선택 해제), 토큰만 경로 따라 애니메이션한다.
 			_undo_party = party   # 되돌리기용: 이동 전 칸 기록(다른 부대 이동/행동 시 갱신·소멸)
@@ -310,12 +356,9 @@ func _handle_click(world_pos: Vector2) -> void:
 			_hide_party_info()
 			camp_menu.open(building)
 		ClickRouter.BUILDING_INFO:
-			if _selected:
-				_deselect()
-			# 부대 정보·일람을 감추고 우측 상단에 건물 정보를 띄운다.
-			party_info.close()
-			party_roster.hide()
-			building_info.open(clicked)
+			_open_building_info(clicked)
+		ClickRouter.NPC_BASE_INFO:
+			_open_building_info(clicked_npc_building)   # 발견된 NPC 거점 — 정보만(건축 없음)
 		ClickRouter.FOCUS_PARTY:
 			# 정보 패널은 항상 연다. 아직 선택 전이고 행동 가능하면 함께 선택(파랑 범위 + 행동 메뉴).
 			_show_party_info(party)
@@ -345,6 +388,22 @@ func _npc_at(cell: Vector2i) -> Party:
 		if p.visible and terrain.local_to_map(p.position) == cell:
 			return p
 	return null
+
+## 그 셀을 포함하는 NPC 거점(캠프)을 찾는다(없으면 null). 아직 발견 안 돼 가려진(visible == false) 거점은 제외한다.
+func _npc_building_at(cell: Vector2i) -> Building:
+	for b in _npc_buildings:
+		if b.visible and b.contains_cell(cell):
+			return b
+	return null
+
+## 우측 상단에 건물 정보 패널을 띄운다. 부대 정보·일람은 감춘다(캠프 메뉴와 같은 규칙). 선택 중이면 해제.
+## 플레이어 건물(BUILDING_INFO)·NPC 거점(NPC_BASE_INFO)이 공유한다.
+func _open_building_info(b) -> void:
+	if _selected:
+		_deselect()
+	party_info.close()
+	party_roster.hide()
+	building_info.open(b)
 
 ## exclude를 뺀 모든 부대(플레이어 + NPC)가 점유한 칸 집합({cell: true}). 이동 장애물로 넘긴다.
 func _occupied_cells(exclude) -> Dictionary:
@@ -748,9 +807,10 @@ func _exit_build_mode() -> void:
 	build_area.clear()
 
 ## 현재 시야·점유를 기준으로 그 셀에 건물을 놓을 수 있는지.
+## 점유는 플레이어 건물 + NPC 거점 모두 — 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
 func _can_build_at(cell: Vector2i) -> bool:
 	var vision := BuildPlanner.territory_vision(terrain, _build_territory, MAP_WIDTH, MAP_HEIGHT)
-	var occupied := BuildPlanner.occupied_cells(_buildings)
+	var occupied := BuildPlanner.occupied_cells(_buildings + _npc_buildings)
 	return BuildPlanner.can_place(terrain, cell, MAP_WIDTH, MAP_HEIGHT, vision, occupied)
 
 ## 커서 아래의 맵 셀.
