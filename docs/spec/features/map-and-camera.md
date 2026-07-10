@@ -5,7 +5,7 @@
 
 ## 맵
 
-- **크기**: 300 × 300 헥스 (`MAP_WIDTH`, `MAP_HEIGHT` = 90,000 셀).
+- **크기**: 50 × 50 헥스 (`MAP_WIDTH`, `MAP_HEIGHT` = 2,500 셀).
 - **타일셋**: `tiles/terrain_tileset.tres` — 지형별 단일 타일을 source id로 구분한다(모두 atlas `(0,0)`).
   - `0` 초원 · `1` 숲 · `2` 습지 · `3` 산 · `4` 사막. 상세는 [Terrain](../data/terrain.md).
   - 헥스 형태(pointy-top), 타일 크기 64×46.

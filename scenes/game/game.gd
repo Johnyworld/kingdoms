@@ -1,9 +1,9 @@
 extends Node2D
-## 300x300 헥스 타일 맵(초원)을 그리고, 카메라를 중앙에 배치한다.
+## 50x50 헥스 타일 맵(초원)을 그리고, 카메라를 중앙에 배치한다.
 ## 카메라는 WASD 또는 마우스를 화면 가장자리에 대면 상하좌우로 이동한다.
 
-const MAP_WIDTH := 300
-const MAP_HEIGHT := 300
+const MAP_WIDTH := 50
+const MAP_HEIGHT := 50
 
 const CAM_SPEED := 900.0    # 픽셀/초
 const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)
