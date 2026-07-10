@@ -183,3 +183,14 @@ func test_should_engage_outmatched() -> void:
 
 func test_should_engage_enemy_zero() -> void:
 	assert_true(NpcAi.should_engage(10, 0), "적 전력 0이면 교전")
+
+# --- 표적 우선순위: prioritize (순수) ---
+
+func test_prioritize_first_nonempty() -> void:
+	assert_eq(NpcAi.prioritize([[], [Vector2i(1,0)], [Vector2i(2,0)]]), [Vector2i(1,0)], "첫 비지 않은 티어")
+
+func test_prioritize_top_tier() -> void:
+	assert_eq(NpcAi.prioritize([[Vector2i(1,0)], [Vector2i(2,0)]]), [Vector2i(1,0)], "상위 티어 우선")
+
+func test_prioritize_all_empty() -> void:
+	assert_eq(NpcAi.prioritize([[], []]), [], "전부 비면 빈 배열")

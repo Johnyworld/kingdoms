@@ -27,6 +27,9 @@ const NPC_DEFEND_RADIUS := 5
 # NPC가 후퇴를 판단할 때 주변 적 부대를 살피는 반경(헥스). 이 안에 자기보다 강한 적이 있으면 후퇴.
 const NPC_RETREAT_SCAN := 6
 
+# 표적 우선순위(무방비 캠프·약한 적)를 이 반경 안에서만 우대한다. 밖이면 기존 최근접 접근으로 폴백.
+const NPC_PRIORITY_SCAN := 8
+
 # NPC 부대 배치 오프셋(맵 중앙 기준 칸). 초기 시야 안에 들도록 임시 배치한다.
 const NPC_OFFSETS := {
 	"qasim": Vector2i(5, 0),
@@ -651,7 +654,29 @@ func _npc_targets(p, party_entries: Array, camp_entries: Array) -> Array:
 		var safe := _safe_retreat_cells(fn)
 		if not safe.is_empty():
 			return safe
-	var advance: Array = NpcAi.enemy_cells(fn, party_entries) + NpcAi.enemy_cells(fn, camp_entries)
+	# 표적 우선순위: 근처(NPC_PRIORITY_SCAN) 무방비 적 캠프 > 근처 약한 적 부대 > 나머지(전체 적 셀, 최근접 폴백).
+	var my_power := NpcAi.party_power(p.members)
+	var near := {}
+	for c in HexGrid.cells_within(terrain, terrain.local_to_map(p.position), NPC_PRIORITY_SCAN, MAP_WIDTH, MAP_HEIGHT):
+		near[c] = true
+	var undefended: Array = []
+	for b in _buildings + _npc_buildings:
+		if b.building_type != BuildingTypes.CAMP or not b.garrison.is_empty():
+			continue
+		var bf := ""
+		if b.territory != null and b.territory.faction != null:
+			bf = b.territory.faction.name
+		if bf != fn and near.has(b.center_cell()):
+			undefended.append(b.center_cell())
+	var weak: Array = []
+	for other in _units + _npc_parties:
+		if other == p or other.members.is_empty() or other.faction_name == fn:
+			continue
+		var ocell := terrain.local_to_map(other.position)
+		if near.has(ocell) and NpcAi.party_power(other.members) <= my_power:
+			weak.append(ocell)
+	var rest: Array = NpcAi.enemy_cells(fn, party_entries) + NpcAi.enemy_cells(fn, camp_entries)
+	var advance := NpcAi.prioritize([undefended, weak, rest])
 	var defend := _threats_near_own_camp(fn, party_entries)
 	return NpcAi.select_targets(advance, defend)
 

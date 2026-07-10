@@ -30,6 +30,13 @@ static func enemy_cells(self_faction: String, entries: Array) -> Array:
 static func select_targets(advance: Array, defend: Array) -> Array:
 	return defend if not defend.is_empty() else advance
 
+## 티어 목록에서 처음으로 비어 있지 않은 티어를 고른다(표적 우선순위). 전부 비면 빈 배열.
+static func prioritize(tiers: Array) -> Array:
+	for t in tiers:
+		if not (t as Array).is_empty():
+			return t
+	return []
+
 ## NPC 이동 목적지를 고른다.
 ## - targets가 있으면: 이동 칸 중 가장 가까운 적(targets)과의 월드 거리가 최소인 칸으로 접근한다.
 ##   시작 칸보다 가까워지는 칸이 없으면 제자리(적에게서 멀어지지 않는다).
