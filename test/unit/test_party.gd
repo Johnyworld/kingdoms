@@ -174,6 +174,14 @@ func test_mark_rested_keeps_moved() -> void:
 	p.mark_rested()
 	assert_true(p.moved_this_turn, "이동 후 대기는 moved 유지")
 
+func test_undo_move_restores_move() -> void:
+	var p := _party()
+	p.mark_moved()
+	assert_false(p.can_move(), "이동 후 이동 불가")
+	p.undo_move()
+	assert_false(p.moved_this_turn, "undo_move 후 이동 안 함으로")
+	assert_true(p.can_move(), "undo_move 후 다시 이동 가능")
+
 func test_attacked_blocks_rest() -> void:
 	var p := _party()
 	p.mark_attacked()

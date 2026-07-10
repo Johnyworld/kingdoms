@@ -12,11 +12,13 @@ var _root: Control
 var _panel: PanelContainer
 var _list: VBoxContainer
 
-## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계], 이동 후 [사격][대기](휴식·경계 불가). 노드 비의존.
-static func party_actions(moved: bool, can_shoot_any: bool) -> Array:
+## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계], 이동 후 [사격][대기](+되돌리기 가능하면 [취소]). 노드 비의존.
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool) -> Array:
 	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
 	if moved:
 		out.append({"id": "wait", "label": "대기", "enabled": true})
+		if can_undo:
+			out.append({"id": "undo", "label": "취소", "enabled": true})
 	else:
 		out.append({"id": "rest", "label": "휴식", "enabled": true})
 		out.append({"id": "alert", "label": "경계", "enabled": true})

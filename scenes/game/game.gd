@@ -61,6 +61,8 @@ var _attack_cells: Array[Vector2i] = []   # 공격 가능 적 칸(MOVE에서 빨
 var _shoot_cells: Array[Vector2i] = []    # 사격 가능 적 칸([사격] 활성 판정·타겟)
 var _shoot_area_cells: Array[Vector2i] = []   # 사격 사거리 전체 칸(SHOOT 모드 빨강 오버레이)
 var _popup_target = null                  # 적 클릭 팝업의 대상 항목(없으면 중앙 메뉴)
+var _undo_party = null                     # 되돌릴 수 있는 마지막 이동의 부대(없으면 null)
+var _undo_cell: Vector2i                   # 그 부대의 이동 전 칸
 var party_action_menu: PartyActionMenu    # 부대 행동 메뉴(코드 생성, _ready에서 추가)
 
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
@@ -296,6 +298,8 @@ func _handle_click(world_pos: Vector2) -> void:
 	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, _selected, reachable, party_info.visible):
 		ClickRouter.MOVE:
 			# 이동은 클릭 즉시 확정하고(재이동 불가·선택 해제), 토큰만 경로 따라 애니메이션한다.
+			_undo_party = party   # 되돌리기용: 이동 전 칸 기록(다른 부대 이동/행동 시 갱신·소멸)
+			_undo_cell = party_cell
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
 			_deselect()
 			_hide_party_info()
@@ -382,6 +386,7 @@ func _adjacent_stand(enemy_cell: Vector2i, start: Vector2i) -> Vector2i:
 ## ranged=원거리 모드, occupy_cell=근접 승리 시 이동할 수비 타일((-1,-1)이면 점령 없음).
 func _begin_battle(defender, ranged: bool, occupy_cell: Vector2i) -> void:
 	party.mark_attacked()
+	_undo_party = null   # 공격/사격은 되돌릴 수 없다
 	if _selected:
 		_deselect()
 	_hide_party_info()
@@ -450,7 +455,8 @@ func _enter_shoot_mode() -> void:
 func _open_action_menu() -> void:
 	_popup_target = null
 	if party.can_rest():
-		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty()), _screen_pos(party.position))
+		var can_undo: bool = _undo_party == party
+		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
 
@@ -483,24 +489,40 @@ func _on_party_action(id: String) -> void:
 			for m in party.members:
 				m.apply_rest()   # hp·스태미나 25% 회복
 			party.mark_rested()
+			_undo_party = null   # 턴 종료 행동 → 되돌리기 소멸
 			_deselect()
 			_hide_party_info()
 		"alert":
 			for m in party.members:
 				m.apply_alert()   # 스태미나 10% + 전투 버프(적 턴 후 해제)
 			party.mark_attacked()   # 경계도 이번 턴 행동을 끝낸다
+			_undo_party = null
 			_deselect()
 			_hide_party_info()
 		"wait":
 			party.mark_attacked()   # 대기 — 효과 없이 턴만 종료
+			_undo_party = null
 			_deselect()
 			_hide_party_info()
+		"undo":
+			_undo_last_move()
+
+## [취소]: 마지막 이동을 되돌린다 — 이동 전 칸으로 복귀 + moved 해제 + 시야·범위·메뉴 재표시.
+func _undo_last_move() -> void:
+	if _undo_party != party:
+		return
+	party.position = terrain.map_to_local(_undo_cell)
+	party.undo_move()
+	_undo_party = null
+	_update_fog()
+	_select()   # 이제 이동 전 상태 → 메뉴 [사격][휴식][경계]
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
 	if _in_battle:
 		return   # 전투 관전 중에는 턴을 넘기지 않는다.
 	_finish_player_move()   # 이동 애니메이션 중이면 목적지로 스냅한 뒤 턴을 넘긴다.
+	_undo_party = null   # 턴이 바뀌면 되돌리기 초기화
 	if _selected:
 		_deselect()
 	_hide_party_info()

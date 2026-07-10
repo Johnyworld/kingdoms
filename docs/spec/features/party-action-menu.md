@@ -26,9 +26,9 @@
 
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
-- `party_actions(moved: bool, can_shoot_any: bool) -> Array` — **중앙 메뉴**. `{id="shoot", label="사격", enabled=can_shoot_any}` 는 항상 첫 버튼.
+- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool) -> Array` — **중앙 메뉴**. `{id="shoot", label="사격", enabled=can_shoot_any}` 는 항상 첫 버튼.
   - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
-  - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**.
+  - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
 - `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
 
@@ -45,16 +45,19 @@
 - **`[휴식]`**(이동 전만): 각 멤버 **hp·스태미나 25% 회복**(`Human.apply_rest()`, `max_hp`/`max_stamina` 상한) 후 턴 종료.
 - **`[경계]`**(이동 전만): 각 멤버 **스태미나 10% 회복(반올림)** + **`alert` 부여**(전투 시 공격력·방어력 ×1.2 — [Combat](combat.md)) 후 턴 종료. alert는 **NPC(적) 턴이 끝난 뒤 해제**(= 내 다음 턴).
 - **`[대기]`**(이동 후만): 효과 없이 턴만 종료.
-- 모든 행동은 부대 행동을 끝낸다(공격/사격/경계/대기=`mark_attacked`, 휴식=`mark_rested`).
+- **`[취소]`**(이동 후·되돌리기 가능): 아직 공격 전이면 **직전 이동을 되돌린다** — 부대를 이동 전 칸으로 되돌리고 `moved_this_turn`을 해제(다시 이동 가능), 시야 갱신. `game.gd`가 **마지막 이동 1건**만 추적한다(`_undo_party`·`_undo_cell`).
+  - 공격/사격/휴식/경계/대기(턴 종료 행동)를 하면 되돌리기가 사라진다. 다른 부대가 이동하면 그 부대로 교체된다(현재 플레이어 부대는 1개라 실질 단일). 턴 종료 시에도 초기화.
+- 취소를 제외한 모든 행동은 부대 행동을 끝낸다(공격/사격/경계/대기=`mark_attacked`, 휴식=`mark_rested`).
 - **스태미나 소모·최대치 연동은 `미구현`** — 회복만 넣어 값이 오르지만 현재 소모가 없어 실질 효과는 hp·버프다.
 
 ## 테스트 시나리오
 
 ### 버튼 구성 — `test/unit/test_party_action_menu.gd`
-- [정상] `party_actions(false, true)` → `[사격(활성), 휴식, 경계]`(이동 전)
-- [정상] `party_actions(false, false)` → `[사격(비활성), 휴식, 경계]`
-- [정상] `party_actions(true, true)` → `[사격(활성), 대기]`(이동 후 — 휴식·경계 없음)
-- [정상] `party_actions(true, false)` → `[사격(비활성), 대기]`
+- [정상] `party_actions(false, true, false)` → `[사격(활성), 휴식, 경계]`(이동 전)
+- [정상] `party_actions(false, false, false)` → `[사격(비활성), 휴식, 경계]`
+- [정상] `party_actions(true, true, false)` → `[사격(활성), 대기]`(이동 후 — 휴식·경계 없음)
+- [정상] `party_actions(true, false, true)` → `[사격(비활성), 대기, 취소]`(되돌리기 가능)
+- [경계] `party_actions(false, true, true)` → `[사격, 휴식, 경계]`(이동 전이면 취소 없음)
 - [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
 - [정상] `enemy_actions(false, true)` → `[공격(비활성), 사격(활성)]`
 

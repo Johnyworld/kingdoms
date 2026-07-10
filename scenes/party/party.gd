@@ -106,6 +106,11 @@ func mark_rested() -> void:
 	attacked_this_turn = true
 	queue_redraw()
 
+## 이동 되돌리기. moved_this_turn을 해제해 다시 이동 가능하게 한다(위치 복원은 game.gd). 다시 그린다.
+func undo_move() -> void:
+	moved_this_turn = false
+	queue_redraw()
+
 ## 턴 종료 시 호출. 이동·공격·휴식 상태를 리셋하고 불투명하게 다시 그린다.
 func reset_turn() -> void:
 	if not moved_this_turn and not attacked_this_turn and not rested_this_turn:

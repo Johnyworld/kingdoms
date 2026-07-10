@@ -18,19 +18,25 @@ func _ids(list: Array) -> Array:
 # --- 중앙 메뉴 (party_actions) ---
 
 func test_party_actions_before_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true)), ["shoot", "rest", "alert"], "이동 전 사격·휴식·경계")
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false)), ["shoot", "rest", "alert"], "이동 전 사격·휴식·경계")
 
 func test_party_actions_after_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(true, true)), ["shoot", "wait"], "이동 후 사격·대기(휴식·경계 없음)")
+	assert_eq(_ids(PartyActionMenu.party_actions(true, true, false)), ["shoot", "wait"], "이동 후 사격·대기(휴식·경계 없음)")
+
+func test_party_actions_after_move_with_undo() -> void:
+	assert_eq(_ids(PartyActionMenu.party_actions(true, false, true)), ["shoot", "wait", "undo"], "되돌리기 가능하면 취소 추가")
+
+func test_party_actions_no_undo_before_move() -> void:
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, true)), ["shoot", "rest", "alert"], "이동 전이면 can_undo여도 취소 없음")
 
 func test_party_actions_shoot_enabled_by_target() -> void:
-	assert_true(_by_id(PartyActionMenu.party_actions(false, true), "shoot")["enabled"], "사격 대상 있으면 활성")
-	assert_false(_by_id(PartyActionMenu.party_actions(false, false), "shoot")["enabled"], "없으면 비활성")
+	assert_true(_by_id(PartyActionMenu.party_actions(false, true, false), "shoot")["enabled"], "사격 대상 있으면 활성")
+	assert_false(_by_id(PartyActionMenu.party_actions(false, false, false), "shoot")["enabled"], "없으면 비활성")
 
 func test_party_actions_rest_alert_wait_enabled() -> void:
-	assert_true(_by_id(PartyActionMenu.party_actions(false, false), "rest")["enabled"], "휴식 활성")
-	assert_true(_by_id(PartyActionMenu.party_actions(false, false), "alert")["enabled"], "경계 활성")
-	assert_true(_by_id(PartyActionMenu.party_actions(true, false), "wait")["enabled"], "대기 활성")
+	assert_true(_by_id(PartyActionMenu.party_actions(false, false, false), "rest")["enabled"], "휴식 활성")
+	assert_true(_by_id(PartyActionMenu.party_actions(false, false, false), "alert")["enabled"], "경계 활성")
+	assert_true(_by_id(PartyActionMenu.party_actions(true, false, false), "wait")["enabled"], "대기 활성")
 
 # --- 적 팝업 (enemy_actions) ---
 
