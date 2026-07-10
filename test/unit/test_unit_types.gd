@@ -34,6 +34,7 @@ func test_members_start_at_full_hp() -> void:
 		for m in types.make_members(id):
 			assert_eq(m.hit_points, m.max_hp(), "%s 멤버는 생성 시 현재 == max_hp()" % id)
 			assert_eq(m.max_hp(), 40 + int(m.strength) / 10, "%s 멤버 max_hp = 40 + floor(힘/10)" % id)
+			assert_eq(m.max_stamina, m.stamina, "%s 멤버 생성 시 max_stamina == stamina" % id)
 
 # --- 멤버 생성 ---
 

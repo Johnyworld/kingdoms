@@ -38,14 +38,18 @@
 | --- | --- | --- | --- |
 | 히트포인트(현재) | `hit_points` | 20 | 현재 생명점. 전투에서 깎이고 **전투 후에도 지속**된다([Battle](../features/battle.md)). 유닛 생성 시 `max_hp()`로 채운다(시작 풀피) |
 | 전투 레벨 | `level` | 1 | `max_hp()` 계산에 쓰는 배수. 경험치·성장은 `미구현`(기본 1 고정) |
-| 스태미나 | `stamina` | 20 | |
+| 스태미나(현재) | `stamina` | 20 | 유닛 생성 시 `max_stamina`로 채움. **소모 시스템은 `미구현`**([행동 메뉴](../features/party-action-menu.md) 휴식/경계로 회복만) |
+| 최대 스태미나 | `max_stamina` | 20 | 스태미나 상한. 유닛 생성 시 `stamina`와 같게 설정 |
 | 사기 | `morale` | 20 | |
+| 경계 버프 | `alert` | `false` | 참이면 전투 공격력·방어력 ×1.2([Combat](../features/combat.md)). [경계](../features/party-action-menu.md) 선택 시 부여, 적 턴 종료 후 해제 |
 
-### 계산 (Computed)
+### 계산·행동 (Computed / Actions)
 
-| 함수 | 식 | 설명 |
-| --- | --- | --- |
-| `max_hp()` | `BASE_HIT_POINTS(40) + floor(힘/10) × level` | 최대 생명점(상한). 힘·전투 레벨로 계산. 민첩 등 다른 스탯 기여는 `미구현`. 회복 수단(치료소·휴식)도 `미구현` |
+| 함수 | 설명 |
+| --- | --- |
+| `max_hp()` | `BASE_HIT_POINTS(40) + floor(힘/10) × level` — 최대 생명점(상한). 민첩 등 다른 스탯 기여 `미구현` |
+| `apply_rest()` | 휴식 — `hit_points`·`stamina`를 각각 최대의 **25%(반올림)** 만큼 회복(상한 clamp) |
+| `apply_alert()` | 경계 — `stamina`를 최대의 **10%(반올림)** 회복 + `alert = true` |
 
 ### 장비 (Equipment)
 

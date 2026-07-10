@@ -25,6 +25,20 @@ func _rng(seed_val := 1) -> RandomNumberGenerator:
 	r.seed = seed_val
 	return r
 
+# --- 경계 버프 (alert → AT·DF ×1.2) ---
+
+func test_attack_power_alert_buff() -> void:
+	var h := _human(78)   # 맨몸 AT = floor(78/5) = 15
+	assert_eq(CombatResolver.attack_power(h), 15, "기본 AT 15")
+	h.alert = true
+	assert_eq(CombatResolver.attack_power(h), 18, "alert면 ×1.2 → floor(18.0)=18")
+
+func test_defense_alert_buff() -> void:
+	var d := _human(0, 0, 0, 40, "", ["leather_armor"])   # DF 8
+	assert_eq(CombatResolver.defense(d), 8, "기본 DF 8")
+	d.alert = true
+	assert_eq(CombatResolver.defense(d), 9, "alert면 ×1.2 → floor(9.6)=9")
+
 # --- 최대 생명점 (Human.max_hp, 계산) ---
 
 func test_max_hp_base_plus_strength() -> void:

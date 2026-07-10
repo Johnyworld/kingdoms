@@ -55,10 +55,11 @@ const MODE_MOVE := "move"
 const MODE_SHOOT := "shoot"
 var _mode := MODE_MOVE
 var _move_cells: Array[Vector2i] = []     # 이동 범위(파랑) 표시용
-# 공격 가능한 적: enemy 칸 → {enemy, melee, shoot, moveadj}. 빨강 오버레이·팝업·사격 판단에 쓴다.
+# 공격 가능한 적: enemy 칸 → {enemy, cell, melee, shoot}. 빨강 오버레이·팝업·사격 판단에 쓴다.
 var _attack_targets: Dictionary = {}
 var _attack_cells: Array[Vector2i] = []   # 공격 가능 적 칸(MOVE에서 빨강)
-var _shoot_cells: Array[Vector2i] = []    # 사격 가능 적 칸(SHOOT에서 빨강)
+var _shoot_cells: Array[Vector2i] = []    # 사격 가능 적 칸([사격] 활성 판정·타겟)
+var _shoot_area_cells: Array[Vector2i] = []   # 사격 사거리 전체 칸(SHOOT 모드 빨강 오버레이)
 var _popup_target = null                  # 적 클릭 팝업의 대상 항목(없으면 중앙 메뉴)
 var party_action_menu: PartyActionMenu    # 부대 행동 메뉴(코드 생성, _ready에서 추가)
 
@@ -213,20 +214,23 @@ func _compute_attack_targets(start: Vector2i) -> void:
 	_attack_targets = {}
 	_attack_cells = []
 	_shoot_cells = []
+	_shoot_area_cells = []
 	var rng: int = party.attack_range()
 	var shoot_area := {}
 	if rng >= 2:
 		for c in HexGrid.cells_within(terrain, start, rng, MAP_WIDTH, MAP_HEIGHT):
+			if c == start:
+				continue
 			shoot_area[c] = true
+			_shoot_area_cells.append(c)   # SHOOT 모드에서 사거리 전체를 빨강으로 표시
 	for p in _npc_parties:
 		if not p.visible:
 			continue
 		var ec: Vector2i = terrain.local_to_map(p.position)
 		var melee := _cell_melee_reachable(ec, start)
 		var shoot: bool = rng >= 2 and shoot_area.has(ec)
-		var moveadj := _cell_move_adjacent(ec, start)
 		if melee or shoot:
-			_attack_targets[ec] = {"enemy": p, "cell": ec, "melee": melee, "shoot": shoot, "moveadj": moveadj}
+			_attack_targets[ec] = {"enemy": p, "cell": ec, "melee": melee, "shoot": shoot}
 			_attack_cells.append(ec)
 			if shoot:
 				_shoot_cells.append(ec)
@@ -238,21 +242,11 @@ func _cell_melee_reachable(enemy_cell: Vector2i, start: Vector2i) -> bool:
 			return true
 	return false
 
-## [이동]으로 그 적에 붙을 수 있는지. 이미 인접하면 false(이동 불필요), 아니면 인접 도달칸이 있으면 true.
-func _cell_move_adjacent(enemy_cell: Vector2i, start: Vector2i) -> bool:
-	var neighbors := terrain.get_surrounding_cells(enemy_cell)
-	if start in neighbors:
-		return false   # 이미 인접 — [이동] 불필요(바로 [공격])
-	for n in neighbors:
-		if _reachable.has(n):
-			return true
-	return false
-
-## 현재 모드에 맞는 오버레이. MOVE=파랑 이동+빨강 공격가능 적, SHOOT=빨강 사격가능 적만.
+## 현재 모드에 맞는 오버레이. MOVE=파랑 이동+빨강 공격가능 적, SHOOT=빨강 사격 사거리 전체.
 func _refresh_overlay() -> void:
 	var none: Array[Vector2i] = []
 	if _mode == MODE_SHOOT:
-		overlay.show_ranges(none, _shoot_cells)
+		overlay.show_ranges(none, _shoot_area_cells)
 	else:
 		overlay.show_ranges(_move_cells, _attack_cells)
 
@@ -357,18 +351,6 @@ func _occupied_cells(exclude) -> Dictionary:
 		occ[terrain.local_to_map(p.position)] = true
 	return occ
 
-## [이동]: 그 적에 인접한 도달 칸으로 이동만(전투 없음).
-func _move_adjacent_to(entry: Dictionary) -> void:
-	var start := terrain.local_to_map(party.position)
-	var stand := _adjacent_stand(entry["cell"], start)
-	if stand == start:
-		_enter_move_mode()   # 이미 인접 — 이동 불필요, 메뉴 복귀
-		return
-	party.mark_moved()
-	_deselect()
-	_hide_party_info()
-	_move_player_to(start, stand)
-
 ## [공격] 근접: 적 인접 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령.
 func _melee_attack(entry: Dictionary) -> void:
 	var start := terrain.local_to_map(party.position)
@@ -464,20 +446,24 @@ func _enter_shoot_mode() -> void:
 	_refresh_overlay()
 	party_action_menu.close()
 
-## 중앙 부대 메뉴를 연다(팝업 아님). 행동 가능할 때만.
+## 중앙 부대 메뉴 [사격][휴식][경계]를 부대 토큰 근처에 연다. 행동 가능할 때만.
 func _open_action_menu() -> void:
 	_popup_target = null
 	if party.can_rest():
-		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty()))
+		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty()), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
 
-## 공격 가능한 적 클릭 팝업을 연다([이동][공격][사격]). 대상 항목을 _popup_target에 둔다.
+## 공격 가능한 적 클릭 팝업 [공격][사격]을 그 적 근처에 연다. 대상 항목을 _popup_target에 둔다.
 func _open_enemy_popup(entry: Dictionary) -> void:
 	_popup_target = entry
-	party_action_menu.open(PartyActionMenu.enemy_actions(entry["moveadj"], entry["melee"], entry["shoot"]))
+	party_action_menu.open(PartyActionMenu.enemy_actions(entry["melee"], entry["shoot"]), _screen_pos(terrain.map_to_local(entry["cell"])))
 
-## 메뉴 버튼 처리. 팝업(적 대상)이면 이동/공격/사격을 그 적에, 중앙 메뉴면 사격 모드/휴식.
+## 월드 좌표 → 화면 좌표(카메라·줌 반영). 메뉴를 클릭 지점 근처에 띄우는 데 쓴다.
+func _screen_pos(world_pos: Vector2) -> Vector2:
+	return get_viewport().get_canvas_transform() * world_pos
+
+## 메뉴 버튼 처리. 팝업(적 대상)이면 공격/사격, 중앙 메뉴면 사격 모드/휴식/경계.
 func _on_party_action(id: String) -> void:
 	if not _selected:
 		return
@@ -485,8 +471,6 @@ func _on_party_action(id: String) -> void:
 		var entry: Dictionary = _popup_target
 		_popup_target = null
 		match id:
-			"move":
-				_move_adjacent_to(entry)
 			"attack":
 				_melee_attack(entry)
 			"shoot":
@@ -496,7 +480,19 @@ func _on_party_action(id: String) -> void:
 		"shoot":
 			_enter_shoot_mode()
 		"rest":
-			party.mark_rested()   # 회복 효과는 다음 슬라이스
+			for m in party.members:
+				m.apply_rest()   # hp·스태미나 25% 회복
+			party.mark_rested()
+			_deselect()
+			_hide_party_info()
+		"alert":
+			for m in party.members:
+				m.apply_alert()   # 스태미나 10% + 전투 버프(적 턴 후 해제)
+			party.mark_attacked()   # 경계도 이번 턴 행동을 끝낸다
+			_deselect()
+			_hide_party_info()
+		"wait":
+			party.mark_attacked()   # 대기 — 효과 없이 턴만 종료
 			_deselect()
 			_hide_party_info()
 
@@ -549,7 +545,8 @@ func _move_npcs() -> void:
 func _npc_attack_phase(epoch: int) -> void:
 	for attacker in _npc_parties.duplicate():
 		if epoch != _npc_move_epoch:
-			return   # 새 턴이 시작됨 → 중단.
+			_clear_player_alert()   # 중단돼도 경계 버프는 반드시 해제(다음 내 턴에 남지 않게)
+			return
 		if not is_instance_valid(attacker) or not (attacker in _npc_parties):
 			continue   # 이전 전투로 제거됨.
 		if not attacker.can_attack():
@@ -563,7 +560,14 @@ func _npc_attack_phase(epoch: int) -> void:
 			await _run_battle(attacker, target, ranged)   # 플레이어가 방어 → 오버레이 관전
 		else:
 			_resolve_battle_headless(attacker, target, ranged)   # NPC끼리 → 즉시 결산
+	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
 	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
+
+## 플레이어 부대 멤버의 경계(alert) 버프를 모두 해제한다. NPC 공격 페이즈가 끝나거나 중단될 때 호출.
+func _clear_player_alert() -> void:
+	for u in _units:
+		for m in u.members:
+			m.alert = false
 
 ## attacker의 공격거리 이내에 있는 자기 외 부대를 찾는다(멤버 있는 것만). 없으면 null.
 ## (NPC가 사거리를 유지하며 포지셔닝하는 AI는 미구현 — 접근해 붙은 뒤 사거리 판정만 반영.)
@@ -681,6 +685,7 @@ func _deselect() -> void:
 	_move_cells = []
 	_attack_cells = []
 	_shoot_cells = []
+	_shoot_area_cells = []
 	party_action_menu.close()
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)

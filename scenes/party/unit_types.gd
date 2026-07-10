@@ -118,5 +118,6 @@ static func make_members(id: String) -> Array:
 		h.armor = (m["armor"] if m.has("armor") else armor).duplicate()
 		h.shield = m.get("shield", shield)
 		h.hit_points = h.max_hp()   # 생성 시 시작 풀피(힘·레벨로 계산한 최대)
+		h.max_stamina = h.stamina   # 시작 풀 스태미나(현재=최대)
 		result.append(h)
 	return result

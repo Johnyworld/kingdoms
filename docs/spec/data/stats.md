@@ -26,7 +26,8 @@
 | --- | --- | --- | --- |
 | 히트포인트(현재) | `hit_points` | 20 | 현재 생명점. 전투 후에도 지속([Battle](../features/battle.md)). 생성 시 `max_hp()`로 채움 |
 | 전투 레벨 | `level` | 1 | `max_hp()` 배수. 성장은 `미구현`(1 고정) |
-| 스태미나 | `stamina` | 20 | 최대/현재 구분 아직 없음 |
+| 스태미나(현재) | `stamina` | 20 | 생성 시 `max_stamina`로 채움. 소모 시스템 `미구현`(휴식/경계 회복만) |
+| 최대 스태미나 | `max_stamina` | 20 | 상한 |
 | 사기 | `morale` | 20 | |
 
 - **최대 생명점(계산)**: `Human.max_hp() = 40 + floor(힘/10) × level`. 상세는 [Human](../entities/Human.md).

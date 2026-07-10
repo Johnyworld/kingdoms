@@ -17,60 +17,60 @@
 | 모드 | 표시 | 클릭 |
 | --- | --- | --- |
 | `MOVE`(기본) | 파랑 이동 범위 + 빨강 공격 가능 적 타일 + 중앙 메뉴 | 도달 빈칸 → 이동, 공격 가능 적 → **적 팝업**, 그 외 NPC → 정보 |
-| `SHOOT` | 사격 가능 적 타일(빨강) | 사격 가능 적 → **제자리 사격**(전투), 그 외 → `MOVE` 취소 |
+| `SHOOT` | **사격 사거리 전체(빨강)** | 사거리 내 사격 가능 적 → **제자리 사격**(전투), 그 외 → `MOVE` 취소 |
 
 - 중앙 메뉴 `[사격]` → `SHOOT` 모드. 적 팝업 `[사격]` → 그 적 바로 사격. 둘 다 현재 위치 원거리 전투.
-- 근접 `[공격]`은 적 팝업에서만. 적 팝업 `[이동]`은 그 적 인접 칸으로 이동만(전투 없음).
+- 근접 `[공격]`은 적 팝업에서만. `[휴식]`·`[경계]`는 중앙 메뉴에서 즉시 발동(아래 효과).
 
 ## 메뉴 버튼 구성 (순수)
 
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
-- `party_actions(moved: bool, can_shoot_any: bool) -> Array` — **중앙 메뉴**.
-  - `{id="shoot", label="사격", enabled=can_shoot_any}` — 사격 가능한 적이 하나라도 있으면 활성.
-  - `{id="rest", label=("대기" if moved else "휴식"), enabled=true}`.
-- `enemy_actions(can_move_adj: bool, can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업**.
-  - `{id="move", label="이동", enabled=can_move_adj}` — 그 적 인접 도달 칸이 있으면 활성.
-  - `{id="attack", label="공격", enabled=can_melee}`.
-  - `{id="shoot", label="사격", enabled=can_shoot}`.
+- `party_actions(moved: bool, can_shoot_any: bool) -> Array` — **중앙 메뉴**. `{id="shoot", label="사격", enabled=can_shoot_any}` 는 항상 첫 버튼.
+  - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
+  - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**.
+- `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
+  - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
 
 ## UI (`party_action_menu.gd`)
 
-- 화면 중앙 버튼 패널(코드 구성, [camp_menu](camp-menu.md)·[party_info](party-info.md) 패턴). 버튼만 클릭 흡수, 나머지 화면은 맵으로 통과.
-- `open(buttons: Array)` — `{id,label,enabled}` 목록으로 버튼을 채우고 보인다(비활성은 흐리게·안 눌림).
-- `close()` — 감춘다.
-- 버튼 클릭 시 `action_selected(id)` 방출. 적 팝업일 때는 `game.gd`가 대상 적을 따로 들고 있다가 함께 처리한다.
+- 코드 구성 버튼 패널([camp_menu](camp-menu.md)·[party_info](party-info.md) 패턴). 버튼만 클릭 흡수, 나머지 화면은 맵으로 통과.
+- `open(buttons: Array, screen_pos: Vector2)` — 버튼을 채우고 **클릭한 부대 토큰의 화면 좌표 근처**(우측 하단 오프셋)에 패널을 띄운다. 화면 밖으로 넘치지 않게 클램프.
+- `close()` — 감춘다. 버튼 클릭 시 `action_selected(id)` 방출(팝업 대상은 `game.gd`가 보관).
 
-## 전투 개시·결과 (`game.gd` + [Battle](battle.md))
+## 행동 효과 (`game.gd` + [Human](../entities/Human.md))
 
-- **`[공격]`(근접)**: 그 적에 인접한 도달 칸으로 이동한 뒤 전투(근접 모드). **공격 부대가 이기면(수비 전멸·공격 생존) 수비 타일로 이동**한다(전투는 수비 타일에서 벌어진 것으로 간주 = 점령).
-- **`[사격]`(원거리)**: 현재 위치에서 사격(원거리 모드). **이동·점령 없음**(제자리).
-- **`[이동]`**: 그 적 인접 도달 칸으로 이동만(전투 없음).
-- 공격/사격은 부대의 행동을 끝낸다(`mark_attacked`).
-
-## 휴식 상태 (`Party`)
-
-- `rested_this_turn` / `mark_rested()`(행동 종료) / `can_rest()`(`not attacked_this_turn`) — [Party](../entities/Party.md). 회복 연동은 `미구현`.
+- **`[공격]`(근접)**: 적 인접 도달 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령([Battle](battle.md)).
+- **`[사격]`(원거리)**: 현재 위치 원거리 전투(이동·점령 없음).
+- **`[휴식]`**(이동 전만): 각 멤버 **hp·스태미나 25% 회복**(`Human.apply_rest()`, `max_hp`/`max_stamina` 상한) 후 턴 종료.
+- **`[경계]`**(이동 전만): 각 멤버 **스태미나 10% 회복(반올림)** + **`alert` 부여**(전투 시 공격력·방어력 ×1.2 — [Combat](combat.md)) 후 턴 종료. alert는 **NPC(적) 턴이 끝난 뒤 해제**(= 내 다음 턴).
+- **`[대기]`**(이동 후만): 효과 없이 턴만 종료.
+- 모든 행동은 부대 행동을 끝낸다(공격/사격/경계/대기=`mark_attacked`, 휴식=`mark_rested`).
+- **스태미나 소모·최대치 연동은 `미구현`** — 회복만 넣어 값이 오르지만 현재 소모가 없어 실질 효과는 hp·버프다.
 
 ## 테스트 시나리오
 
 ### 버튼 구성 — `test/unit/test_party_action_menu.gd`
-- [정상] `party_actions(false, true)` → `[사격(활성), 휴식]`
-- [정상] `party_actions(false, false)` → `[사격(비활성), 휴식]`
-- [정상] `party_actions(true, true)` → `[사격(활성), 대기]`
-- [정상] `enemy_actions(true, true, false)` → `[이동(활성), 공격(활성), 사격(비활성)]`
-- [정상] `enemy_actions(false, false, true)` → `[이동(비활성), 공격(비활성), 사격(활성)]`
-- [경계] 라벨은 `moved`로만 갈린다(휴식↔대기)
+- [정상] `party_actions(false, true)` → `[사격(활성), 휴식, 경계]`(이동 전)
+- [정상] `party_actions(false, false)` → `[사격(비활성), 휴식, 경계]`
+- [정상] `party_actions(true, true)` → `[사격(활성), 대기]`(이동 후 — 휴식·경계 없음)
+- [정상] `party_actions(true, false)` → `[사격(비활성), 대기]`
+- [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
+- [정상] `enemy_actions(false, true)` → `[공격(비활성), 사격(활성)]`
 
-### 휴식 상태 — `test/unit/test_party.gd`
-- [정상] `mark_rested()` → `rested_this_turn`·`attacked_this_turn` 참, `can_rest()` 거짓
-- [정상] `reset_turn()` → `rested_this_turn` 거짓
+### 휴식/경계 효과 — `test/unit/test_human.gd`
+- [정상] `apply_rest()` — hp·스태미나가 각각 25%(반올림)만큼 오르고 `max_hp()`/`max_stamina` 상한을 넘지 않음
+- [경계] 이미 최대면 `apply_rest()`로 변화 없음
+- [정상] `apply_alert()` — 스태미나 10%(반올림) 회복 + `alert == true`
+- [정상] `alert`면 `CombatResolver.attack_power`·`defense`가 ×1.2(내림) — `test_combat_resolver.gd`
+
+### 휴식/공격 상태 — `test/unit/test_party.gd`
+- [정상] `mark_rested()` → `rested_this_turn`·`attacked_this_turn` 참, `can_rest()` 거짓; `reset_turn()` → 거짓
 
 ### 모드·연출 (실행 확인)
-- 부대 클릭 → 파랑 이동 범위 + 공격 가능 적 빨강 + 중앙 [사격]·[휴식].
-- 공격 가능 적 클릭 → 팝업 [이동][공격][사격](각 활성 조건). [공격] 시 인접 이동 후 전투, 승리 시 수비 타일 점령.
-- 중앙 [사격] → SHOOT 모드, 사격 가능 적 클릭 시 제자리 전투, 빈 칸 클릭 시 취소.
-- 이동 후 메뉴 라벨이 [대기]인지 확인.
+- 부대 클릭 → 파랑 이동 범위 + 공격 가능 적 빨강 + **토큰 근처** 메뉴 [사격][휴식][경계].
+- 공격 가능 적 클릭 → 팝업 [공격][사격]. [공격] 시 인접 이동 후 전투·승리 시 점령.
+- [휴식] → hp·스태미나 회복 후 턴 종료. [경계] → 스태미나 회복+alert 후 턴 종료, 적 턴 방어에 ×1.2, 내 다음 턴에 해제.
 
 ## 관련
 

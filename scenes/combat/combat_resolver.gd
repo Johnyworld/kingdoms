@@ -11,14 +11,18 @@ const CRIT_MULT := 1.5    # 치명타 피해 배율.
 const AGI_SPEED_K := 0.005       # 민첩 1당 공격속도 단축 비율.
 const MIN_ATTACK_INTERVAL := 0.4 # 최소 공격 간격(초) — 민첩이 아무리 높아도 이보다 못 빨라짐.
 
-## 공격력 AT = 무기 공격력 + floor(힘/5). weapon 생략 시 주무기(weapons 첫 원소).
+const ALERT_MULT := 1.2   # 경계(alert) 버프 배율 — 공격력·방어력.
+
+## 공격력 AT = 무기 공격력 + floor(힘/5). weapon 생략 시 주무기. alert면 ×1.2(내림).
 static func attack_power(h, weapon := "") -> int:
 	var w: String = weapon if weapon != "" else ItemTypes.primary_weapon(h.weapons)
-	return ItemTypes.weapon_attack(w) + int(h.strength) / 5   # 정수 나눗셈(내림)
+	var at := ItemTypes.weapon_attack(w) + int(h.strength) / 5   # 정수 나눗셈(내림)
+	return int(at * ALERT_MULT) if h.alert else at
 
-## 방어력 DF = 착용 방어구 방어력 합 + 방패 방어력.
+## 방어력 DF = 착용 방어구 방어력 합 + 방패 방어력. alert면 ×1.2(내림).
 static func defense(h) -> int:
-	return ItemTypes.total_defense(h.armor) + ItemTypes.shield_defense(h.shield)
+	var df := ItemTypes.total_defense(h.armor) + ItemTypes.shield_defense(h.shield)
+	return int(df * ALERT_MULT) if h.alert else df
 
 ## 막기 확률(%) = 방패 막기 확률. 방패 없으면 0.
 static func block_chance(h) -> int:
