@@ -19,6 +19,12 @@ config/icon="res://icon.svg"
 
 SceneManager="*res://autoload/scene_manager.gd"
 
+[debug]
+
+; 파일 로깅 끔: GL Compatibility(Apple 실리콘)가 매 프레임 에러를 뿜어 로그가 수십 GB로 부풀어
+; 실행마다 로딩이 느려지는 문제를 막는다. 에러는 에디터 Output 패널에서 계속 확인 가능.
+file_logging/enable_file_logging=false
+
 [display]
 
 window/size/viewport_width=1920
