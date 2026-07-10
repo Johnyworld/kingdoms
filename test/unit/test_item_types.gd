@@ -68,6 +68,11 @@ func test_ranged_weapon() -> void:
 	assert_eq(ItemTypes.ranged_weapon(["wand", "sword"]), "wand", "완드도 원거리(사거리 2)")
 	assert_eq(ItemTypes.ranged_weapon(["sword"]), "", "원거리 무기 없으면 빈 문자열")
 
+func test_melee_weapon() -> void:
+	assert_eq(ItemTypes.melee_weapon(["longsword", "bow"]), "longsword", "목록 중 근접 무기(사거리<2)")
+	assert_eq(ItemTypes.melee_weapon(["bow"]), "", "순수 원거리면 빈 문자열")
+	assert_eq(ItemTypes.melee_weapon([]), "", "맨손 목록 없음 → 빈 문자열")
+
 func test_max_range() -> void:
 	assert_eq(ItemTypes.max_range(["sword", "bow"]), 3, "보유 무기 중 최대 공격거리")
 	assert_eq(ItemTypes.max_range(["sword"]), 1, "근접만이면 1")

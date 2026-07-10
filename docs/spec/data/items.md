@@ -80,6 +80,7 @@
 - `primary_weapon(weapons: Array) -> String` — 주무기(목록 첫 원소). 비면 `""`(맨손).
 - `ranged_weapon(weapons: Array) -> String` — 목록 중 **공격거리 ≥ 2인 첫 무기**(활·완드 등). 없으면 `""`.
 - `throwing_weapon(weapons: Array) -> String` — 목록 중 **`throw_range` > 0인 첫 무기**(투창 등). 없으면 `""`.
+- `melee_weapon(weapons: Array) -> String` — 목록 중 **공격거리 < 2인 첫 무기**(근접). 없으면 `""`(순수 원거리). 근접 모드 궁수가 적이 근접하면 전환할 무기 판별에 쓴다([Battle](../features/battle.md)).
 - `max_range(weapons: Array) -> int` — 목록 무기 공격거리의 **최대값**(월드맵 공격거리). 비면 `1`(맨손 근접). 투척 무기는 `range` 1이라 월드맵 사거리를 늘리지 않는다.
 - `active_weapon(weapons: Array, ranged_mode: bool) -> String` — 전투에서 실제 쓸 무기. `ranged_mode`면 `ranged_weapon`(없으면 `""` → 공격 불가), 아니면 `primary_weapon`.
 - `armor_defense(id) -> int` / `armor_class(id) -> String` / `armor_name(id) -> String` / `armor_weight(id) -> int` — 없는 id면 `0` / `""` / `""` / `0`.
@@ -106,6 +107,7 @@
 - [정상] `throwing_weapon(["scimitar","javelin"]) == "javelin"`; [경계] `throwing_weapon(["sword"]) == ""`
 - [정상] `primary_weapon(["sword","bow"]) == "sword"`; [경계] `primary_weapon([]) == ""`
 - [정상] `ranged_weapon(["sword","bow"]) == "bow"`(원거리 무기 선택); [경계] `ranged_weapon(["sword"]) == ""`(원거리 없음)
+- [정상] `melee_weapon(["longsword","bow"]) == "longsword"`(근접 무기 선택); [경계] `melee_weapon(["bow"]) == ""`(순수 원거리), `melee_weapon([]) == ""`
 - [정상] `max_range(["sword","bow"]) == 3`(최대); [경계] `max_range([]) == 1`(맨손)
 - [정상] `active_weapon(["sword","bow"], false) == "sword"`(근접→주무기), `active_weapon(["sword","bow"], true) == "bow"`(원거리→활); `active_weapon(["sword"], true) == ""`(원거리 무기 없음)
 - [정상] `armor_weight("chain_mail") == 8`, `shield_weight("tower_shield") == 8`; 없는 id면 무게 0

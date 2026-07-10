@@ -34,3 +34,13 @@ func test_survivors_returns_living_humans() -> void:
 		_unit("b", true, Vector2(2, 2), "z"),
 	]
 	assert_eq(BattleField.survivors(units, "a"), ["x"], "a의 살아있는 human만")
+
+func test_archer_should_charge() -> void:
+	# 사거리 ≥ 2 유닛이 최근접 적과의 거리가 임계 이하이면 근접 전환.
+	assert_true(BattleField.archer_should_charge(3, 100.0, 120.0), "사거리3·거리100 ≤ 임계120 → 전환")
+	assert_false(BattleField.archer_should_charge(3, 150.0, 120.0), "거리150 > 임계120 → 유지")
+	assert_true(BattleField.archer_should_charge(2, 120.0, 120.0), "경계값(거리==임계) 포함 → 전환")
+
+func test_archer_should_charge_melee_never() -> void:
+	# 사거리 < 2(이미 근접)면 거리와 무관하게 false.
+	assert_false(BattleField.archer_should_charge(1, 10.0, 120.0), "근접 유닛은 전환 판정 대상 아님")

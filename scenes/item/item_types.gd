@@ -97,6 +97,13 @@ static func throwing_weapon(weapons: Array) -> String:
 			return w
 	return ""
 
+## 목록 중 공격거리 < 2인 첫 무기(근접). 없으면 ""(순수 원거리).
+static func melee_weapon(weapons: Array) -> String:
+	for w in weapons:
+		if weapon_range(w) < 2:
+			return w
+	return ""
+
 ## 목록 무기 공격거리의 최대값(월드맵 공격거리). 비면 1(맨손 근접).
 static func max_range(weapons: Array) -> int:
 	var r := 1

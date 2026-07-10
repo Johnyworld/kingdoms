@@ -30,3 +30,7 @@ static func survivors(units: Array, team: String) -> Array:
 		if u["team"] == team and u["alive"]:
 			out.append(u["human"])
 	return out
+
+## 사거리 ≥ 2 유닛이 최근접 적과의 거리 dist가 threshold 이하이면 근접 전환(true). 근접 유닛은 항상 false.
+static func archer_should_charge(unit_range: int, dist: float, threshold: float) -> bool:
+	return unit_range >= 2 and dist <= threshold
