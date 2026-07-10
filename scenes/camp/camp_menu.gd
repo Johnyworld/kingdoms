@@ -235,6 +235,7 @@ func _refresh_garrison_lists() -> void:
 func _member_to_garrison(human) -> void:
 	_party.remove_member(human)
 	_building.garrison.append(human)
+	_building.queue_redraw()   # 맵 수비대 인원 배지 갱신
 	_refresh_garrison_lists.call_deferred()
 	garrison_changed.emit()
 
@@ -242,6 +243,7 @@ func _member_to_garrison(human) -> void:
 func _member_to_party(human) -> void:
 	_building.garrison.erase(human)
 	_party.add_member(human)
+	_building.queue_redraw()   # 맵 수비대 인원 배지 갱신
 	_refresh_garrison_lists.call_deferred()
 	garrison_changed.emit()
 

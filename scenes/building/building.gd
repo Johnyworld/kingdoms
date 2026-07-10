@@ -145,9 +145,20 @@ func _draw() -> void:
 
 	_draw_labels(center - Vector2(0, hh * 0.6))
 
-	# 건설 중이면 남은 턴을 중심 아래에 표시.
+	# 건설 중이면 남은 턴을, 완성 캠프면 수비대 인원을 중심 아래에 표시(둘은 겹치지 않음).
 	if under_construction:
 		_draw_construction_badge(center + Vector2(0, hh * 0.7))
+	elif building_type == BuildingTypes.CAMP and not garrison.is_empty():
+		_draw_garrison_badge(center + Vector2(0, hh * 0.7), garrison.size())
+
+## 수비대 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 캠프).
+func _draw_garrison_badge(anchor: Vector2, count: int) -> void:
+	var font := ThemeDB.fallback_font
+	var font_size := 12
+	var text := "수비 %d" % count
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	draw_string(font, Vector2(anchor.x - w * 0.5, anchor.y), text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.85, 0.85, 0.95))
 
 ## 건설 중 표시("건설 중 N")를 앵커 중앙에 그린다.
 func _draw_construction_badge(anchor: Vector2) -> void:

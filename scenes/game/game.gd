@@ -738,6 +738,7 @@ func _run_camp_battle(attacker, camp) -> void:
 	add_child(gp)
 	await _run_battle(attacker, gp, false, Vector2i(-1, -1))   # 오버레이 관전(플레이어가 공격자)
 	camp.garrison = gp.members
+	camp.queue_redraw()   # 맵 수비대 인원 배지 갱신
 	gp.queue_free()
 
 ## 캠프 수비대(garrison)를 멤버로 하는 임시 방어 부대를 만든다. 세력 색·캠프 중심 위치. _npc_parties에 넣지 않는다.
@@ -1163,6 +1164,7 @@ func _npc_attack_phase(epoch: int) -> void:
 				else:
 					_resolve_battle_headless(attacker, gp)   # NPC 수비대 → 즉시 결산
 				camp.garrison = gp.members
+				camp.queue_redraw()   # 맵 수비대 인원 배지 갱신
 				gp.queue_free()
 			else:
 				_transfer_camp(camp, _faction_named(attacker.faction_name))
