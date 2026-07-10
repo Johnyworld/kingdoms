@@ -1,7 +1,8 @@
 class_name GameResult
 extends RefCounted
 ## 한 판의 승패 판정(순수 로직). 노드 비의존이라 테스트하기 쉽다(HexGrid·ClickRouter와 같은 헬퍼 패턴).
-## 두 축: (1) 플레이어 부대 전멸 → DEFEAT(즉시), (2) 세력 소멸(캠프 0 → 10턴 유예) → 정복 승리/패배.
+## 승패는 세력 소멸(캠프 0 → 10턴 유예)로만 난다 — 모든 NPC 세력 소멸 = 정복 승리, 플레이어 세력 소멸 = 패배.
+## (부대 전멸로는 게임 오버되지 않는다.)
 
 const ONGOING := "ongoing"
 const DEFEAT := "defeat"
@@ -9,12 +10,6 @@ const VICTORY := "victory"
 
 # 지휘소(캠프)를 모두 잃은 세력이 소멸까지 버티는 턴 수(수복 기회).
 const GRACE_TURNS := 10
-
-## 플레이어 부대의 생존 멤버 수로 판정한다. 0 이하면 패배(전멸), 아니면 진행 중.
-static func evaluate(player_member_count: int) -> String:
-	if player_member_count <= 0:
-		return DEFEAT
-	return ONGOING
 
 ## 세력 소멸 유예 카운트를 한 턴 갱신한다.
 ## grace 규약: -1 = 위기 아님(캠프 보유) · ≥1 = 남은 유예 턴 · 0 = 이번 턴 소멸 확정.

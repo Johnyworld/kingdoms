@@ -1,22 +1,17 @@
 # Feature: Victory & Defeat (승패)
 
-> 스크립트: `scenes/game/game_result.gd` (`GameResult` — 순수 판정) · `scenes/result/result_overlay.gd` (`ResultOverlay` — 결과 화면) · `scenes/game/game.gd` (`_check_game_over`, `_update_endgame`, `_check_endgame`, `_eliminate_faction`, `_trigger_game_over`, `_on_result_dismissed`) · `scenes/faction/faction.gd` (`grace_turns`, `eliminated`) · `scenes/turn/turn_hud.gd` (`set_grace`)
+> 스크립트: `scenes/game/game_result.gd` (`GameResult` — 순수 판정) · `scenes/result/result_overlay.gd` (`ResultOverlay` — 결과 화면) · `scenes/game/game.gd` (`_update_endgame`, `_check_endgame`, `_eliminate_faction`, `_trigger_game_over`, `_on_result_dismissed`) · `scenes/faction/faction.gd` (`grace_turns`, `eliminated`) · `scenes/turn/turn_hud.gd` (`set_grace`)
 
 한 판의 종료(승패)를 판정하고 결과 화면을 띄운다. 기획 [승리조건](../../table/시스템/승리조건.md)의 구현.
 
-두 축의 종료 조건이 있다:
+승패는 **세력 소멸(유예)** 로만 난다 — 어떤 세력이 지휘소(캠프)를 하나도 안 가지면 **10턴 유예** 뒤 소멸(턴 종료마다 판정).
 
-- **부대 전멸**(즉시) — 플레이어 부대의 생존 멤버가 0이 되면 **패배**. 전투 종료 직후 판정.
-- **세력 소멸**(유예) — 어떤 세력이 지휘소(캠프)를 하나도 안 가지면 **10턴 유예** 뒤 소멸. 턴 종료마다 판정.
-  - 모든 NPC 세력이 소멸하면 **정복 승리**, 플레이어 세력이 소멸하면 **패배**.
+- 모든 NPC 세력이 소멸하면 **정복 승리**, 플레이어 세력이 소멸하면 **패배**.
+- **부대 전멸로는 게임 오버되지 않는다** — 플레이어 부대가 전멸해도(캠프는 남으므로) 판이 끝나지 않는다.
 
 ## 판정 (`GameResult` — 순수)
 
 노드 비의존 순수 로직(`HexGrid`·`ClickRouter`와 같은 헬퍼 패턴). 결과 상수: `ONGOING` · `DEFEAT` · `VICTORY`.
-
-### 부대 전멸
-
-- `evaluate(player_member_count: int) -> String` — `player_member_count <= 0`이면 `DEFEAT`, 그 외 `ONGOING`.
 
 ### 세력 소멸 유예 (grace countdown)
 
@@ -43,12 +38,6 @@
 
 ## 트리거
 
-### 부대 전멸 (`game.gd` `_check_game_over`)
-
-- 플레이어가 낀 **모든 전투 종료 직후**(`_run_battle`에서 사상자 반영 뒤) 판정한다. 플레이어 부대는 전멸해도 맵 노드를 유지한다(`_apply_survivors`) — 멤버만 빈 배열.
-- `GameResult.evaluate(party.members.size())`가 `DEFEAT`면 `_trigger_game_over("패배", "아젤 하르윈 부대가 전멸했다")`.
-- 플레이어는 항상 오버레이 전투(`_run_battle`)로 싸우므로(NPC끼리는 헤드리스) 이 지점 하나로 충분하다.
-
 ### 세력 소멸 (`game.gd` `_update_endgame` — 턴 종료마다)
 
 - `game.gd`는 모든 세력을 `_factions`(플레이어 + NPC 3)로 추적한다. 세력별 캠프 수 = `_faction_camp_count` (소속 영지의 건물 중 `building_type == CAMP` 개수).
@@ -73,16 +62,13 @@
 - `dismissed` → `game.gd` `_on_result_dismissed`가 `SceneManager.change_scene("res://scenes/title/title.tscn")`로 타이틀 복귀(페이드 전환).
 - 게임 오버 상태(`_game_over`)에서는 월드맵 좌클릭·턴 종료를 잠근다(`_in_battle`과 같은 방식). 진행 중이던 NPC 공격 페이즈(`_npc_attack_phase`)도 남은 결산을 중단한다.
 
-## 이번 슬라이스 제외 (미구현)
+## 미구현
 
-- **영웅(지휘관) 개별 사망** 패배 — 부대 전멸 기준(지휘관만 죽어도 다른 멤버가 남으면 진행).
+- **부대 전멸 패배** — 의도적으로 없앰(플레이어 부대가 전멸해도 게임 오버 아님). 승패는 세력 소멸로만.
 - **적 점령 AI**(NPC가 플레이어 캠프를 점령) — 없어서 플레이어 세력 소멸은 현재 트리거되지 않음(로직만 대칭 배선).
 - 점수·기간 모드·거점 점령 시나리오.
 
 ## 테스트 시나리오
-
-**부대 전멸 판정** — `test/unit/test_game_result.gd`:
-- [정상] `evaluate(0)` → `DEFEAT`; `evaluate(1)`·`evaluate(5)` → `ONGOING`; [경계] `evaluate(-1)` → `DEFEAT`.
 
 **세력 소멸 유예 판정** — `test/unit/test_game_result.gd`:
 - [정상] `GRACE_TURNS == 10`
@@ -106,5 +92,5 @@
 
 - 기획: [승리조건](../../table/시스템/승리조건.md)
 - [Camp Capture (캠프 점령)](camp-capture.md) — 세력 소멸의 진입 경로(캠프 흡수/파괴). [NPC Bases](npc-bases.md) — NPC 세력·거점.
-- [Battle (전투)](battle.md) — 부대 전멸 판정 지점(`_run_battle`). [Turn (턴)](turn.md) — 세력 소멸 판정 지점(턴 종료). [Faction](../entities/Faction.md) — 소멸 유예 상태.
+- [Turn (턴)](turn.md) — 세력 소멸 판정 지점(턴 종료). [Faction](../entities/Faction.md) — 소멸 유예 상태.
 - [Scene Transition](scene-transition.md) — 타이틀 복귀.

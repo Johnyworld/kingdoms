@@ -571,14 +571,7 @@ func _run_battle(attacker, defender, ranged := false, occupy_cell := Vector2i(-1
 		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
 	_update_fog()
 	party_roster.set_parties(_units)
-	_check_game_over()   # 플레이어가 낀 전투 종료 → 승패 판정
-
-## 플레이어가 낀 전투 종료 직후 승패를 판정한다. 플레이어 부대 전멸이면 게임 오버(패배).
-func _check_game_over() -> void:
-	if _game_over:
-		return
-	if GameResult.evaluate(party.members.size()) == GameResult.DEFEAT:
-		_trigger_game_over("패배", "아젤 하르윈 부대가 전멸했다")
+	# 부대 전멸로는 게임 오버되지 않는다(점령 승리만). 승패는 세력 소멸 판정(_update_endgame)에서만 난다.
 
 ## 세력 소멸 유예 판정(턴 종료마다). 각 세력의 캠프 수로 유예 카운트를 갱신하고, 소멸한 세력은 붕괴시킨다.
 ## 이어서 정복 승리/플레이어 세력 소멸 패배를 판정한다.
