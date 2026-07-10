@@ -30,6 +30,9 @@ const NPC_RETREAT_SCAN := 6
 # 표적 우선순위(무방비 캠프·약한 적)를 이 반경 안에서만 우대한다. 밖이면 기존 최근접 접근으로 폴백.
 const NPC_PRIORITY_SCAN := 8
 
+# NPC가 자기 캠프 수비대를 보충할 목표 인원. 이보다 적으면 인접 부대에서 채운다.
+const NPC_GARRISON_TARGET := 4
+
 # NPC 부대 배치 오프셋(맵 중앙 기준 칸). 초기 시야 안에 들도록 임시 배치한다.
 const NPC_OFFSETS := {
 	"qasim": Vector2i(5, 0),
@@ -1246,6 +1249,11 @@ func _npc_attack_phase(epoch: int) -> void:
 			else:
 				_transfer_camp(camp, _faction_named(attacker.faction_name))
 			_update_fog()
+			continue
+		# 칠 적도 적 캠프도 없음 → 자기 캠프 수비대가 부족하면 보충한다.
+		var own = _adjacent_own_camp(attacker)
+		if own != null and own.garrison.size() < NPC_GARRISON_TARGET:
+			_reinforce_garrison(attacker, own)
 	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
 	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
 
@@ -1287,6 +1295,35 @@ func _adjacent_enemy_camp(attacker):
 			if c == acell or c in neighbors:
 				return b
 	return null
+
+## attacker에 인접한(또는 그 위) 자기 세력 캠프를 찾는다(없으면 null). 수비대 보충 대상.
+func _adjacent_own_camp(attacker):
+	var acell := terrain.local_to_map(attacker.position)
+	var fn: String = attacker.faction_name
+	var neighbors := terrain.get_surrounding_cells(acell)
+	for b in _buildings + _npc_buildings:
+		if b.building_type != BuildingTypes.CAMP:
+			continue
+		if b.territory == null or b.territory.faction == null or b.territory.faction.name != fn:
+			continue
+		for c in b.cells:
+			if c == acell or c in neighbors:
+				return b
+	return null
+
+## attacker의 부대원을 자기 캠프 수비대로 옮겨 목표(NPC_GARRISON_TARGET)까지 채운다.
+## 보충은 부대 행동을 끝낸다. 부대가 비면 캠프로 흡수돼 맵에서 사라진다.
+func _reinforce_garrison(attacker, camp) -> void:
+	attacker.mark_attacked()
+	while camp.garrison.size() < NPC_GARRISON_TARGET and not attacker.members.is_empty():
+		var m = attacker.members[0]
+		attacker.remove_member(m)
+		camp.garrison.append(m)
+	camp.queue_redraw()   # 맵 수비대 인원 배지 갱신
+	if attacker.members.is_empty():
+		_npc_parties.erase(attacker)
+		attacker.queue_free()
+	_update_fog()
 
 ## 세력 이름으로 Faction 객체를 찾는다(_factions에서). 없으면 null.
 func _faction_named(fname: String):
