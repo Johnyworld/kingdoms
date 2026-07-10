@@ -20,6 +20,11 @@ func test_territories_empty_on_create() -> void:
 	var f := _faction()
 	assert_eq(f.territories.size(), 0, "생성 직후 소속 영지는 없음")
 
+func test_endgame_state_defaults() -> void:
+	var f := _faction()
+	assert_eq(f.grace_turns, -1, "생성 직후 소멸 유예 아님(-1)")
+	assert_false(f.eliminated, "생성 직후 소멸 안 됨")
+
 func test_add_territory_links_both_ways() -> void:
 	var f := _faction()
 	f.add_territory(territory)

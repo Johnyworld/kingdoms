@@ -3,7 +3,7 @@
 > 스크립트: `scenes/turn/turn_manager.gd` (`class_name TurnManager extends RefCounted`) · `scenes/turn/turn_hud.gd` (`extends CanvasLayer`)
 
 게임을 **턴** 단위로 진행한다. 플레이어는 [부대](../entities/Party.md)를 움직인 뒤 **턴 종료**를 눌러 다음 턴으로 넘어간다.
-턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된 뒤, ⑤ **NPC 부대가 이동**한다([NPC Movement](npc-movement.md)).
+턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된 뒤, ⑤ **세력 소멸 유예 판정**([승패](victory.md) — 캠프 0인 세력의 카운트다운·소멸·정복 승리)을 하고, ⑥ **NPC 부대가 이동**한다([NPC Movement](npc-movement.md)).
 
 ## 규칙
 

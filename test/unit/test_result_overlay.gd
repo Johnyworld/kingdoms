@@ -17,6 +17,12 @@ func test_show_result_fills_labels_and_shows() -> void:
 	assert_eq(overlay._subtitle.text, "아젤 하르윈 부대가 전멸했다", "부제 라벨 채워짐")
 	assert_true(overlay.visible, "show_result 후 표시")
 
+func test_show_result_reused_for_victory() -> void:
+	# 승리 화면은 같은 함수를 제목만 바꿔 재사용한다.
+	overlay.show_result("정복 승리", "모든 적 세력을 물리쳤다")
+	assert_eq(overlay._title.text, "정복 승리", "제목 라벨 = 정복 승리")
+	assert_true(overlay.visible, "표시됨")
+
 func test_dismiss_emits_signal() -> void:
 	watch_signals(overlay)
 	overlay.show_result("패배", "…")

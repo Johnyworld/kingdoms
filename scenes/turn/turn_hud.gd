@@ -8,6 +8,7 @@ signal ended
 const MARGIN := 16
 
 var _turn_label: Label
+var _grace_box: VBoxContainer   # 소멸 위기 세력 목록(턴 라벨 위)
 
 func _ready() -> void:
 	layer = 32
@@ -28,6 +29,12 @@ func _build() -> void:
 	box.add_theme_constant_override("separation", 6)
 	root.add_child(box)
 
+	# 소멸 위기 세력 목록(턴 번호 위). 우측 정렬, 기본 비어 있음.
+	_grace_box = VBoxContainer.new()
+	_grace_box.alignment = BoxContainer.ALIGNMENT_END
+	_grace_box.add_theme_constant_override("separation", 2)
+	box.add_child(_grace_box)
+
 	_turn_label = Label.new()
 	_turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_turn_label.add_theme_font_size_override("font_size", 18)
@@ -44,3 +51,14 @@ func _build() -> void:
 ## 표시 턴 번호를 갱신한다.
 func set_turn(number: int) -> void:
 	_turn_label.text = "턴 %d" % number
+
+## 소멸 위기 세력 목록을 갱신한다. entries: [{text, color}]. 비면 아무것도 표시하지 않는다.
+func set_grace(entries: Array) -> void:
+	for child in _grace_box.get_children():
+		child.free()   # 즉시 제거(다음 프레임까지 낡은 줄이 남지 않도록)
+	for e in entries:
+		var label := Label.new()
+		label.text = e["text"]
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		label.add_theme_color_override("font_color", e["color"])
+		_grace_box.add_child(label)

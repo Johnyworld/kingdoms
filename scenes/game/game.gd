@@ -85,6 +85,7 @@ var _territories: Array = []    # 자원 수입을 받는 영지(플레이어). 
 var _buildings: Array = []      # 플레이어 건물(캠프 + 건설된 농장). 겹침 검사·시야 합산·추적용.
 var _npc_buildings: Array = []  # NPC 세력 거점(캠프). 안개(탐험됨) 표시 + 클릭 정보 대상. 시야 합산 제외.
 var _player_faction: Faction    # 플레이어 세력(캠프 흡수 시 영지 편입 대상). _setup_factions에서 설정.
+var _factions: Array = []       # 모든 세력(플레이어 + NPC). 세력 소멸/정복 승리 판정 대상.
 
 # NPC 이동 AI가 목적지를 무작위로 고를 때 쓰는 난수기(_ready에서 randomize).
 var _rng := RandomNumberGenerator.new()
@@ -188,6 +189,7 @@ func _setup_factions() -> void:
 	_player_faction.add_territory(territory)
 	territory.add_building(building)
 	_territories = [territory]
+	_factions = [_player_faction]
 
 	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
 	for id in UnitTypes.NPC_IDS:
@@ -200,6 +202,7 @@ func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
 	var territory := Territory.new(spec["territory"], _camp_resources())
 	var faction := Faction.new(spec["faction"], spec["color"])
 	faction.add_territory(territory)
+	_factions.append(faction)
 	var camp := Building.new()
 	add_child(camp)
 	camp.setup(terrain, base_cell, BuildingTypes.CAMP)   # 완성 상태(건설 중 아님)
@@ -577,8 +580,69 @@ func _check_game_over() -> void:
 	if GameResult.evaluate(party.members.size()) == GameResult.DEFEAT:
 		_trigger_game_over("패배", "아젤 하르윈 부대가 전멸했다")
 
-## 게임 오버: 상태를 잠그고 진행 중 선택·메뉴를 정리한 뒤 결과 오버레이를 띄운다.
+## 세력 소멸 유예 판정(턴 종료마다). 각 세력의 캠프 수로 유예 카운트를 갱신하고, 소멸한 세력은 붕괴시킨다.
+## 이어서 정복 승리/플레이어 세력 소멸 패배를 판정한다.
+func _update_endgame() -> void:
+	if _game_over:
+		return
+	for f in _factions:
+		if f.eliminated:
+			continue
+		var has_post := _faction_camp_count(f) > 0
+		f.grace_turns = GameResult.advance_grace(has_post, f.grace_turns)
+		if GameResult.grace_eliminated(f.grace_turns):
+			f.eliminated = true
+			_eliminate_faction(f)
+	_refresh_grace_hud()
+	_check_endgame()
+
+## 세력의 지휘소(캠프) 수 = 소속 영지의 건물 중 CAMP 개수.
+func _faction_camp_count(faction) -> int:
+	var n := 0
+	for t in faction.territories:
+		for b in t.buildings:
+			if is_instance_valid(b) and b.building_type == BuildingTypes.CAMP:
+				n += 1
+	return n
+
+## 세력 소멸(붕괴): 그 세력 소속 NPC 부대를 맵에서 제거한다. 플레이어 세력이면 부대는 그대로 둔다(패배 처리).
+func _eliminate_faction(faction) -> void:
+	for p in _npc_parties.duplicate():
+		if p.faction_name == faction.name:
+			_npc_parties.erase(p)
+			p.queue_free()
+	_update_fog()   # 제거된 NPC 부대 반영(일람은 우리 세력만이라 갱신 불필요)
+
+## 정복 승리/플레이어 세력 소멸 판정 → 결과 오버레이.
+func _check_endgame() -> void:
+	if _game_over:
+		return
+	var all_npc_eliminated := true
+	for f in _factions:
+		if f == _player_faction:
+			continue
+		if not f.eliminated:
+			all_npc_eliminated = false
+	match GameResult.endgame(_player_faction.eliminated, all_npc_eliminated):
+		GameResult.VICTORY:
+			_trigger_game_over("정복 승리", "모든 적 세력을 물리쳤다")
+		GameResult.DEFEAT:
+			_trigger_game_over("패배", "세력이 소멸했다")
+
+## 소멸 위기(캠프 0, grace_turns>=0) 세력을 턴 HUD에 목록으로 표시한다.
+func _refresh_grace_hud() -> void:
+	var entries: Array = []
+	for f in _factions:
+		if f.eliminated:
+			continue
+		if f.grace_turns >= 0:
+			entries.append({"text": "%s 소멸까지 %d턴" % [f.name, f.grace_turns], "color": f.color})
+	turn_hud.set_grace(entries)
+
+## 게임 오버: 상태를 잠그고 진행 중 선택·메뉴를 정리한 뒤 결과 오버레이를 띄운다. 중복 호출은 무시.
 func _trigger_game_over(title: String, subtitle: String) -> void:
+	if _game_over:
+		return
 	_game_over = true
 	if _selected:
 		_deselect()
@@ -721,6 +785,9 @@ func _on_turn_ended() -> void:
 	_turn.end_turn(_units + _npc_parties, _territories)
 	turn_hud.set_turn(_turn.number)
 	_update_fog()   # 건설 완료 농장 시야 + NPC 현재 위치 표시를 안개에 반영.
+	_update_endgame()   # 세력 소멸 유예 판정 → 소멸 시 부대 붕괴 + 정복 승리/패배
+	if _game_over:
+		return   # 승패 확정 → NPC 이동 생략
 	_move_npcs()    # 비차단: NPC를 경로 따라 애니메이션으로 이동(플레이어 조작 안 막음).
 
 ## 각 NPC 부대를 목적지(NpcAi)까지 경로 따라 애니메이션으로 이동시킨다.

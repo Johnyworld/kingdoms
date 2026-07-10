@@ -15,6 +15,8 @@
 | 이름 | `name` | `String` | `""` | 세력 이름 (예: "푸른 왕국") |
 | 색상 | `color` | `Color` | `Color.WHITE` | 세력 대표색 (UI 표기용) |
 | 소속 영지 | `territories` | `Array` | `[]` | 이 세력에 속한 [Territory](Territory.md) 목록 |
+| 소멸 유예 | `grace_turns` | `int` | `-1` | 지휘소를 모두 잃은 뒤 소멸까지 남은 턴. `-1`이면 위기 아님. → [승패](../features/victory.md) |
+| 소멸 여부 | `eliminated` | `bool` | `false` | 세력 소멸 확정 여부. true면 이후 판정에서 제외 |
 
 `RefCounted`라 `name`은 노드 이름과 무관하게 자유롭게 쓸 수 있다.
 
@@ -29,7 +31,7 @@
 `test/unit/test_faction.gd`.
 
 - [정상] `_init("푸른 왕국", 파랑)` 후 `name == "푸른 왕국"`, `color == 파랑`
-- [정상] 생성 직후 `territories`는 빈 배열
+- [정상] 생성 직후 `territories`는 빈 배열, `grace_turns == -1`, `eliminated == false`
 - [정상] `add_territory(t)` 후 `territories`에 `t`가 들어가고, `t.faction`이 이 세력을 가리킨다 (양방향)
 - [경계] 같은 영지를 두 번 `add_territory` 해도 `territories` 크기는 1 (중복 방지)
 - [정상] `remove_territory(t)` 후 `territories`에서 빠지고 `t.faction == null`

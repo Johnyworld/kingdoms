@@ -43,9 +43,12 @@
 - `Faction.remove_territory(territory) -> void` — `territories`에서 제거하고, `territory.faction`이 이 세력이면 `null`로 되돌린다. 없으면 no-op.
 - `Territory.remove_building(building) -> void` — `buildings`에서 제거하고, `building.territory`가 이 영지면 `null`로 되돌린다. 없으면 no-op.
 
-## 이번 슬라이스 제외 (미구현)
+## 관련 후속
 
-- **세력 소멸**(캠프 0 → 10턴 유예 → 부대 제거)·**정복 승리**. → [승패](victory.md) 다음 슬라이스.
+- 캠프 흡수/파괴로 세력이 캠프 0이 되면 **세력 소멸(10턴 유예) → 정복 승리** 판정이 이어진다. → [승패](victory.md).
+
+## 미구현
+
 - 캠프 **수비대**(거점 방어 부대) — 현재 인접만 하면 즉시 점령.
 - NPC가 플레이어 캠프를 점령하는 AI(적 점령).
 

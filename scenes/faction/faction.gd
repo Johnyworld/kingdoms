@@ -7,6 +7,11 @@ var name: String
 var color: Color
 var territories: Array = []
 
+# 소멸 유예 상태(승패 판정). grace_turns: -1이면 위기 아님, ≥0이면 소멸까지 남은 턴.
+# eliminated: 소멸 확정(이후 판정 제외). game.gd가 턴 종료마다 GameResult로 갱신한다.
+var grace_turns := -1
+var eliminated := false
+
 func _init(p_name := "", p_color := Color.WHITE) -> void:
 	name = p_name
 	color = p_color
