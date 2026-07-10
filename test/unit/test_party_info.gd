@@ -54,6 +54,14 @@ func test_member_label_has_name_and_stats() -> void:
 	assert_string_contains(text, "3", "멤버 라벨에 이동력 포함")
 	assert_string_contains(text, "5", "멤버 라벨에 시야 포함")
 
+func test_member_label_shows_hp() -> void:
+	# 전투 후 지속된 현재/최대 HP를 멤버 줄에 표시. 힘 기본 8 → max_hp()=40 → "HP 25/40".
+	var h := _human("부상병", 3, 5)
+	h.hit_points = 25
+	panel.open(_party([h]))
+	var text: String = (panel._member_list.get_child(0) as Label).text
+	assert_string_contains(text, "HP 25/40", "멤버 라벨에 현재/max_hp() HP 표시")
+
 func test_member_label_shows_equipment() -> void:
 	var h := _human("전사", 3, 5)
 	h.strength = 78

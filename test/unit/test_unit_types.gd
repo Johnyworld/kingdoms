@@ -27,6 +27,14 @@ func test_player_party_spec() -> void:
 	assert_eq(spec["party_name"], "아젤 하르윈 부대", "부대명")
 	assert_eq(spec["commander"], "아젤 하르윈", "지휘관")
 
+func test_members_start_at_full_hp() -> void:
+	# 생성 시 hit_points = max_hp()(시작 풀피). 전투 후 지속(hit_points만 감소)의 기준.
+	# max_hp() = 40 + floor(힘/10) × level(1). 데이터에 hit_points를 두지 않고 계산해 채운다.
+	for id in _all_ids():
+		for m in types.make_members(id):
+			assert_eq(m.hit_points, m.max_hp(), "%s 멤버는 생성 시 현재 == max_hp()" % id)
+			assert_eq(m.max_hp(), 40 + int(m.strength) / 10, "%s 멤버 max_hp = 40 + floor(힘/10)" % id)
+
 # --- 멤버 생성 ---
 
 func test_make_members_count_and_first() -> void:

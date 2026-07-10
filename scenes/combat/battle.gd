@@ -253,6 +253,9 @@ func _sync_node(u: Dictionary) -> void:
 
 func _finish() -> void:
 	_running = false
+	for u in _units:
+		if u["alive"]:
+			u["human"].hit_points = maxi(1, int(u["hp"]))   # 생존자 최종 hp를 Human에 반영(전투 후 지속)
 	var a_surv := BattleField.survivors(_units, "a")
 	var b_surv := BattleField.survivors(_units, "b")
 	await get_tree().create_timer(END_DELAY).timeout

@@ -67,9 +67,9 @@ func open(party) -> void:
 			for i in range(1, member.weapons.size()):
 				extras.append(ItemTypes.weapon_name(member.weapons[i]))
 			weapon += " (+%s)" % ", ".join(extras)
-		# 1줄: 이름·이동·시야, 2줄: 무기 · 공격(AT) · 방어(DF) · 회피(EV) [· 막기(방패 있을 때)].
-		label.text = "%s   이동 %d / 시야 %d\n  %s · 공격 %d · 방어 %d · 회피 %d" % [
-			member.human_name, member.movement, member.vision,
+		# 1줄: 이름·HP(현재/최대)·이동·시야, 2줄: 무기 · 공격(AT) · 방어(DF) · 회피(EV) [· 막기(방패 있을 때)].
+		label.text = "%s   HP %d/%d   이동 %d / 시야 %d\n  %s · 공격 %d · 방어 %d · 회피 %d" % [
+			member.human_name, member.hit_points, member.max_hp(), member.movement, member.vision,
 			weapon, CombatResolver.attack_power(member), CombatResolver.defense(member),
 			roundi(CombatResolver.evasion(member))]
 		var block: int = CombatResolver.block_chance(member)

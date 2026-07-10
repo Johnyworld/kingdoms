@@ -47,13 +47,23 @@ static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumber
 
 	# 시간 만료로 끝났으면(양팀 생존) 마지막 이벤트~종료 사이 잔여 도트를 적용한다.
 	# 한 팀이 전멸해 끝났으면 그 시점이 전투 종료라 추가 도트는 없다(오버레이 battle.gd와 동일).
-	var a_surv := _survivors(units, "a")
-	var b_surv := _survivors(units, "b")
-	if not a_surv.is_empty() and not b_surv.is_empty():
+	if _team_alive(units, "a") and _team_alive(units, "b"):
 		_advance_effects(units, BATTLE_TIME - now)
-		a_surv = _survivors(units, "a")
-		b_surv = _survivors(units, "b")
-	return {"a": a_surv, "b": b_surv}
+	_persist_hp(units)   # 생존자 최종 hp를 Human에 반영(전투 후 지속)
+	return {"a": _survivors(units, "a"), "b": _survivors(units, "b")}
+
+## 그 팀에 살아있는 유닛이 하나라도 있으면 true.
+static func _team_alive(units: Array, team: String) -> bool:
+	for u in units:
+		if u["team"] == team and u["alive"]:
+			return true
+	return false
+
+## 생존자의 최종 hp를 Human.hit_points에 되쓴다(전투 후 지속). 사망자는 members에서 빠지므로 무시.
+static func _persist_hp(units: Array) -> void:
+	for u in units:
+		if u["alive"]:
+			u["human"].hit_points = maxi(1, int(u["hp"]))
 
 ## 살아있는 모든 유닛의 상태이상을 dt만큼 진행하고 출혈 도트를 hp에서 뺀다. 0 이하면 전투불능.
 static func _advance_effects(units: Array, dt: float) -> void:

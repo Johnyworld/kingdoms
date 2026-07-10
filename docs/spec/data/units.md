@@ -37,7 +37,7 @@
 | `balthazar` | 발타자르 · 모르가나 · 드레이븐 · 카산드라 |
 | `batur` | 바트르 칸 · 테무르 · 알탄 · 초로스 |
 
-- 능력치 매핑: `strength`(힘) `wisdom`(지혜) `agility`(민첩) `charm`(매력) `luck`(행운) `leadership`(지휘력) `diligence`(성실함) `sensitivity`(예민함) `hit_points`(생명점) `stamina`(스태미나) `morale`(사기).
+- 능력치 매핑: `strength`(힘) `wisdom`(지혜) `agility`(민첩) `charm`(매력) `luck`(행운) `leadership`(지휘력) `diligence`(성실함) `sensitivity`(예민함) `stamina`(스태미나) `morale`(사기). 생명점은 데이터에 두지 않고 `max_hp()`로 계산해 채운다.
 - **이동력·시야**: 유닛.md에 개별값이 없어 종족(인간) 기본값 `movement = 4`, `vision = 7`을 모든 멤버에 적용한다.
 - **장비**: 부대 스펙의 `weapons`([ItemTypes](items.md) 무기 id **목록**, 첫 원소=주무기)·`armor`(방어구 id 목록)·`shield`(방패 id)를 그 부대의 멤버에 적용한다. 세력마다 다른 세트로 상성 다양성을 준다 — 푸른왕국 장검+가죽+라운드실드, 사막술탄국 곡도+가죽+버클러, 암흑제국 완드(마법)+천(방패 없음), 초원칸국 전투도끼+사슬+타워실드.
 - **멤버별 장비 override**: 멤버 dict에 `weapons`/`armor`/`shield`가 있으면 그 값이 부대 기본값을 **덮어쓴다**. 예: 푸른왕국의 궁수 멤버는 `weapons: ["bow"]`(공격거리 3)·방패 없음을 개별 지정한다 → 부대 [공격거리](../entities/Party.md)가 3으로 늘어난다.
@@ -50,7 +50,7 @@
 | 함수 | 반환 | 설명 |
 | --- | --- | --- |
 | `get_party(id) -> Dictionary` | 부대 스펙 | 없는 id면 빈 Dictionary |
-| `make_members(id) -> Array` | [Human] 배열 | 스펙의 멤버들을 Human 객체로 생성(능력치 반영). 없는 id면 빈 배열 |
+| `make_members(id) -> Array` | [Human] 배열 | 스펙의 멤버들을 Human 객체로 생성(능력치 반영). 없는 id면 빈 배열. 생성 시 `hit_points = max_hp()`로 채운다(시작 풀피 — [Human](../entities/Human.md)) |
 | `commander_name(id) -> String` | String | 스펙의 `commander` 이름 |
 
 `make_members`는 [Human](../entities/Human.md)(RefCounted)만 생성하므로 씬 트리 없이 동작한다. [부대](../entities/Party.md)(Node2D) 인스턴스화·배치는 [game.gd](../features/parties.md)가 한다.
@@ -65,6 +65,7 @@
 - [정상] `make_members("azel")`의 크기 5(궁수 포함), 첫 멤버 이름 "아젤 하르윈"
 - [정상] `make_members("azel")` 첫 멤버의 `strength == 78`, `leadership == 88`, `morale == 90` (유닛.md 매핑 확인)
 - [정상] 모든 멤버 `movement == 4`, `vision == 7` (인간 기본값)
+- [정상] 모든 멤버 `hit_points == max_hp()`(생성 시 시작 풀피), 값 = `40 + floor(힘/10)`(level 1)
 - [정상] `make_members("balthazar")` 멤버의 `weapons == ["wand"]`, `armor`에 방어구 id 포함(세력 장비 적용)
 - [정상] `make_members("azel")` 첫 멤버 `shield == "round_shield"`(세력 방패 적용), 궁수 멤버는 `weapons == ["bow"]`·`shield == ""`(개별 override)
 - [정상] `make_members("azel")` 첫 멤버(아젤)는 `weapons == ["longsword", "bow"]`(검+보조 활 — 다중 무기)

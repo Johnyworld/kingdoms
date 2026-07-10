@@ -131,9 +131,37 @@ func test_stun_prevents_attacks() -> void:
 	assert_eq(r_ctrl["a"].size(), 0, "기절 없으면 B가 반복 공격해 A 처치")
 
 func test_deterministic_same_seed() -> void:
-	var a := [_human(60, 20), _human(55, 25)]
-	var b := [_human(58, 22), _human(52, 28)]
-	var r1 := BattleSim.resolve_battle(a, b, _rng(7))
-	var r2 := BattleSim.resolve_battle(a, b, _rng(7))
+	# resolve_battle이 생존자 hit_points를 덮어쓰므로(부작용) 입력을 매번 새로 만든다.
+	var r1 := BattleSim.resolve_battle([_human(60, 20), _human(55, 25)], [_human(58, 22), _human(52, 28)], _rng(7))
+	var r2 := BattleSim.resolve_battle([_human(60, 20), _human(55, 25)], [_human(58, 22), _human(52, 28)], _rng(7))
 	assert_eq(r1["a"].size(), r2["a"].size(), "같은 시드 → 같은 A 생존 수")
 	assert_eq(r1["b"].size(), r2["b"].size(), "같은 시드 → 같은 B 생존 수")
+
+# --- 전투 후 생명점 지속 (battle.md) ---
+func _full_hp(strength := 0, agility := 0, luck := 0, hp := 40, weapon := "", armor := []) -> Object:
+	var h: Object = load("res://scenes/human/human.gd").new()
+	h.strength = strength
+	h.agility = agility
+	h.luck = luck
+	h.hit_points = hp
+	h.weapons = ([] if weapon == "" else [weapon])
+	h.armor = armor
+	return h
+
+func test_survivor_hp_persists() -> void:
+	# A: 검(참격), 힘0(AT14), 민첩0(간격2.0 → 10초에 5타), 행운0(치명 없음), hp 거대(반격에 안 죽음).
+	# B: 가죽갑옷(DF8), hp40, 회피 음수(A가 항상 명중). 참격 vs 가죽 0.9 → 타당 = floor(6×0.9)=5. 5타 = 25.
+	var a := [_full_hp(0, 0, 0, 100000, "sword")]
+	var b := _full_hp(0, -100, 0, 40, "sword", ["leather_armor"])
+	var r := BattleSim.resolve_battle(a, [b], _rng())
+	assert_eq(r["b"].size(), 1, "B 생존")
+	assert_eq(b.hit_points, 15, "생존자 hp가 전투 후 감소해 지속(40 − 5×5 = 15)")
+	assert_true(b.hit_points >= 1 and b.hit_points <= b.max_hp(), "1 ≤ hp ≤ max_hp()")
+
+func test_unharmed_survivor_hp_unchanged() -> void:
+	# 양측 회피 200 → 아무도 못 맞힘 → 피해 0 → 생존자 hp 불변.
+	var a := [_full_hp(60, 200, 0, 40, "sword")]
+	var b := _full_hp(60, 200, 0, 40, "sword")
+	var r := BattleSim.resolve_battle(a, [b], _rng())
+	assert_eq(r["b"].size(), 1, "B 생존")
+	assert_eq(b.hit_points, 40, "피해를 안 받은 생존자는 hp 불변")

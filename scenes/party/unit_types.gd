@@ -17,13 +17,13 @@ const HUMAN_VISION := 7
 const _STAT_KEYS := [
 	"strength", "wisdom", "agility", "charm", "luck",
 	"leadership", "diligence", "sensitivity",
-	"hit_points", "stamina", "morale",
+	"stamina", "morale",
 ]
 
 # 부대 id → 스펙. 멤버 첫 항목이 지휘관.
 # 능력치 키 매핑: strength=힘, wisdom=지혜, agility=민첩, charm=매력, luck=행운,
 #               leadership=지휘력, diligence=성실함, sensitivity=예민함,
-#               hit_points=생명점, stamina=스태미나, morale=사기.
+#               stamina=스태미나, morale=사기. (생명점은 max_hp()로 계산해 채움)
 const CATALOG := {
 	"azel": {
 		"party_name": "아젤 하르윈 부대",
@@ -35,11 +35,11 @@ const CATALOG := {
 		"armor": ["leather_helm", "leather_armor", "leather_gloves", "leather_greaves"],
 		"shield": "round_shield",
 		"members": [
-			{"name": "아젤 하르윈", "strength": 78, "wisdom": 72, "agility": 65, "charm": 80, "luck": 55, "leadership": 88, "diligence": 82, "sensitivity": 45, "hit_points": 40, "stamina": 40, "morale": 90, "weapons": ["longsword", "bow"]},
-			{"name": "로엔 카스터", "strength": 70, "wisdom": 55, "agility": 68, "charm": 50, "luck": 48, "leadership": 42, "diligence": 65, "sensitivity": 50, "hit_points": 40, "stamina": 40, "morale": 75},
-			{"name": "미라 벨포드", "strength": 58, "wisdom": 62, "agility": 74, "charm": 66, "luck": 60, "leadership": 35, "diligence": 70, "sensitivity": 58, "hit_points": 40, "stamina": 40, "morale": 72},
-			{"name": "가레스 던", "strength": 82, "wisdom": 44, "agility": 60, "charm": 40, "luck": 52, "leadership": 30, "diligence": 60, "sensitivity": 38, "hit_points": 40, "stamina": 40, "morale": 68},
-			{"name": "엘윈 사수", "strength": 60, "wisdom": 58, "agility": 78, "charm": 55, "luck": 62, "leadership": 34, "diligence": 66, "sensitivity": 64, "hit_points": 40, "stamina": 40, "morale": 72, "weapons": ["bow"], "shield": ""},
+			{"name": "아젤 하르윈", "strength": 78, "wisdom": 72, "agility": 65, "charm": 80, "luck": 55, "leadership": 88, "diligence": 82, "sensitivity": 45, "stamina": 40, "morale": 90, "weapons": ["longsword", "bow"]},
+			{"name": "로엔 카스터", "strength": 70, "wisdom": 55, "agility": 68, "charm": 50, "luck": 48, "leadership": 42, "diligence": 65, "sensitivity": 50, "stamina": 40, "morale": 75},
+			{"name": "미라 벨포드", "strength": 58, "wisdom": 62, "agility": 74, "charm": 66, "luck": 60, "leadership": 35, "diligence": 70, "sensitivity": 58, "stamina": 40, "morale": 72},
+			{"name": "가레스 던", "strength": 82, "wisdom": 44, "agility": 60, "charm": 40, "luck": 52, "leadership": 30, "diligence": 60, "sensitivity": 38, "stamina": 40, "morale": 68},
+			{"name": "엘윈 사수", "strength": 60, "wisdom": 58, "agility": 78, "charm": 55, "luck": 62, "leadership": 34, "diligence": 66, "sensitivity": 64, "stamina": 40, "morale": 72, "weapons": ["bow"], "shield": ""},
 		],
 	},
 	"qasim": {
@@ -52,10 +52,10 @@ const CATALOG := {
 		"armor": ["leather_helm", "leather_armor", "leather_greaves"],
 		"shield": "buckler",
 		"members": [
-			{"name": "카심 이븐 라시드", "strength": 75, "wisdom": 80, "agility": 62, "charm": 78, "luck": 58, "leadership": 85, "diligence": 78, "sensitivity": 52, "hit_points": 40, "stamina": 40, "morale": 88},
-			{"name": "자밀라", "strength": 55, "wisdom": 66, "agility": 72, "charm": 70, "luck": 64, "leadership": 38, "diligence": 68, "sensitivity": 60, "hit_points": 40, "stamina": 40, "morale": 74, "weapons": ["scimitar", "javelin"]},
-			{"name": "하산 알와히드", "strength": 76, "wisdom": 52, "agility": 64, "charm": 48, "luck": 50, "leadership": 33, "diligence": 62, "sensitivity": 42, "hit_points": 40, "stamina": 40, "morale": 70},
-			{"name": "유수프", "strength": 80, "wisdom": 46, "agility": 58, "charm": 44, "luck": 54, "leadership": 28, "diligence": 58, "sensitivity": 40, "hit_points": 40, "stamina": 40, "morale": 66},
+			{"name": "카심 이븐 라시드", "strength": 75, "wisdom": 80, "agility": 62, "charm": 78, "luck": 58, "leadership": 85, "diligence": 78, "sensitivity": 52, "stamina": 40, "morale": 88},
+			{"name": "자밀라", "strength": 55, "wisdom": 66, "agility": 72, "charm": 70, "luck": 64, "leadership": 38, "diligence": 68, "sensitivity": 60, "stamina": 40, "morale": 74, "weapons": ["scimitar", "javelin"]},
+			{"name": "하산 알와히드", "strength": 76, "wisdom": 52, "agility": 64, "charm": 48, "luck": 50, "leadership": 33, "diligence": 62, "sensitivity": 42, "stamina": 40, "morale": 70},
+			{"name": "유수프", "strength": 80, "wisdom": 46, "agility": 58, "charm": 44, "luck": 54, "leadership": 28, "diligence": 58, "sensitivity": 40, "stamina": 40, "morale": 66},
 		],
 	},
 	"balthazar": {
@@ -67,10 +67,10 @@ const CATALOG := {
 		"weapons": ["wand"],
 		"armor": ["cloth_hood", "robe"],
 		"members": [
-			{"name": "발타자르", "strength": 72, "wisdom": 84, "agility": 60, "charm": 66, "luck": 50, "leadership": 82, "diligence": 60, "sensitivity": 70, "hit_points": 40, "stamina": 40, "morale": 80},
-			{"name": "모르가나", "strength": 48, "wisdom": 78, "agility": 64, "charm": 74, "luck": 58, "leadership": 36, "diligence": 58, "sensitivity": 82, "hit_points": 40, "stamina": 40, "morale": 68},
-			{"name": "드레이븐", "strength": 78, "wisdom": 50, "agility": 66, "charm": 44, "luck": 52, "leadership": 34, "diligence": 55, "sensitivity": 60, "hit_points": 40, "stamina": 40, "morale": 66},
-			{"name": "카산드라", "strength": 60, "wisdom": 58, "agility": 70, "charm": 62, "luck": 54, "leadership": 30, "diligence": 62, "sensitivity": 68, "hit_points": 40, "stamina": 40, "morale": 64},
+			{"name": "발타자르", "strength": 72, "wisdom": 84, "agility": 60, "charm": 66, "luck": 50, "leadership": 82, "diligence": 60, "sensitivity": 70, "stamina": 40, "morale": 80},
+			{"name": "모르가나", "strength": 48, "wisdom": 78, "agility": 64, "charm": 74, "luck": 58, "leadership": 36, "diligence": 58, "sensitivity": 82, "stamina": 40, "morale": 68},
+			{"name": "드레이븐", "strength": 78, "wisdom": 50, "agility": 66, "charm": 44, "luck": 52, "leadership": 34, "diligence": 55, "sensitivity": 60, "stamina": 40, "morale": 66},
+			{"name": "카산드라", "strength": 60, "wisdom": 58, "agility": 70, "charm": 62, "luck": 54, "leadership": 30, "diligence": 62, "sensitivity": 68, "stamina": 40, "morale": 64},
 		],
 	},
 	"batur": {
@@ -83,10 +83,10 @@ const CATALOG := {
 		"armor": ["chain_coif", "chain_mail"],
 		"shield": "tower_shield",
 		"members": [
-			{"name": "바트르 칸", "strength": 84, "wisdom": 68, "agility": 72, "charm": 64, "luck": 60, "leadership": 86, "diligence": 70, "sensitivity": 48, "hit_points": 40, "stamina": 40, "morale": 85},
-			{"name": "테무르", "strength": 80, "wisdom": 50, "agility": 74, "charm": 48, "luck": 54, "leadership": 35, "diligence": 64, "sensitivity": 44, "hit_points": 40, "stamina": 40, "morale": 72},
-			{"name": "알탄", "strength": 76, "wisdom": 52, "agility": 70, "charm": 46, "luck": 56, "leadership": 32, "diligence": 62, "sensitivity": 42, "hit_points": 40, "stamina": 40, "morale": 70},
-			{"name": "초로스", "strength": 78, "wisdom": 48, "agility": 72, "charm": 44, "luck": 58, "leadership": 30, "diligence": 60, "sensitivity": 40, "hit_points": 40, "stamina": 40, "morale": 68},
+			{"name": "바트르 칸", "strength": 84, "wisdom": 68, "agility": 72, "charm": 64, "luck": 60, "leadership": 86, "diligence": 70, "sensitivity": 48, "stamina": 40, "morale": 85},
+			{"name": "테무르", "strength": 80, "wisdom": 50, "agility": 74, "charm": 48, "luck": 54, "leadership": 35, "diligence": 64, "sensitivity": 44, "stamina": 40, "morale": 72},
+			{"name": "알탄", "strength": 76, "wisdom": 52, "agility": 70, "charm": 46, "luck": 56, "leadership": 32, "diligence": 62, "sensitivity": 42, "stamina": 40, "morale": 70},
+			{"name": "초로스", "strength": 78, "wisdom": 48, "agility": 72, "charm": 44, "luck": 58, "leadership": 30, "diligence": 60, "sensitivity": 40, "stamina": 40, "morale": 68},
 		],
 	},
 }
@@ -117,5 +117,6 @@ static func make_members(id: String) -> Array:
 		h.weapons = (m["weapons"] if m.has("weapons") else weapons).duplicate()   # 멤버끼리 배열 공유 방지
 		h.armor = (m["armor"] if m.has("armor") else armor).duplicate()
 		h.shield = m.get("shield", shield)
+		h.hit_points = h.max_hp()   # 생성 시 시작 풀피(힘·레벨로 계산한 최대)
 		result.append(h)
 	return result
