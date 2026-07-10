@@ -15,6 +15,16 @@ const TOKEN_R := 18.0
 const PROJECTILE_TIME := 0.12 # 투사체가 대상까지 나는 시간(초)
 const END_DELAY := 0.6        # 종료 후 결과 방출까지 여유(마지막 상태 관전)
 
+# 타격 연출(초안 수치) — 판정·생존 결과에 영향 없음. 상세는 combat-feedback.md.
+const FLOAT_RISE := 40.0      # 떠오르는 텍스트 상승 높이(px)
+const FLOAT_TIME := 0.7       # 떠오름·페이드 시간(초)
+const FLASH_TIME := 0.12      # 피격 흰 반짝임 시간(초)
+const SHAKE_PX := 5.0         # 피격 흔들림 진폭(px)
+const SHAKE_TIME := 0.18      # 피격 흔들림 시간(초)
+const LUNGE_PX := 10.0        # 공격 돌진 거리(px)
+const LUNGE_TIME := 0.12      # 공격 돌진 왕복 시간(초)
+const DEATH_SCALE := 0.6      # 사망 시 축소 배율
+
 var _units: Array = []
 var _rng := RandomNumberGenerator.new()
 var _elapsed := 0.0
@@ -60,7 +70,7 @@ func _spawn_team(party, team: String, x: float, vp: Vector2) -> void:
 		var unit := {
 			"human": members[i], "team": team, "hp": int(members[i].hit_points),
 			"alive": true, "pos": pos, "cooldown": 0.0,
-			"node": node, "hp_label": node.get_node("hp"),
+			"node": node, "hp_label": node.get_node("hp"), "body": node.get_node("body"), "color": party.token_color,
 			"weapon": w, "range": ItemTypes.weapon_range(w),
 			"melee_reach": melee_reach,
 			"throw": thrw, "throws": 0,
@@ -74,6 +84,7 @@ func _spawn_team(party, team: String, x: float, vp: Vector2) -> void:
 func _make_token(color: Color) -> Control:
 	var c := Control.new()
 	var body := ColorRect.new()
+	body.name = "body"
 	body.color = color
 	body.size = Vector2(TOKEN_R * 2.0, TOKEN_R * 2.0)
 	c.add_child(body)
@@ -98,6 +109,7 @@ func _process(delta: float) -> void:
 		var dot := StatusEffects.advance(u["effects"], delta)
 		if dot > 0:
 			u["hp"] -= dot
+			_spawn_float(u["pos"], str(dot), HitFeedback.BLEED_COLOR, false)   # 출혈 도트 붉은 숫자
 			if u["hp"] <= 0:
 				_kill(u)
 		_sync_node(u)
@@ -143,6 +155,14 @@ func _attack(u: Dictionary, t: Dictionary, weapon: String) -> void:
 	if r["inflict"] != "":
 		StatusEffects.apply(t["effects"], r["inflict"])   # 치명타 → 출혈/기절 부여
 	u["cooldown"] = CombatResolver.attack_interval(u["human"], weapon)
+	# --- 타격 연출(combat-feedback.md) ---
+	_lunge(u, t["pos"])                                   # 공격자 돌진
+	var ht := HitFeedback.hit_text(r)
+	_spawn_float(t["pos"], ht["text"], ht["color"], ht["big"])   # 대미지 숫자/빗나감/막기
+	if r["hit"] and not r["blocked"] and r["damage"] > 0:
+		_hit_react(t)                                     # 피격 반짝임 + 흔들림
+	if r["inflict"] != "":
+		_spawn_float(t["pos"] + Vector2(0, -18), HitFeedback.status_text(r["inflict"]), HitFeedback.STATUS_COLOR, false)
 	if ItemTypes.weapon_range(weapon) >= 2 or ItemTypes.weapon_throw_range(weapon) > 0:
 		_spawn_projectile(u["pos"], t["pos"])   # 원거리·투척 연출
 	if t["hp"] <= 0:
@@ -159,9 +179,64 @@ func _spawn_projectile(from: Vector2, to: Vector2) -> void:
 	tw.tween_property(dot, "position", to - Vector2(3, 3), PROJECTILE_TIME)
 	tw.tween_callback(dot.queue_free)
 
+## 떠오르는 텍스트(대미지·상태이상·도트). center에서 위로 뜨며 페이드 후 스스로 제거.
+func _spawn_float(center: Vector2, text: String, color: Color, big: bool) -> void:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.modulate = color
+	lbl.position = center
+	lbl.scale = Vector2(1.6, 1.6) if big else Vector2.ONE
+	lbl.z_index = 10
+	_view.add_child(lbl)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(lbl, "position", center + Vector2(0, -FLOAT_RISE), FLOAT_TIME)
+	tw.tween_property(lbl, "modulate:a", 0.0, FLOAT_TIME)
+	tw.set_parallel(false)
+	tw.tween_callback(lbl.queue_free)
+
+## 피격 반응 — 대상 body를 흰색으로 반짝이고 좌우로 흔든다(node.position 갱신과 무관하게 body만).
+## body의 position·color tween은 유닛별 슬롯에 두고, 새로 시작하기 전 이전 것을 정리한다
+## (연타로 tween이 겹쳐 body가 중앙/원색에서 어긋난 채 고착되는 것을 막는다).
+func _hit_react(u: Dictionary) -> void:
+	var body: ColorRect = u["body"]
+	_reset_flash(u, body)
+	u["flash_tw"] = create_tween()
+	u["flash_tw"].tween_property(body, "color", Color(1, 1, 1, 1), FLASH_TIME * 0.4)
+	u["flash_tw"].tween_property(body, "color", u["color"], FLASH_TIME * 0.6)
+	_reset_body_pos(u, body)
+	u["pos_tw"] = create_tween()
+	u["pos_tw"].tween_property(body, "position:x", SHAKE_PX, SHAKE_TIME * 0.25)
+	u["pos_tw"].tween_property(body, "position:x", -SHAKE_PX, SHAKE_TIME * 0.5)
+	u["pos_tw"].tween_property(body, "position:x", 0.0, SHAKE_TIME * 0.25)
+
+## 공격 돌진 — 공격자 body를 대상 쪽으로 살짝 냈다 복귀. body position 슬롯을 흔들림과 공유한다.
+func _lunge(u: Dictionary, toward: Vector2) -> void:
+	var body: ColorRect = u["body"]
+	var from: Vector2 = u["pos"]
+	var dir := (toward - from).normalized()
+	_reset_body_pos(u, body)
+	u["pos_tw"] = create_tween()
+	u["pos_tw"].tween_property(body, "position", dir * LUNGE_PX, LUNGE_TIME * 0.5)
+	u["pos_tw"].tween_property(body, "position", Vector2.ZERO, LUNGE_TIME * 0.5)
+
+## 진행 중인 body position tween을 멈추고 원위치(0,0)로 되돌린다.
+func _reset_body_pos(u: Dictionary, body: ColorRect) -> void:
+	if u.has("pos_tw") and u["pos_tw"] != null and u["pos_tw"].is_valid():
+		u["pos_tw"].kill()
+	body.position = Vector2.ZERO
+
+## 진행 중인 flash tween을 멈추고 팀색으로 되돌린다.
+func _reset_flash(u: Dictionary, body: ColorRect) -> void:
+	if u.has("flash_tw") and u["flash_tw"] != null and u["flash_tw"].is_valid():
+		u["flash_tw"].kill()
+	body.color = u["color"]
+
 func _kill(u: Dictionary) -> void:
 	u["alive"] = false
 	u["node"].modulate = Color(1.0, 1.0, 1.0, 0.3)   # 전투불능 — 흐리게(상태이상 tint 제거)
+	var tw := create_tween()
+	tw.tween_property(u["node"], "scale", Vector2(DEATH_SCALE, DEATH_SCALE), 0.2)   # 사망 축소
 
 ## 토큰 노드 위치·생명점 표시를 상태에 맞춘다(중심이 pos에 오도록).
 ## 최소 상태이상 표시: 기절=흐림(회색), 출혈=붉은 tint. 전투불능은 _kill이 alpha로 처리.
