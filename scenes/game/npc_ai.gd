@@ -3,6 +3,19 @@ extends RefCounted
 ## NPC 부대 이동 결정. 가장 가까운 적(targets)에게 접근하고, 향할 적이 없으면 무작위로 배회하는 단순 AI.
 ## 노드에 의존하지 않는 순수 로직이라(ClickRouter·HexGrid 패턴) 시드 RNG로 결정적 테스트가 가능하다.
 
+## entries({cell, faction}) 중 소속이 self_faction과 다른 항목의 cell만 모은다(적 셀 목록).
+## 부대·캠프를 같은 형식으로 넘겨 세력으로 적/아군을 가른다. game.gd가 타깃 조립에 쓴다.
+static func enemy_cells(self_faction: String, entries: Array) -> Array:
+	var out: Array = []
+	for e in entries:
+		if e["faction"] != self_faction:
+			out.append(e["cell"])
+	return out
+
+## 타깃 우선순위: 방어 대상(defend)이 있으면 그것만(자기 캠프 곁 위협 요격), 없으면 진격 타깃(advance).
+static func select_targets(advance: Array, defend: Array) -> Array:
+	return defend if not defend.is_empty() else advance
+
 ## NPC 이동 목적지를 고른다.
 ## - targets가 있으면: 이동 칸 중 가장 가까운 적(targets)과의 월드 거리가 최소인 칸으로 접근한다.
 ##   시작 칸보다 가까워지는 칸이 없으면 제자리(적에게서 멀어지지 않는다).

@@ -21,6 +21,9 @@ const PARTY_SCENE := preload("res://scenes/party/party.tscn")
 const MOVE_STEP_TIME := 0.12
 const NPC_PARTY_STAGGER := 0.2
 
+# NPC가 자기 캠프를 방어하는 반경(헥스). 이 안에 적 부대가 들어오면 그 침입자를 요격 우선한다.
+const NPC_DEFEND_RADIUS := 5
+
 # NPC 부대 배치 오프셋(맵 중앙 기준 칸). 초기 시야 안에 들도록 임시 배치한다.
 const NPC_OFFSETS := {
 	"qasim": Vector2i(5, 0),
@@ -464,6 +467,50 @@ func _occupied_cells(exclude) -> Dictionary:
 		occ[terrain.local_to_map(p.position)] = true
 	return occ
 
+## NPC 세력 fn이 향할 타깃 칸 목록. 적 부대·캠프로 진격하되, 자기 캠프가 위협받으면 침입자를 요격 우선.
+## party_entries·camp_entries는 세력 무관하게 같으므로 _move_npcs가 턴당 한 번만 만들어 넘긴다.
+## (enemy_cells가 세력으로 걸러 자기 부대·아군·자기 캠프는 자동 제외된다.)
+func _npc_targets(fn: String, party_entries: Array, camp_entries: Array) -> Array:
+	var advance: Array = NpcAi.enemy_cells(fn, party_entries) + NpcAi.enemy_cells(fn, camp_entries)
+	var defend := _threats_near_own_camp(fn, party_entries)
+	return NpcAi.select_targets(advance, defend)
+
+## 살아 있는 모든 부대를 {cell, faction} 목록으로. NpcAi.enemy_cells의 입력(세력 필터가 자기 부대를 걸러낸다).
+func _party_entries() -> Array:
+	var out: Array = []
+	for p in [party] + _npc_parties:
+		if p.members.is_empty():
+			continue
+		out.append({"cell": terrain.local_to_map(p.position), "faction": p.faction_name})
+	return out
+
+## 맵의 모든 캠프를 {cell(중심), faction} 목록으로. territory/faction이 없는 고아 캠프는 빈 문자열(방어적 기본값 — 현재는 발생 안 함).
+func _camp_entries() -> Array:
+	var out: Array = []
+	for b in _buildings + _npc_buildings:
+		if b.building_type != BuildingTypes.CAMP:
+			continue
+		var cf := ""
+		if b.territory != null and b.territory.faction != null:
+			cf = b.territory.faction.name
+		out.append({"cell": b.center_cell(), "faction": cf})
+	return out
+
+## 세력 fn의 캠프 중심 NPC_DEFEND_RADIUS 이내로 침입한 적 부대 칸 목록(방어 타깃). 자기 캠프 없으면 빈 배열.
+func _threats_near_own_camp(fn: String, party_entries: Array) -> Array:
+	var near := {}
+	for b in _buildings + _npc_buildings:
+		if b.building_type == BuildingTypes.CAMP and b.territory != null and b.territory.faction != null and b.territory.faction.name == fn:
+			for cell in HexGrid.cells_within(terrain, b.center_cell(), NPC_DEFEND_RADIUS, MAP_WIDTH, MAP_HEIGHT):
+				near[cell] = true
+	if near.is_empty():
+		return []
+	var out: Array = []
+	for e in party_entries:
+		if e["faction"] != fn and near.has(e["cell"]):
+			out.append(e["cell"])
+	return out
+
 ## [공격] 근접: 적 인접 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령.
 func _melee_attack(entry: Dictionary) -> void:
 	var start := terrain.local_to_map(party.position)
@@ -790,13 +837,17 @@ func _move_npcs() -> void:
 	_npc_move_epoch += 1
 	var epoch := _npc_move_epoch   # 이 라운드의 세대. 도중 새 라운드가 시작되면 아래 루프를 빠져나온다.
 
+	# 타깃 입력은 세력 무관하게 같으므로 루프 밖에서 한 번만 만든다(부대·캠프 목록).
+	var party_entries := _party_entries()
+	var camp_entries := _camp_entries()
+
 	# 세력별로 그룹핑(등장 순서 유지). 각 항목은 {party, path}.
 	var factions: Array = []
 	var groups: Dictionary = {}
 	for p in _npc_parties:
 		var start := terrain.local_to_map(p.position)
-		var occ := _occupied_cells(p)   # 자기 외 모든 부대의 현재 위치 = 이동 장애물이자 접근 타깃.
-		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, occ.keys())
+		var occ := _occupied_cells(p)   # 자기 외 모든 부대의 현재 위치 = 이동 장애물.
+		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p.faction_name, party_entries, camp_entries))
 		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 		var f: String = p.faction_name
 		if not groups.has(f):

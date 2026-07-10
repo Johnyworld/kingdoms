@@ -131,3 +131,30 @@ func test_target_seeking_deterministic() -> void:
 	var a: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(9), {}, [target])
 	var b: Vector2i = NpcAi.choose_destination(terrain, start, 3, MAP, MAP, _rng(9), {}, [target])
 	assert_eq(a, b, "같은 시드 → 같은 목적지")
+
+# --- 타깃 선정: 세력 필터·방어 우선 (순수, 노드 비의존) ---
+
+func test_enemy_cells_filters_by_faction() -> void:
+	var entries := [
+		{"cell": Vector2i(1, 0), "faction": "푸른 왕국"},
+		{"cell": Vector2i(2, 0), "faction": "사막 술탄국"},
+		{"cell": Vector2i(3, 0), "faction": "암흑 제국"},
+	]
+	var out: Array = NpcAi.enemy_cells("사막 술탄국", entries)
+	assert_eq(out, [Vector2i(1, 0), Vector2i(3, 0)], "같은 세력 제외, 적의 cell만")
+
+func test_enemy_cells_all_allies_empty() -> void:
+	var entries := [
+		{"cell": Vector2i(1, 0), "faction": "사막 술탄국"},
+		{"cell": Vector2i(2, 0), "faction": "사막 술탄국"},
+	]
+	assert_eq(NpcAi.enemy_cells("사막 술탄국", entries), [], "전부 같은 세력이면 빈 배열")
+
+func test_select_targets_prefers_defend() -> void:
+	var advance := [Vector2i(5, 5), Vector2i(6, 6)]
+	var defend := [Vector2i(1, 1)]
+	assert_eq(NpcAi.select_targets(advance, defend), defend, "방어 대상 있으면 방어 우선")
+
+func test_select_targets_falls_back_to_advance() -> void:
+	var advance := [Vector2i(5, 5)]
+	assert_eq(NpcAi.select_targets(advance, []), advance, "방어 대상 없으면 진격 타깃")
