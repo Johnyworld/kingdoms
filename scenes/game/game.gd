@@ -545,7 +545,7 @@ func _do_capture(camp, absorb: bool) -> void:
 	party.mark_attacked()
 	_undo_party = null   # 점령은 되돌릴 수 없다
 	if absorb:
-		_absorb_camp(camp)
+		_transfer_camp(camp, _player_faction)
 	else:
 		_destroy_camp(camp)
 	if _selected:
@@ -554,20 +554,26 @@ func _do_capture(camp, absorb: bool) -> void:
 	_update_fog()
 	party_roster.set_parties(_units)
 
-## 흡수: 캠프의 영지를 플레이어 세력으로 이전하고, 캠프를 플레이어 건물로 편입한다(시야·건축·수입 획득).
-func _absorb_camp(camp) -> void:
+## 소유권 이전(점령 흡수, 플레이어·NPC 공용): 캠프의 영지를 new_faction으로 옮기고 건물 리스트를 재배치한다.
+## 플레이어면 _buildings(시야·건축·수입 획득), NPC면 _npc_buildings(수입 제외). 라벨색·시야는 이후 _update_fog가 반영.
+func _transfer_camp(camp, new_faction) -> void:
 	var territory = camp.territory
 	if territory != null:
 		if territory.faction != null:
 			territory.faction.remove_territory(territory)
-		_player_faction.add_territory(territory)
-		if not (territory in _territories):
-			_territories.append(territory)
+		new_faction.add_territory(territory)
+	_buildings.erase(camp)
 	_npc_buildings.erase(camp)
-	if not (camp in _buildings):
+	if new_faction == _player_faction:
 		_buildings.append(camp)
-	camp.visible = true       # 플레이어 건물은 항상 보인다
-	camp.queue_redraw()       # 라벨색을 플레이어 세력색으로 갱신
+		if territory != null and not (territory in _territories):
+			_territories.append(territory)   # 플레이어 영지는 턴 수입 대상
+	else:
+		_npc_buildings.append(camp)
+		if territory != null:
+			_territories.erase(territory)    # 잃은 영지는 수입에서 제외
+	camp.visible = true       # 이전 직후 표시(NPC 캠프는 _update_npc_building_visibility가 탐험 기준으로 재조정)
+	camp.queue_redraw()       # 라벨색을 새 세력색으로 갱신
 
 ## 파괴: 캠프를 영지·맵에서 제거한다(획득 없음). 영지·세력은 남지만 캠프 0개가 된다(소멸 판정은 다음 슬라이스).
 func _destroy_camp(camp) -> void:
@@ -878,14 +884,20 @@ func _npc_attack_phase(epoch: int) -> void:
 		if not attacker.can_attack():
 			continue
 		var target = _adjacent_enemy(attacker)
-		if target == null:
+		if target != null:
+			attacker.mark_attacked()
+			var ranged := _is_ranged_engagement(attacker, target)
+			if target == party:
+				await _run_battle(attacker, target, ranged)   # 플레이어가 방어 → 오버레이 관전
+			else:
+				_resolve_battle_headless(attacker, target, ranged)   # NPC끼리 → 즉시 결산
 			continue
-		attacker.mark_attacked()
-		var ranged := _is_ranged_engagement(attacker, target)
-		if target == party:
-			await _run_battle(attacker, target, ranged)   # 플레이어가 방어 → 오버레이 관전
-		else:
-			_resolve_battle_headless(attacker, target, ranged)   # NPC끼리 → 즉시 결산
+		# 공격할 적 부대가 없으면 인접한 적 캠프를 흡수(점령)한다.
+		var camp = _capturable_camp_for(attacker)
+		if camp != null:
+			attacker.mark_attacked()
+			_transfer_camp(camp, _faction_named(attacker.faction_name))
+			_update_fog()
 	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
 	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
 
@@ -908,6 +920,31 @@ func _adjacent_enemy(attacker):
 			continue
 		if in_range.has(terrain.local_to_map(other.position)):
 			return other
+	return null
+
+## attacker가 점령할 수 있는 인접(또는 그 위) 적 캠프를 찾는다(소유 세력이 다른 것). 없으면 null.
+func _capturable_camp_for(attacker):
+	var acell := terrain.local_to_map(attacker.position)
+	var fn: String = attacker.faction_name
+	var neighbors := terrain.get_surrounding_cells(acell)
+	for b in _buildings + _npc_buildings:
+		if b.building_type != BuildingTypes.CAMP:
+			continue
+		var bf := ""
+		if b.territory != null and b.territory.faction != null:
+			bf = b.territory.faction.name
+		if bf == fn:
+			continue   # 아군 캠프
+		for c in b.cells:
+			if c == acell or c in neighbors:
+				return b
+	return null
+
+## 세력 이름으로 Faction 객체를 찾는다(_factions에서). 없으면 null.
+func _faction_named(fname: String):
+	for f in _factions:
+		if f.name == fname:
+			return f
 	return null
 
 ## 한 세력의 부대들을 동시에(부대마다 NPC_PARTY_STAGGER 지연) 애니메이션하고, 전부 끝날 때까지 대기한다.

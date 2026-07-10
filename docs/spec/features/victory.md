@@ -44,8 +44,8 @@
 - 각 세력(소멸 안 된 것)에 대해 `faction.grace_turns = GameResult.advance_grace(캠프 수 > 0, faction.grace_turns)`.
   - `GameResult.grace_eliminated(faction.grace_turns)`면 `eliminated = true` + `_eliminate_faction`(그 세력 소속 NPC 부대를 맵에서 제거).
 - 이어서 `_check_endgame`: `GameResult.endgame(플레이어 세력 소멸, 모든 NPC 세력 소멸)` → `VICTORY`면 `_trigger_game_over("정복 승리", "모든 적 세력을 물리쳤다")`, `DEFEAT`면 `_trigger_game_over("패배", "세력이 소멸했다")`.
-- **캠프 소멸→유예 진입 경로**: 플레이어가 NPC 캠프를 [흡수](camp-capture.md)(영지 이전) 또는 [파괴](camp-capture.md)하면 그 NPC 세력의 캠프 수가 0이 된다 → 다음 턴 종료부터 카운트다운.
-- **현재 도달성**: NPC는 캠프를 되찾을(점령·건설) AI가 없어 캠프 0이 되면 결국 소멸한다. 플레이어 세력 소멸은 적 점령 AI가 없어 아직 트리거되지 않지만 로직은 대칭으로 배선한다. *(적 점령 AI 미구현)*
+- **캠프 소멸→유예 진입 경로**: 어떤 세력이 캠프를 모두 잃으면(플레이어가 [흡수/파괴](camp-capture.md), 또는 NPC가 [흡수](camp-capture.md#npc-점령-gamegd-_npc_attack_phase)) 그 세력의 캠프 수가 0이 된다 → 다음 턴 종료부터 카운트다운.
+- **양방향 도달**: 플레이어는 NPC 캠프를 점령해 **정복 승리**, NPC는 플레이어 캠프를 점령해 **플레이어 세력 소멸(패배)** 을 만들 수 있다. 캠프를 잃어도 10턴 안에 재점령하면 소멸을 면한다.
 
 ### 유예 표시 (`turn_hud.set_grace`)
 
@@ -65,7 +65,6 @@
 ## 미구현
 
 - **부대 전멸 패배** — 의도적으로 없앰(플레이어 부대가 전멸해도 게임 오버 아님). 승패는 세력 소멸로만.
-- **적 점령 AI**(NPC가 플레이어 캠프를 점령) — 없어서 플레이어 세력 소멸은 현재 트리거되지 않음(로직만 대칭 배선).
 - 점수·기간 모드·거점 점령 시나리오.
 
 ## 테스트 시나리오
