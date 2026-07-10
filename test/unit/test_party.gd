@@ -66,6 +66,39 @@ func test_add_member_no_duplicate() -> void:
 	p.add_member(h)
 	assert_eq(p.members.size(), 1, "같은 멤버 중복 추가 방지")
 
+# --- 멤버 제거 (수비대 편성) ---
+
+func test_remove_member() -> void:
+	var p := _party()
+	var h := _human()
+	p.add_member(h)
+	p.remove_member(h)
+	assert_false(h in p.members, "제거 후 members에서 빠짐")
+
+func test_remove_commander_reassigns() -> void:
+	var p := _party()
+	var a := _human()
+	var b := _human()
+	p.add_member(a)
+	p.add_member(b)
+	p.commander = a
+	p.remove_member(a)
+	assert_eq(p.commander, b, "지휘관 제거 시 남은 첫 멤버로 재지정")
+
+func test_remove_last_member_commander_null() -> void:
+	var p := _party()
+	var h := _human()
+	p.add_member(h)
+	p.commander = h
+	p.remove_member(h)
+	assert_null(p.commander, "마지막 멤버 제거 시 지휘관 null")
+
+func test_remove_member_not_present_noop() -> void:
+	var p := _party()
+	p.add_member(_human())
+	p.remove_member(_human())   # 없는 멤버
+	assert_eq(p.members.size(), 1, "없는 멤버 제거는 no-op")
+
 # --- 지휘관(commander) ---
 
 func test_commander_null_by_default() -> void:

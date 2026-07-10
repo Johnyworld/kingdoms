@@ -5,6 +5,9 @@ extends CanvasLayer
 ## 건설 리스트에서 건물 종류를 선택하면 방출. 게임이 받아 건설 모드로 처리한다(2b, 미구현).
 signal build_selected(type_id: String, territory: Territory)
 
+## 수비대 편성으로 병사가 이동할 때 방출. game.gd가 받아 부대 일람·안개를 갱신한다.
+signal garrison_changed
+
 var _root: Control
 var _res_grid: GridContainer
 var _camp_title: Label     # 우측 패널 제목 = 영지 이름
@@ -12,6 +15,13 @@ var _faction_label: Label  # 제목 아래 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
 var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
+
+# 수비대 편성 패널(부대 있을 때만). 부대↔캠프 병사 이동.
+var _garrison_panel: PanelContainer
+var _party_list: VBoxContainer     # 부대 멤버 버튼(→ 수비대로)
+var _garrison_list: VBoxContainer  # 수비대 멤버 버튼(← 부대로)
+var _building: Building            # 현재 열려 있는 캠프(수비대 보유)
+var _party = null                  # 인접한 플레이어 부대(없으면 편성 패널 숨김)
 
 func _ready() -> void:
 	layer = 64
@@ -43,6 +53,7 @@ func _build() -> void:
 
 	hbox.add_child(_build_resource_panel())
 	hbox.add_child(_build_menu_panel())
+	hbox.add_child(_build_garrison_panel())
 
 ## 좌측: 자원 정보 패널.
 func _build_resource_panel() -> Control:
@@ -107,8 +118,51 @@ func _build_menu_panel() -> Control:
 
 	return panel
 
+## 우측: 수비대 편성 패널(부대 있을 때만 표시). 부대 목록 / 수비대 목록 두 열.
+func _build_garrison_panel() -> Control:
+	_garrison_panel = PanelContainer.new()
+	_garrison_panel.custom_minimum_size = Vector2(260, 260)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_garrison_panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "수비대 편성"
+	title.add_theme_font_size_override("font_size", 20)
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 12)
+	vbox.add_child(cols)
+
+	var party_col := VBoxContainer.new()
+	var pl := Label.new()
+	pl.text = "부대"
+	party_col.add_child(pl)
+	_party_list = VBoxContainer.new()
+	_party_list.add_theme_constant_override("separation", 4)
+	party_col.add_child(_party_list)
+	cols.add_child(party_col)
+
+	var gar_col := VBoxContainer.new()
+	var gl := Label.new()
+	gl.text = "수비대"
+	gar_col.add_child(gl)
+	_garrison_list = VBoxContainer.new()
+	_garrison_list.add_theme_constant_override("separation", 4)
+	gar_col.add_child(_garrison_list)
+	cols.add_child(gar_col)
+
+	_garrison_panel.hide()
+	return _garrison_panel
+
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
-func open(building: Building) -> void:
+## party가 주어지고 건물이 캠프면 수비대 편성 패널도 띄운다(부대↔캠프 병사 이동).
+func open(building: Building, party = null) -> void:
+	_building = building
+	_party = party
 	var territory := building.territory
 	_territory = territory
 
@@ -141,7 +195,46 @@ func open(building: Building) -> void:
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_res_grid.add_child(value_label)
+
+	# 수비대 편성 패널: 인접 부대가 있고 캠프일 때만.
+	if _party != null and building.building_type == BuildingTypes.CAMP:
+		_refresh_garrison_lists()
+		_garrison_panel.show()
+	else:
+		_garrison_panel.hide()
 	show()
+
+## 부대·수비대 목록을 비우고 다시 채운다. 각 병사는 반대편으로 옮기는 버튼.
+func _refresh_garrison_lists() -> void:
+	for c in _party_list.get_children():
+		c.free()
+	for c in _garrison_list.get_children():
+		c.free()
+	for h in _party.members:
+		var b := Button.new()
+		b.text = "%s →" % h.human_name
+		b.pressed.connect(_member_to_garrison.bind(h))
+		_party_list.add_child(b)
+	for h in _building.garrison:
+		var b := Button.new()
+		b.text = "← %s" % h.human_name
+		b.pressed.connect(_member_to_party.bind(h))
+		_garrison_list.add_child(b)
+
+## 부대원을 수비대로 옮긴다.
+## 리스트 재구성은 지연 호출한다 — 이 함수는 버튼 pressed 처리 중이라, 그 버튼을 즉시 free하면 "locked" 에러가 난다.
+func _member_to_garrison(human) -> void:
+	_party.remove_member(human)
+	_building.garrison.append(human)
+	_refresh_garrison_lists.call_deferred()
+	garrison_changed.emit()
+
+## 수비대원을 부대로 옮긴다. 리스트 재구성은 지연 호출(위와 같은 이유).
+func _member_to_party(human) -> void:
+	_building.garrison.erase(human)
+	_party.add_member(human)
+	_refresh_garrison_lists.call_deferred()
+	garrison_changed.emit()
 
 func close_menu() -> void:
 	hide()

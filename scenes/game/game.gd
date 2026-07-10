@@ -141,6 +141,7 @@ func _ready() -> void:
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
 	camp_menu.build_selected.connect(_on_build_selected)
+	camp_menu.garrison_changed.connect(_on_garrison_changed)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
 	party_action_menu.action_selected.connect(_on_party_action)
@@ -425,7 +426,8 @@ func _handle_click(world_pos: Vector2) -> void:
 			if _selected:
 				_deselect()
 			_hide_party_info()
-			camp_menu.open(clicked)   # 클릭된 캠프(점령으로 얻은 캠프 포함), 시작 캠프 고정 아님
+			# 인접한 플레이어 부대가 있으면 수비대 편성도 가능하게 넘긴다.
+			camp_menu.open(clicked, _party_at_camp(clicked))
 		ClickRouter.BUILDING_INFO:
 			_open_building_info(clicked)
 		ClickRouter.NPC_BASE_INFO:
@@ -452,6 +454,22 @@ func _building_at(cell: Vector2i) -> Building:
 		if b.contains_cell(cell):
 			return b
 	return null
+
+## 캠프에 인접(또는 그 위)한 플레이어 부대를 돌려준다(수비대 편성용). 없으면 null.
+## 멤버 0명이어도 인접이면 돌려준다 — 수비대 병사를 다시 넣어 부대를 되살릴 수 있게.
+func _party_at_camp(camp) -> Party:
+	var pcell := terrain.local_to_map(party.position)
+	if pcell in camp.cells:
+		return party
+	for c in camp.cells:
+		if pcell in terrain.get_surrounding_cells(c):
+			return party
+	return null
+
+## 수비대 편성으로 병력이 바뀌면 부대 일람·안개(부대 시야)를 갱신한다.
+func _on_garrison_changed() -> void:
+	party_roster.set_parties(_units)
+	_update_fog()
 
 ## 그 셀에 선 NPC 부대를 찾는다(없으면 null). 안개에 가려 보이지 않는(visible == false) NPC는 제외한다.
 func _npc_at(cell: Vector2i) -> Party:

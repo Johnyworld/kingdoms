@@ -16,7 +16,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 
 ## 동작
 
-- `open(building: Building)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다.
+- `open(building: Building, party := null)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `party`가 주어지고 건물이 캠프면 **수비대 편성 패널**을 함께 띄운다(아래).
   - 제목 라벨 = `territory.name`.
   - 세력 라벨 = `territory.faction.name` (색상 = `territory.faction.color`). `faction`이 `null`이면 세력 라벨은 빈 문자열.
   - `building.territory`가 `null`이거나 영지에 세력이 없으면 라벨은 빈 문자열이고, 세력 색상 오버라이드를 제거한다(다른 영지로 재오픈 대비). `territory == null`이면 자원 그리드도 비어 있다.
@@ -28,6 +28,8 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
   - 영지가 그 비용을 **감당 못 하거나**(`territory.can_afford(build_cost) == false`) **영지가 없으면** 해당 항목 버튼은 **비활성**(`disabled`).
   - 항목을 누르면 `build_selected(type_id, territory)` 시그널을 방출하고 메뉴를 닫는다. 실제 배치(건설 모드)는 게임이 이 시그널을 받아 처리한다 — **건설 모드 배치(2b)는 미구현**.
 - `open`은 열 때마다 리스트를 숨기고 건축 버튼을 다시 보여 **정보 화면 상태로 초기화**한다(이전 오픈에서 리스트가 열려 있던 상태가 남지 않도록).
+- **수비대 편성 패널** (`party != null` + 캠프일 때) — 부대(`party.members`)·수비대(`building.garrison`) 두 목록을 병사 버튼으로 보인다. 부대원 클릭 → 수비대로, 수비대원 클릭 → 부대로 옮기고(양방향 자유) 목록을 다시 그린다. 이동할 때마다 `garrison_changed` 시그널을 방출한다. `party`가 없으면 패널을 숨긴다. → [Garrison](garrison.md).
+- `signal garrison_changed` — 편성으로 병사가 이동할 때 방출. `game.gd`가 받아 [부대 일람](party-roster.md)·[안개](fog-of-war.md)를 갱신한다.
 
 ## 테스트 시나리오
 

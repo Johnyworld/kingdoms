@@ -56,3 +56,9 @@ func test_button_press_emits_party_selected() -> void:
 func test_visible_by_default() -> void:
 	roster.set_parties([_sample_party()])
 	assert_true(roster.visible, "기본은 표시 상태")
+
+func test_empty_party_not_listed() -> void:
+	# 수비대로 전부 옮겨 0명이 된 부대는 일람에서 제외한다.
+	var empty := _party("빈 부대", [])
+	roster.set_parties([_sample_party(), empty])
+	assert_eq(roster._list.get_child_count(), 1, "멤버 0명 부대는 일람에서 제외")
