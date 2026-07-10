@@ -97,7 +97,12 @@ var _player_move_target: Vector2i
 # 전투 오버레이가 떠 있는 동안 월드맵 좌클릭·턴 종료를 잠근다.
 var _in_battle := false
 
+# 게임 오버(승패 확정) 상태. true면 월드맵 좌클릭·턴 종료를 잠그고 결과 오버레이를 띄운다.
+var _game_over := false
+var result_overlay: ResultOverlay   # 결과 화면(코드 생성, _ready에서 추가)
+
 const BATTLE_SCENE := preload("res://scenes/combat/battle.gd")
+const TITLE_SCENE := "res://scenes/title/title.tscn"
 
 # 건설 모드. 캠프 메뉴에서 건물을 고르면 진입 — 맵을 클릭해 배치한다.
 var _build_mode := false
@@ -127,6 +132,9 @@ func _ready() -> void:
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
 	party_action_menu.action_selected.connect(_on_party_action)
+	result_overlay = ResultOverlay.new()   # 결과 화면(코드 생성)
+	add_child(result_overlay)
+	result_overlay.dismissed.connect(_on_result_dismissed)
 
 ## 맵 전체를 초원 타일로 채운 뒤, 시작 지점 근처에 숲을 조금 배치한다.
 func _generate_map() -> void:
@@ -473,6 +481,26 @@ func _run_battle(attacker, defender, ranged := false, occupy_cell := Vector2i(-1
 		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
 	_update_fog()
 	party_roster.set_parties(_units)
+	_check_game_over()   # 플레이어가 낀 전투 종료 → 승패 판정
+
+## 플레이어가 낀 전투 종료 직후 승패를 판정한다. 플레이어 부대 전멸이면 게임 오버(패배).
+func _check_game_over() -> void:
+	if _game_over:
+		return
+	if GameResult.evaluate(party.members.size()) == GameResult.DEFEAT:
+		_trigger_game_over("패배", "아젤 하르윈 부대가 전멸했다")
+
+## 게임 오버: 상태를 잠그고 진행 중 선택·메뉴를 정리한 뒤 결과 오버레이를 띄운다.
+func _trigger_game_over(title: String, subtitle: String) -> void:
+	_game_over = true
+	if _selected:
+		_deselect()
+	_hide_party_info()
+	result_overlay.show_result(title, subtitle)
+
+## 결과 오버레이 클릭 → 타이틀로 복귀(페이드 전환).
+func _on_result_dismissed() -> void:
+	SceneManager.change_scene(TITLE_SCENE)
 
 ## NPC끼리 전투를 화면 없이 즉시 결산한다(BattleSim). 사상자만 반영.
 func _resolve_battle_headless(attacker, defender, ranged := false) -> void:
@@ -578,8 +606,8 @@ func _undo_last_move() -> void:
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
-	if _in_battle:
-		return   # 전투 관전 중에는 턴을 넘기지 않는다.
+	if _in_battle or _game_over:
+		return   # 전투 관전 중·게임 오버에는 턴을 넘기지 않는다.
 	_finish_player_move()   # 이동 애니메이션 중이면 목적지로 스냅한 뒤 턴을 넘긴다.
 	_undo_party = null   # 턴이 바뀌면 되돌리기 초기화
 	if _selected:
@@ -628,6 +656,8 @@ func _npc_attack_phase(epoch: int) -> void:
 		if epoch != _npc_move_epoch:
 			_clear_player_alert()   # 중단돼도 경계 버프는 반드시 해제(다음 내 턴에 남지 않게)
 			return
+		if _game_over:
+			return   # 이 전투로 게임 오버(플레이어 전멸) 확정 → 남은 NPC 공격 결산 중단
 		if not is_instance_valid(attacker) or not (attacker in _npc_parties):
 			continue   # 이전 전투로 제거됨.
 		if not attacker.can_attack():
@@ -859,8 +889,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			# 이동 애니메이션·전투 중에는 새 클릭(이동·선택·메뉴)을 무시한다. 줌은 위에서 이미 처리됨.
-			if not _player_moving and not _in_battle:
+			# 이동 애니메이션·전투·게임 오버 중에는 새 클릭(이동·선택·메뉴)을 무시한다. 줌은 위에서 이미 처리됨.
+			if not _player_moving and not _in_battle and not _game_over:
 				_handle_click(get_global_mouse_position())
 	elif event is InputEventPanGesture:
 		# 두 손가락 스크롤: 위로(delta.y<0) = 확대, 아래로 = 축소.
