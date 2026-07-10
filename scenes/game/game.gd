@@ -41,7 +41,7 @@ const NPC_BASE_OFFSETS := {
 
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
-@onready var party = $Party
+@onready var party = $Party   # 현재 활성(선택된) 플레이어 부대. 다른 부대 클릭 시 재할당된다. 모든 부대는 _units.
 @onready var overlay = $RangeOverlay
 @onready var building = $Building
 @onready var camp_menu = $CampMenu
@@ -133,15 +133,16 @@ func _ready() -> void:
 	_setup_factions()
 	_setup_parties()
 	_place_party()
+	_units = [party]
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
 	_update_fog()
-	_units = [party]
 	party_roster.set_parties(_units)
 	party_roster.party_selected.connect(_on_party_focused)
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
 	camp_menu.build_selected.connect(_on_build_selected)
 	camp_menu.garrison_changed.connect(_on_garrison_changed)
+	camp_menu.raise_party.connect(_on_raise_party)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
 	party_action_menu.action_selected.connect(_on_party_action)
@@ -344,12 +345,14 @@ func _refresh_overlay() -> void:
 		red.append_array(_camp_attack_cells)
 		overlay.show_ranges(_move_cells, red)
 
-## 모든 시야원(주인공 부대 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
+## 모든 시야원(플레이어 부대 전부 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
 func _update_fog() -> void:
 	var visible := {}
-	var party_cell := terrain.local_to_map(party.position)
-	for c in HexGrid.cells_within(terrain, party_cell, party.vision(), MAP_WIDTH, MAP_HEIGHT):
-		visible[c] = true
+	for u in _units:
+		if u.members.is_empty():
+			continue   # 사라진(빈) 부대는 시야 없음
+		for c in HexGrid.cells_within(terrain, terrain.local_to_map(u.position), u.vision(), MAP_WIDTH, MAP_HEIGHT):
+			visible[c] = true
 	# 완성 건물(캠프·농장 등)의 시야. 건설 중 건물은 buildings_vision이 제외한다.
 	for c in BuildPlanner.buildings_vision(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
@@ -381,9 +384,10 @@ func _base_discovered(b) -> bool:
 ## - 부대 우선(캠프 위 재클릭 시 메뉴) → 선택 중 이동(건물 위 통행) → 캠프 메뉴 → 건물 정보 → 선택 해제.
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
-	var party_cell := terrain.local_to_map(party.position)
+	var party_cell := terrain.local_to_map(party.position)   # 활성 부대 칸(이동 시작점)
 	var reachable: bool = _reachable.has(cell)
 	var clicked := _building_at(cell)   # 플레이어 건물. 캠프는 CAMP_MENU, 그 외는 BUILDING_INFO로 분기.
+	var clicked_party := _player_party_at(cell)   # 그 칸의 플레이어 부대(선택/전환 대상).
 	var clicked_npc := _npc_at(cell)    # 보이는 NPC 부대가 있으면 정보 표시/공격 대상.
 	var clicked_npc_building := _npc_building_at(cell)   # 발견된 NPC 거점이면 정보 표시(NPC_BASE_INFO).
 	var on_camp := clicked != null and clicked.building_type == BuildingTypes.CAMP
@@ -413,7 +417,7 @@ func _handle_click(world_pos: Vector2) -> void:
 		_open_capture_popup(_capture_targets[cell])
 		return
 
-	match ClickRouter.resolve(cell == party_cell, clicked_npc != null, on_camp, on_building, clicked_npc_building != null, _selected, reachable, party_info.visible):
+	match ClickRouter.resolve(clicked_party != null, clicked_npc != null, on_camp, on_building, clicked_npc_building != null, _selected, reachable, party_info.visible):
 		ClickRouter.MOVE:
 			# 이동은 클릭 즉시 확정하고(재이동 불가·선택 해제), 토큰만 경로 따라 애니메이션한다.
 			_undo_party = party   # 되돌리기용: 이동 전 칸 기록(다른 부대 이동/행동 시 갱신·소멸)
@@ -433,12 +437,21 @@ func _handle_click(world_pos: Vector2) -> void:
 		ClickRouter.NPC_BASE_INFO:
 			_open_building_info(clicked_npc_building)   # 발견된 NPC 거점 — 정보만(건축 없음)
 		ClickRouter.FOCUS_PARTY:
-			# 정보 패널은 항상 연다. 아직 선택 전이고 행동 가능하면 함께 선택(파랑 범위 + 행동 메뉴).
-			_show_party_info(party)
-			if not _selected and (party.can_move() or party.can_rest()):
-				_select()
-			elif _selected:
-				_enter_move_mode()   # 재클릭 = 팝업/사격 취소하고 중앙 메뉴로 복귀
+			if clicked_party == party:
+				# 같은 활성 부대: 정보 표시 + (미선택이고 행동 가능하면 선택 / 선택 중이면 메뉴 복귀).
+				_show_party_info(party)
+				if not _selected and (party.can_move() or party.can_rest()):
+					_select()
+				elif _selected:
+					_enter_move_mode()   # 재클릭 = 팝업/사격 취소하고 중앙 메뉴로 복귀
+			else:
+				# 다른 플레이어 부대로 전환: 기존 선택 해제 → 활성 부대 교체 → 정보·선택.
+				if _selected:
+					_deselect()
+				party = clicked_party
+				_show_party_info(party)
+				if party.can_move() or party.can_rest():
+					_select()
 		ClickRouter.FOCUS_NPC:
 			# NPC는 정보만 표시한다(선택·이동 없음). 진행 중이던 선택은 해제한다.
 			if _selected:
@@ -458,18 +471,60 @@ func _building_at(cell: Vector2i) -> Building:
 ## 캠프에 인접(또는 그 위)한 플레이어 부대를 돌려준다(수비대 편성용). 없으면 null.
 ## 멤버 0명이어도 인접이면 돌려준다 — 수비대 병사를 다시 넣어 부대를 되살릴 수 있게.
 func _party_at_camp(camp) -> Party:
-	var pcell := terrain.local_to_map(party.position)
-	if pcell in camp.cells:
-		return party
-	for c in camp.cells:
-		if pcell in terrain.get_surrounding_cells(c):
-			return party
+	for p in _units:
+		var pcell := terrain.local_to_map(p.position)
+		if pcell in camp.cells:
+			return p
+		for c in camp.cells:
+			if pcell in terrain.get_surrounding_cells(c):
+				return p
+	return null
+
+## 그 칸에 선 플레이어 부대(멤버 있는 것)를 찾는다(없으면 null). 클릭 선택 판정에 쓴다.
+func _player_party_at(cell: Vector2i) -> Party:
+	for p in _units:
+		if p.members.is_empty():
+			continue
+		if terrain.local_to_map(p.position) == cell:
+			return p
 	return null
 
 ## 수비대 편성으로 병력이 바뀌면 부대 일람·안개(부대 시야)를 갱신한다.
 func _on_garrison_changed() -> void:
 	party_roster.set_parties(_units)
 	_update_fog()
+
+## [새 부대 편성]: 캠프 인접 빈 칸에 빈 새 부대를 만들어 _units에 넣고, 그 부대를 편성 대상으로 캠프 메뉴를 다시 연다.
+## 인접 빈 칸이 없으면 아무 일도 하지 않는다.
+func _on_raise_party(camp) -> void:
+	var cell := _empty_adjacent_cell(camp)
+	if cell == Vector2i(-1, -1):
+		return
+	var p: Party = PARTY_SCENE.instantiate()
+	add_child(p)
+	p.party_name = "새 부대"
+	p.faction_name = _player_faction.name   # 플레이어 세력(빈 부대는 토큰 안 보임 — 수비대에서 채우면 나타남)
+	p.position = terrain.map_to_local(cell)
+	_units.append(p)
+	party_roster.set_parties(_units)
+	_update_fog()
+	camp_menu.open(camp, p)   # 새 부대를 편성 대상으로
+
+## 캠프에 인접한(캠프 밖) 빈 칸을 하나 찾는다. 맵 안·미점유·산 아님. 없으면 (-1,-1).
+func _empty_adjacent_cell(camp) -> Vector2i:
+	var occ := _occupied_cells(null)
+	for cc in camp.cells:
+		for n in terrain.get_surrounding_cells(cc):
+			if n in camp.cells:
+				continue   # 캠프 발자국 밖에 배치
+			if n.x < 0 or n.y < 0 or n.x >= MAP_WIDTH or n.y >= MAP_HEIGHT:
+				continue
+			if occ.has(n):
+				continue
+			if terrain.get_cell_source_id(n) == Terrain.MOUNTAIN:
+				continue   # 산엔 배치 안 함(이동 불가 지형)
+			return n
+	return Vector2i(-1, -1)
 
 ## 그 셀에 선 NPC 부대를 찾는다(없으면 null). 안개에 가려 보이지 않는(visible == false) NPC는 제외한다.
 func _npc_at(cell: Vector2i) -> Party:
@@ -494,10 +549,11 @@ func _open_building_info(b) -> void:
 	party_roster.hide()
 	building_info.open(b)
 
-## exclude를 뺀 모든 부대(플레이어 + NPC)가 점유한 칸 집합({cell: true}). 이동 장애물로 넘긴다.
+## exclude를 뺀 모든 부대(플레이어 전부 + NPC)가 점유한 칸 집합({cell: true}). 이동 장애물로 넘긴다.
+## 빈 부대(멤버 0)도 칸을 차지한다 — 새로 편성한 빈 부대가 자리를 지켜 겹침(두 부대가 한 칸)을 막는다.
 func _occupied_cells(exclude) -> Dictionary:
 	var occ := {}
-	for p in [party] + _npc_parties:
+	for p in _units + _npc_parties:
 		if p == exclude:
 			continue
 		occ[terrain.local_to_map(p.position)] = true
@@ -514,7 +570,7 @@ func _npc_targets(fn: String, party_entries: Array, camp_entries: Array) -> Arra
 ## 살아 있는 모든 부대를 {cell, faction} 목록으로. NpcAi.enemy_cells의 입력(세력 필터가 자기 부대를 걸러낸다).
 func _party_entries() -> Array:
 	var out: Array = []
-	for p in [party] + _npc_parties:
+	for p in _units + _npc_parties:
 		if p.members.is_empty():
 			continue
 		out.append({"cell": terrain.local_to_map(p.position), "faction": p.faction_name})
@@ -983,8 +1039,8 @@ func _npc_attack_phase(epoch: int) -> void:
 		if target != null:
 			attacker.mark_attacked()
 			var ranged := _is_ranged_engagement(attacker, target)
-			if target == party:
-				await _run_battle(attacker, target, ranged)   # 플레이어가 방어 → 오버레이 관전
+			if target in _units:
+				await _run_battle(attacker, target, ranged)   # 플레이어 부대가 방어 → 오버레이 관전
 			else:
 				_resolve_battle_headless(attacker, target, ranged)   # NPC끼리 → 즉시 결산
 			continue
@@ -1021,7 +1077,7 @@ func _adjacent_enemy(attacker):
 	var in_range := {}
 	for c in HexGrid.cells_within(terrain, terrain.local_to_map(attacker.position), reach, MAP_WIDTH, MAP_HEIGHT):
 		in_range[c] = true
-	for other in [party] + _npc_parties:
+	for other in _units + _npc_parties:
 		if other == attacker or other.members.is_empty():
 			continue
 		if in_range.has(terrain.local_to_map(other.position)):

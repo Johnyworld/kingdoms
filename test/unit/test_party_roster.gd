@@ -36,10 +36,12 @@ func test_button_has_name_commander_and_count() -> void:
 	assert_string_contains(text, "테스트맨", "버튼에 지휘관 이름 포함")
 	assert_string_contains(text, "2", "버튼에 인원 수 포함")
 
-func test_no_commander_shows_dash() -> void:
+func test_member_party_shows_auto_commander() -> void:
+	# 멤버가 있으면 add_member가 지휘관을 자동 지정하므로, 일람에 뜨는 부대는 항상 지휘관 이름을 보인다.
+	# (지휘관 없는 부대 = 멤버 0명이라 일람에서 제외됨 → "—"는 일람에 뜨지 않는다.)
 	roster.set_parties([_party("무명 부대", ["병사"])])
 	var text: String = (roster._list.get_child(0) as Button).text
-	assert_string_contains(text, "—", "지휘관 없으면 대시 표시")
+	assert_string_contains(text, "병사", "멤버 있는 부대는 자동 지정 지휘관 이름 표시")
 
 func test_set_parties_replaces_list() -> void:
 	roster.set_parties([_sample_party(), _party("2부대", ["갑", "을"])])

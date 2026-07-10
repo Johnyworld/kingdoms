@@ -66,6 +66,16 @@ func test_add_member_no_duplicate() -> void:
 	p.add_member(h)
 	assert_eq(p.members.size(), 1, "같은 멤버 중복 추가 방지")
 
+func test_add_member_auto_commander() -> void:
+	# 빈 부대에 첫 멤버 추가 시 지휘관 자동 지정(새 부대 편성으로 수비대 병사를 채울 때 필요).
+	var p := _party()
+	var a := _human()
+	var b := _human()
+	p.add_member(a)
+	assert_eq(p.commander, a, "첫 멤버가 지휘관이 됨")
+	p.add_member(b)
+	assert_eq(p.commander, a, "이후 멤버 추가는 지휘관을 바꾸지 않음")
+
 # --- 멤버 제거 (수비대 편성) ---
 
 func test_remove_member() -> void:

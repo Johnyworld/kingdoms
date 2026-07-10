@@ -8,6 +8,9 @@ signal build_selected(type_id: String, territory: Territory)
 ## 수비대 편성으로 병사가 이동할 때 방출. game.gd가 받아 부대 일람·안개를 갱신한다.
 signal garrison_changed
 
+## [새 부대 편성] 클릭 시 방출. game.gd가 캠프 인접에 빈 새 부대를 만들어 편성 대상으로 삼는다.
+signal raise_party(building: Building)
+
 var _root: Control
 var _res_grid: GridContainer
 var _camp_title: Label     # 우측 패널 제목 = 영지 이름
@@ -154,6 +157,12 @@ func _build_garrison_panel() -> Control:
 	_garrison_list.add_theme_constant_override("separation", 4)
 	gar_col.add_child(_garrison_list)
 	cols.add_child(gar_col)
+
+	vbox.add_child(HSeparator.new())
+	var raise_btn := Button.new()
+	raise_btn.text = "새 부대 편성"
+	raise_btn.pressed.connect(func() -> void: raise_party.emit(_building))
+	vbox.add_child(raise_btn)
 
 	_garrison_panel.hide()
 	return _garrison_panel

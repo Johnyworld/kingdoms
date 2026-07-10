@@ -166,6 +166,25 @@ func test_move_emits_garrison_changed() -> void:
 	menu._member_to_garrison(p.members[0])
 	assert_signal_emitted(menu, "garrison_changed", "편성 이동 시 방출")
 
+# --- 새 부대 편성 ---
+
+func _raise_button() -> Button:
+	# 편성 패널 vbox의 마지막 자식이 "새 부대 편성" 버튼.
+	var vbox = menu._garrison_panel.get_child(0)
+	return vbox.get_child(vbox.get_child_count() - 1) as Button
+
+func test_raise_button_present() -> void:
+	_join_territory()
+	menu.open(building, _party_with(1))
+	assert_eq(_raise_button().text, "새 부대 편성", "편성 패널에 새 부대 편성 버튼")
+
+func test_raise_button_emits_signal() -> void:
+	_join_territory()
+	menu.open(building, _party_with(1))
+	watch_signals(menu)
+	_raise_button().pressed.emit()
+	assert_signal_emitted_with_parameters(menu, "raise_party", [building], "버튼 클릭 → raise_party(building)")
+
 func test_party_button_press_moves_member() -> void:
 	# 버튼 pressed 시그널 경로(실제 클릭)로 이동 — 시그널 처리 중 리스트 재구성이 안전해야 한다(locked 방지).
 	_join_territory()

@@ -55,6 +55,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 - [Camp Capture (캠프 점령)](features/camp-capture.md) — 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
 - [Garrison (캠프 수비대)](features/garrison.md) — 캠프 방어 병력(기본 4명), 점령하려면 수비대를 먼저 격파
+- [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 캠프 수비대에서 새 부대 편성
 - [Victory & Defeat (승패)](features/victory.md) — 세력 소멸(10턴 유예)로만 승패 · 정복 승리 · 결과 오버레이 · 타이틀 복귀
 
 ### 데이터 (`data/`)
