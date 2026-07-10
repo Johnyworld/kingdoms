@@ -407,7 +407,7 @@ func _handle_click(world_pos: Vector2) -> void:
 			if _selected:
 				_deselect()
 			_hide_party_info()
-			camp_menu.open(building)
+			camp_menu.open(clicked)   # 클릭된 캠프(점령으로 얻은 캠프 포함), 시작 캠프 고정 아님
 		ClickRouter.BUILDING_INFO:
 			_open_building_info(clicked)
 		ClickRouter.NPC_BASE_INFO:
