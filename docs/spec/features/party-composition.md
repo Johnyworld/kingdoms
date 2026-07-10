@@ -1,6 +1,6 @@
 # Feature: Party Composition (부대 편성 — 다중 부대)
 
-> 스크립트: `scenes/game/game.gd` (`_units`, `party`(활성 부대), `_player_party_at`, `_raise_party`) · `scenes/camp/camp_menu.gd` (`raise_party` 시그널)
+> 스크립트: `scenes/game/game.gd` (`_units`, `party`(활성 부대), `_player_party_at`, `_raise_party`, `_split_party`, `_merge_targets`) · `scenes/camp/camp_menu.gd` (`raise_party` 시그널) · `scenes/party/split_panel.gd` (`SplitPanel`) · `scenes/party/party.gd` (`merge_from`)
 
 플레이어가 **여러 부대**를 거느리고, 각각을 선택해 조작한다. 지금까지는 단일 부대(`party`) 전제였으나,
 이 기능으로 **다중 부대 + 선택** 토대를 놓고, 첫 생성 수단으로 **캠프 수비대에서 새 부대를 편성**한다.
@@ -30,11 +30,31 @@
 - 이후 기존 [수비대 편성](garrison.md#수비대-편성-camp_menu)으로 수비대 병사를 새 부대로 옮기면 부대가 나타난다.
 - 생성된 부대는 완전한 플레이어 부대다 — 선택·이동·전투·점령·수비대 편성 모두 가능.
 
+## 부대 분할 (`_split_party` + `SplitPanel`)
+
+선택한 부대의 멤버 일부를 인접 칸의 **새 부대**로 나눈다(재조직 — 턴 소비 없음).
+
+- **[분할]** — 부대 [행동 메뉴](party-action-menu.md)의 버튼. 활성 부대의 **멤버가 2명 이상**이고 **인접 빈 칸**이 있을 때만 활성.
+- `game.gd` `_split_party()`: 활성 부대 인접 빈 칸(`_empty_adjacent_cell` 재사용, 캠프가 아니라 부대 기준)에 **빈 새 부대**를 만들어 `_units`에 넣고, **분할 패널**(`SplitPanel`)을 연다.
+- **분할 패널**(`scenes/party/split_panel.gd`, 코드 UI CanvasLayer — [수비대 편성](garrison.md#수비대-편성-camp_menu)과 같은 두 목록 패턴): 왼쪽 **원 부대**·오른쪽 **새 부대**. 멤버 버튼 클릭으로 양쪽을 오간다(`Party.add_member`/`remove_member`). 변경 시 `changed` 시그널 → `game.gd`가 일람·안개 갱신.
+- **닫을 때**: 새 부대가 **비어 있으면**(아무도 안 옮김) 분할 취소로 그 새 부대를 제거한다(`_units`에서 빼고 free). 양쪽 다 멤버가 있으면 두 부대로 확정.
+
+## 부대 병합 (`_merge_targets` + `Party.merge_from`)
+
+선택한 부대에 **인접한 아군 부대**를 합친다(재조직 — 턴 소비 없음).
+
+- **대상 판정**(`_update_ranges` → `_merge_targets`): 활성 부대 칸에 **인접**하고 멤버가 있는 **다른 플레이어 부대**. cell → party.
+- **클릭**: 활성 부대 선택 상태에서 인접 아군 부대 칸을 클릭 → **[병합] 팝업**([공격] 팝업과 같은 `PartyActionMenu`). (선택 중 인접 아군 클릭은 전환 대신 병합 팝업 — 전환하려면 먼저 선택 해제.)
+- **[병합]**: `Party.merge_from(other)` — 그 아군 부대(other)의 멤버를 **활성 부대로 흡수**하고, other는 `_units`에서 빼고 free한다. 활성 부대는 자리를 지키고 병력이 합쳐진다.
+
+## 새 동작 (엔티티)
+
+- `Party.merge_from(other) -> void` — `other.members`를 모두 자신에게 `add_member`로 옮기고 `other.members`를 비운다(other는 빈 부대가 됨 → 호출부가 제거). 자신의 지휘관은 유지(없으면 첫 합류 멤버).
+
 ## 이번 슬라이스 제외 (미구현)
 
-- **부대 분할**(선택 부대의 멤버 일부 → 인접 칸 새 부대) — 다음 슬라이스.
-- **부대 병합**(인접 두 아군 부대 합치기) — 다음 슬라이스.
 - 부대 수 상한·유지비.
+- 분할·병합의 턴 소비/쿨다운(현재 무료 재조직 — 밸런스는 추후).
 
 ## 테스트 시나리오
 
@@ -46,6 +66,15 @@
 
 **빈 부대 처리**(기존, 재확인) — `test/unit/test_party_roster.gd`·`test/unit/test_party.gd`:
 - 멤버 0명 부대는 일람 제외, `_draw` 생략.
+
+**부대 병합** — `test/unit/test_party.gd`:
+- [정상] `a.merge_from(b)` 후 a에 b 멤버가 합쳐지고 b는 빈 배열, a 지휘관 유지
+- [경계] 빈 부대를 `merge_from` → a 변화 없음
+
+**분할 패널** — `test/unit/test_split_panel.gd`:
+- [정상] `open(orig, new)` → 두 목록이 각 인원수로 채워짐
+- [정상] 원 부대원 클릭 → 원 −1, 새 부대 +1(반대도); 변경 시 `changed` 방출
+- [정상] 버튼 pressed 경로로도 이동(리스트 재구성 안전 — locked 방지)
 
 `game.gd`의 활성 `party` 전환·`_player_party_at`·`_raise_party`·다중 시야 합산은 하네스로 검증한다(선택·이동·공격·점령·안개가 부대 1개일 때 이전과 동일, 2개 이상에서 각각 독립 동작).
 

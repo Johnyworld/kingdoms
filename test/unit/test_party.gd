@@ -109,6 +109,26 @@ func test_remove_member_not_present_noop() -> void:
 	p.remove_member(_human())   # 없는 멤버
 	assert_eq(p.members.size(), 1, "없는 멤버 제거는 no-op")
 
+# --- 병합 (merge_from) ---
+
+func test_merge_from_combines() -> void:
+	var a := _party()
+	var b := _party()
+	var a1 := _human()
+	a.add_member(a1)
+	b.add_member(_human())
+	b.add_member(_human())
+	a.merge_from(b)
+	assert_eq(a.members.size(), 3, "a에 b 멤버가 합쳐짐(1+2)")
+	assert_eq(b.members.size(), 0, "b는 빈 부대가 됨")
+	assert_eq(a.commander, a1, "a 지휘관은 유지")
+
+func test_merge_from_empty_noop() -> void:
+	var a := _party()
+	a.add_member(_human())
+	a.merge_from(_party())   # 빈 부대 병합
+	assert_eq(a.members.size(), 1, "빈 부대 병합은 변화 없음")
+
 # --- 지휘관(commander) ---
 
 func test_commander_null_by_default() -> void:

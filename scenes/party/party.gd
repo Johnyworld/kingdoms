@@ -51,6 +51,16 @@ func remove_member(human) -> void:
 func commander_name() -> String:
 	return commander.human_name if commander else "—"
 
+## 다른 부대(other)의 멤버를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
+## 이 부대 지휘관은 유지된다(없으면 add_member가 첫 합류 멤버로 지정). 빈 other면 변화 없음.
+func merge_from(other) -> void:
+	for h in other.members.duplicate():
+		add_member(h)
+	other.members = []
+	other.commander = null
+	other.queue_redraw()
+	queue_redraw()
+
 ## 부대 이동력 = 멤버 이동력의 최소값(가장 느린 멤버). 멤버 없으면 0.
 func movement() -> int:
 	if members.is_empty():

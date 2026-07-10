@@ -70,3 +70,21 @@ func test_camp_attack_actions_buttons() -> void:
 
 func test_camp_attack_actions_enabled() -> void:
 	assert_true(_by_id(PartyActionMenu.camp_attack_actions(), "attack")["enabled"], "공격 활성")
+
+# --- 병합 팝업 (merge_actions) ---
+
+func test_merge_actions_button() -> void:
+	assert_eq(_ids(PartyActionMenu.merge_actions()), ["merge"], "인접 아군 팝업 [병합]")
+
+# --- 분할 버튼 (party_actions can_split) ---
+
+func test_party_actions_split_when_can() -> void:
+	# 이동 전 + 분할 가능 → [사격][휴식][경계][분할].
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, true)), ["shoot", "rest", "alert", "split"], "분할 가능 시 분할 버튼 추가")
+
+func test_party_actions_no_split_when_cannot() -> void:
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false)), ["shoot", "rest", "alert"], "분할 불가 시 분할 없음")
+
+func test_party_actions_no_split_after_move() -> void:
+	# 이동 후에는 분할 없음(휴식·경계와 동일).
+	assert_eq(_ids(PartyActionMenu.party_actions(true, true, false, true)), ["shoot", "wait"], "이동 후엔 분할 없음")

@@ -12,8 +12,8 @@ var _root: Control
 var _panel: PanelContainer
 var _list: VBoxContainer
 
-## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계], 이동 후 [사격][대기](+되돌리기 가능하면 [취소]). 노드 비의존.
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool) -> Array:
+## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계](+분할 가능하면 [분할]), 이동 후 [사격][대기](+되돌리기 가능하면 [취소]). 노드 비의존.
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false) -> Array:
 	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
 	if moved:
 		out.append({"id": "wait", "label": "대기", "enabled": true})
@@ -22,6 +22,8 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool) -> A
 	else:
 		out.append({"id": "rest", "label": "휴식", "enabled": true})
 		out.append({"id": "alert", "label": "경계", "enabled": true})
+		if can_split:
+			out.append({"id": "split", "label": "분할", "enabled": true})
 	return out
 
 ## 적 클릭 팝업 버튼 [공격][사격]을 각 활성 조건으로(이동은 없음).
@@ -41,6 +43,10 @@ static func capture_actions() -> Array:
 ## 방어된(수비대 있는) 적 캠프 클릭 팝업 버튼 [공격]. 인접 가능한 캠프에서만 열리므로 활성.
 static func camp_attack_actions() -> Array:
 	return [{"id": "attack", "label": "공격", "enabled": true}]
+
+## 인접 아군 부대 클릭 팝업 버튼 [병합]. 인접 아군에서만 열리므로 활성.
+static func merge_actions() -> Array:
+	return [{"id": "merge", "label": "병합", "enabled": true}]
 
 func _ready() -> void:
 	layer = 50

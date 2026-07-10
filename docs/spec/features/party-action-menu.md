@@ -33,6 +33,10 @@
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
 - `capture_actions() -> Array` — **적 거점 클릭 팝업** `[흡수][파괴]`(둘 다 활성). → [Camp Capture](camp-capture.md).
   - `{id="absorb", label="흡수", enabled=true}` · `{id="destroy", label="파괴", enabled=true}`.
+- `camp_attack_actions() -> Array` — **방어된 적 거점 클릭 팝업** `[공격]`. → [Garrison](garrison.md).
+- `merge_actions() -> Array` — **인접 아군 부대 클릭 팝업** `[병합]`. → [Party Composition](party-composition.md).
+
+중앙 메뉴 `party_actions`에는 활성 부대가 **분할 가능**(멤버 2+ · 인접 빈 칸)하면 `{id="split", label="분할"}`이 추가된다. → [Party Composition](party-composition.md).
 
 ## UI (`party_action_menu.gd`)
 
