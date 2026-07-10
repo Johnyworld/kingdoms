@@ -573,11 +573,16 @@ func _on_split_changed() -> void:
 	party_roster.set_parties(_units)
 	_update_fog()
 
-## 분할 패널을 닫으면: 새 부대가 비어 있으면(아무도 안 옮김) 취소로 제거하고, 활성 부대 선택 상태를 갱신한다.
+## 분할 패널을 닫으면: 새 부대가 비면(아무도 안 옮김) 취소로 제거(소비 없음),
+## 확정이면 원·새 부대 둘 다 이번 턴 행동 종료(재조직 비용). 이어서 선택 상태를 갱신한다.
 func _on_split_closed() -> void:
-	if _split_new != null and _split_new.members.is_empty():
-		_units.erase(_split_new)
-		_split_new.queue_free()
+	if _split_new != null:
+		if _split_new.members.is_empty():
+			_units.erase(_split_new)   # 취소
+			_split_new.queue_free()
+		else:
+			party.mark_attacked()          # 분할 확정 → 양쪽 이번 턴 종료
+			_split_new.mark_attacked()
 	_split_new = null
 	party_roster.set_parties(_units)
 	_update_fog()
@@ -591,10 +596,11 @@ func _merge_party(other) -> void:
 	party.merge_from(other)
 	_units.erase(other)
 	other.queue_free()
+	party.mark_attacked()   # 병합(재조직) → 이번 턴 행동 종료
 	party_roster.set_parties(_units)
 	_update_fog()
 	if _selected:
-		_select()   # 병력 증가 반영(범위·메뉴 갱신)
+		_select()   # 병력 증가 반영(범위·메뉴 갱신 — 행동 종료라 메뉴는 닫힘)
 
 ## 그 셀에 선 NPC 부대를 찾는다(없으면 null). 안개에 가려 보이지 않는(visible == false) NPC는 제외한다.
 func _npc_at(cell: Vector2i) -> Party:
