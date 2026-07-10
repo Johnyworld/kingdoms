@@ -62,6 +62,12 @@ func open(building) -> void:
 		label.add_theme_color_override("font_color", line["color"])
 		_info_list.add_child(label)
 
+	# 수비대(캠프만): "수비대 N명". 캠프가 아닌 건물은 표시하지 않는다.
+	if building.building_type == BuildingTypes.CAMP:
+		var g := Label.new()
+		g.text = "수비대 %d명" % building.garrison.size()
+		_info_list.add_child(g)
+
 	# 생산 줄(있으면). 건설 중에도 완성 시 생산량을 보여준다.
 	var production: Dictionary = building.planned_production()
 	for res_name in production:

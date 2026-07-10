@@ -62,3 +62,11 @@ func test_capture_actions_both_enabled() -> void:
 	var a := PartyActionMenu.capture_actions()
 	assert_true(_by_id(a, "absorb")["enabled"], "흡수 활성")
 	assert_true(_by_id(a, "destroy")["enabled"], "파괴 활성")
+
+# --- 방어된 캠프 공격 팝업 (camp_attack_actions) ---
+
+func test_camp_attack_actions_buttons() -> void:
+	assert_eq(_ids(PartyActionMenu.camp_attack_actions()), ["attack"], "방어 캠프 팝업 [공격]")
+
+func test_camp_attack_actions_enabled() -> void:
+	assert_true(_by_id(PartyActionMenu.camp_attack_actions(), "attack")["enabled"], "공격 활성")

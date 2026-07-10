@@ -105,6 +105,23 @@ func test_npc_parties_have_four_members() -> void:
 	for id in ["qasim", "balthazar", "batur"]:
 		assert_eq(types.make_members(id).size(), 4, "%s 멤버 4명" % id)
 
+# --- 수비대(garrison) 병력 ---
+
+func test_make_garrison_default_four() -> void:
+	var g: Array = types.make_garrison()
+	assert_eq(g.size(), 4, "기본 수비대 4명")
+	assert_true(g[0] is Human, "수비대원은 Human")
+
+func test_make_garrison_count_and_full_hp() -> void:
+	var g: Array = types.make_garrison(3)
+	assert_eq(g.size(), 3, "지정 수만큼 생성")
+	for h in g:
+		assert_eq(h.hit_points, h.max_hp(), "생성 시 풀피")
+		assert_eq(h.movement, 4, "이동력 인간 기본")
+
+func test_make_garrison_zero_empty() -> void:
+	assert_eq(types.make_garrison(0).size(), 0, "0명 → 빈 배열")
+
 # --- 경계 ---
 
 func test_unknown_id_empty() -> void:

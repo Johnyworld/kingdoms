@@ -20,6 +20,7 @@
   - `HSeparator`.
   - **정보 리스트**(VBox) — 아래 줄들을 순서대로 채운다. 없는 항목은 줄을 만들지 않는다.
     - **영지·세력** — `building.map_label_lines()`의 각 줄(`{text, color}`): 영지명(흰색), 세력명(세력색). 영지가 없으면 없음.
+    - **수비대** — 캠프면 `"수비대 N명"`(N = `building.garrison.size()`). 캠프가 아닌 건물(농장 등)은 없음. → [Garrison](garrison.md).
     - **생산량** — `building.planned_production()`의 각 자원: `"%s +%d / 턴"` (예: `"밀 +1 / 턴"`). 생산이 없으면(캠프 등) 없음.
       - 건설 중이어도 **완성 시 생산량**을 보여준다(`planned_production()`은 건설 여부와 무관, `production()`과 다름).
 

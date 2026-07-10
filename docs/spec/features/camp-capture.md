@@ -14,13 +14,13 @@
 - **발견된**(`camp.visible`) NPC 거점만 대상. 미발견(안개) 거점은 제외.
 - 부대가 그 캠프에 **인접 가능**하면 점령 대상 — `_camp_stand(camp, start)`가 설 자리(현재 칸 또는 이동범위 내 인접 칸)를 돌려주면 점령 가능, 없으면(`Vector2i(-1,-1)`) 제외.
   - 판정: 캠프 7칸 중 하나라도 이웃 칸이 (현재 칸 ∪ 이동 도달 칸 `_reachable`)에 있으면 인접 가능. 이미 인접이면 현재 칸을 설 자리로.
-- 점령 가능한 캠프의 **모든 칸**을 `_capture_targets[cell] = {camp, stand}`에 넣는다(어느 칸을 클릭해도 점령).
-- 표시: 점령 가능 캠프 칸은 [공격 가능 적]과 같은 **빨강 오버레이**로 그린다(MOVE 모드). → [Selection & Movement](selection-and-movement.md).
+- 인접 가능한 적 캠프의 **모든 칸**을 `game.gd`의 `_compute_camp_targets`가 기록한다. **수비대([Garrison](garrison.md)) 유무로 갈린다** — 방어된 캠프는 [공격] 대상, **무방비 캠프만 `_capture_targets`(점령 대상)**.
+- 표시: 두 경우 모두 캠프 칸을 [공격 가능 적]과 같은 **빨강 오버레이**로 그린다(MOVE 모드). → [Selection & Movement](selection-and-movement.md).
 
 ## 점령 흐름 (클릭 → 팝업 → 실행)
 
-1. MOVE 모드에서 **점령 가능한 캠프 칸 클릭** → 그 캠프 근처에 **[흡수][파괴] 팝업**을 연다(`_open_capture_popup`, [공격] 팝업과 같은 `PartyActionMenu`).
-   - 점령 **불가**(인접 못 함)하거나 **미선택** 상태의 캠프 클릭 → 기존 [거점 정보 패널](building-info.md)([NPC Bases](npc-bases.md) `NPC_BASE_INFO`).
+1. MOVE 모드에서 **무방비 캠프 칸 클릭** → 그 캠프 근처에 **[흡수][파괴] 팝업**을 연다(`_open_capture_popup`, [공격] 팝업과 같은 `PartyActionMenu`). (방어된 캠프는 대신 [공격] 팝업 → [Garrison](garrison.md).)
+   - 인접 **불가**하거나 **미선택** 상태의 캠프 클릭 → 기존 [거점 정보 패널](building-info.md)([NPC Bases](npc-bases.md) `NPC_BASE_INFO`).
 2. **[흡수]/[파괴] 선택**(`_capture_camp`):
    - 이미 인접(설 자리 == 현재 칸)이면 즉시 실행.
    - 아니면 설 자리로 **이동 애니메이션** 후 실행(`_move_player_to`의 이동 후 처리 `_after_move`가 점령을 이어받는다 — 근접 공격과 같은 방식).
@@ -62,9 +62,12 @@ NPC도 이동 뒤 **공격 페이즈**에서 적 캠프를 점령한다 → [NPC
 
 - 캠프 흡수/파괴로 세력이 캠프 0이 되면 **세력 소멸(10턴 유예) → 정복 승리 / 플레이어 패배** 판정이 이어진다. → [승패](victory.md).
 
+## 관련 후속
+
+- 캠프에 **수비대**가 있으면 점령 전에 먼저 격파해야 한다 → [Garrison](garrison.md). 무방비(수비대 0) 캠프만 [흡수/파괴] 대상.
+
 ## 미구현
 
-- 캠프 **수비대**(거점 방어 부대) — 현재 인접만 하면 즉시 점령(플레이어·NPC 모두).
 - NPC의 점령은 **흡수만**(파괴는 안 함).
 
 ## 테스트 시나리오

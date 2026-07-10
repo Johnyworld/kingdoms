@@ -71,10 +71,13 @@ var _attack_targets: Dictionary = {}
 var _attack_cells: Array[Vector2i] = []   # 공격 가능 적 칸(MOVE에서 빨강)
 var _shoot_cells: Array[Vector2i] = []    # 사격 가능 적 칸([사격] 활성 판정·타겟)
 var _shoot_area_cells: Array[Vector2i] = []   # 사격 사거리 전체 칸(SHOOT 모드 빨강 오버레이)
-# 점령 가능한 적 거점: camp 칸 → {camp, stand}. 빨강 오버레이·클릭 팝업에 쓴다.
-var _capture_targets: Dictionary = {}
-var _capture_cells: Array[Vector2i] = []  # 점령 가능 캠프 칸(MOVE에서 빨강)
+# 인접 가능한 적 거점: 수비대 유무로 나뉜다. camp 칸 → {camp, stand}. 빨강 오버레이·클릭 팝업에 쓴다.
+var _capture_targets: Dictionary = {}     # 무방비 캠프(점령 대상)
+var _capture_cells: Array[Vector2i] = []
+var _camp_attack_targets: Dictionary = {} # 방어된 캠프(수비대 공격 대상)
+var _camp_attack_cells: Array[Vector2i] = []
 var _capture_target = null                # 거점 점령 팝업의 대상 항목({camp, stand})(없으면 아님)
+var _camp_attack_target = null            # 방어 캠프 공격 팝업의 대상 항목({camp, stand})(없으면 아님)
 var _popup_target = null                  # 적 클릭 팝업의 대상 항목(없으면 중앙 메뉴)
 var _undo_party = null                     # 되돌릴 수 있는 마지막 이동의 부대(없으면 null)
 var _undo_cell: Vector2i                   # 그 부대의 이동 전 칸
@@ -191,6 +194,7 @@ func _setup_factions() -> void:
 	_player_faction = Faction.new(spec["faction"], spec["color"])
 	_player_faction.add_territory(territory)
 	territory.add_building(building)
+	building.garrison = UnitTypes.make_garrison(4)   # 플레이어 캠프 기본 수비대
 	_territories = [territory]
 	_factions = [_player_faction]
 
@@ -210,6 +214,7 @@ func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
 	add_child(camp)
 	camp.setup(terrain, base_cell, BuildingTypes.CAMP)   # 완성 상태(건설 중 아님)
 	territory.add_building(camp)
+	camp.garrison = UnitTypes.make_garrison(4)   # NPC 캠프 기본 수비대
 	return camp
 
 ## 캠프 카탈로그의 초기 자원 사본(영지 생성 시 시작 자원). 플레이어·NPC 공용.
@@ -258,7 +263,7 @@ func _update_ranges() -> void:
 		_reachable[c] = true
 	_move_cells = move_cells
 	_compute_attack_targets(start)
-	_compute_capture_targets(start)
+	_compute_camp_targets(start)
 	_refresh_overlay()
 
 ## 보이는 각 NPC를 공격 가능 여부로 분류한다. 근접=(현재∪이동칸 중 인접칸 존재), 사격=(원거리 무기·현재 위치 사거리 내).
@@ -294,19 +299,26 @@ func _cell_melee_reachable(enemy_cell: Vector2i, start: Vector2i) -> bool:
 			return true
 	return false
 
-## 발견된 각 NPC 거점 중 인접 가능한 것을 점령 대상으로 분류한다(캠프 칸 → {camp, stand}).
-func _compute_capture_targets(start: Vector2i) -> void:
+## 발견된 각 NPC 거점 중 인접 가능한 것을 분류한다. 수비대 있으면 공격 대상, 없으면 점령 대상(캠프 칸 → {camp, stand}).
+func _compute_camp_targets(start: Vector2i) -> void:
 	_capture_targets = {}
 	_capture_cells = []
+	_camp_attack_targets = {}
+	_camp_attack_cells = []
 	for camp in _npc_buildings:
 		if not camp.visible:
-			continue   # 미발견(안개) 거점은 점령 대상 아님
+			continue   # 미발견(안개) 거점은 대상 아님
 		var stand := _camp_stand(camp, start)
 		if stand == Vector2i(-1, -1):
 			continue   # 인접 못 함
+		var defended: bool = not camp.garrison.is_empty()
 		for c in camp.cells:
-			_capture_targets[c] = {"camp": camp, "stand": stand}
-			_capture_cells.append(c)
+			if defended:
+				_camp_attack_targets[c] = {"camp": camp, "stand": stand}
+				_camp_attack_cells.append(c)
+			else:
+				_capture_targets[c] = {"camp": camp, "stand": stand}
+				_capture_cells.append(c)
 
 ## 캠프에 붙어 점령할 설 자리. 이미 인접이면 현재 칸, 아니면 캠프 인접한 도달 칸 하나, 없으면 (-1,-1).
 func _camp_stand(camp, start: Vector2i) -> Vector2i:
@@ -328,6 +340,7 @@ func _refresh_overlay() -> void:
 		var red: Array[Vector2i] = []
 		red.append_array(_attack_cells)
 		red.append_array(_capture_cells)
+		red.append_array(_camp_attack_cells)
 		overlay.show_ranges(_move_cells, red)
 
 ## 모든 시야원(주인공 부대 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
@@ -389,7 +402,12 @@ func _handle_click(world_pos: Vector2) -> void:
 		_open_enemy_popup(_attack_targets[cell])
 		return
 
-	# MOVE 모드: 점령 가능한 적 거점(빨강)을 클릭하면 [흡수][파괴] 팝업.
+	# MOVE 모드: 방어된 적 거점(빨강)을 클릭하면 [공격] 팝업(수비대와 전투).
+	if _selected and _mode == MODE_MOVE and _camp_attack_targets.has(cell) and party.can_attack():
+		_open_camp_attack_popup(_camp_attack_targets[cell])
+		return
+
+	# MOVE 모드: 무방비 적 거점(빨강)을 클릭하면 [흡수][파괴] 팝업.
 	if _selected and _mode == MODE_MOVE and _capture_targets.has(cell) and party.can_attack():
 		_open_capture_popup(_capture_targets[cell])
 		return
@@ -539,6 +557,49 @@ func _capture_camp(entry: Dictionary, absorb: bool) -> void:
 	_deselect()
 	_hide_party_info()
 	_move_player_to(start, stand, {"capture": entry["camp"], "absorb": absorb})
+
+## [공격]: 방어된 적 캠프의 수비대와 전투한다. 인접 칸으로(필요 시) 이동 후 전투.
+func _attack_camp(entry: Dictionary) -> void:
+	var start := terrain.local_to_map(party.position)
+	var stand: Vector2i = entry["stand"]
+	if stand == start:
+		_begin_camp_battle(entry["camp"])   # 이미 인접 — 제자리 전투
+		return
+	party.mark_moved()
+	_deselect()
+	_hide_party_info()
+	_move_player_to(start, stand, {"camp_attack": entry["camp"]})
+
+## 플레이어가 캠프 수비대와 전투를 개시한다. 공격은 부대 행동을 끝낸다(mark_attacked).
+func _begin_camp_battle(camp) -> void:
+	party.mark_attacked()
+	_undo_party = null
+	if _selected:
+		_deselect()
+	_hide_party_info()
+	_run_camp_battle(party, camp)   # 비차단(await로 백그라운드 진행)
+
+## 캠프 수비대를 임시 방어 부대로 만들어 전투하고, 생존자를 다시 camp.garrison에 반영한다.
+func _run_camp_battle(attacker, camp) -> void:
+	var gp := _make_garrison_party(camp)
+	add_child(gp)
+	await _run_battle(attacker, gp, false, Vector2i(-1, -1))   # 오버레이 관전(플레이어가 공격자)
+	camp.garrison = gp.members
+	gp.queue_free()
+
+## 캠프 수비대(garrison)를 멤버로 하는 임시 방어 부대를 만든다. 세력 색·캠프 중심 위치. _npc_parties에 넣지 않는다.
+func _make_garrison_party(camp) -> Party:
+	var gp: Party = PARTY_SCENE.instantiate()
+	gp.party_name = "수비대"
+	if camp.territory != null and camp.territory.faction != null:
+		gp.faction_name = camp.territory.faction.name
+		gp.token_color = camp.territory.faction.color
+	for m in camp.garrison:
+		gp.add_member(m)
+	if not camp.garrison.is_empty():
+		gp.commander = camp.garrison[0]
+	gp.position = terrain.map_to_local(camp.center_cell())
+	return gp
 
 ## 점령 실행: 행동을 끝내고(mark_attacked) 흡수/파괴한 뒤 선택·안개·일람을 갱신한다.
 func _do_capture(camp, absorb: bool) -> void:
@@ -737,25 +798,36 @@ func _enter_shoot_mode() -> void:
 
 ## 중앙 부대 메뉴 [사격][휴식][경계]를 부대 토큰 근처에 연다. 행동 가능할 때만.
 func _open_action_menu() -> void:
-	_popup_target = null
-	_capture_target = null
+	_clear_popup_targets()
 	if party.can_rest():
 		var can_undo: bool = _undo_party == party
 		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
 
+## 팝업 대상 세 종류(적 부대/점령/캠프 공격)를 모두 비운다. 팝업을 새로 열기 전에 호출.
+func _clear_popup_targets() -> void:
+	_popup_target = null
+	_capture_target = null
+	_camp_attack_target = null
+
 ## 공격 가능한 적 클릭 팝업 [공격][사격]을 그 적 근처에 연다. 대상 항목을 _popup_target에 둔다.
 func _open_enemy_popup(entry: Dictionary) -> void:
-	_capture_target = null
+	_clear_popup_targets()
 	_popup_target = entry
 	party_action_menu.open(PartyActionMenu.enemy_actions(entry["melee"], entry["shoot"]), _screen_pos(terrain.map_to_local(entry["cell"])))
 
-## 점령 가능한 적 거점 클릭 팝업 [흡수][파괴]을 캠프 중심 근처에 연다. 대상 항목을 _capture_target에 둔다.
+## 무방비 적 거점 클릭 팝업 [흡수][파괴]을 캠프 중심 근처에 연다. 대상 항목을 _capture_target에 둔다.
 func _open_capture_popup(entry: Dictionary) -> void:
-	_popup_target = null
+	_clear_popup_targets()
 	_capture_target = entry
 	party_action_menu.open(PartyActionMenu.capture_actions(), _screen_pos(terrain.map_to_local(entry["camp"].center_cell())))
+
+## 방어된 적 거점 클릭 팝업 [공격]을 캠프 중심 근처에 연다. 대상 항목을 _camp_attack_target에 둔다.
+func _open_camp_attack_popup(entry: Dictionary) -> void:
+	_clear_popup_targets()
+	_camp_attack_target = entry
+	party_action_menu.open(PartyActionMenu.camp_attack_actions(), _screen_pos(terrain.map_to_local(entry["camp"].center_cell())))
 
 ## 월드 좌표 → 화면 좌표(카메라·줌 반영). 메뉴를 클릭 지점 근처에 띄우는 데 쓴다.
 func _screen_pos(world_pos: Vector2) -> Vector2:
@@ -764,6 +836,12 @@ func _screen_pos(world_pos: Vector2) -> Vector2:
 ## 메뉴 버튼 처리. 팝업(적 대상)이면 공격/사격, 중앙 메뉴면 사격 모드/휴식/경계.
 func _on_party_action(id: String) -> void:
 	if not _selected:
+		return
+	if _camp_attack_target != null:
+		var entry: Dictionary = _camp_attack_target
+		_camp_attack_target = null
+		if id == "attack":
+			_attack_camp(entry)
 		return
 	if _capture_target != null:
 		var entry: Dictionary = _capture_target
@@ -892,11 +970,21 @@ func _npc_attack_phase(epoch: int) -> void:
 			else:
 				_resolve_battle_headless(attacker, target, ranged)   # NPC끼리 → 즉시 결산
 			continue
-		# 공격할 적 부대가 없으면 인접한 적 캠프를 흡수(점령)한다.
-		var camp = _capturable_camp_for(attacker)
+		# 공격할 적 부대가 없으면 인접한 적 캠프를 처리한다: 방어되면 수비대와 전투, 무방비면 흡수.
+		var camp = _adjacent_enemy_camp(attacker)
 		if camp != null:
 			attacker.mark_attacked()
-			_transfer_camp(camp, _faction_named(attacker.faction_name))
+			if not camp.garrison.is_empty():
+				var gp := _make_garrison_party(camp)
+				add_child(gp)
+				if _camp_is_players(camp):
+					await _run_battle(attacker, gp)   # 플레이어 수비대 → 오버레이 관전
+				else:
+					_resolve_battle_headless(attacker, gp)   # NPC 수비대 → 즉시 결산
+				camp.garrison = gp.members
+				gp.queue_free()
+			else:
+				_transfer_camp(camp, _faction_named(attacker.faction_name))
 			_update_fog()
 	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
 	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
@@ -922,8 +1010,8 @@ func _adjacent_enemy(attacker):
 			return other
 	return null
 
-## attacker가 점령할 수 있는 인접(또는 그 위) 적 캠프를 찾는다(소유 세력이 다른 것). 없으면 null.
-func _capturable_camp_for(attacker):
+## attacker에 인접한(또는 그 위) 적 캠프를 찾는다(소유 세력이 다른 것). 수비대 유무는 호출부가 판단. 없으면 null.
+func _adjacent_enemy_camp(attacker):
 	var acell := terrain.local_to_map(attacker.position)
 	var fn: String = attacker.faction_name
 	var neighbors := terrain.get_surrounding_cells(acell)
@@ -946,6 +1034,10 @@ func _faction_named(fname: String):
 		if f.name == fname:
 			return f
 	return null
+
+## 그 캠프가 플레이어 소유인지(수비대 전투 관전 여부 판단).
+func _camp_is_players(camp) -> bool:
+	return camp.territory != null and camp.territory.faction == _player_faction
 
 ## 한 세력의 부대들을 동시에(부대마다 NPC_PARTY_STAGGER 지연) 애니메이션하고, 전부 끝날 때까지 대기한다.
 func _animate_faction(plans: Array) -> void:
@@ -1022,6 +1114,8 @@ func _after_move(then_action) -> void:
 	if then_action != null:
 		if then_action.has("capture"):
 			_do_capture(then_action["capture"], then_action["absorb"])   # 이동 후 점령
+		elif then_action.has("camp_attack"):
+			_begin_camp_battle(then_action["camp_attack"])   # 이동 후 수비대 전투
 		else:
 			_begin_battle(then_action["enemy"], false, then_action["occupy"])   # 이동 후 근접 전투
 		return
@@ -1046,14 +1140,15 @@ func _deselect() -> void:
 	_selected = false
 	party.set_selected(false)
 	_mode = MODE_MOVE
-	_popup_target = null
-	_capture_target = null
+	_clear_popup_targets()
 	_reachable = {}
 	_attack_targets = {}
 	_capture_targets = {}
+	_camp_attack_targets = {}
 	_move_cells = []
 	_attack_cells = []
 	_capture_cells = []
+	_camp_attack_cells = []
 	_shoot_cells = []
 	_shoot_area_cells = []
 	party_action_menu.close()

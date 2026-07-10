@@ -28,6 +28,15 @@ func _join_territory() -> void:
 	f.add_territory(t)
 	t.add_building(building)
 
+# --- 수비대 (garrison) ---
+
+func test_garrison_default_empty() -> void:
+	assert_eq(building.garrison.size(), 0, "생성 직후 수비대 없음(빈 배열)")
+
+func test_garrison_settable() -> void:
+	building.garrison = load("res://scenes/party/unit_types.gd").make_garrison(4)
+	assert_eq(building.garrison.size(), 4, "수비대를 설정할 수 있다")
+
 # --- 점유 영역 ---
 
 func test_occupies_seven_hexes() -> void:

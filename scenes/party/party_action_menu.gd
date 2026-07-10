@@ -38,6 +38,10 @@ static func capture_actions() -> Array:
 		{"id": "destroy", "label": "파괴", "enabled": true},
 	]
 
+## 방어된(수비대 있는) 적 캠프 클릭 팝업 버튼 [공격]. 인접 가능한 캠프에서만 열리므로 활성.
+static func camp_attack_actions() -> Array:
+	return [{"id": "attack", "label": "공격", "enabled": true}]
+
 func _ready() -> void:
 	layer = 50
 	_build()

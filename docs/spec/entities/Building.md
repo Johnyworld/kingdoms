@@ -37,6 +37,7 @@
 | --- | --- | --- | --- | --- |
 | 건설 중 | `under_construction` | `bool` | `false` | 참이면 건설 중(생산·시야 없음). 완성되면 거짓 |
 | 남은 턴 | `remaining_turns` | `int` | `0` | 완성까지 남은 턴. `setup`에서 `build_turns`로 채워짐. 완성 시 0 |
+| 수비대 | `garrison` | `Array` | `[]` | 캠프를 지키는 [Human](Human.md) 병력. `game.gd`가 캠프 생성 시 기본 4명을 채운다. → [Garrison](../features/garrison.md) |
 
 > 자원은 건물이 아니라 [영지](Territory.md)가 보유한다. 캠프 카탈로그의 `resources`는 **건설 시 생성되는 영지의 초기 자원**으로 쓰인다.
 

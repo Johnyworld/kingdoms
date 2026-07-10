@@ -91,6 +91,31 @@ const CATALOG := {
 	},
 }
 
+# 캠프 수비대(소집병) 아키타입. 부대 지휘관보다 약한 보통 병사. → docs/spec/features/garrison.md
+const GARRISON_STATS := {
+	"strength": 62, "wisdom": 40, "agility": 58, "charm": 40, "luck": 50,
+	"leadership": 30, "diligence": 55, "sensitivity": 40, "stamina": 40, "morale": 60,
+}
+const GARRISON_WEAPONS := ["sword"]
+const GARRISON_ARMOR := ["leather_helm", "leather_armor"]
+
+## 캠프 수비대 병력(소집병) count명을 Human으로 생성한다. 생성 시 풀피·풀 스태미나.
+static func make_garrison(count := 4) -> Array:
+	var result: Array = []
+	for i in count:
+		var h := Human.new("소집병")
+		for key in _STAT_KEYS:
+			h.set(key, GARRISON_STATS[key])
+		h.movement = HUMAN_MOVEMENT
+		h.vision = HUMAN_VISION
+		h.weapons = GARRISON_WEAPONS.duplicate()
+		h.armor = GARRISON_ARMOR.duplicate()
+		h.shield = ""
+		h.hit_points = h.max_hp()   # 시작 풀피
+		h.max_stamina = h.stamina
+		result.append(h)
+	return result
+
 ## 부대 스펙을 반환한다. 없는 id면 빈 Dictionary.
 static func get_party(id: String) -> Dictionary:
 	return CATALOG.get(id, {})

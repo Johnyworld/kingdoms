@@ -21,6 +21,10 @@ var vision := 0
 var under_construction := false   # 참이면 건설 중(생산·시야 없음).
 var remaining_turns := 0          # 완성까지 남은 턴. setup에서 build_turns로 채움.
 
+# 캠프 수비대(방어 병력, Human 목록). game.gd가 캠프 생성 시 기본 4명을 채운다.
+# 비어 있으면 무방비 → 점령 가능. → docs/spec/features/garrison.md
+var garrison: Array = []
+
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
 const FALLBACK_EDGE := Color(0.3, 0.3, 0.3)

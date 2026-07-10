@@ -79,6 +79,16 @@ func test_reopen_replaces_info_lines() -> void:
 	panel.open(_building("farm"))   # 영지 없는 건물로 재오픈
 	assert_false(_info_text().contains("파리"), "재오픈 시 이전 영지 줄이 남지 않음")
 
+func test_camp_shows_garrison_count() -> void:
+	var b := _building("camp")
+	b.garrison = load("res://scenes/party/unit_types.gd").make_garrison(3)
+	panel.open(b)
+	assert_string_contains(_info_text(), "수비대 3명", "캠프는 수비대 수 표시")
+
+func test_farm_no_garrison_line() -> void:
+	panel.open(_building("farm"))
+	assert_false(_info_text().contains("수비대"), "캠프 아닌 건물은 수비대 줄 없음")
+
 func test_camp_shows_territory_faction_no_production() -> void:
 	# NPC 거점(캠프)도 이 패널로 정보만 표시한다: 제목 "캠프" · 요약 "완성 · 시야 5" · 영지·세력, 생산 줄 없음.
 	var b := _building("camp")
