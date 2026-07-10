@@ -3,6 +3,20 @@ extends RefCounted
 ## NPC 부대 이동 결정. 가장 가까운 적(targets)에게 접근하고, 향할 적이 없으면 무작위로 배회하는 단순 AI.
 ## 노드에 의존하지 않는 순수 로직이라(ClickRouter·HexGrid 패턴) 시드 RNG로 결정적 테스트가 가능하다.
 
+# 자기 전력이 적 전력의 이 비율 미만이면 교전을 피한다(신중한 교전·후퇴 판단).
+const CAUTION_RATIO := 0.7
+
+## 부대 전력 = 멤버 hit_points 합. 부상당하면 낮아진다(교전/후퇴 판단에 쓴다).
+static func party_power(members: Array) -> int:
+	var p := 0
+	for m in members:
+		p += m.hit_points
+	return p
+
+## 자기 전력이 적 전력의 CAUTION_RATIO 이상이면 교전할 만하다(아니면 회피/후퇴).
+static func should_engage(my_power: int, enemy_power: int) -> bool:
+	return float(my_power) >= float(enemy_power) * CAUTION_RATIO
+
 ## entries({cell, faction}) 중 소속이 self_faction과 다른 항목의 cell만 모은다(적 셀 목록).
 ## 부대·캠프를 같은 형식으로 넘겨 세력으로 적/아군을 가른다. game.gd가 타깃 조립에 쓴다.
 static func enemy_cells(self_faction: String, entries: Array) -> Array:

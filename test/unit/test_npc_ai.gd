@@ -158,3 +158,28 @@ func test_select_targets_prefers_defend() -> void:
 func test_select_targets_falls_back_to_advance() -> void:
 	var advance := [Vector2i(5, 5)]
 	assert_eq(NpcAi.select_targets(advance, []), advance, "방어 대상 없으면 진격 타깃")
+
+# --- 전력 인식: party_power / should_engage (순수) ---
+
+func _soldier(hp: int) -> Object:
+	var h: Object = load("res://scenes/human/human.gd").new("병사")
+	h.hit_points = hp
+	return h
+
+func test_party_power_sums_hp() -> void:
+	assert_eq(NpcAi.party_power([_soldier(40), _soldier(30)]), 70, "멤버 hit_points 합")
+
+func test_party_power_empty_zero() -> void:
+	assert_eq(NpcAi.party_power([]), 0, "빈 부대 전력 0")
+
+func test_should_engage_equal() -> void:
+	assert_true(NpcAi.should_engage(100, 100), "대등하면 교전")
+
+func test_should_engage_boundary() -> void:
+	assert_true(NpcAi.should_engage(70, 100), "70%면 교전(경계)")
+
+func test_should_engage_outmatched() -> void:
+	assert_false(NpcAi.should_engage(60, 100), "60%면 불리 → 회피")
+
+func test_should_engage_enemy_zero() -> void:
+	assert_true(NpcAi.should_engage(10, 0), "적 전력 0이면 교전")

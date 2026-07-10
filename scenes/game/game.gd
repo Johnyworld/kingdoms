@@ -24,6 +24,9 @@ const NPC_PARTY_STAGGER := 0.2
 # NPC가 자기 캠프를 방어하는 반경(헥스). 이 안에 적 부대가 들어오면 그 침입자를 요격 우선한다.
 const NPC_DEFEND_RADIUS := 5
 
+# NPC가 후퇴를 판단할 때 주변 적 부대를 살피는 반경(헥스). 이 안에 자기보다 강한 적이 있으면 후퇴.
+const NPC_RETREAT_SCAN := 6
+
 # NPC 부대 배치 오프셋(맵 중앙 기준 칸). 초기 시야 안에 들도록 임시 배치한다.
 const NPC_OFFSETS := {
 	"qasim": Vector2i(5, 0),
@@ -641,10 +644,55 @@ func _occupied_cells(exclude) -> Dictionary:
 ## NPC 세력 fn이 향할 타깃 칸 목록. 적 부대·캠프로 진격하되, 자기 캠프가 위협받으면 침입자를 요격 우선.
 ## party_entries·camp_entries는 세력 무관하게 같으므로 _move_npcs가 턴당 한 번만 만들어 넘긴다.
 ## (enemy_cells가 세력으로 걸러 자기 부대·아군·자기 캠프는 자동 제외된다.)
-func _npc_targets(fn: String, party_entries: Array, camp_entries: Array) -> Array:
+func _npc_targets(p, party_entries: Array, camp_entries: Array) -> Array:
+	var fn: String = p.faction_name
+	# 약하면 후퇴: 근처 적이 자기보다 강하면 (적이 없는) 자기 캠프로 물러선다. 안전한 캠프가 없으면 후퇴 안 함.
+	if _should_retreat(p):
+		var safe := _safe_retreat_cells(fn)
+		if not safe.is_empty():
+			return safe
 	var advance: Array = NpcAi.enemy_cells(fn, party_entries) + NpcAi.enemy_cells(fn, camp_entries)
 	var defend := _threats_near_own_camp(fn, party_entries)
 	return NpcAi.select_targets(advance, defend)
+
+## NPC p가 후퇴해야 하는지 — NPC_RETREAT_SCAN 반경 안 적 부대 중 가장 강한 것과 비교해 교전이 불리하면 참.
+func _should_retreat(p) -> bool:
+	var scan := {}
+	for c in HexGrid.cells_within(terrain, terrain.local_to_map(p.position), NPC_RETREAT_SCAN, MAP_WIDTH, MAP_HEIGHT):
+		scan[c] = true
+	var my_power := NpcAi.party_power(p.members)
+	var worst := 0
+	for other in _units + _npc_parties:
+		if other == p or other.members.is_empty() or other.faction_name == p.faction_name:
+			continue
+		if scan.has(terrain.local_to_map(other.position)):
+			worst = maxi(worst, NpcAi.party_power(other.members))
+	return worst > 0 and not NpcAi.should_engage(my_power, worst)
+
+## 세력 fn의 후퇴 목적지(캠프 중심). 적 부대가 가까이(2칸) 있는 캠프는 제외한다 — 위협받는 캠프로 도망치지 않게.
+func _safe_retreat_cells(fn: String) -> Array:
+	var out: Array = []
+	for b in _buildings + _npc_buildings:
+		if b.building_type != BuildingTypes.CAMP:
+			continue
+		if b.territory == null or b.territory.faction == null or b.territory.faction.name != fn:
+			continue
+		if _enemy_near(b.center_cell(), fn, 2):
+			continue   # 적이 가까운 캠프로는 후퇴 안 함
+		out.append(b.center_cell())
+	return out
+
+## cell 반경 radius 안에 세력 fn이 아닌(적) 부대가 있는지.
+func _enemy_near(cell: Vector2i, fn: String, radius: int) -> bool:
+	var near := {}
+	for c in HexGrid.cells_within(terrain, cell, radius, MAP_WIDTH, MAP_HEIGHT):
+		near[c] = true
+	for other in _units + _npc_parties:
+		if other.members.is_empty() or other.faction_name == fn:
+			continue
+		if near.has(terrain.local_to_map(other.position)):
+			return true
+	return false
 
 ## 살아 있는 모든 부대를 {cell, faction} 목록으로. NpcAi.enemy_cells의 입력(세력 필터가 자기 부대를 걸러낸다).
 func _party_entries() -> Array:
@@ -1113,7 +1161,7 @@ func _move_npcs() -> void:
 	for p in _npc_parties:
 		var start := terrain.local_to_map(p.position)
 		var occ := _occupied_cells(p)   # 자기 외 모든 부대의 현재 위치 = 이동 장애물.
-		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p.faction_name, party_entries, camp_entries))
+		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p, party_entries, camp_entries))
 		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 		var f: String = p.faction_name
 		if not groups.has(f):
@@ -1145,6 +1193,8 @@ func _npc_attack_phase(epoch: int) -> void:
 			continue
 		var target = _adjacent_enemy(attacker)
 		if target != null:
+			if not NpcAi.should_engage(NpcAi.party_power(attacker.members), NpcAi.party_power(target.members)):
+				continue   # 신중한 교전: 불리하면 공격하지 않고 대기
 			attacker.mark_attacked()
 			var ranged := _is_ranged_engagement(attacker, target)
 			if target in _units:
@@ -1155,6 +1205,8 @@ func _npc_attack_phase(epoch: int) -> void:
 		# 공격할 적 부대가 없으면 인접한 적 캠프를 처리한다: 방어되면 수비대와 전투, 무방비면 흡수.
 		var camp = _adjacent_enemy_camp(attacker)
 		if camp != null:
+			if not camp.garrison.is_empty() and not NpcAi.should_engage(NpcAi.party_power(attacker.members), NpcAi.party_power(camp.garrison)):
+				continue   # 수비대가 버거우면 회피(대기)
 			attacker.mark_attacked()
 			if not camp.garrison.is_empty():
 				var gp := _make_garrison_party(camp)
