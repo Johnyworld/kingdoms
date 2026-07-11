@@ -6,6 +6,14 @@ class_name BuildingTypes
 const CAMP := "camp"
 const FARM := "farm"
 
+# 거점(center) = 세력의 전략 앵커. 캠프→마을회관→성 티어. 승리·점령·수비대·캠프 메뉴가 이 세트를 기준으로 한다.
+# (캠프 하나라도 있으면 세력 유지 → 세 티어 중 하나라도 있으면 유지.) → docs/spec/features/victory.md
+const CENTER_IDS := ["camp", "town_hall", "castle"]
+
+## 그 종류가 거점(center)인지 — 캠프/마을회관/성. 승리·점령·수비대·거점 메뉴 판정에 쓴다.
+static func is_center(type_id: String) -> bool:
+	return type_id in CENTER_IDS
+
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 캠프는 새 영지 생성이라 제외(미구현).
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
 const BUILDABLE_IDS := ["town_hall", "quarry", "farm", "house", "lumberjack", "castle"]

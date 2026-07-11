@@ -4,10 +4,10 @@
 
 한 판의 종료(승패)를 판정하고 결과 화면을 띄운다. 기획 [승리조건](../../table/시스템/승리조건.md)의 구현.
 
-승패는 **세력 소멸(유예)** 로만 난다 — 어떤 세력이 지휘소(캠프)를 하나도 안 가지면 **10턴 유예** 뒤 소멸(턴 종료마다 판정).
+승패는 **세력 소멸(유예)** 로만 난다 — 어떤 세력이 **거점**([center](../data/buildings.md#동작) = 캠프·마을회관·성 중 하나)을 하나도 안 가지면 **10턴 유예** 뒤 소멸(턴 종료마다 판정). 세 티어 중 무엇이든 하나라도 있으면 유지된다.
 
 - 모든 NPC 세력이 소멸하면 **정복 승리**, 플레이어 세력이 소멸하면 **패배**.
-- **부대 전멸로는 게임 오버되지 않는다** — 플레이어 부대가 전멸해도(캠프는 남으므로) 판이 끝나지 않는다.
+- **부대 전멸로는 게임 오버되지 않는다** — 플레이어 부대가 전멸해도(거점은 남으므로) 판이 끝나지 않는다.
 
 ## 판정 (`GameResult` — 순수)
 
@@ -40,12 +40,12 @@
 
 ### 세력 소멸 (`game.gd` `_update_endgame` — 턴 종료마다)
 
-- `game.gd`는 모든 세력을 `_factions`(플레이어 + NPC 3)로 추적한다. 세력별 캠프 수 = `_faction_camp_count` (소속 영지의 건물 중 `building_type == CAMP` 개수).
-- 각 세력(소멸 안 된 것)에 대해 `faction.grace_turns = GameResult.advance_grace(캠프 수 > 0, faction.grace_turns)`.
+- `game.gd`는 모든 세력을 `_factions`(플레이어 + NPC 3)로 추적한다. 세력별 거점 수 = `_faction_center_count` (소속 영지의 건물 중 `BuildingTypes.is_center` = 캠프·마을회관·성 개수).
+- 각 세력(소멸 안 된 것)에 대해 `faction.grace_turns = GameResult.advance_grace(거점 수 > 0, faction.grace_turns)`.
   - `GameResult.grace_eliminated(faction.grace_turns)`면 `eliminated = true` + `_eliminate_faction`(그 세력 소속 NPC 부대를 맵에서 제거).
 - 이어서 `_check_endgame`: `GameResult.endgame(플레이어 세력 소멸, 모든 NPC 세력 소멸)` → `VICTORY`면 `_trigger_game_over("정복 승리", "모든 적 세력을 물리쳤다")`, `DEFEAT`면 `_trigger_game_over("패배", "세력이 소멸했다")`.
-- **캠프 소멸→유예 진입 경로**: 어떤 세력이 캠프를 모두 잃으면(플레이어가 [흡수/파괴](camp-capture.md), 또는 NPC가 [흡수](camp-capture.md#npc-점령-gamegd-_npc_attack_phase)) 그 세력의 캠프 수가 0이 된다 → 다음 턴 종료부터 카운트다운.
-- **양방향 도달**: 플레이어는 NPC 캠프를 점령해 **정복 승리**, NPC는 플레이어 캠프를 점령해 **플레이어 세력 소멸(패배)** 을 만들 수 있다. 캠프를 잃어도 10턴 안에 재점령하면 소멸을 면한다.
+- **거점 소멸→유예 진입 경로**: 어떤 세력이 거점을 모두 잃으면(플레이어가 [흡수/파괴](camp-capture.md), 또는 NPC가 [흡수](camp-capture.md#npc-점령-gamegd-_npc_attack_phase)) 그 세력의 거점 수가 0이 된다 → 다음 턴 종료부터 카운트다운.
+- **양방향 도달**: 플레이어는 NPC 거점을 점령해 **정복 승리**, NPC는 플레이어 거점을 점령해 **플레이어 세력 소멸(패배)** 을 만들 수 있다. 거점을 잃어도 10턴 안에 재점령하면 소멸을 면한다. (현재 NPC 거점은 캠프뿐 — 마을회관/성 거점은 인플레이스 업그레이드 도입 시 등장.)
 
 ### 유예 표시 (`turn_hud.set_grace`)
 
@@ -85,7 +85,9 @@
 - [정상] `show_result("정복 승리", "...")` → 제목 "정복 승리", 부제 채워짐, `visible == true`
 - (기존) 생성 직후 숨김 · `dismiss()` → `dismissed`
 
-`game.gd`의 세력 추적·캠프 수 계산·유예 갱신·부대 제거·HUD·타이틀 전환(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)*
+`game.gd`의 세력 추적·거점 수 계산(`_faction_center_count`, `is_center`)·유예 갱신·부대 제거·HUD·타이틀 전환(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)*
+
+거점 판정 자체(`BuildingTypes.is_center`)는 `test/unit/test_building_types.gd`에서 검증한다.
 
 ## 관련
 

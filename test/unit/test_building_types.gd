@@ -121,6 +121,17 @@ func test_unknown_type_empty() -> void:
 
 # --- 건축 가능 목록 ---
 
+# --- 거점(center) ---
+
+func test_center_ids() -> void:
+	assert_eq(types.CENTER_IDS, ["camp", "town_hall", "castle"], "거점 세트")
+
+func test_is_center() -> void:
+	for id in ["camp", "town_hall", "castle"]:
+		assert_true(types.is_center(id), "%s는 거점" % id)
+	for id in ["farm", "house", "lumberjack", "quarry", "없는id"]:
+		assert_false(types.is_center(id), "%s는 거점 아님" % id)
+
 func test_buildable_ids() -> void:
 	assert_eq(types.BUILDABLE_IDS, ["town_hall", "quarry", "farm", "house", "lumberjack", "castle"], "건축 가능 목록")
 	assert_does_not_have(types.BUILDABLE_IDS, "camp", "캠프는 건축 목록에서 제외")

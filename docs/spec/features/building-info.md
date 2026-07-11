@@ -41,9 +41,9 @@
 6. **발견된 NPC 거점 칸**(`on_npc_building`) → `NPC_BASE_INFO` (이 패널, 정보만). → [NPC Bases](npc-bases.md).
 7. 그 외 → `DESELECT`.
 
-`game.gd`(`_handle_click`)는 `_building_at(cell)`로 클릭된 **플레이어** 건물을 찾아 **캠프**(`building_type == "camp"`)면 `on_camp`,
-그 외 건물이면 `on_building`으로 분류하고, `_npc_building_at(cell)`로 발견된 NPC 거점이면 `on_npc_building`으로 넘긴다.
-`BUILDING_INFO`·`NPC_BASE_INFO` 결과면 각각의 건물로 `building_info.open(building, can_demolish)`를 호출한다(공유 헬퍼 `_open_building_info`). `can_demolish`는 `BUILDING_INFO`(내 건물, 캠프 아님)면 참, `NPC_BASE_INFO`면 거짓. → [철거](#철거).
+`game.gd`(`_handle_click`)는 `_building_at(cell)`로 클릭된 **플레이어** 건물을 찾아 **거점**([center](../data/buildings.md#동작) = 캠프·마을회관·성, `BuildingTypes.is_center`)이면 `on_camp`(→ [캠프 메뉴](camp-menu.md)),
+거점이 아닌 건물(농장·집 등)이면 `on_building`으로 분류하고, `_npc_building_at(cell)`로 발견된 NPC 거점이면 `on_npc_building`으로 넘긴다.
+`BUILDING_INFO`·`NPC_BASE_INFO` 결과면 각각의 건물로 `building_info.open(building, can_demolish)`를 호출한다(공유 헬퍼 `_open_building_info`). `can_demolish`는 `BUILDING_INFO`(내 건물, **거점 아님**)면 참, `NPC_BASE_INFO`면 거짓 — **거점(캠프·마을회관·성)은 철거 불가**(캠프 메뉴로 라우팅되어 이 패널에 오지 않음). → [철거](#철거).
 
 ## 표시 규칙 (`game.gd` `_handle_click`)
 
@@ -66,7 +66,7 @@
 
 내 소유이고 캠프가 아닌 건물은 정보 패널에서 **철거**할 수 있다.
 
-- **철거 가능 판정은 `game.gd`가 한다**: `BUILDING_INFO`(플레이어 건물)면 `building_type != "camp"`일 때 `can_demolish = true`, `NPC_BASE_INFO`(적 거점)면 항상 `false`. `_open_building_info(building, can_demolish)`로 넘긴다. 플레이어 캠프는 [캠프 메뉴](camp-menu.md)로 라우팅되므로 이 패널의 철거 대상이 아니다.
+- **철거 가능 판정은 `game.gd`가 한다**: `BUILDING_INFO`(플레이어 건물)면 `not BuildingTypes.is_center(building_type)`일 때 `can_demolish = true`, `NPC_BASE_INFO`(적 거점)면 항상 `false`. `_open_building_info(building, can_demolish)`로 넘긴다. 플레이어 **거점**(캠프·마을회관·성)은 [캠프 메뉴](camp-menu.md)로 라우팅되므로 이 패널의 철거 대상이 아니다.
 - **철거 실행(`game.gd` `_on_demolish_requested`)**: `building.territory.demolish(building)`([Territory](../entities/Territory.md#동작) — 영지에서 떼고 `demolish_refund` 환급) → `_buildings`에서 제거 → 노드 `queue_free`(버튼 처리 중이므로 지연 해제) → [안개](fog-of-war.md)·라벨 갱신(`_update_fog`) → 패널 닫기.
 - **건설 중 건물도 철거 가능**(건설 취소). 환급은 완성 건물과 동일한 `demolish_refund`.
 - 집을 철거하면 [인구 상한](../entities/Territory.md#인구-상한population_cap)이 내려간다 — 현재 인구가 상한을 초과해도 강제로 줄이지는 않는다([grow_population](turn.md)이 증가만 멈춤).

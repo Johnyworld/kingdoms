@@ -189,6 +189,26 @@ func test_garrison_panel_hidden_without_party() -> void:
 	menu.open(building)
 	assert_false(menu._garrison_panel.visible, "부대 없으면 편성 패널 숨김")
 
+func test_garrison_panel_shown_for_town_hall_center() -> void:
+	# 거점은 캠프뿐 아니라 마을회관·성도 포함 — 마을회관 거점도 수비대 편성 패널이 뜬다.
+	var hall = load("res://scenes/building/building.gd").new()
+	add_child_autofree(hall)
+	hall.setup(terrain, Vector2i(28, 28), "town_hall")
+	var t = load("res://scenes/territory/territory.gd").new("파리", RES.duplicate(true))
+	t.add_building(hall)
+	menu.open(hall, _party_with(2))
+	assert_true(menu._garrison_panel.visible, "마을회관(거점)도 편성 패널 표시")
+
+func test_garrison_panel_hidden_for_non_center() -> void:
+	# 농장(거점 아님)은 편성 패널 안 뜸.
+	var farm = load("res://scenes/building/building.gd").new()
+	add_child_autofree(farm)
+	farm.setup(terrain, Vector2i(28, 28), "farm")
+	var t = load("res://scenes/territory/territory.gd").new("파리", RES.duplicate(true))
+	t.add_building(farm)
+	menu.open(farm, _party_with(2))
+	assert_false(menu._garrison_panel.visible, "농장(거점 아님)은 편성 패널 숨김")
+
 func test_move_member_to_garrison() -> void:
 	_join_territory()
 	building.garrison = []

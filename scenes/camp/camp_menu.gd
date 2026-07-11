@@ -210,7 +210,7 @@ func open(building: Building, party = null) -> void:
 		_res_grid.add_child(value_label)
 
 	# 수비대 편성 패널: 인접 부대가 있고 캠프일 때만.
-	if _party != null and building.building_type == BuildingTypes.CAMP:
+	if _party != null and BuildingTypes.is_center(building.building_type):
 		_refresh_garrison_lists()
 		_garrison_panel.show()
 	else:

@@ -87,6 +87,8 @@
 - `BuildingTypes.FARM` — 농장 종류 id 상수(`"farm"`).
 - `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["town_hall", "quarry", "farm", "house", "lumberjack", "castle"]`. 캠프는 새 영지 생성이라 제외(미구현). 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
 - `BuildingTypes.get_type(type_id) -> Dictionary` — 종류 스펙 반환. 없는 id면 빈 Dictionary.
+- `BuildingTypes.CENTER_IDS` — **거점(center)** 종류 목록 `["camp", "town_hall", "castle"]`. 세력의 전략 앵커(캠프→마을회관→성 티어). **승리·점령·수비대·[캠프 메뉴](../features/camp-menu.md) 판정이 이 세트를 기준**으로 한다.
+- `BuildingTypes.is_center(type_id) -> bool` — 그 종류가 거점인지(`type_id in CENTER_IDS`). 세 티어 중 하나라도 세력이 가지면 유지된다([승패](../features/victory.md)). 인플레이스 업그레이드(캠프→마을회관→성)와 캠프 건설(새 영지)은 아직 **미구현**(다음 슬라이스) — 현재 마을회관·성은 별도 건물로 짓지만 거점으로 인정된다.
 
 ## 테스트 시나리오
 
@@ -107,6 +109,8 @@
 - [정상] 선행 필드 — `get_type("camp").prerequisite == ""`, `farm`·`house`·`lumberjack`의 `prerequisite == "town_hall"`
 - [경계] `get_type("없는id")`는 빈 Dictionary
 - [정상] `BUILDABLE_IDS`가 `["town_hall", "quarry", "farm", "house", "lumberjack", "castle"]`(캠프 미포함)
+- [정상] `is_center` — `camp`·`town_hall`·`castle`는 참; `farm`·`house`·`lumberjack`·`quarry`·`없는id`는 거짓
+- [정상] `CENTER_IDS == ["camp", "town_hall", "castle"]`
 
 ## 관련
 

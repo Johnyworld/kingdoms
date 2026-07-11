@@ -419,12 +419,12 @@ func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
 	var party_cell := terrain.local_to_map(party.position)   # 활성 부대 칸(이동 시작점)
 	var reachable: bool = _reachable.has(cell)
-	var clicked := _building_at(cell)   # 플레이어 건물. 캠프는 CAMP_MENU, 그 외는 BUILDING_INFO로 분기.
+	var clicked := _building_at(cell)   # 플레이어 건물. 거점(캠프·마을회관·성)은 CAMP_MENU, 그 외는 BUILDING_INFO로 분기.
 	var clicked_party := _player_party_at(cell)   # 그 칸의 플레이어 부대(선택/전환 대상).
 	var clicked_npc := _npc_at(cell)    # 보이는 NPC 부대가 있으면 정보 표시/공격 대상.
 	var clicked_npc_building := _npc_building_at(cell)   # 발견된 NPC 거점이면 정보 표시(NPC_BASE_INFO).
-	var on_camp := clicked != null and clicked.building_type == BuildingTypes.CAMP
-	var on_building := clicked != null and clicked.building_type != BuildingTypes.CAMP
+	var on_camp := clicked != null and BuildingTypes.is_center(clicked.building_type)
+	var on_building := clicked != null and not BuildingTypes.is_center(clicked.building_type)
 
 	# SHOOT 모드: 사격 가능 적을 클릭하면 제자리 사격, 그 외 클릭은 MOVE 모드로 취소.
 	if _selected and _mode == MODE_SHOOT:
@@ -471,8 +471,8 @@ func _handle_click(world_pos: Vector2) -> void:
 			# 인접한 플레이어 부대가 있으면 수비대 편성도 가능하게 넘긴다.
 			camp_menu.open(clicked, _party_at_camp(clicked))
 		ClickRouter.BUILDING_INFO:
-			# 내 건물(캠프 아님)은 철거 가능. 캠프는 CAMP_MENU로 라우팅되므로 여기 안 온다.
-			_open_building_info(clicked, clicked.building_type != BuildingTypes.CAMP)
+			# 내 건물(거점 아님)은 철거 가능. 거점(캠프·마을회관·성)은 CAMP_MENU로 라우팅되므로 여기 안 온다.
+			_open_building_info(clicked, not BuildingTypes.is_center(clicked.building_type))
 		ClickRouter.NPC_BASE_INFO:
 			_open_building_info(clicked_npc_building, false)   # 적 거점 — 정보만(철거·건축 없음)
 		ClickRouter.FOCUS_PARTY:
@@ -676,7 +676,7 @@ func _npc_targets(p, party_entries: Array, camp_entries: Array) -> Array:
 		near[c] = true
 	var undefended: Array = []
 	for b in _buildings + _npc_buildings:
-		if b.building_type != BuildingTypes.CAMP or not b.garrison.is_empty():
+		if not BuildingTypes.is_center(b.building_type) or not b.garrison.is_empty():
 			continue
 		var bf := ""
 		if b.territory != null and b.territory.faction != null:
@@ -713,7 +713,7 @@ func _should_retreat(p) -> bool:
 func _safe_retreat_cells(fn: String) -> Array:
 	var out: Array = []
 	for b in _buildings + _npc_buildings:
-		if b.building_type != BuildingTypes.CAMP:
+		if not BuildingTypes.is_center(b.building_type):
 			continue
 		if b.territory == null or b.territory.faction == null or b.territory.faction.name != fn:
 			continue
@@ -747,7 +747,7 @@ func _party_entries() -> Array:
 func _camp_entries() -> Array:
 	var out: Array = []
 	for b in _buildings + _npc_buildings:
-		if b.building_type != BuildingTypes.CAMP:
+		if not BuildingTypes.is_center(b.building_type):
 			continue
 		var cf := ""
 		if b.territory != null and b.territory.faction != null:
@@ -759,7 +759,7 @@ func _camp_entries() -> Array:
 func _threats_near_own_camp(fn: String, party_entries: Array) -> Array:
 	var near := {}
 	for b in _buildings + _npc_buildings:
-		if b.building_type == BuildingTypes.CAMP and b.territory != null and b.territory.faction != null and b.territory.faction.name == fn:
+		if BuildingTypes.is_center(b.building_type) and b.territory != null and b.territory.faction != null and b.territory.faction.name == fn:
 			for cell in HexGrid.cells_within(terrain, b.center_cell(), NPC_DEFEND_RADIUS, MAP_WIDTH, MAP_HEIGHT):
 				near[cell] = true
 	if near.is_empty():
@@ -946,7 +946,7 @@ func _update_endgame() -> void:
 	for f in _factions:
 		if f.eliminated:
 			continue
-		var has_post := _faction_camp_count(f) > 0
+		var has_post := _faction_center_count(f) > 0
 		f.grace_turns = GameResult.advance_grace(has_post, f.grace_turns)
 		if GameResult.grace_eliminated(f.grace_turns):
 			f.eliminated = true
@@ -954,12 +954,12 @@ func _update_endgame() -> void:
 	_refresh_grace_hud()
 	_check_endgame()
 
-## 세력의 지휘소(캠프) 수 = 소속 영지의 건물 중 CAMP 개수.
-func _faction_camp_count(faction) -> int:
+## 세력의 거점 수 = 소속 영지의 건물 중 거점(캠프·마을회관·성) 개수. 하나라도 있으면 세력 유지.
+func _faction_center_count(faction) -> int:
 	var n := 0
 	for t in faction.territories:
 		for b in t.buildings:
-			if is_instance_valid(b) and b.building_type == BuildingTypes.CAMP:
+			if is_instance_valid(b) and BuildingTypes.is_center(b.building_type):
 				n += 1
 	return n
 
@@ -1296,13 +1296,13 @@ func _adjacent_enemy_camp(attacker):
 	var fn: String = attacker.faction_name
 	var neighbors := terrain.get_surrounding_cells(acell)
 	for b in _buildings + _npc_buildings:
-		if b.building_type != BuildingTypes.CAMP:
+		if not BuildingTypes.is_center(b.building_type):
 			continue
 		var bf := ""
 		if b.territory != null and b.territory.faction != null:
 			bf = b.territory.faction.name
 		if bf == fn:
-			continue   # 아군 캠프
+			continue   # 아군 거점
 		for c in b.cells:
 			if c == acell or c in neighbors:
 				return b
@@ -1314,7 +1314,7 @@ func _adjacent_own_camp(attacker):
 	var fn: String = attacker.faction_name
 	var neighbors := terrain.get_surrounding_cells(acell)
 	for b in _buildings + _npc_buildings:
-		if b.building_type != BuildingTypes.CAMP:
+		if not BuildingTypes.is_center(b.building_type):
 			continue
 		if b.territory == null or b.territory.faction == null or b.territory.faction.name != fn:
 			continue

@@ -76,8 +76,8 @@ func open(building, can_demolish := false) -> void:
 		label.add_theme_color_override("font_color", line["color"])
 		_info_list.add_child(label)
 
-	# 수비대(캠프만): "수비대 N명". 캠프가 아닌 건물은 표시하지 않는다.
-	if building.building_type == BuildingTypes.CAMP:
+	# 수비대(거점만): "수비대 N명". 거점 아닌 건물(농장 등)은 표시하지 않는다.
+	if BuildingTypes.is_center(building.building_type):
 		var g := Label.new()
 		g.text = "수비대 %d명" % building.garrison.size()
 		_info_list.add_child(g)
@@ -90,9 +90,9 @@ func open(building, can_demolish := false) -> void:
 		_info_list.add_child(label)
 
 	# 인구 상한 기여 줄(집 등, 있으면). 생산 줄처럼 건설 중에도 완성 시 기여분을 보여준다.
-	# 캠프는 기본 상한(10)을 이 패널에 노출하지 않는다(캠프 정보는 캠프 메뉴가 담당).
+	# 거점(캠프·마을회관·성)은 캠프 메뉴로 라우팅되어 이 패널에 오지 않으므로 제외.
 	var cap_bonus: int = BuildingTypes.get_type(building.building_type).get("pop_cap", 0)
-	if cap_bonus > 0 and building.building_type != BuildingTypes.CAMP:
+	if cap_bonus > 0 and not BuildingTypes.is_center(building.building_type):
 		var label := Label.new()
 		label.text = "인구 상한 +%d" % cap_bonus
 		_info_list.add_child(label)

@@ -163,7 +163,7 @@ func _draw() -> void:
 	# 건설 중이면 남은 턴을, 완성 캠프면 수비대 인원을 중심 아래에 표시(둘은 겹치지 않음).
 	if under_construction:
 		_draw_construction_badge(center + Vector2(0, hh * 0.7))
-	elif building_type == BuildingTypes.CAMP and not garrison.is_empty():
+	elif BuildingTypes.is_center(building_type) and not garrison.is_empty():
 		_draw_garrison_badge(center + Vector2(0, hh * 0.7), garrison.size())
 
 ## 수비대 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 캠프).
