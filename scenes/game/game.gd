@@ -1517,9 +1517,12 @@ func _handle_build_input(event: InputEvent) -> void:
 		_exit_build_mode()
 
 ## 그 셀에 건물을 배치한다: 자원 차감 → 건설 중 건물 생성 → 영지 편입 → 건설 모드 종료.
-## 배치 불가하거나 자원 부족이면 아무 일도 하지 않고 모드를 유지한다.
+## 배치 불가·자원 부족·선행 미충족이면 아무 일도 하지 않고 모드를 유지한다.
 func _try_place(cell: Vector2i) -> void:
 	if not _can_build_at(cell):
+		return
+	# 선행건물 게이트 재확인(방어적). 리스트에서 비활성 항목은 애초에 못 고르지만, 배치 시점에도 지킨다.
+	if not BuildPlanner.prerequisite_met(_build_territory, _build_type):
 		return
 	var cost: Dictionary = BuildingTypes.get_type(_build_type).get("build_cost", {})
 	if not _build_territory.can_afford(cost):

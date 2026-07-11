@@ -13,11 +13,12 @@
 ### 기본 · 외형
 
 `footprint`은 건물이 차지하는 헥스 수(테이블 "필요헥스"). `7`이면 중심+이웃 6칸, `1`이면 중심 1칸만.
-캠프·농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
+캠프·농장·마을회관은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
 
 | id | `label` | `vision` | `footprint` | 초기 `resources` (→ 생성 영지 초기 자원) | 외형 색상 |
 | --- | --- | --- | --- | --- | --- |
 | `camp` | 캠프 | 5 | 7 | 인구 10 / 밀 50 / 빵 20 / 나무 20 / 목재 20 / 철 10 / 철괴 10 | 흙색 계열 |
+| `town_hall` | 마을회관 | 6 | 7 | (없음) | 밝은 목조·기와 계열 |
 | `farm` | 농장 | 4 | 7 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
 | `house` | 집 | 2 | 1 | (없음) | 따뜻한 흙색(목조) 계열 |
 | `lumberjack` | 벌목소 | 3 | 1 | (없음) | 짙은 녹갈색 계열 |
@@ -31,10 +32,13 @@
 | id | `build_turns` | `build_cost` | `demolish_refund` | `production` | 특수 효과 |
 | --- | --- | --- | --- | --- | --- |
 | `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | (없음) | 건설 완료 시 **새 영지 생성** |
+| `town_hall` | 8 | 목재 10 / 석재 10 / 밀 20 | 목재 2 / 석재 2 | (없음) | 대부분 건물의 선행 조건. 상인 방문은 **미구현** |
 | `farm` | 3 | 인구 2 / 목재 5 / 밀 5 | 인구 2 / 목재 1 | 밀 1 (턴당) | (없음) |
 | `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 인구 2 (턴당) | 거주 인구(상한)는 **미구현** — 아래 참고 |
 | `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 나무 2 (턴당) | (없음) |
 | `quarry` | 4 | 목재 10 | 목재 2 | 석재 2 (턴당) | (없음) |
+
+> **마을회관 값은 테이블에서 조정됨(플레이성/부트스트랩)**: 테이블 원본은 `build_turns 15 / 목재30·석재20·밀20`. 시작 자원(목재 20, 석재 0)만으로는 도달 불가하므로, 시작 → 채석장으로 석재 확보 → 마을회관 건설이 가능하도록 `build_turns 8 / 목재10·석재10·밀20`으로 낮췄다. 경제 밸런스가 갖춰지면 재조정한다.
 
 - **초기 자원 순서** = 캠프 메뉴 표시 순서. `인구`를 맨 앞에 둔다.
 - 외형 색상 필드: `fill_color`(부지) · `edge_color`(테두리) · `tent_color`(중심 표식).
@@ -45,11 +49,27 @@
 - **집(`house`)의 "거주 인구 +2" 상한 의미는 미구현(TODO)** — 현재 인구 상한 시스템이 없어(인구는 소비 자원) 이번 슬라이스는 **턴당 인구 +2 생산**으로 근사한다. 상한 시스템이 생기면 재정의한다.
 - **신규 소형 건물은 석재를 요구**한다. 영지 초기 자원에 석재가 없으므로(위 캠프 `resources`) **채석장(목재만)으로 석재를 확보한 뒤** 벌목소·집을 짓는 순서가 된다. 새 자원 키(`석재`)는 `Territory.collect_income`/`can_afford`가 자동으로 처리한다.
 
+### 선행건물 (`prerequisite`)
+
+각 종류는 `prerequisite`(선행 건물 종류 id, 없으면 `""`)를 가진다. **그 영지에 선행 종류의 완성 건물이 있어야** 건축할 수 있다([건축 게이트](../features/building.md#선행건물-게이트), [캠프 메뉴](../features/camp-menu.md)).
+
+| id | `prerequisite` | 비고 |
+| --- | --- | --- |
+| `camp` | `""` | 선행 없음 |
+| `quarry` | `camp` | **테이블(마을회관)과 다름** — 석재 부트스트랩용. 캠프만 있으면 지어 석재를 확보 |
+| `town_hall` | `camp` | 캠프가 곧 영지의 중심이라 항상 충족 |
+| `farm` | `town_hall` | 마을회관 완성 후 해금 |
+| `house` | `town_hall` | 〃 |
+| `lumberjack` | `town_hall` | 〃 |
+
+- 체인: **캠프 → 채석장(석재) · 마을회관 → 농장 · 집 · 벌목소**.
+- 성(`castle`)·병영 등 상위 체인, 필요직업/인원 조건은 아직 **미구현**(다음 슬라이스).
+
 ## 동작
 
 - `BuildingTypes.CAMP` — 캠프 종류 id 상수(`"camp"`).
 - `BuildingTypes.FARM` — 농장 종류 id 상수(`"farm"`).
-- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["farm", "house", "lumberjack", "quarry"]`. 캠프는 새 영지 생성이라 제외(미구현).
+- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["town_hall", "quarry", "farm", "house", "lumberjack"]`. 캠프는 새 영지 생성이라 제외(미구현). 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
 - `BuildingTypes.get_type(type_id) -> Dictionary` — 종류 스펙 반환. 없는 id면 빈 Dictionary.
 
 ## 테스트 시나리오
@@ -63,9 +83,11 @@
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
 - [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 석재4}`, `production == {인구2}`, 외형 색상 키 존재
 - [정상] `get_type("lumberjack")` — `label == "벌목소"`, `vision == 3`, `footprint == 1`, `build_turns == 3`, `build_cost == {목재5, 석재5}`, `production == {나무2}`
-- [정상] `get_type("quarry")` — `label == "채석장"`, `vision == 3`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재10}`, `production == {석재2}`
+- [정상] `get_type("quarry")` — `label == "채석장"`, `vision == 3`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재10}`, `production == {석재2}`, `prerequisite == "camp"`
+- [정상] `get_type("town_hall")` — `label == "마을회관"`, `vision == 6`, `footprint == 7`, `build_turns == 8`, `build_cost == {목재10, 석재10, 밀20}`, `prerequisite == "camp"`, `production` 없음(빈/미정의)
+- [정상] 선행 필드 — `get_type("camp").prerequisite == ""`, `farm`·`house`·`lumberjack`의 `prerequisite == "town_hall"`
 - [경계] `get_type("없는id")`는 빈 Dictionary
-- [정상] `BUILDABLE_IDS`가 `["farm", "house", "lumberjack", "quarry"]`(캠프 미포함)
+- [정상] `BUILDABLE_IDS`가 `["town_hall", "quarry", "farm", "house", "lumberjack"]`(캠프 미포함)
 
 ## 관련
 

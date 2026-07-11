@@ -124,6 +124,33 @@ func test_can_place_one_hex_ignores_neighbors() -> void:
 	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1), "1헥스는 중심만 유효하면 배치 가능")
 	assert_false(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 7), "같은 자리라도 7헥스면 이웃 시야 밖이라 불가")
 
+# --- prerequisite_met (선행건물 게이트) ---
+
+func test_prerequisite_met_camp_only_territory() -> void:
+	# 캠프만 완성된 영지: 선행 camp인 채석장·마을회관은 참, 선행 town_hall인 것들은 거짓.
+	var camp := _building(_center(), "camp")
+	var t := _territory_with(camp)
+	assert_true(BuildPlanner.prerequisite_met(t, "quarry"), "채석장(선행 camp) 충족")
+	assert_true(BuildPlanner.prerequisite_met(t, "town_hall"), "마을회관(선행 camp) 충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "농장(선행 town_hall) 미충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "house"), "집(선행 town_hall) 미충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "lumberjack"), "벌목소(선행 town_hall) 미충족")
+
+func test_prerequisite_met_after_town_hall() -> void:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with(camp)
+	var hall := _building(_center() + Vector2i(9, 0), "town_hall")  # 완성
+	t.add_building(hall)
+	assert_true(BuildPlanner.prerequisite_met(t, "farm"), "마을회관 완성 후 농장 충족")
+	assert_true(BuildPlanner.prerequisite_met(t, "house"), "마을회관 완성 후 집 충족")
+
+func test_prerequisite_under_construction_not_met() -> void:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with(camp)
+	var hall := _building(_center() + Vector2i(9, 0), "town_hall", true)  # 건설 중
+	t.add_building(hall)
+	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "건설 중 마을회관은 아직 미충족")
+
 func test_cannot_place_at_map_edge() -> void:
 	# 모서리(0,0)는 이웃이 맵 밖 → footprint 일부가 범위 밖.
 	# 시야는 footprint 전부를 포함시켜, 오직 '범위 밖' 조건만으로 걸리는지 확인한다.

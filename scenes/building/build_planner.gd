@@ -30,6 +30,18 @@ static func buildings_vision(terrain: TileMapLayer, buildings: Array, map_w: int
 static func territory_vision(terrain: TileMapLayer, territory, map_w: int, map_h: int) -> Dictionary:
 	return buildings_vision(terrain, territory.buildings, map_w, map_h)
 
+## type_id의 선행건물(prerequisite)이 그 영지에서 충족됐는지.
+## 선행이 ""(없음)이면 항상 참. 아니면 영지에 선행 종류의 완성 건물이 하나라도 있으면 참(건설 중은 미충족).
+## territory는 Territory지만 순환 타입 참조를 피하려 untyped로 둔다.
+static func prerequisite_met(territory, type_id: String) -> bool:
+	var prereq: String = BuildingTypes.get_type(type_id).get("prerequisite", "")
+	if prereq == "":
+		return true
+	for b in territory.buildings:
+		if b.building_type == prereq and b.is_complete():
+			return true
+	return false
+
 ## 건물 목록의 점유 셀(building.cells) 합집합 { cell: true }. 겹침 검사에 쓴다.
 static func occupied_cells(buildings: Array) -> Dictionary:
 	var occ := {}

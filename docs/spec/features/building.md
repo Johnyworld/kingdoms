@@ -10,7 +10,9 @@
 4. 턴이 종료될 때마다 건설이 **1턴씩 진행**되고, `build_turns`만큼 지나면 **완성**된다.
 5. 완성된 건물부터 생산(`production`)·시야가 동작한다.
 
-건설 가능한 종류는 `BuildingTypes.BUILDABLE_IDS` — **농장 · 집 · 벌목소 · 채석장**([buildings.md](../data/buildings.md)). 캠프 건설(새 영지 생성)은 이후로 미룬다. 종류마다 발자국(`footprint`)이 다르다 — 농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
+건설 가능한 종류는 `BuildingTypes.BUILDABLE_IDS` — **마을회관 · 채석장 · 농장 · 집 · 벌목소**([buildings.md](../data/buildings.md)). 캠프 건설(새 영지 생성)은 이후로 미룬다. 종류마다 발자국(`footprint`)이 다르다 — 마을회관·농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
+
+**선행건물 체인**: 각 종류는 [`prerequisite`](../data/buildings.md#선행건물-prerequisite)(선행 건물)를 가진다. 캠프 → (채석장·마을회관) → (농장·집·벌목소). 선행 미충족 종류는 건축 리스트에 뜨되 비활성이다(아래 [선행건물 게이트](#선행건물-게이트)).
 
 ## 구현 범위 (슬라이스)
 
@@ -99,6 +101,15 @@
   2. `vision_cells`(영지 시야) 안이고,
   3. `occupied`(이미 건물이 점유한 셀 집합)와 겹치지 않으면
   참. 하나라도 위반하면 거짓. 맵 가장자리라 이웃이 범위를 벗어나면 배치 불가(1헥스 건물은 중심만 판정하므로 가장자리 제약이 완화됨).
+- `prerequisite_met(territory, type_id) -> bool` — `type_id`의 [`prerequisite`](../data/buildings.md#선행건물-prerequisite)가 그 영지에서 충족됐는지. 선행이 `""`(없음)이면 항상 참. 아니면 `territory.buildings` 중 **완성**(`is_complete()`)이고 `building_type`이 선행과 같은 건물이 하나라도 있으면 참. 건설 중인 선행 건물은 아직 미충족(완성돼야 해금).
+
+## 선행건물 게이트
+
+건축 리스트의 각 종류는 [`prerequisite`](../data/buildings.md#선행건물-prerequisite)(선행 건물)가 그 영지에서 충족돼야 지을 수 있다.
+
+- 판정 = `BuildPlanner.prerequisite_met(territory, type_id)`. 영지에 선행 종류의 **완성** 건물이 있어야 참.
+- [캠프 메뉴](camp-menu.md) 건축 리스트: 각 종류 버튼은 **자원 부족 또는 선행 미충족**이면 비활성. 선행 미충족이면 라벨에 `(선행: <라벨> 필요)`를 덧붙여 이유를 보인다.
+- 예: 시작 영지엔 캠프만 완성돼 있으므로 **채석장·마을회관만 활성**, 농장·집·벌목소는 마을회관 완성 전까지 비활성.
 
 ## 테스트 시나리오
 
@@ -126,6 +137,9 @@
   - [정상] `footprint`는 기본 7헥스(중심+이웃 6); `hexes=1`이면 중심 1칸만; `hexes=7`은 기본과 동일
   - [정상] `can_place(..., 1)`(1헥스)는 중심 1칸만 판정 — 이웃이 시야 밖/점유여도 중심이 유효하면 참
   - [정상] `occupied_cells`는 건물들의 점유 셀 합집합(건물 1개면 7셀, 겹치지 않는 2개면 14셀)
+  - [정상] `prerequisite_met` — 선행 `""`(캠프)은 항상 참; 캠프만 있는 영지에서 `quarry`·`town_hall`(선행 camp)은 참, `farm`·`house`·`lumberjack`(선행 town_hall)은 거짓
+  - [정상] `prerequisite_met` — 영지에 **완성** 마을회관을 추가하면 `farm`·`house`·`lumberjack`이 참으로 전환
+  - [경계] `prerequisite_met` — 선행 건물이 **건설 중**이면 아직 거짓(완성돼야 충족)
 - `test/unit/test_hex_grid.gd` (영역 윤곽선, `HexGrid.region_outline`)
   - [정상] 단일 셀 → 경계 변 6개(헥스의 모든 변)
   - [정상] 인접한 두 셀 → 경계 변 10개(총 12변 중 공유 변 1개 제외)
