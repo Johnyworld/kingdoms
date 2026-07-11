@@ -34,6 +34,14 @@
 | 화물 | `cargo` | `Dictionary` | `{}` | 운반 중인 자원(자원명→수량). `인구`는 운반하지 않는다(노동력) |
 | 적재 상한 | `CARGO_CAPACITY` | `int`(const) | `50` | 모든 자원 수량 합의 상한 |
 
+### 노획 장비 (Loot Items)
+
+전투로 전멸시킨 패자 전사자의 장비를 [약탈](../features/raid.md)해 보관한다. 장착되지 않은 채 목록으로만 들고 있으며, **활용(장착·판매·전용 표시 UI)은 `미구현`**.
+
+| 속성 | 변수 | 타입 | 초기값 | 설명 |
+| --- | --- | --- | --- | --- |
+| 노획 장비 | `loot_items` | `Array` | `[]` | 노획한 장비 아이템 id 목록(무기·방어구·방패, [ItemTypes](../data/items.md)). **중복 허용**(같은 id 여러 개), 용량 제한 없음 |
+
 ### 유도 능력치 (Derived)
 
 멤버들의 능력치에서 계산한다.
@@ -67,6 +75,8 @@
 - `remove_cargo(res_name, n) -> int` — 화물에서 자원을 내린다. 보유분까지만(`min(n, 보유)`), 0이 되면 키 삭제. **실제 내린 양**을 반환.
 - `take_loot(source, res_name, n) -> int` — 다른 부대(`source`)의 화물에서 자원을 약탈해 이 부대로 옮긴다([약탈](../features/raid.md)). `min(n, source 보유)`까지, 승자 용량은 무시(**초과 허용**). 음수 n은 0. **실제 옮긴 양**을 반환하고, `source` 보유가 0이 되면 키를 삭제한다.
 - `take_all_loot(source) -> void` — `source`의 모든 화물을 전량 이 부대로 옮긴다(NPC/자동 약탈). `source` 화물은 빈 Dictionary가 된다.
+- `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
+- `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
 - `movement() -> int` — 멤버 `movement`의 최소값(멤버 없으면 0). 이동/공격 범위 계산에 사용.
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
@@ -113,6 +123,10 @@
 - [경계] `take_loot` 음수/0 → 0(양쪽 변화 없음); source에 없는 자원 요청 → 0
 - [정상] `take_all_loot`: source 목재10·식량5 → self로 전량 이전, `source.cargo`는 빈 Dictionary
 - [경계] `take_all_loot` 빈 source → self 변화 없음
+- [정상] `equipment_ids`: 멤버(무기 `["sword","bow"]`·방어구 `["leather_armor"]`·방패 `"buckler"`) → `["sword","bow","leather_armor","buckler"]`(평탄, 순서 유지)
+- [경계] `equipment_ids`는 빈 방패(`shield==""`)를 제외하고, 같은 id 중복은 유지(두 멤버가 `sword`면 두 개); 멤버 없으면 `[]`
+- [정상] `take_all_equipment`: source 멤버 장비 전부가 self `loot_items`에 더해짐(중복 유지), `source`는 불변
+- [경계] `take_all_equipment` 장비 없는 source → `loot_items` 변화 없음
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 

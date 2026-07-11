@@ -1048,18 +1048,20 @@ func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -
 		return   # 양쪽 생존(후퇴) 또는 양쪽 전멸(상호) → 약탈 없음
 	var winner = attacker if a_alive else defender
 	var loser = defender if a_alive else attacker
-	if loser.cargo_total() <= 0:
-		return   # 노획할 화물 없음
+	var dropped: Array = loser.equipment_ids()   # 전사자 장비 스냅샷(_apply_survivors 전이라 멤버 살아있음)
+	if loser.cargo_total() <= 0 and dropped.is_empty():
+		return   # 노획할 화물·장비 없음
 	# 임시 수비대 부대(_make_garrison_party — _units·_npc_parties 어디에도 없음)가 승자면 제외한다.
-	# 전투 후 곧 queue_free돼 화물이 소실되므로(수비대 노획은 미구현). 지속 부대만 노획한다.
+	# 전투 후 곧 queue_free돼 소실되므로(수비대 노획은 미구현). 지속 부대만 노획한다.
 	if not ((winner in _units) or (winner in _npc_parties)):
 		return
-	# 승자가 플레이어 세력이면 선택 패널, NPC 세력이면 전량 자동.
+	# 승자가 플레이어 세력이면 선택 패널(화물+장비), NPC 세력이면 전량 자동.
 	if winner.faction_name == _player_faction.name:
-		loot_menu.open(winner, loser)
+		loot_menu.open(winner, loser, dropped)
 		await loot_menu.closed
 	else:
 		winner.take_all_loot(loser)
+		winner.take_all_equipment(loser)
 
 ## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, NPC 부대 전멸 시 맵에서 제거.
 ## 플레이어 부대는 전멸해도 노드를 유지한다(전멸 후 처리는 미구현).

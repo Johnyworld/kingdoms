@@ -366,3 +366,49 @@ func test_take_all_loot_empty_source_noop() -> void:
 	winner.add_cargo("목재", 5)
 	winner.take_all_loot(_party())   # 빈 부대 약탈
 	assert_eq(winner.cargo_total(), 5, "빈 source 약탈은 변화 없음")
+
+# --- 노획 장비 (equipment_ids / take_all_equipment) ---
+
+func _equipped_human(weapons: Array, armor: Array, shield := "") -> Object:
+	var h := _human()
+	h.weapons = weapons
+	h.armor = armor
+	h.shield = shield
+	return h
+
+func test_loot_items_empty_at_start() -> void:
+	assert_eq(_party().loot_items.size(), 0, "생성 직후 노획 장비 없음")
+
+func test_equipment_ids_flattens_member_gear() -> void:
+	var p := _party()
+	p.add_member(_equipped_human(["sword", "bow"], ["leather_armor"], "buckler"))
+	assert_eq(p.equipment_ids(), ["sword", "bow", "leather_armor", "buckler"], "무기+방어구+방패 평탄·순서 유지")
+
+func test_equipment_ids_excludes_empty_shield() -> void:
+	var p := _party()
+	p.add_member(_equipped_human(["sword"], [], ""))   # 방패 없음
+	assert_eq(p.equipment_ids(), ["sword"], "빈 방패는 제외")
+
+func test_equipment_ids_keeps_duplicates() -> void:
+	var p := _party()
+	p.add_member(_equipped_human(["sword"], [], ""))
+	p.add_member(_equipped_human(["sword"], [], ""))   # 같은 무기
+	assert_eq(p.equipment_ids(), ["sword", "sword"], "중복 id는 각각 유지")
+
+func test_equipment_ids_empty_when_no_members() -> void:
+	assert_eq(_party().equipment_ids(), [], "멤버 없으면 빈 목록")
+
+func test_take_all_equipment_collects_into_loot() -> void:
+	var winner := _party()
+	var loser := _party()
+	loser.add_member(_equipped_human(["sword"], ["chain_mail"], "kite_shield"))
+	loser.add_member(_equipped_human(["bow"], [], ""))
+	winner.take_all_equipment(loser)
+	assert_eq(winner.loot_items, ["sword", "chain_mail", "kite_shield", "bow"], "패자 장비 전부 loot_items로")
+	assert_eq(loser.equipment_ids(), ["sword", "chain_mail", "kite_shield", "bow"], "source(패자) 장비는 불변")
+
+func test_take_all_equipment_empty_source_noop() -> void:
+	var winner := _party()
+	winner.loot_items = ["sword"]
+	winner.take_all_equipment(_party())   # 멤버 없는 부대
+	assert_eq(winner.loot_items, ["sword"], "장비 없는 source면 변화 없음")

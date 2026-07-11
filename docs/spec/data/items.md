@@ -90,6 +90,7 @@
 - `total_defense(ids: Array) -> int` — 방어구 id 목록의 방어력 합.
 - `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
+- `item_name(id) -> String` — 무기·방어구·방패 카탈로그를 통합 조회한 이름. 무기→방어구→방패 순으로 찾고, 세 곳 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
 
 ## 미수록 / 미구현
 
@@ -122,6 +123,7 @@
 - [정상] `armor_class_of`는 방어력이 가장 큰 조각의 분류(예: 가죽 세트 → `가죽`)
 - [경계] `armor_class_of([])` → `""`
 - [정상] `affinity("판금", "마법") == 1.3`, `affinity("사슬", "참격") == 0.7`
+- [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패); [예외] `item_name("") == ""`, 없는 id → `""`
 - [예외] 없는 분류/타입 → `affinity` `1.0`
 
 ## 관련

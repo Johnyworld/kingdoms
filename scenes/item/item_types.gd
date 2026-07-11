@@ -147,6 +147,17 @@ static func shield_block(id: String) -> int:
 static func shield_name(id: String) -> String:
 	return SHIELDS.get(id, {}).get("name", "")
 
+## 무기·방어구·방패를 통합 조회한 이름(무기→방어구→방패 순). 세 곳 어디에도 없으면 "".
+## 노획 장비([Raid](raid.md)) 목록 표시 등, id가 어느 분류인지 모를 때 쓴다.
+static func item_name(id: String) -> String:
+	if WEAPONS.has(id):
+		return WEAPONS[id]["name"]
+	if ARMORS.has(id):
+		return ARMORS[id]["name"]
+	if SHIELDS.has(id):
+		return SHIELDS[id]["name"]
+	return ""
+
 ## 방패 무게(없는 id면 0).
 static func shield_weight(id: String) -> int:
 	return SHIELDS.get(id, {}).get("weight", 0)

@@ -115,3 +115,11 @@ func test_affinity_table() -> void:
 func test_affinity_unknown_defaults_one() -> void:
 	assert_almost_eq(ItemTypes.affinity("", "참격"), 1.0, 0.001, "분류 없으면 1.0")
 	assert_almost_eq(ItemTypes.affinity("판금", ""), 1.0, 0.001, "타입 없으면 1.0")
+
+func test_item_name_unified_lookup() -> void:
+	# 무기·방어구·방패 카탈로그를 통합 조회한다(노획 장비 목록 표시용).
+	assert_eq(ItemTypes.item_name("sword"), "검", "무기 이름")
+	assert_eq(ItemTypes.item_name("chain_mail"), "사슬 갑옷", "방어구 이름")
+	assert_eq(ItemTypes.item_name("buckler"), "버클러", "방패 이름")
+	assert_eq(ItemTypes.item_name(""), "", "빈 id는 빈 문자열")
+	assert_eq(ItemTypes.item_name("없음"), "", "없는 id는 빈 문자열")

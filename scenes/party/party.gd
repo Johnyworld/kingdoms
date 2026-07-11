@@ -23,6 +23,11 @@ var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성
 var cargo: Dictionary = {}
 const CARGO_CAPACITY := 50   # 총 적재 상한(모든 자원 수량 합).
 
+# --- 노획 장비 ---
+## 전투로 전멸시킨 패자 전사자의 장비 아이템 id 목록(무기·방어구·방패). 장착 안 된 채 보관한다.
+## 중복 허용(같은 id 여러 개), 용량 제한 없음. 활용(장착/판매/표시)은 미구현.
+var loot_items: Array = []
+
 const _RADIUS := 12.0
 
 # 이번 턴에 이동을 마치면 반투명하게 그릴 때 곱할 알파.
@@ -100,6 +105,21 @@ func take_loot(source, res_name: String, n: int) -> int:
 func take_all_loot(source) -> void:
 	for res_name in source.cargo.keys():
 		take_loot(source, res_name, source.cargo[res_name])
+
+## 이 부대 전 멤버가 장착한 장비 id 평탄 목록(각 멤버 weapons + armor + shield). 빈 방패("")는 제외, 중복 유지.
+## 약탈 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
+func equipment_ids() -> Array:
+	var ids: Array = []
+	for h in members:
+		ids.append_array(h.weapons)
+		ids.append_array(h.armor)
+		if h.shield != "":
+			ids.append(h.shield)
+	return ids
+
+## source의 장비(equipment_ids)를 전부 이 부대 loot_items에 더한다(NPC/자동 장비 약탈). source는 바뀌지 않는다.
+func take_all_equipment(source) -> void:
+	loot_items.append_array(source.equipment_ids())
 
 ## 다른 부대(other)의 멤버를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
 ## 이 부대 지휘관은 유지된다(없으면 add_member가 첫 합류 멤버로 지정). 빈 other면 변화 없음.
