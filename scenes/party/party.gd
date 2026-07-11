@@ -84,6 +84,23 @@ func remove_cargo(res_name: String, n: int) -> int:
 			cargo.erase(res_name)
 	return amount
 
+## 다른 부대(source)의 화물에서 자원 n만큼을 약탈해 이 부대로 옮긴다(전투 승자가 전멸한 패자 화물 노획).
+## source 보유분까지만(min(n, 보유)), 음수 n은 0. 승자 용량(CARGO_CAPACITY)은 무시 — 초과 허용(병합과 동일).
+## 실제 옮긴 양을 반환. source 보유가 0이 되면 키를 지운다.
+func take_loot(source, res_name: String, n: int) -> int:
+	var amount := mini(maxi(n, 0), source.cargo.get(res_name, 0))
+	if amount > 0:
+		cargo[res_name] = cargo.get(res_name, 0) + amount
+		source.cargo[res_name] -= amount
+		if source.cargo[res_name] <= 0:
+			source.cargo.erase(res_name)
+	return amount
+
+## source의 모든 화물을 전량 이 부대로 약탈한다(NPC/자동 약탈). source 화물은 빈 Dictionary가 된다.
+func take_all_loot(source) -> void:
+	for res_name in source.cargo.keys():
+		take_loot(source, res_name, source.cargo[res_name])
+
 ## 다른 부대(other)의 멤버를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
 ## 이 부대 지휘관은 유지된다(없으면 add_member가 첫 합류 멤버로 지정). 빈 other면 변화 없음.
 ## other의 화물도 합친다(소실 방지) — 병합은 합산이라 CARGO_CAPACITY를 넘길 수 있다(다음 적재만 막힘).

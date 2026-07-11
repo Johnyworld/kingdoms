@@ -27,7 +27,7 @@
 
 ### 화물 (Cargo — 캐러반)
 
-거점에서 자원을 싣고 다른 거점으로 옮긴다([캠프 메뉴 보급](../features/camp-menu.md#보급-화물-적재하역)). 부대와 함께 이동하고, 전멸(부대 제거)하면 화물도 함께 소실된다(적의 약탈/획득은 **미구현**). **병합** 시 화물은 합쳐진다(`merge_from`, 소실 방지). **분할**([부대 편성](../features/party-composition.md)) 시 화물은 **원래 부대에 남고 새 부대는 빈 화물로 시작**한다(화물 분배 UI는 **미구현**).
+거점에서 자원을 싣고 다른 거점으로 옮긴다([캠프 메뉴 보급](../features/camp-menu.md#보급-화물-적재하역)). 부대와 함께 이동하고, 전멸(부대 제거)하면 남은 화물은 소실되지만, **전투로 전멸당하면 승자가 노획한다**([약탈](../features/raid.md)). **병합** 시 화물은 합쳐진다(`merge_from`, 소실 방지). **분할**([부대 편성](../features/party-composition.md)) 시 화물은 **원래 부대에 남고 새 부대는 빈 화물로 시작**한다(화물 분배 UI는 **미구현**).
 
 | 속성 | 변수 | 타입 | 초기값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -65,6 +65,8 @@
 - `cargo_space() -> int` — 화물 여유 공간(`CARGO_CAPACITY - cargo_total()`).
 - `add_cargo(res_name, n) -> int` — 화물에 자원을 싣는다. 여유 공간까지만(`min(n, space)`), 음수 n은 0. **실제 실은 양**을 반환.
 - `remove_cargo(res_name, n) -> int` — 화물에서 자원을 내린다. 보유분까지만(`min(n, 보유)`), 0이 되면 키 삭제. **실제 내린 양**을 반환.
+- `take_loot(source, res_name, n) -> int` — 다른 부대(`source`)의 화물에서 자원을 약탈해 이 부대로 옮긴다([약탈](../features/raid.md)). `min(n, source 보유)`까지, 승자 용량은 무시(**초과 허용**). 음수 n은 0. **실제 옮긴 양**을 반환하고, `source` 보유가 0이 되면 키를 삭제한다.
+- `take_all_loot(source) -> void` — `source`의 모든 화물을 전량 이 부대로 옮긴다(NPC/자동 약탈). `source` 화물은 빈 Dictionary가 된다.
 - `movement() -> int` — 멤버 `movement`의 최소값(멤버 없으면 0). 이동/공격 범위 계산에 사용.
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
@@ -105,6 +107,12 @@
 - [경계] `add_cargo`는 여유 공간까지만 — 화물 45 실린 상태서 `add_cargo("밀", 10)` → 5만 실림(반환 5, 상한 50)
 - [경계] `add_cargo` 음수 n → 0(변화 없음)
 - [정상] `remove_cargo("목재", 4)` → 4 반환, 남은 6; 보유보다 크게 요청하면 보유분만 내리고 0이 되면 키 삭제
+- [정상] `take_loot`: source 목재 20에서 `take_loot(source, "목재", 5)` → 5 반환, self `["목재"]==5` / source `["목재"]==15`
+- [경계] `take_loot`는 source 보유분까지만 — 목재 3에서 10 요청 → 3만 옮기고 반환 3, source `"목재"` 키 삭제
+- [경계] `take_loot` 용량 초과 허용 — self 화물 48 실린 상태서 `take_loot`로 10 → 전량 실림, `cargo_total() == 58`(>50)
+- [경계] `take_loot` 음수/0 → 0(양쪽 변화 없음); source에 없는 자원 요청 → 0
+- [정상] `take_all_loot`: source 목재10·식량5 → self로 전량 이전, `source.cargo`는 빈 Dictionary
+- [경계] `take_all_loot` 빈 source → self 변화 없음
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 

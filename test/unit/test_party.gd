@@ -314,3 +314,55 @@ func test_remove_cargo_clamps_and_erases() -> void:
 	p.add_cargo("목재", 3)
 	assert_eq(p.remove_cargo("목재", 10), 3, "보유분(3)만 내림")
 	assert_false(p.cargo.has("목재"), "0이 되면 키 삭제")
+
+# --- 약탈 (take_loot / take_all_loot) ---
+
+func test_take_loot_moves_between_parties() -> void:
+	# 승자가 패자 화물에서 자원을 옮긴다.
+	var winner := _party()
+	var loser := _party()
+	loser.add_cargo("목재", 20)
+	assert_eq(winner.take_loot(loser, "목재", 5), 5, "옮긴 양 5 반환")
+	assert_eq(winner.cargo["목재"], 5, "승자에 목재 5")
+	assert_eq(loser.cargo["목재"], 15, "패자 목재 15로 감소")
+
+func test_take_loot_clamps_to_source_and_erases() -> void:
+	var winner := _party()
+	var loser := _party()
+	loser.add_cargo("목재", 3)
+	assert_eq(winner.take_loot(loser, "목재", 10), 3, "패자 보유분(3)까지만")
+	assert_false(loser.cargo.has("목재"), "패자 화물 0이면 키 삭제")
+
+func test_take_loot_allows_overflow() -> void:
+	# 약탈은 승자 용량(50)을 넘겨도 다 실린다(병합과 동일).
+	var winner := _party()
+	winner.add_cargo("목재", 48)
+	var loser := _party()
+	loser.add_cargo("석재", 10)
+	assert_eq(winner.take_loot(loser, "석재", 10), 10, "전량 이전")
+	assert_eq(winner.cargo_total(), 58, "용량 초과 허용(58 > 50)")
+
+func test_take_loot_negative_or_missing_is_noop() -> void:
+	var winner := _party()
+	var loser := _party()
+	loser.add_cargo("목재", 5)
+	assert_eq(winner.take_loot(loser, "목재", -3), 0, "음수는 0")
+	assert_eq(winner.take_loot(loser, "석재", 5), 0, "없는 자원은 0")
+	assert_eq(loser.cargo["목재"], 5, "패자 화물 변화 없음")
+	assert_true(winner.cargo.is_empty(), "승자 화물 변화 없음")
+
+func test_take_all_loot_moves_everything() -> void:
+	var winner := _party()
+	var loser := _party()
+	loser.add_cargo("목재", 10)
+	loser.add_cargo("식량", 5)
+	winner.take_all_loot(loser)
+	assert_eq(winner.cargo["목재"], 10, "목재 전량 이전")
+	assert_eq(winner.cargo["식량"], 5, "식량 전량 이전")
+	assert_true(loser.cargo.is_empty(), "패자 화물 비워짐")
+
+func test_take_all_loot_empty_source_noop() -> void:
+	var winner := _party()
+	winner.add_cargo("목재", 5)
+	winner.take_all_loot(_party())   # 빈 부대 약탈
+	assert_eq(winner.cargo_total(), 5, "빈 source 약탈은 변화 없음")
