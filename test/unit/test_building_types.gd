@@ -14,6 +14,7 @@ func test_camp_spec_values() -> void:
 	var spec: Dictionary = types.get_type("camp")
 	assert_eq(spec["label"], "캠프", "라벨은 캠프")
 	assert_eq(spec["vision"], 5, "시야 5")
+	assert_eq(spec["footprint"], 7, "캠프 footprint 7헥스")
 	# 캠프 resources = 생성 영지 초기 자원(인구 포함 7종).
 	var expected := {"인구": 10, "밀": 50, "빵": 20, "나무": 20, "목재": 20, "철": 10, "철괴": 10}
 	assert_eq(spec["resources"].size(), expected.size(), "자원 7종")
@@ -24,8 +25,40 @@ func test_farm_spec_values() -> void:
 	var spec: Dictionary = types.get_type("farm")
 	assert_eq(spec["label"], "농장", "라벨은 농장")
 	assert_eq(spec["vision"], 4, "시야 4")
+	assert_eq(spec["footprint"], 7, "농장 footprint 7헥스")
 	for key in ["fill_color", "edge_color", "tent_color"]:
 		assert_true(spec.has(key), "farm 외형 색상 %s 키 존재" % key)
+
+# --- 신규 소형 생산 건물 (footprint 1) ---
+
+func test_house_spec() -> void:
+	var spec: Dictionary = types.get_type("house")
+	assert_eq(spec["label"], "집", "라벨은 집")
+	assert_eq(spec["vision"], 2, "시야 2")
+	assert_eq(spec["footprint"], 1, "집 footprint 1헥스")
+	assert_eq(spec["build_turns"], 4, "집 필요 턴 4")
+	assert_eq(spec["build_cost"], {"목재": 8, "석재": 4}, "집 필요 자원")
+	assert_eq(spec["production"], {"인구": 2}, "집 턴당 인구 2(상한 근사)")
+	for key in ["fill_color", "edge_color", "tent_color"]:
+		assert_true(spec.has(key), "집 외형 색상 %s 키 존재" % key)
+
+func test_lumberjack_spec() -> void:
+	var spec: Dictionary = types.get_type("lumberjack")
+	assert_eq(spec["label"], "벌목소", "라벨은 벌목소")
+	assert_eq(spec["vision"], 3, "시야 3")
+	assert_eq(spec["footprint"], 1, "벌목소 footprint 1헥스")
+	assert_eq(spec["build_turns"], 3, "벌목소 필요 턴 3")
+	assert_eq(spec["build_cost"], {"목재": 5, "석재": 5}, "벌목소 필요 자원")
+	assert_eq(spec["production"], {"나무": 2}, "벌목소 턴당 나무 2")
+
+func test_quarry_spec() -> void:
+	var spec: Dictionary = types.get_type("quarry")
+	assert_eq(spec["label"], "채석장", "라벨은 채석장")
+	assert_eq(spec["vision"], 3, "시야 3")
+	assert_eq(spec["footprint"], 1, "채석장 footprint 1헥스")
+	assert_eq(spec["build_turns"], 4, "채석장 필요 턴 4")
+	assert_eq(spec["build_cost"], {"목재": 10}, "채석장 필요 자원(목재만)")
+	assert_eq(spec["production"], {"석재": 2}, "채석장 턴당 석재 2")
 
 # --- 건설 · 경제 ---
 
@@ -48,5 +81,5 @@ func test_unknown_type_empty() -> void:
 # --- 건축 가능 목록 ---
 
 func test_buildable_ids() -> void:
-	assert_has(types.BUILDABLE_IDS, "farm", "농장은 건축 가능")
+	assert_eq(types.BUILDABLE_IDS, ["farm", "house", "lumberjack", "quarry"], "건축 가능 목록")
 	assert_does_not_have(types.BUILDABLE_IDS, "camp", "캠프는 건축 목록에서 제외")

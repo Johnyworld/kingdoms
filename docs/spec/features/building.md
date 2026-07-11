@@ -10,7 +10,7 @@
 4. 턴이 종료될 때마다 건설이 **1턴씩 진행**되고, `build_turns`만큼 지나면 **완성**된다.
 5. 완성된 건물부터 생산(`production`)·시야가 동작한다.
 
-이번 슬라이스는 **농장(`farm`)** 건설만 다룬다. 캠프 건설(새 영지 생성)은 이후로 미룬다.
+건설 가능한 종류는 `BuildingTypes.BUILDABLE_IDS` — **농장 · 집 · 벌목소 · 채석장**([buildings.md](../data/buildings.md)). 캠프 건설(새 영지 생성)은 이후로 미룬다. 종류마다 발자국(`footprint`)이 다르다 — 농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
 
 ## 구현 범위 (슬라이스)
 
@@ -27,8 +27,8 @@
 캠프 메뉴의 `build_selected(type_id, territory)`를 게임이 받아 **건설 모드**로 들어간다.
 
 - 진입: `_build_mode = true`, 건설할 종류·비용 지불 영지를 기억한다. **건설 가능 영역**(영지 시야) 윤곽선을 계산해 표시한다(아래 `BuildArea`).
-- **마우스 이동**: 커서 아래 셀을 중심으로 footprint 7헥스 **미리보기**를 그린다(`BuildPreview`). 배치 가능하면 초록, 불가하면 빨강.
-  - 배치 가능 판정 = `BuildPlanner.can_place(...)`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)` — 플레이어 건물(`_buildings`) + [NPC 거점](npc-bases.md)(`_npc_buildings`)을 합쳐 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
+- **마우스 이동**: 커서 아래 셀을 중심으로 **종류의 footprint만큼**(7헥스 또는 1헥스) **미리보기**를 그린다(`BuildPreview`). 배치 가능하면 초록, 불가하면 빨강.
+  - 배치 가능 판정 = `BuildPlanner.can_place(..., hexes)`. `hexes`는 건설할 종류의 카탈로그 `footprint`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)` — 플레이어 건물(`_buildings`) + [NPC 거점](npc-bases.md)(`_npc_buildings`)을 합쳐 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
 - **좌클릭**: 배치 가능한 자리면 → 영지에서 `build_cost` 차감(`spend`) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
 - **우클릭 / ESC**: 건설 모드 취소(미리보기·영역 윤곽선 제거).
 - 건설 모드 중에는 유닛 선택·이동·캠프 메뉴 열기 등 일반 클릭이 동작하지 않는다.
@@ -90,15 +90,15 @@
 
 > `class_name BuildPlanner extends RefCounted` — 시각 요소 없는 static 헥스 유틸(`scenes/game/hex_grid.gd`의 `HexGrid`와 같은 성격, `HexGrid`를 재사용).
 
-- `footprint(terrain, center) -> Array[Vector2i]` — 중심 + 이웃 6칸(총 7헥스). [Building](../entities/Building.md)의 점유 셀과 같은 규칙.
+- `footprint(terrain, center, hexes := 7) -> Array[Vector2i]` — 건물이 차지하는 셀. `hexes <= 1`이면 중심 1칸(`[center]`), 아니면 중심 + 이웃 6칸(총 7헥스). [Building](../entities/Building.md)의 점유 셀과 같은 규칙. `hexes`는 종류의 [카탈로그](../data/buildings.md) `footprint`.
 - `buildings_vision(terrain, buildings, map_w, map_h) -> Dictionary` — 건물 목록의 **완성 건물**들에 대해 각 `center_cell` 기준 `vision` 반경 안 셀을 합집합으로 모은 `{cell: true}`. 건설 중 건물은 제외한다. 배치 유효성(영지 건물)과 [전장의 안개](fog-of-war.md)(맵의 모든 건물)가 공유한다.
 - `territory_vision(terrain, territory, map_w, map_h) -> Dictionary` — 영지의 완성 건물 시야 합집합. `buildings_vision`을 영지의 건물 목록(`territory.buildings`)으로 부른다.
 - `occupied_cells(buildings) -> Dictionary` — 건물 목록의 점유 셀(`building.cells`) 합집합 `{cell: true}`. 겹침 검사에 쓴다.
-- `can_place(terrain, center, map_w, map_h, vision_cells, occupied) -> bool` — 중심 `center`에 건물을 놓을 수 있는지. footprint 7헥스가 **모두**:
+- `can_place(terrain, center, map_w, map_h, vision_cells, occupied, hexes := 7) -> bool` — 중심 `center`에 종류의 `hexes`만큼 건물을 놓을 수 있는지. `footprint(terrain, center, hexes)`의 모든 셀이 **모두**:
   1. 맵 범위 `[0, map_w) × [0, map_h)` 안이고,
   2. `vision_cells`(영지 시야) 안이고,
   3. `occupied`(이미 건물이 점유한 셀 집합)와 겹치지 않으면
-  참. 하나라도 위반하면 거짓. 맵 가장자리라 이웃이 범위를 벗어나면(footprint < 7 in-bounds) 배치 불가.
+  참. 하나라도 위반하면 거짓. 맵 가장자리라 이웃이 범위를 벗어나면 배치 불가(1헥스 건물은 중심만 판정하므로 가장자리 제약이 완화됨).
 
 ## 테스트 시나리오
 
@@ -123,7 +123,8 @@
   - [예외] 맵 가장자리라 이웃이 범위를 벗어남 → 거짓
   - [정상] `territory_vision`은 완성 건물만 반영(건설 중 건물은 시야에 기여 안 함)
   - [정상] `buildings_vision`은 완성 건물의 시야 합집합(캠프 반경5=91셀·농장 반경4=61셀), 건설 중 건물은 제외, 빈 목록은 빈 시야
-  - [정상] `footprint`는 7헥스(중심+이웃 6)
+  - [정상] `footprint`는 기본 7헥스(중심+이웃 6); `hexes=1`이면 중심 1칸만; `hexes=7`은 기본과 동일
+  - [정상] `can_place(..., 1)`(1헥스)는 중심 1칸만 판정 — 이웃이 시야 밖/점유여도 중심이 유효하면 참
   - [정상] `occupied_cells`는 건물들의 점유 셀 합집합(건물 1개면 7셀, 겹치지 않는 2개면 14셀)
 - `test/unit/test_hex_grid.gd` (영역 윤곽선, `HexGrid.region_outline`)
   - [정상] 단일 셀 → 경계 변 6개(헥스의 모든 변)

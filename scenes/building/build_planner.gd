@@ -4,9 +4,12 @@ extends RefCounted
 ## footprint(7헥스) 계산 · 영지 시야(완성 건물만) 합집합 · 배치 가능 여부를 제공한다.
 ## 헥스 인접·반경은 엔진(TileMapLayer/HexGrid)에 위임하므로 실제 헥스 타일셋을 가진 TileMapLayer를 넘겨야 한다.
 
-## 중심 + 이웃 6칸(총 7헥스). Building의 점유 셀과 같은 규칙.
-static func footprint(terrain: TileMapLayer, center: Vector2i) -> Array[Vector2i]:
+## 건물이 차지하는 셀. hexes <= 1이면 중심 1칸만, 아니면 중심 + 이웃 6칸(총 7헥스).
+## hexes는 종류의 카탈로그 footprint. Building의 점유 셀과 같은 규칙.
+static func footprint(terrain: TileMapLayer, center: Vector2i, hexes := 7) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = [center]
+	if hexes <= 1:
+		return cells
 	for n in terrain.get_surrounding_cells(center):
 		cells.append(n)
 	return cells
@@ -38,8 +41,8 @@ static func occupied_cells(buildings: Array) -> Dictionary:
 ## center에 건물을 놓을 수 있는지. footprint 7헥스가 모두
 ## ① 맵 범위 [0, map_w) x [0, map_h) 안 ② 시야(vision_cells) 안 ③ occupied(기존 건물 점유 셀)와 미겹침
 ## 이면 참. 하나라도 위반하면 거짓(맵 가장자리라 이웃이 범위를 벗어나면 배치 불가).
-static func can_place(terrain: TileMapLayer, center: Vector2i, map_w: int, map_h: int, vision_cells: Dictionary, occupied: Dictionary) -> bool:
-	for c in footprint(terrain, center):
+static func can_place(terrain: TileMapLayer, center: Vector2i, map_w: int, map_h: int, vision_cells: Dictionary, occupied: Dictionary, hexes := 7) -> bool:
+	for c in footprint(terrain, center, hexes):
 		if c.x < 0 or c.x >= map_w or c.y < 0 or c.y >= map_h:
 			return false
 		if not vision_cells.has(c):

@@ -28,7 +28,15 @@ func _territory_with(b) -> Object:
 # --- footprint ---
 
 func test_footprint_is_seven() -> void:
-	assert_eq(BuildPlanner.footprint(terrain, _center()).size(), 7, "footprint = 중심 + 이웃 6")
+	assert_eq(BuildPlanner.footprint(terrain, _center()).size(), 7, "footprint 기본 = 중심 + 이웃 6")
+
+func test_footprint_hexes_seven_matches_default() -> void:
+	assert_eq(BuildPlanner.footprint(terrain, _center(), 7).size(), 7, "hexes=7은 기본과 동일")
+
+func test_footprint_hexes_one_is_center_only() -> void:
+	var fp := BuildPlanner.footprint(terrain, _center(), 1)
+	assert_eq(fp.size(), 1, "hexes=1이면 중심 1칸만")
+	assert_eq(fp[0], _center(), "그 1칸은 중심")
 
 # --- territory_vision ---
 
@@ -108,6 +116,13 @@ func test_cannot_place_overlapping_building() -> void:
 		occupied[c] = true  # 캠프가 점유한 셀
 	var spot := _center() + Vector2i(1, 0)  # 캠프 footprint와 겹치는 곳
 	assert_false(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, occupied), "기존 건물과 겹치면 불가")
+
+func test_can_place_one_hex_ignores_neighbors() -> void:
+	# 1헥스 건물은 중심만 판정 — 이웃이 시야 밖·점유여도 중심이 유효하면 배치 가능.
+	var spot := _center() + Vector2i(3, 0)
+	var vis := {spot: true}   # 중심 1칸만 시야 안(이웃은 시야 밖)
+	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1), "1헥스는 중심만 유효하면 배치 가능")
+	assert_false(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 7), "같은 자리라도 7헥스면 이웃 시야 밖이라 불가")
 
 func test_cannot_place_at_map_edge() -> void:
 	# 모서리(0,0)는 이웃이 맵 밖 → footprint 일부가 범위 밖.

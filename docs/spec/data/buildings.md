@@ -12,10 +12,16 @@
 
 ### 기본 · 외형
 
-| id | `label` | `vision` | 초기 `resources` (→ 생성 영지 초기 자원) | 외형 색상 |
-| --- | --- | --- | --- | --- |
-| `camp` | 캠프 | 5 | 인구 10 / 밀 50 / 빵 20 / 나무 20 / 목재 20 / 철 10 / 철괴 10 | 흙색 계열 |
-| `farm` | 농장 | 4 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
+`footprint`은 건물이 차지하는 헥스 수(테이블 "필요헥스"). `7`이면 중심+이웃 6칸, `1`이면 중심 1칸만.
+캠프·농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
+
+| id | `label` | `vision` | `footprint` | 초기 `resources` (→ 생성 영지 초기 자원) | 외형 색상 |
+| --- | --- | --- | --- | --- | --- |
+| `camp` | 캠프 | 5 | 7 | 인구 10 / 밀 50 / 빵 20 / 나무 20 / 목재 20 / 철 10 / 철괴 10 | 흙색 계열 |
+| `farm` | 농장 | 4 | 7 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
+| `house` | 집 | 2 | 1 | (없음) | 따뜻한 흙색(목조) 계열 |
+| `lumberjack` | 벌목소 | 3 | 1 | (없음) | 짙은 녹갈색 계열 |
+| `quarry` | 채석장 | 3 | 1 | (없음) | 회색(석재) 계열 |
 
 ### 건설 · 경제
 
@@ -26,19 +32,24 @@
 | --- | --- | --- | --- | --- | --- |
 | `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | (없음) | 건설 완료 시 **새 영지 생성** |
 | `farm` | 3 | 인구 2 / 목재 5 / 밀 5 | 인구 2 / 목재 1 | 밀 1 (턴당) | (없음) |
+| `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 인구 2 (턴당) | 거주 인구(상한)는 **미구현** — 아래 참고 |
+| `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 나무 2 (턴당) | (없음) |
+| `quarry` | 4 | 목재 10 | 목재 2 | 석재 2 (턴당) | (없음) |
 
 - **초기 자원 순서** = 캠프 메뉴 표시 순서. `인구`를 맨 앞에 둔다.
 - 외형 색상 필드: `fill_color`(부지) · `edge_color`(테두리) · `tent_color`(중심 표식).
   - 농장 전용 렌더링(작물 표현 등)은 배치가 생기는 **Phase 2**에서 다듬는다.
 - `build_cost`·`demolish_refund`·`production`은 자원명→수량 Dictionary. `build_turns`는 건설 소요 턴.
-- **농장 턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과는 아직 **미구현**이다(농장 건설만 다룸, [건축](../features/building.md) 참고).
-- 발자국(footprint)은 현재 카탈로그에 없다 — 모든 종류가 **중심+6=7헥스** 공통. 종류별 footprint는 **미구현(TODO)**.
+- **턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과는 아직 **미구현**이다(캠프 외 건물 건설만 다룸, [건축](../features/building.md) 참고).
+- **`footprint`은 [배치 유효성](../features/building.md#배치-유효성-buildplanner)에 반영된다** — `BuildPlanner.footprint`/`can_place`가 종류별 헥스 수로 판정하고, `Building.setup`이 그만큼 점유 셀을 잡는다.
+- **집(`house`)의 "거주 인구 +2" 상한 의미는 미구현(TODO)** — 현재 인구 상한 시스템이 없어(인구는 소비 자원) 이번 슬라이스는 **턴당 인구 +2 생산**으로 근사한다. 상한 시스템이 생기면 재정의한다.
+- **신규 소형 건물은 석재를 요구**한다. 영지 초기 자원에 석재가 없으므로(위 캠프 `resources`) **채석장(목재만)으로 석재를 확보한 뒤** 벌목소·집을 짓는 순서가 된다. 새 자원 키(`석재`)는 `Territory.collect_income`/`can_afford`가 자동으로 처리한다.
 
 ## 동작
 
 - `BuildingTypes.CAMP` — 캠프 종류 id 상수(`"camp"`).
 - `BuildingTypes.FARM` — 농장 종류 id 상수(`"farm"`).
-- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["farm"]`. 캠프는 새 영지 생성이라 제외(미구현).
+- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["farm", "house", "lumberjack", "quarry"]`. 캠프는 새 영지 생성이라 제외(미구현).
 - `BuildingTypes.get_type(type_id) -> Dictionary` — 종류 스펙 반환. 없는 id면 빈 Dictionary.
 
 ## 테스트 시나리오
@@ -46,12 +57,15 @@
 `test/unit/test_building_types.gd`.
 
 - [정상] `get_type("camp")`에 `label`·`vision`·`resources`·외형 색상 키가 모두 존재
-- [정상] `get_type("camp").vision == 5`, `label == "캠프"`, 자원 7종(인구 10 포함)
-- [정상] `get_type("farm").label == "농장"`, `vision == 4`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
+- [정상] `get_type("camp").vision == 5`, `label == "캠프"`, `footprint == 7`, 자원 7종(인구 10 포함)
+- [정상] `get_type("farm").label == "농장"`, `vision == 4`, `footprint == 7`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
 - [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {인구2, 목재5, 밀5}`, `demolish_refund == {인구2, 목재1}`, `production == {밀1}`
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
+- [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 석재4}`, `production == {인구2}`, 외형 색상 키 존재
+- [정상] `get_type("lumberjack")` — `label == "벌목소"`, `vision == 3`, `footprint == 1`, `build_turns == 3`, `build_cost == {목재5, 석재5}`, `production == {나무2}`
+- [정상] `get_type("quarry")` — `label == "채석장"`, `vision == 3`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재10}`, `production == {석재2}`
 - [경계] `get_type("없는id")`는 빈 Dictionary
-- [정상] `BUILDABLE_IDS`에 `"farm"` 포함, `"camp"` 미포함
+- [정상] `BUILDABLE_IDS`가 `["farm", "house", "lumberjack", "quarry"]`(캠프 미포함)
 
 ## 관련
 

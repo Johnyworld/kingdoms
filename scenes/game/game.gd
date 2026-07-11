@@ -1493,7 +1493,11 @@ func _exit_build_mode() -> void:
 func _can_build_at(cell: Vector2i) -> bool:
 	var vision := BuildPlanner.territory_vision(terrain, _build_territory, MAP_WIDTH, MAP_HEIGHT)
 	var occupied := BuildPlanner.occupied_cells(_buildings + _npc_buildings)
-	return BuildPlanner.can_place(terrain, cell, MAP_WIDTH, MAP_HEIGHT, vision, occupied)
+	return BuildPlanner.can_place(terrain, cell, MAP_WIDTH, MAP_HEIGHT, vision, occupied, _build_footprint())
+
+## 현재 건설 종류의 발자국 헥스 수(카탈로그 footprint, 기본 7).
+func _build_footprint() -> int:
+	return BuildingTypes.get_type(_build_type).get("footprint", 7)
 
 ## 커서 아래의 맵 셀.
 func _mouse_cell() -> Vector2i:
@@ -1503,7 +1507,7 @@ func _mouse_cell() -> Vector2i:
 func _handle_build_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var cell := _mouse_cell()
-		build_preview.show_preview(BuildPlanner.footprint(terrain, cell), _can_build_at(cell))
+		build_preview.show_preview(BuildPlanner.footprint(terrain, cell, _build_footprint()), _can_build_at(cell))
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_try_place(_mouse_cell())

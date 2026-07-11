@@ -12,7 +12,7 @@
 
 > 게임 시작 시 캠프가 배치되고(즉시 완성), 이후 [건축](../features/building.md)으로 **농장을 건설**할 수 있다(건설 중 → 완성). `production`/`build_turns`/`build_cost`는 사용되며, `demolish_refund`(철거)는 아직 **미구현**이다.
 
-**중심 1헥스 + 주변 6헥스 = 총 7헥스**를 차지한다(현재 모든 종류 공통 발자국. 종류별 footprint는 **미구현**).
+차지하는 **발자국(footprint)은 종류별**이다([카탈로그](../data/buildings.md) `footprint`). 캠프·농장은 **중심 1헥스 + 주변 6헥스 = 7헥스**, 소형 생산 건물(집·벌목소·채석장)은 **중심 1헥스**만 차지한다. `setup`이 `_spec.footprint`(기본 7)로 점유 셀을 잡는다.
 헥스 중 하나라도 클릭되면 게임 쪽에서 종류에 따라 UI를 연다: **캠프**는 [캠프 메뉴](../features/camp-menu.md)(자원·건축), **그 외 건물(농장)**은 [건물 정보 패널](../features/building-info.md).
 `_draw()`로 종류별 색으로 부지 + 중심 텐트를 그린다.
 
@@ -52,7 +52,7 @@
 
 ## 동작
 
-- `setup(terrain, center_cell, type_id, under_construction := false) -> void` — 종류 스펙을 카탈로그에서 읽어 `building_type`·`vision`을 채우고, 중심 셀 + 이웃 6칸을 점유 셀로 설정. `under_construction`이 참이면 건설 중 상태로 두고 `remaining_turns`를 카탈로그 `build_turns`로 채운다(기본값 거짓 = 즉시 완성). 알 수 없는 `type_id`면 빈 스펙(시야 0·라벨 "")이 되고, `_draw`는 중립 회색으로 그린다(캠프로 위장하지 않도록).
+- `setup(terrain, center_cell, type_id, under_construction := false) -> void` — 종류 스펙을 카탈로그에서 읽어 `building_type`·`vision`을 채우고, 종류의 `footprint`(기본 7)만큼 점유 셀을 설정(`BuildPlanner.footprint`). footprint 7이면 중심+이웃 6칸, 1이면 중심 1칸. `under_construction`이 참이면 건설 중 상태로 두고 `remaining_turns`를 카탈로그 `build_turns`로 채운다(기본값 거짓 = 즉시 완성). 알 수 없는 `type_id`면 빈 스펙(시야 0·라벨 "")이 되고, `_draw`는 중립 회색으로 그린다(캠프로 위장하지 않도록).
 - `contains_cell(cell) -> bool` — 해당 셀이 건물 영역에 포함되는지.
 - `center_cell() -> Vector2i` — 시야 계산 기준점 반환.
 - `label() -> String` — 종류 라벨(예: "캠프"). 카탈로그의 `label`.
@@ -76,6 +76,7 @@
 `test/unit/test_building.gd`.
 
 - [정상] `setup(.., "camp")` 후 점유 셀 = **7헥스** (중심 + 이웃 6)
+- [정상] `setup(.., "house")` 후 점유 셀 = **1헥스** (중심만; footprint 1인 소형 건물)
 - [정상] `center_cell()`은 `setup`에 넘긴 중심 셀
 - [정상] `contains_cell`이 중심·이웃 6칸에 대해 참, 먼 셀에 대해 거짓
 - [정상] `"camp"`로 setup 시 `building_type == "camp"`, `vision == 5`, `label() == "캠프"`

@@ -45,7 +45,7 @@ func setup(terrain: TileMapLayer, center_cell: Vector2i, type_id: String, p_unde
 	vision = _spec.get("vision", 0)
 	under_construction = p_under_construction
 	remaining_turns = _spec.get("build_turns", 0) if p_under_construction else 0
-	cells = BuildPlanner.footprint(terrain, center_cell)   # 중심 + 이웃 6칸 (배치 판정과 같은 규칙)
+	cells = BuildPlanner.footprint(terrain, center_cell, _spec.get("footprint", 7))   # 종류별 발자국 (배치 판정과 같은 규칙)
 	queue_redraw()
 
 ## 건설이 끝났는지(건설 중이 아니면 참).

@@ -43,6 +43,11 @@ func test_occupies_seven_hexes() -> void:
 	_camp()
 	assert_eq(building.cells.size(), 7, "건물은 중심 + 이웃 6 = 7헥스")
 
+func test_small_building_occupies_one_hex() -> void:
+	building.setup(terrain, _center(), "house")  # footprint 1
+	assert_eq(building.cells.size(), 1, "소형 건물(집)은 중심 1헥스만 차지")
+	assert_eq(building.cells[0], _center(), "그 1칸은 중심")
+
 func test_center_cell_is_setup_cell() -> void:
 	_camp()
 	assert_eq(building.center_cell(), _center(), "center_cell은 setup에 넘긴 중심")
