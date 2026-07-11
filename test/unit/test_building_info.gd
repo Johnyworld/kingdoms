@@ -89,6 +89,18 @@ func test_farm_no_garrison_line() -> void:
 	panel.open(_building("farm"))
 	assert_false(_info_text().contains("수비대"), "캠프 아닌 건물은 수비대 줄 없음")
 
+func test_house_shows_pop_cap() -> void:
+	panel.open(_building("house"))
+	assert_string_contains(_info_text(), "인구 상한 +2", "집은 인구 상한 기여 표시")
+
+func test_pop_cap_shown_even_under_construction() -> void:
+	panel.open(_building("house", true))  # 건설 중
+	assert_string_contains(_info_text(), "인구 상한 +2", "건설 중에도 완성 시 상한 기여 표시")
+
+func test_farm_no_pop_cap_line() -> void:
+	panel.open(_building("farm"))
+	assert_false(_info_text().contains("인구 상한"), "상한 기여 없는 건물은 줄 없음")
+
 func test_camp_shows_territory_faction_no_production() -> void:
 	# NPC 거점(캠프)도 이 패널로 정보만 표시한다: 제목 "캠프" · 요약 "완성 · 시야 5" · 영지·세력, 생산 줄 없음.
 	var b := _building("camp")

@@ -3,7 +3,7 @@
 > 스크립트: `scenes/turn/turn_manager.gd` (`class_name TurnManager extends RefCounted`) · `scenes/turn/turn_hud.gd` (`extends CanvasLayer`)
 
 게임을 **턴** 단위로 진행한다. 플레이어는 [부대](../entities/Party.md)를 움직인 뒤 **턴 종료**를 눌러 다음 턴으로 넘어간다.
-턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 건설이 1턴 진행된 뒤, ⑤ **세력 소멸 유예 판정**([승패](victory.md) — 캠프 0인 세력의 카운트다운·소멸·정복 승리)을 하고, ⑥ **NPC 부대가 이동**한다([NPC Movement](npc-movement.md)).
+턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지가 자원 수입을 받고 ④ 모든 영지의 인구가 상한까지 +1 자연 증가하고 ⑤ 모든 영지의 건설이 1턴 진행된 뒤, ⑥ **세력 소멸 유예 판정**([승패](victory.md) — 캠프 0인 세력의 카운트다운·소멸·정복 승리)을 하고, ⑦ **NPC 부대가 이동**한다([NPC Movement](npc-movement.md)).
 
 ## 규칙
 
@@ -23,8 +23,9 @@
   1. `number += 1`
   2. 각 `unit`(부대)에 대해 `unit.reset_turn()` — 이동·공격 상태 리셋.
   3. 각 `territory`에 대해 `territory.collect_income()` — 건물 생산을 자원에 합산.
-  4. 각 `territory`에 대해 `territory.advance_construction()` — 건설 중 건물을 1턴 진행.
-  - **수입 정산(3) 뒤에 건설 진행(4)** 하므로, 이번 턴에 완성된 건물은 다음 턴부터 생산한다.
+  4. 각 `territory`에 대해 `territory.grow_population()` — 인구를 상한까지 +1(자연 증가).
+  5. 각 `territory`에 대해 `territory.advance_construction()` — 건설 중 건물을 1턴 진행.
+  - **수입 정산(3) 뒤에 건설 진행(5)** 하므로, 이번 턴에 완성된 건물은 다음 턴부터 생산한다. 인구 증가(4)도 이번 턴 완성 건물의 상한이 반영되기 전(건설 진행 5 이전)이라, 새로 완성된 집의 상한은 **다음 턴부터** 인구 증가에 반영된다.
 
 ## 자원 수입 (`Territory.collect_income` + `Building.production`)
 
@@ -62,6 +63,7 @@
 - [경계] `Territory.collect_income()` — 영지에 없던 자원 키도 생산되면 새로 생겨 더해짐
 - [정상] 건설 중 농장을 가진 영지를 `end_turn` → 건설 1턴 진행, 완성 전엔 밀 수입 없음
 - [정상] build_turns회 `end_turn` 후 농장 완성, 그 **다음** 턴 종료부터 밀 수입 발생
+- [정상] 인구 상한(집 완성으로 12) > 현재 인구(10) 영지를 `end_turn` → 인구 11로 증가; 상한 도달 후엔 유지
 
 ## 관련
 

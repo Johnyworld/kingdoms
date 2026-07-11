@@ -51,3 +51,16 @@ func spend(cost: Dictionary) -> void:
 func advance_construction() -> void:
 	for building in buildings:
 		building.advance_construction()
+
+## 영지 인구 상한 = 소속 완성 건물들의 pop_cap 합(캠프 10, 집 +2). 건설 중 건물은 0으로 기여 안 함.
+func population_cap() -> int:
+	var cap := 0
+	for building in buildings:
+		cap += building.pop_cap()
+	return cap
+
+## 턴 종료 시 호출. 현재 인구가 상한 미만이면 +1(상한에서 멈춤). 상한 이상이면 그대로 둔다(초과분 감소 없음).
+func grow_population() -> void:
+	var cur: int = resources.get("인구", 0)
+	if cur < population_cap():
+		resources["인구"] = cur + 1

@@ -38,9 +38,13 @@ func test_house_spec() -> void:
 	assert_eq(spec["footprint"], 1, "집 footprint 1헥스")
 	assert_eq(spec["build_turns"], 4, "집 필요 턴 4")
 	assert_eq(spec["build_cost"], {"목재": 8, "석재": 4}, "집 필요 자원")
-	assert_eq(spec["production"], {"인구": 2}, "집 턴당 인구 2(상한 근사)")
+	assert_eq(spec["pop_cap"], 2, "집 인구 상한 기여 +2")
+	assert_eq(spec.get("production", {}).size(), 0, "집은 생산 없음(상한으로 전환)")
 	for key in ["fill_color", "edge_color", "tent_color"]:
 		assert_true(spec.has(key), "집 외형 색상 %s 키 존재" % key)
+
+func test_camp_pop_cap() -> void:
+	assert_eq(types.get_type("camp")["pop_cap"], 10, "캠프 기본 인구 상한 10")
 
 func test_lumberjack_spec() -> void:
 	var spec: Dictionary = types.get_type("lumberjack")

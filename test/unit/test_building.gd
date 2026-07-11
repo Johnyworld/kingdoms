@@ -132,3 +132,24 @@ func test_planned_production_ignores_construction() -> void:
 	building.setup(terrain, _center(), "farm", true)
 	assert_eq(building.production(), {}, "건설 중 production은 빈 Dictionary")
 	assert_eq(building.planned_production(), {"밀": 1}, "건설 중에도 완성 시 생산은 밀 1")
+
+# --- 인구 상한 기여 (pop_cap) ---
+
+func test_pop_cap_complete_buildings() -> void:
+	_camp()
+	assert_eq(building.pop_cap(), 10, "완성 캠프 상한 기여 10")
+	var house = load("res://scenes/building/building.gd").new()
+	add_child_autofree(house)
+	house.setup(terrain, Vector2i(30, 30), "house")
+	assert_eq(house.pop_cap(), 2, "완성 집 상한 기여 2")
+	var farm = load("res://scenes/building/building.gd").new()
+	add_child_autofree(farm)
+	farm.setup(terrain, Vector2i(10, 10), "farm")
+	assert_eq(farm.pop_cap(), 0, "농장은 상한 기여 없음")
+
+func test_pop_cap_zero_under_construction() -> void:
+	building.setup(terrain, _center(), "house", true)  # 건설 중
+	assert_eq(building.pop_cap(), 0, "건설 중 집은 상한 기여 0")
+	for i in range(4):
+		building.advance_construction()
+	assert_eq(building.pop_cap(), 2, "완성 후 집 상한 기여 2")

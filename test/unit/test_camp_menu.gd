@@ -62,6 +62,13 @@ func test_resource_grid_filled() -> void:
 	# 자원 7종 × 2열(이름/값) = 14개 자식.
 	assert_eq(menu._res_grid.get_child_count(), 14, "자원 그리드가 영지 자원 7종으로 채워진다")
 
+func test_population_row_shows_cap() -> void:
+	_join_territory()  # 캠프(상한 10) 편입, RES 인구 10
+	menu.open(building)
+	# 인구가 자원 삽입 순서상 첫 항목 → 이름 child(0), 값 child(1).
+	assert_eq((menu._res_grid.get_child(0) as Label).text, "인구", "첫 행은 인구")
+	assert_eq((menu._res_grid.get_child(1) as Label).text, "10 / 10", "인구 값은 현재/상한")
+
 # --- 건축 리스트 (2a) + 선행건물 게이트 ---
 # BUILDABLE_IDS 순서 = [town_hall(0), quarry(1), farm(2), house(3), lumberjack(4), castle(5)].
 

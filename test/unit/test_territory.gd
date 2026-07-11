@@ -2,13 +2,24 @@ extends GutTest
 ## 영지(Territory) 엔티티 테스트 — 자원·세력·건물 연결.
 
 var building: Node2D
+var terrain: TileMapLayer
 
 func before_each() -> void:
 	building = load("res://scenes/building/building.gd").new()
 	add_child_autofree(building)
+	terrain = TileMapLayer.new()
+	terrain.tile_set = load("res://tiles/terrain_tileset.tres")
+	add_child_autofree(terrain)
 
 func _territory(name := "파리", res := {}) -> Object:
 	return load("res://scenes/territory/territory.gd").new(name, res)
+
+## 지정 종류의 건물을 만들어 반환한다(pop_cap 테스트용). 겹치지 않게 center를 달리 넘긴다.
+func _typed_building(center: Vector2i, type_id: String, under_construction := false) -> Node2D:
+	var b: Node2D = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.setup(terrain, center, type_id, under_construction)
+	return b
 
 func test_init_sets_name_and_resources() -> void:
 	var t := _territory("파리", {"인구": 10, "밀": 50})
@@ -70,3 +81,41 @@ func test_spend_deducts_resources() -> void:
 	t.spend({"목재": 5, "밀": 5})
 	assert_eq(t.resources["목재"], 5, "목재 5 차감")
 	assert_eq(t.resources["밀"], 5, "밀 5 차감")
+
+# --- 인구 상한 (population_cap) + 자연 증가 (grow_population) ---
+
+func test_population_cap_camp_only() -> void:
+	var t := _territory()
+	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
+	assert_eq(t.population_cap(), 10, "캠프만 → 상한 10")
+
+func test_population_cap_with_houses() -> void:
+	var t := _territory()
+	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
+	t.add_building(_typed_building(Vector2i(30, 30), "house"))
+	assert_eq(t.population_cap(), 12, "캠프 + 집 1채 → 12")
+	t.add_building(_typed_building(Vector2i(32, 30), "house"))
+	assert_eq(t.population_cap(), 14, "캠프 + 집 2채 → 14")
+
+func test_population_cap_ignores_under_construction() -> void:
+	var t := _territory()
+	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
+	t.add_building(_typed_building(Vector2i(30, 30), "house", true))  # 건설 중
+	assert_eq(t.population_cap(), 10, "건설 중 집은 상한에 기여 안 함")
+
+func test_grow_population_up_to_cap() -> void:
+	var t := _territory("파리", {"인구": 10})
+	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
+	t.add_building(_typed_building(Vector2i(30, 30), "house"))  # 상한 12
+	t.grow_population()
+	assert_eq(t.resources["인구"], 11, "인구 10 → 11")
+	t.grow_population()
+	assert_eq(t.resources["인구"], 12, "11 → 12(상한)")
+	t.grow_population()
+	assert_eq(t.resources["인구"], 12, "상한 도달 후 유지(넘지 않음)")
+
+func test_grow_population_no_change_at_cap() -> void:
+	var t := _territory("파리", {"인구": 10})
+	t.add_building(_typed_building(Vector2i(20, 20), "camp"))  # 상한 10
+	t.grow_population()
+	assert_eq(t.resources["인구"], 10, "인구가 상한과 같으면 변화 없음")

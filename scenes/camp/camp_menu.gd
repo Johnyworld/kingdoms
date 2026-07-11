@@ -200,7 +200,11 @@ func open(building: Building, party = null) -> void:
 		_res_grid.add_child(name_label)
 
 		var value_label := Label.new()
-		value_label.text = str(resources[res_name])
+		# 인구는 "현재 / 상한"으로 표시(상한 = 영지 인구 상한). 나머지는 수량만.
+		if res_name == "인구" and territory != null:
+			value_label.text = "%d / %d" % [resources[res_name], territory.population_cap()]
+		else:
+			value_label.text = str(resources[res_name])
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_res_grid.add_child(value_label)

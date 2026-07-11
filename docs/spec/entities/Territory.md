@@ -30,6 +30,11 @@
 - `spend(cost: Dictionary) -> void` — `cost`의 각 자원을 `resources`에서 뺀다. 음수 방지는 하지 않으므로 호출 전 `can_afford`로 확인한다. [건축](../features/building.md) 시 자원 차감.
 - `advance_construction() -> void` — [턴](../features/turn.md) 종료 시 호출. 소속 건물들의 `advance_construction()`을 불러 건설 중 건물을 1턴씩 진행한다.
 
+### 인구 상한(`population_cap`)
+
+- `population_cap() -> int` — 소속 **완성** 건물들의 `pop_cap()`([Building](Building.md)) 합. 영지가 담을 수 있는 최대 인구. 캠프가 기본 10, 집이 +2씩 올린다. 건설 중 건물은 기여하지 않는다(`Building.pop_cap()`이 0).
+- `grow_population() -> void` — [턴](../features/turn.md) 종료 시 호출. **현재 인구(`resources["인구"]`)가 상한 미만이면 +1**(상한에서 멈춤). 현재 인구가 상한 이상이면 아무 일도 하지 않는다(초과분을 강제로 줄이지는 않음 — 집을 철거해 상한이 내려간 경우 등).
+
 ## 테스트 시나리오
 
 `test/unit/test_territory.gd`.
@@ -45,6 +50,10 @@
 - [정상] `can_afford({목재:5})` — 충분하면 참, 부족하면 거짓
 - [경계] `can_afford({})`는 항상 참; 보유 없는 자원을 요구하면 거짓
 - [정상] `spend({목재:5, 밀:5})` 후 해당 자원이 정확히 그만큼 감소
+- [정상] 캠프만 가진 영지 `population_cap() == 10`; 완성 집 1채 편입 시 `12`, 2채면 `14`
+- [경계] **건설 중** 집은 상한에 기여 안 함(캠프+건설중집 → `10`)
+- [정상] `grow_population()` — 인구 10, 상한 12 → 11로 증가; 다시 호출 → 12; 상한 도달 후 재호출 → 12 유지(넘지 않음)
+- [경계] 인구가 상한 이상(예: 상한 10, 인구 10)이면 `grow_population()`은 변화 없음
 
 ## 관련
 

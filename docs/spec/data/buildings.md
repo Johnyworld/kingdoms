@@ -32,11 +32,11 @@
 
 | id | `build_turns` | `build_cost` | `demolish_refund` | `production` | 특수 효과 |
 | --- | --- | --- | --- | --- | --- |
-| `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | (없음) | 건설 완료 시 **새 영지 생성** |
+| `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | (없음) | 건설 완료 시 **새 영지 생성**. 인구 상한 `pop_cap 10`(기본) |
 | `town_hall` | 8 | 목재 10 / 석재 10 / 밀 20 | 목재 2 / 석재 2 | (없음) | 대부분 건물의 선행 조건. 상인 방문은 **미구현** |
 | `castle` | 12 | 석재 50 / 밀 30 | 석재 10 | (없음) | 영지 최종 단계. 고급 건물 해금은 **미구현** |
 | `farm` | 3 | 인구 2 / 목재 5 / 밀 5 | 인구 2 / 목재 1 | 밀 1 (턴당) | (없음) |
-| `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 인구 2 (턴당) | 거주 인구(상한)는 **미구현** — 아래 참고 |
+| `house` | 4 | 목재 8 / 석재 4 | 목재 2 | (없음) | **인구 상한 `pop_cap +2`**(생산 아님) |
 | `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 나무 2 (턴당) | (없음) |
 | `quarry` | 4 | 목재 10 | 목재 2 | 석재 2 (턴당) | (없음) |
 
@@ -49,7 +49,7 @@
 - `build_cost`·`demolish_refund`·`production`은 자원명→수량 Dictionary. `build_turns`는 건설 소요 턴.
 - **턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과는 아직 **미구현**이다(캠프 외 건물 건설만 다룸, [건축](../features/building.md) 참고).
 - **`footprint`은 [배치 유효성](../features/building.md#배치-유효성-buildplanner)에 반영된다** — `BuildPlanner.footprint`/`can_place`가 종류별 헥스 수로 판정하고, `Building.setup`이 그만큼 점유 셀을 잡는다.
-- **집(`house`)의 "거주 인구 +2" 상한 의미는 미구현(TODO)** — 현재 인구 상한 시스템이 없어(인구는 소비 자원) 이번 슬라이스는 **턴당 인구 +2 생산**으로 근사한다. 상한 시스템이 생기면 재정의한다.
+- **인구 상한(`pop_cap`)**: 종류가 영지 [인구 상한](../entities/Territory.md#인구-상한population_cap)에 더하는 값(없으면 0). 캠프 `pop_cap 10`(기본), 집 `pop_cap 2`. 완성 건물만 상한에 기여한다(`Building.pop_cap()`은 건설 중이면 0). 매 턴 종료 시 영지 인구가 상한까지 +1씩 [자연 증가](turn.md)한다. 집은 이제 인구를 **생산**하지 않고 **상한을 올린다**(이전 슬라이스의 `production {인구:2}` 근사를 대체).
 - **신규 소형 건물은 석재를 요구**한다. 영지 초기 자원에 석재가 없으므로(위 캠프 `resources`) **채석장(목재만)으로 석재를 확보한 뒤** 벌목소·집을 짓는 순서가 된다. 새 자원 키(`석재`)는 `Territory.collect_income`/`can_afford`가 자동으로 처리한다.
 
 ### 선행건물 (`prerequisite`)
@@ -86,7 +86,8 @@
 - [정상] `get_type("farm").label == "농장"`, `vision == 4`, `footprint == 7`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
 - [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {인구2, 목재5, 밀5}`, `demolish_refund == {인구2, 목재1}`, `production == {밀1}`
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
-- [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 석재4}`, `production == {인구2}`, 외형 색상 키 존재
+- [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 석재4}`, `pop_cap == 2`, `production` 없음(생산 아님), 외형 색상 키 존재
+- [정상] `get_type("camp").pop_cap == 10`(기본 인구 상한)
 - [정상] `get_type("lumberjack")` — `label == "벌목소"`, `vision == 3`, `footprint == 1`, `build_turns == 3`, `build_cost == {목재5, 석재5}`, `production == {나무2}`
 - [정상] `get_type("quarry")` — `label == "채석장"`, `vision == 3`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재10}`, `production == {석재2}`, `prerequisite == "camp"`
 - [정상] `get_type("town_hall")` — `label == "마을회관"`, `vision == 6`, `footprint == 7`, `build_turns == 8`, `build_cost == {목재10, 석재10, 밀20}`, `prerequisite == "camp"`, `production` 없음(빈/미정의)

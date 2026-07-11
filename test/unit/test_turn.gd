@@ -28,6 +28,12 @@ func _building(type_id: String) -> Node2D:
 	b.setup(terrain, Vector2i(MAP / 2, MAP / 2), type_id)
 	return b
 
+func _building_at(type_id: String, cell: Vector2i) -> Node2D:
+	var b: Node2D = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.setup(terrain, cell, type_id)
+	return b
+
 func _building_uc(type_id: String) -> Node2D:
 	var b: Node2D = load("res://scenes/building/building.gd").new()
 	add_child_autofree(b)
@@ -127,3 +133,24 @@ func test_construction_completes_then_produces_next_turn() -> void:
 	assert_eq(t.resources["밀"], 50, "완성되는 턴엔 아직 생산 안 함")
 	tm.end_turn([], [t])  # 완성 상태 → 생산
 	assert_eq(t.resources["밀"], 51, "다음 턴부터 밀 수입 발생")
+
+# --- 인구 자연 증가 ---
+
+func test_end_turn_grows_population_up_to_cap() -> void:
+	var tm := _turn_manager()
+	var t := _territory({"인구": 10})
+	t.add_building(_building_at("camp", Vector2i(MAP / 2, MAP / 2)))
+	t.add_building(_building_at("house", Vector2i(5, 5)))  # 상한 12
+	tm.end_turn([], [t])
+	assert_eq(t.resources["인구"], 11, "턴 종료 시 인구 10 → 11(상한 12)")
+	tm.end_turn([], [t])
+	assert_eq(t.resources["인구"], 12, "다음 턴 → 12(상한 도달)")
+	tm.end_turn([], [t])
+	assert_eq(t.resources["인구"], 12, "상한 도달 후 유지")
+
+func test_end_turn_no_growth_at_cap() -> void:
+	var tm := _turn_manager()
+	var t := _territory({"인구": 10})
+	t.add_building(_building_at("camp", Vector2i(MAP / 2, MAP / 2)))  # 상한 10
+	tm.end_turn([], [t])
+	assert_eq(t.resources["인구"], 10, "인구가 상한(10)과 같으면 증가 없음")

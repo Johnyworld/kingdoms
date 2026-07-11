@@ -90,6 +90,13 @@ func production() -> Dictionary:
 func planned_production() -> Dictionary:
 	return _spec.get("production", {})
 
+## 영지 인구 상한에 더하는 값. 건설 중에는 0(완성 건물만 기여). 완성 후 카탈로그 pop_cap(없으면 0).
+## 캠프 10, 집 2. production()과 같은 건설-게이트 패턴. Territory.population_cap()이 합산한다.
+func pop_cap() -> int:
+	if under_construction:
+		return 0
+	return _spec.get("pop_cap", 0)
+
 ## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
 ## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.
 func map_label_lines() -> Array:

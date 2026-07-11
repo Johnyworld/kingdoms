@@ -75,6 +75,14 @@ func open(building) -> void:
 		label.text = "%s +%d / 턴" % [res_name, production[res_name]]
 		_info_list.add_child(label)
 
+	# 인구 상한 기여 줄(집 등, 있으면). 생산 줄처럼 건설 중에도 완성 시 기여분을 보여준다.
+	# 캠프는 기본 상한(10)을 이 패널에 노출하지 않는다(캠프 정보는 캠프 메뉴가 담당).
+	var cap_bonus: int = BuildingTypes.get_type(building.building_type).get("pop_cap", 0)
+	if cap_bonus > 0 and building.building_type != BuildingTypes.CAMP:
+		var label := Label.new()
+		label.text = "인구 상한 +%d" % cap_bonus
+		_info_list.add_child(label)
+
 	show()
 
 ## 패널을 숨긴다.
