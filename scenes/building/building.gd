@@ -97,6 +97,10 @@ func pop_cap() -> int:
 		return 0
 	return _spec.get("pop_cap", 0)
 
+## 철거 시 돌려받는 자재(자원명→수량). 건설 여부와 무관하게 카탈로그 demolish_refund(없으면 빈 Dictionary).
+func demolish_refund() -> Dictionary:
+	return _spec.get("demolish_refund", {})
+
 ## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
 ## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.
 func map_label_lines() -> Array:

@@ -119,3 +119,28 @@ func test_grow_population_no_change_at_cap() -> void:
 	t.add_building(_typed_building(Vector2i(20, 20), "camp"))  # 상한 10
 	t.grow_population()
 	assert_eq(t.resources["인구"], 10, "인구가 상한과 같으면 변화 없음")
+
+# --- 철거 (demolish) ---
+
+func test_demolish_removes_and_refunds() -> void:
+	var t := _territory("파리", {"인구": 5, "목재": 0})
+	var farm := _typed_building(Vector2i(20, 20), "farm")
+	t.add_building(farm)
+	t.demolish(farm)
+	assert_false(farm in t.buildings, "철거된 건물은 buildings에서 빠짐")
+	assert_null(farm.territory, "farm.territory == null")
+	assert_eq(t.resources["인구"], 7, "인구 환급 +2")
+	assert_eq(t.resources["목재"], 1, "목재 환급 +1")
+
+func test_demolish_creates_missing_resource_key() -> void:
+	var t := _territory("파리", {})  # 목재·인구 키 없음
+	var house := _typed_building(Vector2i(20, 20), "house")
+	t.add_building(house)
+	t.demolish(house)
+	assert_eq(t.resources.get("목재"), 2, "없던 자원 키도 환급으로 생성")
+
+func test_demolish_not_owned_is_noop() -> void:
+	var t := _territory("파리", {"목재": 5})
+	var farm := _typed_building(Vector2i(20, 20), "farm")  # 편입 안 함
+	t.demolish(farm)
+	assert_eq(t.resources["목재"], 5, "보유하지 않은 건물 철거는 환급 없음")

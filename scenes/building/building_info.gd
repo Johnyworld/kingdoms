@@ -3,11 +3,16 @@ extends CanvasLayer
 ## 종류·건설 상태·시야·소속 영지·생산량을 표시한다.
 ## 부대 정보 패널(party_info.gd)·캠프 메뉴(camp_menu.gd)처럼 UI를 코드로 구성한다(별도 .tscn 없음).
 
+## 철거 버튼을 누르면 방출. game.gd가 받아 실제 철거(영지에서 제거·환급·안개 갱신)를 처리한다.
+signal demolish_requested(building)
+
 const MARGIN := 16
 
 var _title: Label          # 제목 = 건물 종류 라벨(예: "농장")
 var _summary: Label        # 요약 = 건설 상태 · 시야
 var _info_list: VBoxContainer  # 영지·세력 줄 + 생산 줄
+var _demolish_btn: Button  # 철거 버튼(내 소유·캠프 아님일 때만 표시)
+var _building = null        # 현재 표시 중인 건물(철거 대상)
 
 func _ready() -> void:
 	layer = 48
@@ -44,8 +49,17 @@ func _build() -> void:
 	_info_list.add_theme_constant_override("separation", 4)
 	vbox.add_child(_info_list)
 
+	# 철거 버튼(기본 숨김). open(.., can_demolish)가 표시 여부를 토글한다.
+	_demolish_btn = Button.new()
+	_demolish_btn.text = "철거"
+	_demolish_btn.pressed.connect(func() -> void: demolish_requested.emit(_building))
+	_demolish_btn.hide()
+	vbox.add_child(_demolish_btn)
+
 ## 건물 정보를 채우고 패널을 보인다. 정보 리스트는 비우고 다시 채운다(재오픈 대비).
-func open(building) -> void:
+func open(building, can_demolish := false) -> void:
+	_building = building
+	_demolish_btn.visible = can_demolish
 	_title.text = building.label()
 	if building.is_complete():
 		_summary.text = "완성 · 시야 %d" % building.vision

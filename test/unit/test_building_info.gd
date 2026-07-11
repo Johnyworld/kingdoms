@@ -118,3 +118,25 @@ func test_open_shows_close_hides() -> void:
 	assert_true(panel.visible, "open 후 표시")
 	panel.close()
 	assert_false(panel.visible, "close 후 숨김")
+
+# --- 철거 버튼 ---
+
+func test_demolish_button_shown_when_allowed() -> void:
+	panel.open(_building("farm"), true)
+	assert_true(panel._demolish_btn.visible, "can_demolish면 철거 버튼 표시")
+
+func test_demolish_button_hidden_by_default() -> void:
+	panel.open(_building("farm"))  # 기본 false
+	assert_false(panel._demolish_btn.visible, "기본은 철거 버튼 숨김")
+
+func test_demolish_button_toggles_on_reopen() -> void:
+	panel.open(_building("farm"), true)
+	panel.open(_building("farm"))  # can_demolish 없이 재오픈
+	assert_false(panel._demolish_btn.visible, "재오픈 시 철거 버튼 숨김(토글)")
+
+func test_demolish_button_emits_signal() -> void:
+	var b := _building("farm")
+	panel.open(b, true)
+	watch_signals(panel)
+	panel._demolish_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "demolish_requested", [b])

@@ -28,7 +28,7 @@
 ### 건설 · 경제
 
 `production`은 [턴](../features/turn.md) 종료 시 영지 수입으로 **사용된다**(`Building.production` → `Territory.collect_income`).
-`build_cost`(자원 차감)와 `build_turns`(건설 소요 턴) 소비 로직은 [건축](../features/building.md) 슬라이스 1에서 **구현됨**(단 게임 플로우 배선은 슬라이스 2). `demolish_refund`(철거)는 아직 **미구현**이다.
+`build_cost`(자원 차감)와 `build_turns`(건설 소요 턴) 소비 로직은 [건축](../features/building.md) 슬라이스 1에서 **구현됨**(단 게임 플로우 배선은 슬라이스 2). `demolish_refund`(철거 시 자재 회수)는 [건물 정보 패널의 철거](../features/building-info.md#철거)에서 **구현됨**(캠프 제외).
 
 | id | `build_turns` | `build_cost` | `demolish_refund` | `production` | 특수 효과 |
 | --- | --- | --- | --- | --- | --- |
@@ -100,4 +100,4 @@
 
 - 종류를 배치·사용하는 주체: [Building 엔티티](../entities/Building.md)
 - 자원 목록: [resources.md](resources.md)
-- 생산(`production`) 로직은 [턴](../features/turn.md)에서 구현됨. 건설 코어 로직(자원 소비·건설 중 상태·배치 유효성)은 [건축](../features/building.md) 슬라이스 1에서 구현됨. 건설 모드 UI(배치)·철거는 아직 **미구현**.
+- 생산(`production`) 로직은 [턴](../features/turn.md)에서 구현됨. 건설 코어 로직(자원 소비·건설 중 상태·배치 유효성)은 [건축](../features/building.md) 슬라이스 1에서 구현됨. **철거**는 [건물 정보 패널](../features/building-info.md#철거)에서 구현됨(캠프 제외). 캠프 건설(새 영지 생성)은 아직 **미구현**.

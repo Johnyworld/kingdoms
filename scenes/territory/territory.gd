@@ -64,3 +64,13 @@ func grow_population() -> void:
 	var cur: int = resources.get("인구", 0)
 	if cur < population_cap():
 		resources["인구"] = cur + 1
+
+## 건물을 철거한다. 보유한 건물이면 영지에서 떼어내고(remove_building) 그 건물의 demolish_refund(자재)를 자원에 환급한다.
+## 보유하지 않은 건물이면 no-op(환급도 없음). 캠프 철거(영지 상실)는 미구현이라 호출부에서 캠프를 제외한다.
+func demolish(building) -> void:
+	if not (building in buildings):
+		return
+	var refund: Dictionary = building.demolish_refund()
+	remove_building(building)
+	for res_name in refund:
+		resources[res_name] = resources.get(res_name, 0) + refund[res_name]

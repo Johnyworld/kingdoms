@@ -153,3 +153,17 @@ func test_pop_cap_zero_under_construction() -> void:
 	for i in range(4):
 		building.advance_construction()
 	assert_eq(building.pop_cap(), 2, "완성 후 집 상한 기여 2")
+
+# --- 철거 환급 (demolish_refund) ---
+
+func test_demolish_refund_by_type() -> void:
+	building.setup(terrain, _center(), "farm")
+	assert_eq(building.demolish_refund(), {"인구": 2, "목재": 1}, "농장 철거 환급")
+	var house = load("res://scenes/building/building.gd").new()
+	add_child_autofree(house)
+	house.setup(terrain, Vector2i(30, 30), "house")
+	assert_eq(house.demolish_refund(), {"목재": 2}, "집 철거 환급")
+
+func test_demolish_refund_same_under_construction() -> void:
+	building.setup(terrain, _center(), "farm", true)  # 건설 중
+	assert_eq(building.demolish_refund(), {"인구": 2, "목재": 1}, "건설 중에도 같은 환급")

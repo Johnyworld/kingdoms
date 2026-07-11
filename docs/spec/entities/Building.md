@@ -61,6 +61,7 @@
 - `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). **건설 중에는 빈 Dictionary**. 완성 후에는 카탈로그의 `production`(없으면 빈 Dictionary, 캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
 - `planned_production() -> Dictionary` — 완성 시 생산량(카탈로그 `production`). **건설 여부와 무관**하게 항상 반환(`production()`과 달리 건설 중에도 값이 있음). [건물 정보 패널](../features/building-info.md)이 건설 중에도 완성 시 생산량을 보여줄 때 쓴다.
 - `pop_cap() -> int` — 이 건물이 영지 [인구 상한](Territory.md#인구-상한population_cap)에 더하는 값. **건설 중에는 0**(완성 건물만 기여), 완성 후 카탈로그 `pop_cap`(없으면 0). 캠프 10, 집 2. `production()`과 같은 건설-게이트 패턴.
+- `demolish_refund() -> Dictionary` — [철거](../features/building-info.md#철거) 시 돌려받는 자재(자원명→수량). 카탈로그 `demolish_refund`(없으면 빈 Dictionary). **건설 여부와 무관**(건설 중 취소해도 같은 자재 회수).
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
   - 영지가 없으면(`territory == null`) 빈 배열.
   - 영지 이름이 있으면 첫 줄 = `{territory.name, 흰색}`.
@@ -85,6 +86,7 @@
 - [경계] `production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}` (`test/unit/test_turn.gd`)
 - [정상] 완성 농장 `planned_production() == {밀:1}`, 캠프 `planned_production() == {}`
 - [정상] `pop_cap()` — 완성 캠프 10, 완성 집 2, 완성 농장 0; **건설 중** 집은 0(완성 후 2)
+- [정상] `demolish_refund()` — 농장 `{인구2, 목재1}`, 집 `{목재2}`; **건설 중**에도 동일(건설 여부 무관)
 - [정상] **건설 중** 농장도 `planned_production() == {밀:1}` (반면 `production() == {}`)
 - [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`, `production() == {}`
 - [정상] `advance_construction()`를 build_turns회 → 완성(`is_complete()`), 완성되는 호출만 `true`; 완성 후 `production() == {밀:1}`

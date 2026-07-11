@@ -157,6 +157,7 @@ func _ready() -> void:
 	camp_menu.build_selected.connect(_on_build_selected)
 	camp_menu.garrison_changed.connect(_on_garrison_changed)
 	camp_menu.raise_party.connect(_on_raise_party)
+	building_info.demolish_requested.connect(_on_demolish_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
 	party_action_menu.action_selected.connect(_on_party_action)
@@ -470,9 +471,10 @@ func _handle_click(world_pos: Vector2) -> void:
 			# 인접한 플레이어 부대가 있으면 수비대 편성도 가능하게 넘긴다.
 			camp_menu.open(clicked, _party_at_camp(clicked))
 		ClickRouter.BUILDING_INFO:
-			_open_building_info(clicked)
+			# 내 건물(캠프 아님)은 철거 가능. 캠프는 CAMP_MENU로 라우팅되므로 여기 안 온다.
+			_open_building_info(clicked, clicked.building_type != BuildingTypes.CAMP)
 		ClickRouter.NPC_BASE_INFO:
-			_open_building_info(clicked_npc_building)   # 발견된 NPC 거점 — 정보만(건축 없음)
+			_open_building_info(clicked_npc_building, false)   # 적 거점 — 정보만(철거·건축 없음)
 		ClickRouter.FOCUS_PARTY:
 			if clicked_party == party:
 				# 같은 활성 부대: 정보 표시 + (미선택이고 행동 가능하면 선택 / 선택 중이면 메뉴 복귀).
@@ -630,12 +632,22 @@ func _npc_building_at(cell: Vector2i) -> Building:
 
 ## 우측 상단에 건물 정보 패널을 띄운다. 부대 정보·일람은 감춘다(캠프 메뉴와 같은 규칙). 선택 중이면 해제.
 ## 플레이어 건물(BUILDING_INFO)·NPC 거점(NPC_BASE_INFO)이 공유한다.
-func _open_building_info(b) -> void:
+func _open_building_info(b, can_demolish := false) -> void:
 	if _selected:
 		_deselect()
 	party_info.close()
 	party_roster.hide()
-	building_info.open(b)
+	building_info.open(b, can_demolish)
+
+## 건물 정보 패널의 철거 버튼 → 영지에서 제거·자재 환급 → 맵/추적 목록에서 제거 → 안개 갱신 → 패널 닫기.
+## 노드 free는 지연 호출한다(버튼 pressed 처리 중이라 즉시 free하면 "locked" 에러).
+func _on_demolish_requested(b) -> void:
+	if b.territory != null:
+		b.territory.demolish(b)   # 영지에서 떼고 demolish_refund 환급
+	_buildings.erase(b)
+	building_info.close()
+	b.queue_free.call_deferred()
+	_update_fog()   # 철거된 건물 시야 제거
 
 ## exclude를 뺀 모든 부대(플레이어 전부 + NPC)가 점유한 칸 집합({cell: true}). 이동 장애물로 넘긴다.
 ## 빈 부대(멤버 0)도 칸을 차지한다 — 새로 편성한 빈 부대가 자리를 지켜 겹침(두 부대가 한 칸)을 막는다.

@@ -18,6 +18,7 @@
     - 완성: `"완성 · 시야 %d"` (`building.vision`)
     - 건설 중: `"건설 중 %d턴 · 시야 %d"` (`building.remaining_turns`, `building.vision`)
   - `HSeparator`.
+  - **철거 버튼** — `can_demolish`가 참일 때만 정보 리스트 아래에 `"철거"` 버튼을 둔다(아래 [철거](#철거)). 누르면 `demolish_requested(building)` 시그널을 방출한다.
   - **정보 리스트**(VBox) — 아래 줄들을 순서대로 채운다. 없는 항목은 줄을 만들지 않는다.
     - **영지·세력** — `building.map_label_lines()`의 각 줄(`{text, color}`): 영지명(흰색), 세력명(세력색). 영지가 없으면 없음.
     - **수비대** — 캠프면 `"수비대 N명"`(N = `building.garrison.size()`). 캠프가 아닌 건물(농장 등)은 없음. → [Garrison](garrison.md).
@@ -42,7 +43,7 @@
 
 `game.gd`(`_handle_click`)는 `_building_at(cell)`로 클릭된 **플레이어** 건물을 찾아 **캠프**(`building_type == "camp"`)면 `on_camp`,
 그 외 건물이면 `on_building`으로 분류하고, `_npc_building_at(cell)`로 발견된 NPC 거점이면 `on_npc_building`으로 넘긴다.
-`BUILDING_INFO`·`NPC_BASE_INFO` 결과면 각각의 건물로 `building_info.open(building)`을 호출한다(공유 헬퍼 `_open_building_info`).
+`BUILDING_INFO`·`NPC_BASE_INFO` 결과면 각각의 건물로 `building_info.open(building, can_demolish)`를 호출한다(공유 헬퍼 `_open_building_info`). `can_demolish`는 `BUILDING_INFO`(내 건물, 캠프 아님)면 참, `NPC_BASE_INFO`면 거짓. → [철거](#철거).
 
 ## 표시 규칙 (`game.gd` `_handle_click`)
 
@@ -53,11 +54,23 @@
 
 ## 동작
 
-- `open(building) -> void` — 건물 정보를 채우고 패널을 보인다.
+- `open(building, can_demolish := false) -> void` — 건물 정보를 채우고 패널을 보인다.
   - 제목 = `building.label()`.
   - 요약 = 완성/건설 중에 따라 위 형식.
-  - 정보 리스트를 **비우고** 다시 채운다(재오픈 시 이전 내용이 남지 않도록): 영지·세력 줄 → 생산 줄.
+  - 정보 리스트를 **비우고** 다시 채운다(재오픈 시 이전 내용이 남지 않도록): 영지·세력 줄 → 수비대 → 생산 줄 → 인구 상한 줄.
+  - `can_demolish`가 참이면 **철거 버튼**을 보이고, 거짓이면 숨긴다(재오픈 대비 매번 토글).
 - `close() -> void` — 숨긴다.
+- `signal demolish_requested(building)` — 철거 버튼을 누르면 방출. `game.gd`가 받아 실제 철거를 처리한다.
+
+## 철거
+
+내 소유이고 캠프가 아닌 건물은 정보 패널에서 **철거**할 수 있다.
+
+- **철거 가능 판정은 `game.gd`가 한다**: `BUILDING_INFO`(플레이어 건물)면 `building_type != "camp"`일 때 `can_demolish = true`, `NPC_BASE_INFO`(적 거점)면 항상 `false`. `_open_building_info(building, can_demolish)`로 넘긴다. 플레이어 캠프는 [캠프 메뉴](camp-menu.md)로 라우팅되므로 이 패널의 철거 대상이 아니다.
+- **철거 실행(`game.gd` `_on_demolish_requested`)**: `building.territory.demolish(building)`([Territory](../entities/Territory.md#동작) — 영지에서 떼고 `demolish_refund` 환급) → `_buildings`에서 제거 → 노드 `queue_free`(버튼 처리 중이므로 지연 해제) → [안개](fog-of-war.md)·라벨 갱신(`_update_fog`) → 패널 닫기.
+- **건설 중 건물도 철거 가능**(건설 취소). 환급은 완성 건물과 동일한 `demolish_refund`.
+- 집을 철거하면 [인구 상한](../entities/Territory.md#인구-상한population_cap)이 내려간다 — 현재 인구가 상한을 초과해도 강제로 줄이지는 않는다([grow_population](turn.md)이 증가만 멈춤).
+- **유예(미구현)**: 캠프 철거(영지 상실), 철거 확인 다이얼로그, 건설 중 부분 환급.
 
 ## 테스트 시나리오
 
@@ -70,6 +83,9 @@
 - [경계] 영지 있는 농장으로 연 뒤 영지 없는 건물로 재오픈 → 정보 리스트가 교체됨(이전 영지 줄 사라짐)
 - [정상] 집 `open` → 정보 리스트에 `"인구 상한 +2"` 포함(건설 중에도)
 - [경계] 농장(상한 기여 없음) `open` → `"인구 상한"` 줄 없음
+- [정상] `open(farm, true)` → **철거 버튼** 표시; `open(farm)`(기본 false) → 철거 버튼 숨김
+- [정상] `can_demolish=true`로 연 뒤 철거 버튼을 누르면 `demolish_requested(building)` 방출
+- [경계] `can_demolish=true`로 연 뒤 `false`로 재오픈 → 철거 버튼 숨김(토글)
 - [정상] `open` 후 `visible == true`, `close()` 후 `false`
 
 캠프 표시(NPC 거점도 이 패널로 정보만):
