@@ -25,6 +25,15 @@
 | 멤버 | `members` | `Array` | `[]` | 이 부대에 속한 [Human](Human.md) 목록 |
 | 지휘관 | `commander` | `Object` (Human) | `null` | 부대를 이끄는 [Human](Human.md). 멤버 중 하나를 가리킨다. 아직 편성 UI가 없어 생성 시 코드로 지정한다 |
 
+### 화물 (Cargo — 캐러반)
+
+거점에서 자원을 싣고 다른 거점으로 옮긴다([캠프 메뉴 보급](../features/camp-menu.md#보급-화물-적재하역)). 부대와 함께 이동하고, 전멸(부대 제거)하면 화물도 함께 소실된다(적의 약탈/획득은 **미구현**). **병합** 시 화물은 합쳐진다(`merge_from`, 소실 방지). **분할**([부대 편성](../features/party-composition.md)) 시 화물은 **원래 부대에 남고 새 부대는 빈 화물로 시작**한다(화물 분배 UI는 **미구현**).
+
+| 속성 | 변수 | 타입 | 초기값 | 설명 |
+| --- | --- | --- | --- | --- |
+| 화물 | `cargo` | `Dictionary` | `{}` | 운반 중인 자원(자원명→수량). `인구`는 운반하지 않는다(노동력) |
+| 적재 상한 | `CARGO_CAPACITY` | `int`(const) | `50` | 모든 자원 수량 합의 상한 |
+
 ### 유도 능력치 (Derived)
 
 멤버들의 능력치에서 계산한다.
@@ -52,6 +61,10 @@
 - `add_member(human) -> void` — 멤버를 `members`에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다. **지휘관이 없으면**(빈 부대의 첫 멤버) 그 멤버를 지휘관으로 삼는다. 다시 그린다.
 - `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. [수비대 편성](../features/garrison.md)에서 부대→캠프 이동에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
+- `cargo_total() -> int` — 화물 총량(모든 자원 수량 합).
+- `cargo_space() -> int` — 화물 여유 공간(`CARGO_CAPACITY - cargo_total()`).
+- `add_cargo(res_name, n) -> int` — 화물에 자원을 싣는다. 여유 공간까지만(`min(n, space)`), 음수 n은 0. **실제 실은 양**을 반환.
+- `remove_cargo(res_name, n) -> int` — 화물에서 자원을 내린다. 보유분까지만(`min(n, 보유)`), 0이 되면 키 삭제. **실제 내린 양**을 반환.
 - `movement() -> int` — 멤버 `movement`의 최소값(멤버 없으면 0). 이동/공격 범위 계산에 사용.
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
@@ -87,6 +100,11 @@
 - [정상] `mark_rested()` 후 `rested_this_turn` 참, `attacked_this_turn` 참(행동 종료), `can_rest()` 거짓
 - [정상] `mark_moved()` 후 `undo_move()` → `moved_this_turn` 거짓, `can_move()` 다시 참
 - [정상] `can_rest()`는 행동 전 참, `mark_attacked()`/`mark_rested()` 후 거짓
+- [정상] 생성 직후 `cargo` 빈 Dictionary, `cargo_total() == 0`, `cargo_space() == 50`
+- [정상] `add_cargo("목재", 10)` → 10 반환, `cargo["목재"] == 10`, `cargo_total() == 10`
+- [경계] `add_cargo`는 여유 공간까지만 — 화물 45 실린 상태서 `add_cargo("밀", 10)` → 5만 실림(반환 5, 상한 50)
+- [경계] `add_cargo` 음수 n → 0(변화 없음)
+- [정상] `remove_cargo("목재", 4)` → 4 반환, 남은 6; 보유보다 크게 요청하면 보유분만 내리고 0이 되면 키 삭제
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 

@@ -129,6 +129,20 @@ func test_merge_from_empty_noop() -> void:
 	a.merge_from(_party())   # 빈 부대 병합
 	assert_eq(a.members.size(), 1, "빈 부대 병합은 변화 없음")
 
+func test_merge_from_combines_cargo() -> void:
+	# 병합 시 화물도 합쳐져 소실되지 않는다(합산이라 용량 초과 허용).
+	var a := _party()
+	a.add_member(_human())
+	a.add_cargo("목재", 30)
+	var b := _party()
+	b.add_member(_human())
+	b.add_cargo("목재", 30)
+	b.add_cargo("석재", 10)
+	a.merge_from(b)
+	assert_eq(a.cargo["목재"], 60, "목재 30+30 합산(용량 50 초과 허용)")
+	assert_eq(a.cargo["석재"], 10, "석재도 합쳐짐")
+	assert_true(b.cargo.is_empty(), "b 화물은 비워짐(소실 아님, 이관)")
+
 # --- 지휘관(commander) ---
 
 func test_commander_null_by_default() -> void:
@@ -263,3 +277,40 @@ func test_end_turn_resets_party() -> void:
 	p.mark_moved()
 	tm.end_turn([p], [])
 	assert_false(p.moved_this_turn, "턴 종료 시 부대 이동 상태 리셋")
+
+# --- 화물 (캐러반) ---
+
+func test_cargo_empty_at_start() -> void:
+	var p := _party()
+	assert_eq(p.cargo.size(), 0, "생성 직후 화물 비어 있음")
+	assert_eq(p.cargo_total(), 0, "총량 0")
+	assert_eq(p.cargo_space(), 50, "여유 = 용량 50")
+
+func test_add_cargo() -> void:
+	var p := _party()
+	assert_eq(p.add_cargo("목재", 10), 10, "실은 양 10 반환")
+	assert_eq(p.cargo["목재"], 10, "화물에 목재 10")
+	assert_eq(p.cargo_total(), 10, "총량 10")
+
+func test_add_cargo_capped_by_capacity() -> void:
+	var p := _party()
+	p.add_cargo("목재", 45)
+	assert_eq(p.add_cargo("밀", 10), 5, "여유 5만 실림")
+	assert_eq(p.cargo_total(), 50, "총량 상한 50")
+
+func test_add_cargo_negative_is_noop() -> void:
+	var p := _party()
+	assert_eq(p.add_cargo("목재", -5), 0, "음수는 0")
+	assert_eq(p.cargo_total(), 0, "변화 없음")
+
+func test_remove_cargo() -> void:
+	var p := _party()
+	p.add_cargo("목재", 10)
+	assert_eq(p.remove_cargo("목재", 4), 4, "내린 양 4 반환")
+	assert_eq(p.cargo["목재"], 6, "남은 6")
+
+func test_remove_cargo_clamps_and_erases() -> void:
+	var p := _party()
+	p.add_cargo("목재", 3)
+	assert_eq(p.remove_cargo("목재", 10), 3, "보유분(3)만 내림")
+	assert_false(p.cargo.has("목재"), "0이 되면 키 삭제")
