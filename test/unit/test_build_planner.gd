@@ -124,33 +124,31 @@ func test_can_place_one_hex_ignores_neighbors() -> void:
 	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1), "1헥스는 중심만 유효하면 배치 가능")
 	assert_false(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 7), "같은 자리라도 7헥스면 이웃 시야 밖이라 불가")
 
-# --- prerequisite_met (선행건물 게이트) ---
+# --- prerequisite_met (거점 티어 기준) ---
 
-func test_prerequisite_met_camp_only_territory() -> void:
-	# 캠프만 완성된 영지: 선행 camp인 채석장·마을회관은 참, 선행 town_hall인 것들은 거짓.
-	var camp := _building(_center(), "camp")
-	var t := _territory_with(camp)
-	assert_true(BuildPlanner.prerequisite_met(t, "quarry"), "채석장(선행 camp) 충족")
-	assert_true(BuildPlanner.prerequisite_met(t, "town_hall"), "마을회관(선행 camp) 충족")
-	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "농장(선행 town_hall) 미충족")
-	assert_false(BuildPlanner.prerequisite_met(t, "house"), "집(선행 town_hall) 미충족")
-	assert_false(BuildPlanner.prerequisite_met(t, "lumberjack"), "벌목소(선행 town_hall) 미충족")
-	assert_false(BuildPlanner.prerequisite_met(t, "castle"), "성(선행 town_hall) 미충족")
+func test_prerequisite_camp_tier() -> void:
+	# 캠프 거점(tier 0): 채석장(선행 camp)은 참, 농장/집/벌목소(선행 town_hall)는 거짓.
+	var t := _territory_with(_building(_center(), "camp"))
+	assert_true(BuildPlanner.prerequisite_met(t, "quarry"), "채석장(선행 camp tier0) 충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "농장(선행 town_hall tier1) 미충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "house"), "집 미충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "lumberjack"), "벌목소 미충족")
 
-func test_prerequisite_met_after_town_hall() -> void:
-	var camp := _building(_center(), "camp")
-	var t := _territory_with(camp)
-	var hall := _building(_center() + Vector2i(9, 0), "town_hall")  # 완성
-	t.add_building(hall)
-	assert_true(BuildPlanner.prerequisite_met(t, "farm"), "마을회관 완성 후 농장 충족")
-	assert_true(BuildPlanner.prerequisite_met(t, "house"), "마을회관 완성 후 집 충족")
-	assert_true(BuildPlanner.prerequisite_met(t, "castle"), "마을회관 완성 후 성 충족")
+func test_prerequisite_town_hall_tier() -> void:
+	# 마을회관 거점(tier 1): 농장/집/벌목소 충족.
+	var t := _territory_with(_building(_center(), "town_hall"))
+	assert_true(BuildPlanner.prerequisite_met(t, "farm"), "마을회관 tier1 → 농장 충족")
+	assert_true(BuildPlanner.prerequisite_met(t, "house"), "→ 집 충족")
+	assert_true(BuildPlanner.prerequisite_met(t, "quarry"), "→ 채석장(하위 티어)도 충족")
+
+func test_prerequisite_castle_tier_keeps_lower() -> void:
+	# 성 거점(tier 2)이어도 하위 티어 선행(town_hall) 유지 — 건물 존재가 아니라 티어 비교.
+	var t := _territory_with(_building(_center(), "castle"))
+	assert_true(BuildPlanner.prerequisite_met(t, "farm"), "성 tier2 → 농장(선행 town_hall) 계속 충족")
 
 func test_prerequisite_under_construction_not_met() -> void:
-	var camp := _building(_center(), "camp")
-	var t := _territory_with(camp)
-	var hall := _building(_center() + Vector2i(9, 0), "town_hall", true)  # 건설 중
-	t.add_building(hall)
+	# 건설 중 거점은 미완성이라 티어에 안 잡힘.
+	var t := _territory_with(_building(_center(), "town_hall", true))  # 건설 중
 	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "건설 중 마을회관은 아직 미충족")
 
 # --- can_build (선행 + 자재 + 필요인원 종합) ---
@@ -178,7 +176,25 @@ func test_can_build_false_short_materials() -> void:
 func test_can_build_false_prerequisite() -> void:
 	var camp := _building(_center(), "camp")
 	var t := _territory_with_res(camp, {"인구": 10, "목재": 20, "밀": 50})
-	assert_false(BuildPlanner.can_build(t, "farm"), "마을회관 없으면 농장 불가(선행)")
+	assert_false(BuildPlanner.can_build(t, "farm"), "캠프 티어(마을회관 미만)면 농장 불가(선행)")
+
+# --- can_upgrade (거점 티어 업그레이드) ---
+
+func test_can_upgrade_camp_with_funds() -> void:
+	var camp := _building(_center(), "camp")
+	# 마을회관 비용 목재10·석재10·밀20 충분.
+	var t := _territory_with_res(camp, {"목재": 20, "석재": 20, "밀": 50})
+	assert_true(BuildPlanner.can_upgrade(t, camp), "캠프 + 마을회관 비용 충분 → 업그레이드 가능")
+
+func test_can_upgrade_false_short_funds() -> void:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with_res(camp, {"목재": 0, "석재": 0, "밀": 0})
+	assert_false(BuildPlanner.can_upgrade(t, camp), "비용 부족이면 불가")
+
+func test_can_upgrade_false_at_castle() -> void:
+	var castle := _building(_center(), "castle")
+	var t := _territory_with_res(castle, {"석재": 999, "밀": 999})
+	assert_false(BuildPlanner.can_upgrade(t, castle), "성은 최종 티어라 업그레이드 없음")
 
 func test_cannot_place_at_map_edge() -> void:
 	# 모서리(0,0)는 이웃이 맵 밖 → footprint 일부가 범위 밖.

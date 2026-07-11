@@ -139,8 +139,8 @@ func test_construction_completes_then_produces_next_turn() -> void:
 func test_end_turn_grows_population_up_to_cap() -> void:
 	var tm := _turn_manager()
 	var t := _territory({"인구": 10})
-	t.add_building(_building_at("camp", Vector2i(MAP / 2, MAP / 2)))
-	t.add_building(_building_at("house", Vector2i(5, 5)))  # 상한 12
+	t.add_building(_building_at("town_hall", Vector2i(MAP / 2, MAP / 2)))  # 상한 10
+	t.add_building(_building_at("house", Vector2i(5, 5)))                   # +2 → 12
 	tm.end_turn([], [t])
 	assert_eq(t.resources["인구"], 11, "턴 종료 시 인구 10 → 11(상한 12)")
 	tm.end_turn([], [t])
@@ -151,6 +151,6 @@ func test_end_turn_grows_population_up_to_cap() -> void:
 func test_end_turn_no_growth_at_cap() -> void:
 	var tm := _turn_manager()
 	var t := _territory({"인구": 10})
-	t.add_building(_building_at("camp", Vector2i(MAP / 2, MAP / 2)))  # 상한 10
+	t.add_building(_building_at("town_hall", Vector2i(MAP / 2, MAP / 2)))  # 상한 10
 	tm.end_turn([], [t])
 	assert_eq(t.resources["인구"], 10, "인구가 상한(10)과 같으면 증가 없음")

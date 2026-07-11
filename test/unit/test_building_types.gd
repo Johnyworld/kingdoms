@@ -43,8 +43,23 @@ func test_house_spec() -> void:
 	for key in ["fill_color", "edge_color", "tent_color"]:
 		assert_true(spec.has(key), "집 외형 색상 %s 키 존재" % key)
 
-func test_camp_pop_cap() -> void:
-	assert_eq(types.get_type("camp")["pop_cap"], 10, "캠프 기본 인구 상한 10")
+func test_pop_cap_tiers() -> void:
+	assert_eq(types.get_type("camp")["pop_cap"], 0, "캠프 티어 인구 상한 0")
+	assert_eq(types.get_type("town_hall")["pop_cap"], 10, "마을회관 티어 10")
+	assert_eq(types.get_type("castle")["pop_cap"], 20, "성 티어 20")
+
+func test_center_tier() -> void:
+	assert_eq(types.center_tier("camp"), 0, "캠프 tier 0")
+	assert_eq(types.center_tier("town_hall"), 1, "마을회관 tier 1")
+	assert_eq(types.center_tier("castle"), 2, "성 tier 2")
+	assert_eq(types.center_tier("farm"), -1, "비거점 -1")
+	assert_eq(types.center_tier("없는id"), -1, "없는id -1")
+
+func test_next_center() -> void:
+	assert_eq(types.next_center("camp"), "town_hall", "캠프→마을회관")
+	assert_eq(types.next_center("town_hall"), "castle", "마을회관→성")
+	assert_eq(types.next_center("castle"), "", "성은 최종")
+	assert_eq(types.next_center("farm"), "", "비거점은 다음 없음")
 
 func test_lumberjack_spec() -> void:
 	var spec: Dictionary = types.get_type("lumberjack")
@@ -133,5 +148,6 @@ func test_is_center() -> void:
 		assert_false(types.is_center(id), "%s는 거점 아님" % id)
 
 func test_buildable_ids() -> void:
-	assert_eq(types.BUILDABLE_IDS, ["town_hall", "quarry", "farm", "house", "lumberjack", "castle"], "건축 가능 목록")
-	assert_does_not_have(types.BUILDABLE_IDS, "camp", "캠프는 건축 목록에서 제외")
+	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack"], "건축 가능 목록(거점 제외)")
+	for id in ["camp", "town_hall", "castle"]:
+		assert_does_not_have(types.BUILDABLE_IDS, id, "거점 %s는 건축 목록 제외(업그레이드/새영지)" % id)

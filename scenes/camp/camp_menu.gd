@@ -11,11 +11,15 @@ signal garrison_changed
 ## [새 부대 편성] 클릭 시 방출. game.gd가 캠프 인접에 빈 새 부대를 만들어 편성 대상으로 삼는다.
 signal raise_party(building: Building)
 
+## 업그레이드 버튼 클릭 시 방출. game.gd가 받아 거점을 다음 티어로 업그레이드한다.
+signal upgrade_requested(building: Building)
+
 var _root: Control
 var _res_grid: GridContainer
 var _camp_title: Label     # 우측 패널 제목 = 영지 이름
 var _faction_label: Label  # 제목 아래 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
+var _upgrade_btn: Button   # 거점 업그레이드 버튼(다음 티어 있을 때만)
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
 var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
 
@@ -98,6 +102,12 @@ func _build_menu_panel() -> Control:
 	vbox.add_child(_faction_label)
 	vbox.add_child(HSeparator.new())
 
+	# 거점 업그레이드 버튼(다음 티어가 있을 때만 표시). open()에서 텍스트·활성·표시를 갱신.
+	_upgrade_btn = Button.new()
+	_upgrade_btn.pressed.connect(func() -> void: upgrade_requested.emit(_building))
+	_upgrade_btn.hide()
+	vbox.add_child(_upgrade_btn)
+
 	_build_btn = Button.new()
 	_build_btn.text = "건축"
 	_build_btn.pressed.connect(_on_build_pressed)
@@ -178,6 +188,7 @@ func open(building: Building, party = null) -> void:
 	# 정보 화면으로 초기화(이전 오픈에서 건설 리스트가 열려 있던 상태를 지운다).
 	_build_list.hide()
 	_build_btn.show()
+	_refresh_upgrade_button()
 
 	# 우측 패널: 영지 이름 + 세력.
 	_camp_title.text = territory.name if territory != null else ""
@@ -257,6 +268,17 @@ func close_menu() -> void:
 func _on_background_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		close_menu()
+
+## 거점 업그레이드 버튼을 갱신한다. 다음 티어가 있으면(캠프·마을회관) 표시·라벨·활성 설정, 없으면(성·비거점) 숨김.
+func _refresh_upgrade_button() -> void:
+	var next_id := BuildingTypes.next_center(_building.building_type) if _building != null else ""
+	if next_id == "":
+		_upgrade_btn.hide()
+		return
+	var spec := BuildingTypes.get_type(next_id)
+	_upgrade_btn.text = "%s으로 업그레이드  %s" % [spec.get("label", next_id), _format_cost(spec.get("build_cost", {}))]
+	_upgrade_btn.disabled = not BuildPlanner.can_upgrade(_territory, _building)
+	_upgrade_btn.show()
 
 ## 건축 버튼: 우측 패널을 건설 가능 건물 리스트로 전환한다.
 func _on_build_pressed() -> void:

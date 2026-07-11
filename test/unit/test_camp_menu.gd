@@ -62,95 +62,99 @@ func test_resource_grid_filled() -> void:
 	# 자원 7종 × 2열(이름/값) = 14개 자식.
 	assert_eq(menu._res_grid.get_child_count(), 14, "자원 그리드가 영지 자원 7종으로 채워진다")
 
+## 지정 거점 티어 건물 + 자원 영지를 만들어 그 거점을 반환한다(첫 거점은 마을회관 티어).
+func _center(type_id: String, res := RES) -> Node2D:
+	var b = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.setup(terrain, Vector2i(20, 20), type_id)
+	var t = load("res://scenes/territory/territory.gd").new("파리", res.duplicate(true))
+	t.add_building(b)
+	return b
+
 func test_population_row_shows_cap() -> void:
-	_join_territory()  # 캠프(상한 10) 편입, RES 인구 10
-	menu.open(building)
-	# 인구가 자원 삽입 순서상 첫 항목 → 이름 child(0), 값 child(1).
+	# 마을회관 거점(상한 10) + 인구 10 → "10 / 10".
+	menu.open(_center("town_hall"))
 	assert_eq((menu._res_grid.get_child(0) as Label).text, "인구", "첫 행은 인구")
 	assert_eq((menu._res_grid.get_child(1) as Label).text, "10 / 10", "인구 값은 현재/상한")
 
-# --- 건축 리스트 (2a) + 선행건물 게이트 ---
-# BUILDABLE_IDS 순서 = [town_hall(0), quarry(1), farm(2), house(3), lumberjack(4), castle(5)].
+# --- 건축 리스트 + 선행 티어 게이트. BUILDABLE 순서 = [quarry(0), farm(1), house(2), lumberjack(3)]. ---
 
 func _item(idx: int) -> Button:
 	return menu._build_list.get_child(idx) as Button
 
-## 영지에 완성 마을회관을 편입한다(농장·집·벌목소 선행 해금용).
-func _add_town_hall(t) -> void:
-	var hall = load("res://scenes/building/building.gd").new()
-	add_child_autofree(hall)
-	hall.setup(terrain, Vector2i(35, 35), "town_hall")  # 완성
-	t.add_building(hall)
-
-func test_build_opens_list_with_items() -> void:
-	_join_territory()  # 자원 충분 + 완성 캠프 편입됨
-	menu.open(building)
+func test_build_list_four_items_quarry_active() -> void:
+	menu.open(_center("camp"))  # 캠프 티어
 	menu._on_build_pressed()
 	assert_true(menu._build_list.visible, "건축 후 리스트 표시")
-	assert_eq(menu._build_list.get_child_count(), 6, "건축 가능 6종")
-	# 채석장(선행 camp, 목재10 ≤ 보유 20) 활성.
-	assert_false(_item(1).disabled, "채석장은 시작부터 활성(선행 camp)")
-
-func test_castle_locked_without_town_hall() -> void:
-	_join_territory()  # 캠프만 완성, 마을회관 없음
-	menu.open(building)
-	menu._on_build_pressed()
-	assert_true(_item(5).disabled, "마을회관 없으면 성 비활성")
-	assert_string_contains(_item(5).text, "선행: 마을회관", "성 선행 미충족 사유 표기")
+	assert_eq(menu._build_list.get_child_count(), 4, "건축 가능 4종(거점 제외)")
+	assert_false(_item(0).disabled, "채석장(선행 camp)은 캠프 티어부터 활성")
 
 func test_item_text_has_label_and_cost() -> void:
-	_join_territory()
-	menu.open(building)
+	menu.open(_center("camp"))
 	menu._on_build_pressed()
-	var text := _item(1).text  # 채석장
+	var text := _item(0).text  # 채석장
 	assert_string_contains(text, "채석장", "항목에 라벨 포함")
 	assert_string_contains(text, "목재", "항목에 비용(목재) 포함")
 	assert_string_contains(text, "인원 1", "항목에 필요인원 표시")
 
-## camp(building)을 넘긴 자원의 영지에 편입한다.
-func _join_custom(res: Dictionary) -> Object:
-	var t = load("res://scenes/territory/territory.gd").new("커스텀", res)
-	t.add_building(building)
-	return t
-
 func test_item_disabled_when_low_population() -> void:
-	# 선행(캠프)·자재(목재)는 충분하지만 인구가 필요인원 미만 → 비활성.
-	_join_custom({"인구": 0, "목재": 20})
-	menu.open(building)
+	menu.open(_center("camp", {"인구": 0, "목재": 20}))  # 선행·자재 OK, 인구 0 < 1
 	menu._on_build_pressed()
-	assert_true(_item(1).disabled, "인구 부족(0 < 1)이면 채석장 비활성")
+	assert_true(_item(0).disabled, "인구 부족(0 < 1)이면 채석장 비활성")
 
-func test_farm_locked_without_town_hall() -> void:
-	_join_territory()  # 캠프만 완성, 마을회관 없음
-	menu.open(building)
+func test_farm_locked_at_camp_tier() -> void:
+	menu.open(_center("camp"))  # 캠프 티어(마을회관 미만)
 	menu._on_build_pressed()
-	assert_true(_item(2).disabled, "마을회관 없으면 농장 비활성")
-	assert_string_contains(_item(2).text, "선행: 마을회관", "선행 미충족 사유 표기")
+	assert_true(_item(1).disabled, "캠프 티어면 농장 비활성")
+	assert_string_contains(_item(1).text, "선행: 마을회관", "선행 미충족 사유 표기")
 
-func test_farm_active_after_town_hall() -> void:
-	var t := _join_territory()
-	_add_town_hall(t)
-	menu.open(building)
+func test_farm_active_at_town_hall_tier() -> void:
+	menu.open(_center("town_hall"))  # 마을회관 티어
 	menu._on_build_pressed()
-	assert_false(_item(2).disabled, "마을회관 완성 후 농장 활성")
+	assert_false(_item(1).disabled, "마을회관 티어면 농장 활성")
+
+# --- 거점 업그레이드 버튼 ---
+
+func test_upgrade_button_shown_for_camp() -> void:
+	# 마을회관 비용 목재10·석재10·밀20 충분한 자원(RES엔 석재가 없어 명시).
+	menu.open(_center("camp", {"목재": 20, "석재": 20, "밀": 50}))
+	assert_true(menu._upgrade_btn.visible, "캠프는 다음 티어(마을회관) 있어 업그레이드 버튼 표시")
+	assert_string_contains(menu._upgrade_btn.text, "마을회관", "다음 티어 라벨 표시")
+	assert_false(menu._upgrade_btn.disabled, "마을회관 비용 충분 → 활성")
+
+func test_upgrade_button_hidden_for_castle() -> void:
+	menu.open(_center("castle"))
+	assert_false(menu._upgrade_btn.visible, "성은 최종 티어라 업그레이드 버튼 숨김")
+
+func test_upgrade_button_disabled_when_poor() -> void:
+	menu.open(_center("camp", {}))  # 자원 0
+	assert_true(menu._upgrade_btn.visible, "다음 티어 있으니 표시")
+	assert_true(menu._upgrade_btn.disabled, "비용 부족이면 비활성")
+
+func test_upgrade_button_emits_signal() -> void:
+	var c := _center("camp")
+	menu.open(c)
+	watch_signals(menu)
+	menu._upgrade_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(menu, "upgrade_requested", [c])
 
 func test_item_disabled_when_poor() -> void:
 	_join_poor_territory()  # 캠프는 있으나 자원 0
 	menu.open(building)
 	menu._on_build_pressed()
-	assert_true(_item(1).disabled, "자원 부족하면 채석장(선행 충족)도 비활성")
+	assert_true(_item(0).disabled, "자원 부족하면 채석장(선행 충족)도 비활성")
 
 func test_item_disabled_without_territory() -> void:
 	menu.open(building)  # 영지 없음
 	menu._on_build_pressed()
-	assert_true(_item(1).disabled, "영지 없으면 항목 비활성")
+	assert_true(_item(0).disabled, "영지 없으면 항목 비활성")
 
 func test_selecting_item_emits_signal() -> void:
 	var t := _join_territory()
 	menu.open(building)
 	menu._on_build_pressed()
 	watch_signals(menu)
-	_item(1).pressed.emit()  # 채석장(활성)
+	_item(0).pressed.emit()  # 채석장(활성)
 	assert_signal_emitted_with_parameters(menu, "build_selected", ["quarry", t])
 
 func test_reopen_resets_to_info_view() -> void:

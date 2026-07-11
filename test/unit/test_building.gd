@@ -135,17 +135,32 @@ func test_planned_production_ignores_construction() -> void:
 
 # --- 인구 상한 기여 (pop_cap) ---
 
+func _typed(center: Vector2i, type_id: String) -> Node2D:
+	var b: Node2D = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.setup(terrain, center, type_id)
+	return b
+
 func test_pop_cap_complete_buildings() -> void:
+	assert_eq(_typed(Vector2i(20, 20), "camp").pop_cap(), 0, "캠프 티어 상한 0")
+	assert_eq(_typed(Vector2i(28, 28), "town_hall").pop_cap(), 10, "마을회관 티어 상한 10")
+	assert_eq(_typed(Vector2i(10, 10), "castle").pop_cap(), 20, "성 티어 상한 20")
+	assert_eq(_typed(Vector2i(14, 14), "house").pop_cap(), 2, "완성 집 상한 기여 2")
+	assert_eq(_typed(Vector2i(4, 4), "farm").pop_cap(), 0, "농장은 상한 기여 없음")
+
+# --- 거점 업그레이드 (upgrade_to) ---
+
+func test_upgrade_to_next_tier() -> void:
 	_camp()
-	assert_eq(building.pop_cap(), 10, "완성 캠프 상한 기여 10")
-	var house = load("res://scenes/building/building.gd").new()
-	add_child_autofree(house)
-	house.setup(terrain, Vector2i(30, 30), "house")
-	assert_eq(house.pop_cap(), 2, "완성 집 상한 기여 2")
-	var farm = load("res://scenes/building/building.gd").new()
-	add_child_autofree(farm)
-	farm.setup(terrain, Vector2i(10, 10), "farm")
-	assert_eq(farm.pop_cap(), 0, "농장은 상한 기여 없음")
+	building.garrison = load("res://scenes/party/unit_types.gd").make_garrison(3)
+	building.upgrade_to("town_hall")
+	assert_eq(building.building_type, "town_hall", "종류가 마을회관으로")
+	assert_eq(building.vision, 6, "시야 6으로 교체")
+	assert_eq(building.pop_cap(), 10, "인구 상한 10")
+	assert_true(building.is_complete(), "업그레이드 후 완성 상태")
+	assert_eq(building.cells.size(), 7, "footprint 7 유지")
+	assert_eq(building.center_cell(), _center(), "위치 유지")
+	assert_eq(building.garrison.size(), 3, "수비대 보존")
 
 func test_pop_cap_zero_under_construction() -> void:
 	building.setup(terrain, _center(), "house", true)  # 건설 중

@@ -142,7 +142,8 @@ func _ready() -> void:
 	overlay.setup(terrain)
 	build_preview.setup(terrain)
 	build_area.setup(terrain)
-	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), BuildingTypes.CAMP)
+	# 첫 거점은 마을회관 티어로 시작(캠프에서 한 번 업그레이드된 상태) — 인구 상한 10, 시작부터 생산 건물 해금.
+	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), "town_hall")
 	_buildings = [building]
 	_setup_factions()
 	_setup_parties()
@@ -157,6 +158,7 @@ func _ready() -> void:
 	camp_menu.build_selected.connect(_on_build_selected)
 	camp_menu.garrison_changed.connect(_on_garrison_changed)
 	camp_menu.raise_party.connect(_on_raise_party)
+	camp_menu.upgrade_requested.connect(_on_upgrade_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
@@ -641,6 +643,17 @@ func _open_building_info(b, can_demolish := false) -> void:
 
 ## 건물 정보 패널의 철거 버튼 → 영지에서 제거·자재 환급 → 맵/추적 목록에서 제거 → 안개 갱신 → 패널 닫기.
 ## 노드 free는 지연 호출한다(버튼 pressed 처리 중이라 즉시 free하면 "locked" 에러).
+## 캠프 메뉴의 업그레이드 버튼 → 거점을 다음 티어로 제자리 업그레이드.
+## 비용 지불(build_pay) → 티어업(upgrade_to) → 안개 갱신(티어별 시야) → 캠프 메뉴 재오픈으로 표시 갱신.
+func _on_upgrade_requested(b) -> void:
+	var next_id := BuildingTypes.next_center(b.building_type)
+	if next_id == "" or b.territory == null or not BuildPlanner.can_upgrade(b.territory, b):
+		return
+	b.territory.build_pay(next_id)   # 자재 차감(거점은 필요인원 0)
+	b.upgrade_to(next_id)
+	_update_fog()                    # 티어별 시야 변화 반영
+	camp_menu.open(b, _party_at_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
+
 func _on_demolish_requested(b) -> void:
 	if b.territory != null:
 		b.territory.demolish(b)   # 영지에서 떼고 demolish_refund 환급

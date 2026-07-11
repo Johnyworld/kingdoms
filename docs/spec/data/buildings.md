@@ -32,15 +32,17 @@
 
 `required_pop`(필요인원)은 건물이 고용하는 **노동력**(인구 수). 건설 시 영지 인구에서 그만큼 소비하고, 철거 시 되돌려준다(자재 `demolish_refund`와 별개). → [노동력](#필요인원-required_pop)
 
-| id | `build_turns` | `build_cost` | `demolish_refund` | `required_pop` | `production` | 특수 효과 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | 0 | (없음) | 건설 완료 시 **새 영지 생성**. 인구 상한 `pop_cap 10`(기본) |
-| `town_hall` | 8 | 목재 10 / 석재 10 / 밀 20 | 목재 2 / 석재 2 | 0 | (없음) | 대부분 건물의 선행 조건. 상인 방문은 **미구현** |
-| `castle` | 12 | 석재 50 / 밀 30 | 석재 10 | 0 | (없음) | 영지 최종 단계. 고급 건물 해금은 **미구현** |
-| `farm` | 3 | 목재 5 / 밀 5 | 목재 1 | 2 | 밀 1 (턴당) | 농부 2명(노동력) |
-| `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 0 | (없음) | **인구 상한 `pop_cap +2`**(생산 아님) |
-| `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 1 | 나무 2 (턴당) | 나뭇꾼 1명(노동력) |
-| `quarry` | 4 | 목재 10 | 목재 2 | 1 | 석재 2 (턴당) | 채석꾼 1명(노동력) |
+거점(캠프·마을회관·성)은 [**인플레이스 업그레이드**](#거점-업그레이드) 티어다 — 별도로 짓지 않고 캠프→마을회관→성으로 제자리 상승한다(그래서 `BUILDABLE_IDS`에 없다). 업그레이드 비용 = 다음 티어의 `build_cost`.
+
+| id | `build_turns` | `build_cost`(업그레이드 비용) | `demolish_refund` | `required_pop` | `pop_cap` | `production` | 특수 효과 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | 0 | **0** | (없음) | 거점 tier 0. 새 영지의 시작 티어(캠프 건설은 3단계·미구현) |
+| `town_hall` | 8 | 목재 10 / 석재 10 / 밀 20 | 목재 2 / 석재 2 | 0 | **10** | (없음) | 거점 tier 1. 인구 상한 10. 대부분 건물의 선행. 상인 방문 **미구현** |
+| `castle` | 12 | 석재 50 / 밀 30 | 석재 10 | 0 | **20** | (없음) | 거점 tier 2(최종). 인구 상한 20. 고급 건물 해금 **미구현** |
+| `farm` | 3 | 목재 5 / 밀 5 | 목재 1 | 2 | — | 밀 1 (턴당) | 농부 2명(노동력) |
+| `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 0 | 2 | (없음) | **인구 상한 `pop_cap +2`**(생산 아님) |
+| `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 1 | — | 나무 2 (턴당) | 나뭇꾼 1명(노동력) |
+| `quarry` | 4 | 목재 10 | 목재 2 | 1 | — | 석재 2 (턴당) | 채석꾼 1명(노동력) |
 
 > **마을회관 값은 테이블에서 조정됨(플레이성/부트스트랩)**: 테이블 원본은 `build_turns 15 / 목재30·석재20·밀20`. 시작 자원(목재 20, 석재 0)만으로는 도달 불가하므로, 시작 → 채석장으로 석재 확보 → 마을회관 건설이 가능하도록 `build_turns 8 / 목재10·석재10·밀20`으로 낮췄다. 경제 밸런스가 갖춰지면 재조정한다.
 > **성 값도 테이블에서 조정됨**: 테이블 원본은 `build_turns 30 / 석재80·목재40·철괴20·금50`. 현재 경제엔 **금 생산원이 없고**(금광 미구현) 목재도 시작 20에서 늘지 않아 도달 불가하다. 재생 가능한 석재(채석장)와 시작 밀만으로 지을 수 있도록 `build_turns 12 / 석재50·밀30`으로 낮췄다. 금·철괴 경제가 갖춰지면 재조정한다.
@@ -51,7 +53,7 @@
 - `build_cost`·`demolish_refund`·`production`은 자원명→수량 Dictionary. `build_turns`는 건설 소요 턴.
 - **턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과는 아직 **미구현**이다(캠프 외 건물 건설만 다룸, [건축](../features/building.md) 참고).
 - **`footprint`은 [배치 유효성](../features/building.md#배치-유효성-buildplanner)에 반영된다** — `BuildPlanner.footprint`/`can_place`가 종류별 헥스 수로 판정하고, `Building.setup`이 그만큼 점유 셀을 잡는다.
-- **인구 상한(`pop_cap`)**: 종류가 영지 [인구 상한](../entities/Territory.md#인구-상한population_cap)에 더하는 값(없으면 0). 캠프 `pop_cap 10`(기본), 집 `pop_cap 2`. 완성 건물만 상한에 기여한다(`Building.pop_cap()`은 건설 중이면 0). 매 턴 종료 시 영지 인구가 상한까지 +1씩 [자연 증가](turn.md)한다. 집은 이제 인구를 **생산**하지 않고 **상한을 올린다**(이전 슬라이스의 `production {인구:2}` 근사를 대체).
+- **인구 상한(`pop_cap`)**: 종류가 영지 [인구 상한](../entities/Territory.md#인구-상한population_cap)에 더하는 값(없으면 0). **거점 티어에서 나온다** — 캠프 `0`, 마을회관 `10`, 성 `20`(집 `+2`로 보조). 완성 건물만 상한에 기여한다(`Building.pop_cap()`은 건설 중이면 0). 매 턴 종료 시 영지 인구가 상한까지 +1씩 [자연 증가](turn.md)한다. **캠프 티어는 인구 상한 0** — 마을회관으로 업그레이드해야 인구가 생긴다.
 - **신규 소형 건물은 석재를 요구**한다. 영지 초기 자원에 석재가 없으므로(위 캠프 `resources`) **채석장(목재만)으로 석재를 확보한 뒤** 벌목소·집을 짓는 순서가 된다. 새 자원 키(`석재`)는 `Territory.collect_income`/`can_afford`가 자동으로 처리한다.
 
 ### 필요인원 (`required_pop`)
@@ -63,32 +65,41 @@
 - 농장 원래 `build_cost`의 `인구 2`는 이제 `required_pop 2`(노동력)로 재분류됐다 — 농장 순 비용은 동일. **벌목소·채석장은 새로 인구를 1씩 고용**한다(신규 제약).
 - **직업 클래스**(농부·나뭇꾼 등 특정 직업 구분)와 **인구 부족 시 가동 중단**은 아직 **미구현** — 현재는 인원수 게이트만. 특징 칸의 직업 이름은 참고용.
 
-### 선행건물 (`prerequisite`)
+### 거점 업그레이드 (인플레이스 티어)
 
-각 종류는 `prerequisite`(선행 건물 종류 id, 없으면 `""`)를 가진다. **그 영지에 선행 종류의 완성 건물이 있어야** 건축할 수 있다([건축 게이트](../features/building.md#선행건물-게이트), [캠프 메뉴](../features/camp-menu.md)).
+거점은 **캠프(tier 0) → 마을회관(tier 1) → 성(tier 2)** 로 **제자리 업그레이드**한다. 별도 건물이 아니라 같은 거점의 티어가 오른다(위치·footprint·수비대·영지 유지).
 
-| id | `prerequisite` | 비고 |
+- `BuildingTypes.center_tier(id) -> int` — camp 0 / town_hall 1 / castle 2, 거점 아니면 -1.
+- `BuildingTypes.next_center(id) -> String` — 다음 티어 id(camp→town_hall, town_hall→castle), 최종/비거점이면 `""`.
+- 업그레이드 **비용 = 다음 티어의 `build_cost`**(마을회관 목재10·석재10·밀20, 성 석재50·밀30). 거점의 영지가 지불(`Territory.build_pay`). **즉시** 티어업(건설 시간 적용은 미구현).
+- 실행: [캠프 메뉴](../features/camp-menu.md)의 **업그레이드 버튼** → `Building.upgrade_to(next)`. → [건축](../features/building.md#거점-업그레이드).
+- 마을회관·성은 `BUILDABLE_IDS`에 **없다**(별도로 못 짓고 업그레이드로만 도달).
+
+### 선행건물 (`prerequisite`) — 거점 티어 기준
+
+각 [건축 가능 종류](../features/building.md#선행건물-게이트)는 `prerequisite`(거점 티어 id)를 가진다. **그 영지의 거점 티어가 선행 티어 이상**이어야 짓는다(`BuildPlanner.prerequisite_met` — 건물 존재가 아니라 **티어 비교**. 성으로 더 올려도 선행이 유지된다).
+
+| id | `prerequisite` | 필요 거점 티어 |
 | --- | --- | --- |
-| `camp` | `""` | 선행 없음 |
-| `quarry` | `camp` | **테이블(마을회관)과 다름** — 석재 부트스트랩용. 캠프만 있으면 지어 석재를 확보 |
-| `town_hall` | `camp` | 캠프가 곧 영지의 중심이라 항상 충족 |
-| `castle` | `town_hall` | 마을회관 완성 후 해금(지휘소 최종 단계) |
-| `farm` | `town_hall` | 마을회관 완성 후 해금 |
+| `quarry` | `camp` | 거점 tier ≥ 0 (거점만 있으면. 석재 부트스트랩) |
+| `farm` | `town_hall` | 거점 tier ≥ 1 (마을회관 이상) |
 | `house` | `town_hall` | 〃 |
 | `lumberjack` | `town_hall` | 〃 |
 
-- 체인: **캠프 → 채석장(석재) · 마을회관 → 성 · 농장 · 집 · 벌목소**.
-- 성(`castle`)은 지휘소 최종 단계(선행 2단 깊이: 캠프→마을회관→성). **성을 선행으로 하는 고급 건물(마법사의 탑·성벽 등)은 아직 없다** — 이번 슬라이스는 체인 최상단만.
-- 병영 등 군사 체인, 필요직업/인원 조건은 아직 **미구현**(다음 슬라이스).
+- 거점 자신(`camp`/`town_hall`/`castle`)의 `prerequisite` 필드는 업그레이드 경로(`next_center`)로 대체되어 게이트에는 쓰이지 않는다(카탈로그엔 남아 있음).
+- 체인: **캠프 →(업그레이드) 마을회관 →(업그레이드) 성**, 그리고 마을회관 티어에서 **농장·집·벌목소** 해금(채석장은 캠프 티어부터).
+- 병영 등 군사 체인, 필요직업/인원(직업 클래스)은 아직 **미구현**.
 
 ## 동작
 
 - `BuildingTypes.CAMP` — 캠프 종류 id 상수(`"camp"`).
 - `BuildingTypes.FARM` — 농장 종류 id 상수(`"farm"`).
-- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["town_hall", "quarry", "farm", "house", "lumberjack", "castle"]`. 캠프는 새 영지 생성이라 제외(미구현). 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
+- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["quarry", "farm", "house", "lumberjack"]`. **거점(캠프·마을회관·성)은 제외** — 캠프는 새 영지(3단계·미구현), 마을회관·성은 [업그레이드](#거점-업그레이드)로만 도달. 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
 - `BuildingTypes.get_type(type_id) -> Dictionary` — 종류 스펙 반환. 없는 id면 빈 Dictionary.
-- `BuildingTypes.CENTER_IDS` — **거점(center)** 종류 목록 `["camp", "town_hall", "castle"]`. 세력의 전략 앵커(캠프→마을회관→성 티어). **승리·점령·수비대·[캠프 메뉴](../features/camp-menu.md) 판정이 이 세트를 기준**으로 한다.
-- `BuildingTypes.is_center(type_id) -> bool` — 그 종류가 거점인지(`type_id in CENTER_IDS`). 세 티어 중 하나라도 세력이 가지면 유지된다([승패](../features/victory.md)). 인플레이스 업그레이드(캠프→마을회관→성)와 캠프 건설(새 영지)은 아직 **미구현**(다음 슬라이스) — 현재 마을회관·성은 별도 건물로 짓지만 거점으로 인정된다.
+- `BuildingTypes.CENTER_IDS` — **거점(center)** 종류 목록 `["camp", "town_hall", "castle"]`(티어 순). 세력의 전략 앵커. **승리·점령·수비대·[캠프 메뉴](../features/camp-menu.md) 판정이 이 세트를 기준**으로 한다.
+- `BuildingTypes.is_center(type_id) -> bool` — 그 종류가 거점인지(`type_id in CENTER_IDS`). 세 티어 중 하나라도 세력이 가지면 유지된다([승패](../features/victory.md)).
+- `BuildingTypes.center_tier(type_id) -> int` — 거점 티어(camp 0 / town_hall 1 / castle 2), 거점 아니면 -1.
+- `BuildingTypes.next_center(type_id) -> String` — [업그레이드](#거점-업그레이드) 다음 티어 id(camp→town_hall, town_hall→castle), 최종(성)·비거점이면 `""`.
 
 ## 테스트 시나리오
 
@@ -101,14 +112,16 @@
 - [정상] 필요인원 — `farm.required_pop == 2`, `lumberjack.required_pop == 1`, `quarry.required_pop == 1`, `house`·`camp`·`town_hall`·`castle`는 0(빈/미정의)
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
 - [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 석재4}`, `pop_cap == 2`, `production` 없음(생산 아님), 외형 색상 키 존재
-- [정상] `get_type("camp").pop_cap == 10`(기본 인구 상한)
+- [정상] 인구 상한 티어 — `camp.pop_cap == 0`, `town_hall.pop_cap == 10`, `castle.pop_cap == 20`, `house.pop_cap == 2`
+- [정상] `center_tier` — camp 0, town_hall 1, castle 2; 비거점(farm 등)·없는id는 -1
+- [정상] `next_center` — camp→"town_hall", town_hall→"castle", castle→"", 비거점→""
 - [정상] `get_type("lumberjack")` — `label == "벌목소"`, `vision == 3`, `footprint == 1`, `build_turns == 3`, `build_cost == {목재5, 석재5}`, `production == {나무2}`
 - [정상] `get_type("quarry")` — `label == "채석장"`, `vision == 3`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재10}`, `production == {석재2}`, `prerequisite == "camp"`
 - [정상] `get_type("town_hall")` — `label == "마을회관"`, `vision == 6`, `footprint == 7`, `build_turns == 8`, `build_cost == {목재10, 석재10, 밀20}`, `prerequisite == "camp"`, `production` 없음(빈/미정의)
 - [정상] `get_type("castle")` — `label == "성"`, `vision == 8`, `footprint == 7`, `build_turns == 12`, `build_cost == {석재50, 밀30}`, `demolish_refund == {석재10}`, `prerequisite == "town_hall"`, `production` 없음
 - [정상] 선행 필드 — `get_type("camp").prerequisite == ""`, `farm`·`house`·`lumberjack`의 `prerequisite == "town_hall"`
 - [경계] `get_type("없는id")`는 빈 Dictionary
-- [정상] `BUILDABLE_IDS`가 `["town_hall", "quarry", "farm", "house", "lumberjack", "castle"]`(캠프 미포함)
+- [정상] `BUILDABLE_IDS`가 `["quarry", "farm", "house", "lumberjack"]`(거점 3종 모두 미포함)
 - [정상] `is_center` — `camp`·`town_hall`·`castle`는 참; `farm`·`house`·`lumberjack`·`quarry`·`없는id`는 거짓
 - [정상] `CENTER_IDS == ["camp", "town_hall", "castle"]`
 

@@ -91,7 +91,7 @@ func planned_production() -> Dictionary:
 	return _spec.get("production", {})
 
 ## 영지 인구 상한에 더하는 값. 건설 중에는 0(완성 건물만 기여). 완성 후 카탈로그 pop_cap(없으면 0).
-## 캠프 10, 집 2. production()과 같은 건설-게이트 패턴. Territory.population_cap()이 합산한다.
+## 티어별: 캠프 0 · 마을회관 10 · 성 20, 집 +2. production()과 같은 건설-게이트 패턴. Territory.population_cap()이 합산한다.
 func pop_cap() -> int:
 	if under_construction:
 		return 0
@@ -104,6 +104,17 @@ func demolish_refund() -> Dictionary:
 ## 이 건물이 고용하는 노동력(인구 수). 카탈로그 required_pop(없으면 0). 건설 시 소비·철거 시 반환.
 func required_pop() -> int:
 	return _spec.get("required_pop", 0)
+
+## 거점을 다음 티어(type_id)로 제자리 업그레이드한다: 종류·스펙·시야·점유 셀을 교체하고 완성 상태로 둔다.
+## 위치(중심)·영지(territory)·수비대(garrison)는 그대로 유지한다. 비용 지불은 호출부가 먼저 한다.
+func upgrade_to(type_id: String) -> void:
+	building_type = type_id
+	_spec = BuildingTypes.get_type(type_id)
+	vision = _spec.get("vision", 0)
+	under_construction = false
+	remaining_turns = 0
+	cells = BuildPlanner.footprint(_terrain, _center_cell, _spec.get("footprint", 7))
+	queue_redraw()
 
 ## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
 ## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.

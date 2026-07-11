@@ -61,7 +61,7 @@ func advance_construction() -> void:
 	for building in buildings:
 		building.advance_construction()
 
-## 영지 인구 상한 = 소속 완성 건물들의 pop_cap 합(캠프 10, 집 +2). 건설 중 건물은 0으로 기여 안 함.
+## 영지 인구 상한 = 소속 완성 건물들의 pop_cap 합(거점 티어 캠프 0·마을회관 10·성 20, 집 +2). 건설 중 건물은 0으로 기여 안 함.
 func population_cap() -> int:
 	var cap := 0
 	for building in buildings:

@@ -84,29 +84,33 @@ func test_spend_deducts_resources() -> void:
 
 # --- 인구 상한 (population_cap) + 자연 증가 (grow_population) ---
 
-func test_population_cap_camp_only() -> void:
+func test_population_cap_camp_zero_town_hall_ten() -> void:
 	var t := _territory()
 	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
-	assert_eq(t.population_cap(), 10, "캠프만 → 상한 10")
+	assert_eq(t.population_cap(), 0, "캠프 티어 → 상한 0")
+	# 마을회관 거점은 상한 10.
+	var t2 := _territory()
+	t2.add_building(_typed_building(Vector2i(20, 20), "town_hall"))
+	assert_eq(t2.population_cap(), 10, "마을회관 티어 → 상한 10")
 
 func test_population_cap_with_houses() -> void:
 	var t := _territory()
-	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
+	t.add_building(_typed_building(Vector2i(20, 20), "town_hall"))  # 10
 	t.add_building(_typed_building(Vector2i(30, 30), "house"))
-	assert_eq(t.population_cap(), 12, "캠프 + 집 1채 → 12")
+	assert_eq(t.population_cap(), 12, "마을회관 + 집 1채 → 12")
 	t.add_building(_typed_building(Vector2i(32, 30), "house"))
-	assert_eq(t.population_cap(), 14, "캠프 + 집 2채 → 14")
+	assert_eq(t.population_cap(), 14, "마을회관 + 집 2채 → 14")
 
 func test_population_cap_ignores_under_construction() -> void:
 	var t := _territory()
-	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
+	t.add_building(_typed_building(Vector2i(20, 20), "town_hall"))  # 10
 	t.add_building(_typed_building(Vector2i(30, 30), "house", true))  # 건설 중
 	assert_eq(t.population_cap(), 10, "건설 중 집은 상한에 기여 안 함")
 
 func test_grow_population_up_to_cap() -> void:
 	var t := _territory("파리", {"인구": 10})
-	t.add_building(_typed_building(Vector2i(20, 20), "camp"))
-	t.add_building(_typed_building(Vector2i(30, 30), "house"))  # 상한 12
+	t.add_building(_typed_building(Vector2i(20, 20), "town_hall"))  # 10
+	t.add_building(_typed_building(Vector2i(30, 30), "house"))      # 상한 12
 	t.grow_population()
 	assert_eq(t.resources["인구"], 11, "인구 10 → 11")
 	t.grow_population()
@@ -116,7 +120,7 @@ func test_grow_population_up_to_cap() -> void:
 
 func test_grow_population_no_change_at_cap() -> void:
 	var t := _territory("파리", {"인구": 10})
-	t.add_building(_typed_building(Vector2i(20, 20), "camp"))  # 상한 10
+	t.add_building(_typed_building(Vector2i(20, 20), "town_hall"))  # 상한 10
 	t.grow_population()
 	assert_eq(t.resources["인구"], 10, "인구가 상한과 같으면 변화 없음")
 

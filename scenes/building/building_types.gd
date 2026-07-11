@@ -14,9 +14,20 @@ const CENTER_IDS := ["camp", "town_hall", "castle"]
 static func is_center(type_id: String) -> bool:
 	return type_id in CENTER_IDS
 
-# 건축(캠프 메뉴)에서 지을 수 있는 종류. 캠프는 새 영지 생성이라 제외(미구현).
+## 거점 티어(캠프 0 → 마을회관 1 → 성 2). 거점이 아니면 -1. 업그레이드·선행 티어 판정에 쓴다.
+static func center_tier(type_id: String) -> int:
+	return CENTER_IDS.find(type_id)   # 비거점이면 -1
+
+## 인플레이스 업그레이드의 다음 티어 id(camp→town_hall, town_hall→castle). 최종(성)·비거점이면 "".
+static func next_center(type_id: String) -> String:
+	var t := center_tier(type_id)
+	if t < 0 or t + 1 >= CENTER_IDS.size():
+		return ""
+	return CENTER_IDS[t + 1]
+
+# 건축(캠프 메뉴)에서 지을 수 있는 종류. 거점(캠프·마을회관·성)은 제외 — 캠프=새 영지(미구현), 마을회관·성=업그레이드.
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
-const BUILDABLE_IDS := ["town_hall", "quarry", "farm", "house", "lumberjack", "castle"]
+const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack"]
 
 const CATALOG := {
 	"camp": {
@@ -24,7 +35,7 @@ const CATALOG := {
 		"vision": 5,
 		"footprint": 7,   # 차지 헥스 수(중심+이웃 6). 소형 건물은 1.
 		"prerequisite": "",   # 선행 건물 종류 id(없으면 ""). 그 영지에 선행 완성 건물이 있어야 건축 가능.
-		"pop_cap": 10,   # 영지 인구 상한 기본값(완성 건물만 기여).
+		"pop_cap": 0,   # 캠프 티어는 인구 상한 0 — 마을회관으로 업그레이드해야 인구가 생긴다.
 		# 초기 자원 = 건설 시 생성되는 영지의 초기 자원. 삽입 순서 = 메뉴 표시 순서.
 		"resources": {
 			"인구": 10,
@@ -57,6 +68,7 @@ const CATALOG := {
 		"build_turns": 8,
 		"build_cost": {"목재": 10, "석재": 10, "밀": 20},
 		"demolish_refund": {"목재": 2, "석재": 2},
+		"pop_cap": 10,   # 거점 tier 1 — 인구 상한 10.
 		# 상인 방문 등 특수효과는 미구현. production 없음.
 	},
 	# --- 성: 지휘소 최종 단계(선행 마을회관). 값은 테이블에서 조정(금·목재 도달 불가, docs 참고). ---
@@ -72,6 +84,7 @@ const CATALOG := {
 		"build_turns": 12,
 		"build_cost": {"석재": 50, "밀": 30},
 		"demolish_refund": {"석재": 10},
+		"pop_cap": 20,   # 거점 tier 2 — 인구 상한 20.
 		# 고급 건물 해금(마법사의 탑·성벽 등)은 미구현. production 없음.
 	},
 	"farm": {

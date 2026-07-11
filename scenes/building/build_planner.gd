@@ -30,17 +30,29 @@ static func buildings_vision(terrain: TileMapLayer, buildings: Array, map_w: int
 static func territory_vision(terrain: TileMapLayer, territory, map_w: int, map_h: int) -> Dictionary:
 	return buildings_vision(terrain, territory.buildings, map_w, map_h)
 
-## type_id의 선행건물(prerequisite)이 그 영지에서 충족됐는지.
-## 선행이 ""(없음)이면 항상 참. 아니면 영지에 선행 종류의 완성 건물이 하나라도 있으면 참(건설 중은 미충족).
+## type_id의 선행(prerequisite = 거점 티어 id)이 그 영지에서 충족됐는지.
+## 선행이 ""(없음)이면 항상 참. 아니면 영지의 거점 티어가 선행 티어 이상인 완성 거점이 있으면 참.
+## 건물 존재가 아니라 티어 비교라, 캠프→마을회관→성으로 올려도 하위 티어 선행이 계속 충족된다.
 ## territory는 Territory지만 순환 타입 참조를 피하려 untyped로 둔다.
 static func prerequisite_met(territory, type_id: String) -> bool:
 	var prereq: String = BuildingTypes.get_type(type_id).get("prerequisite", "")
 	if prereq == "":
 		return true
+	var need_tier := BuildingTypes.center_tier(prereq)
+	if need_tier < 0:
+		return false   # 선행은 거점 티어(캠프/마을회관/성)여야 한다. 비거점 선행은 미지원 → 미충족.
 	for b in territory.buildings:
-		if b.building_type == prereq and b.is_complete():
+		if BuildingTypes.is_center(b.building_type) and b.is_complete() and BuildingTypes.center_tier(b.building_type) >= need_tier:
 			return true
 	return false
+
+## 그 거점을 다음 티어로 업그레이드할 수 있는지: 다음 티어(next_center)가 있고, 영지가 그 비용(build_cost)을 감당하면 참.
+## (거점 업그레이드엔 선행·필요인원 게이트가 없다.) building은 Building이지만 순환 참조를 피해 untyped.
+static func can_upgrade(territory, building) -> bool:
+	var next_id := BuildingTypes.next_center(building.building_type)
+	if next_id == "":
+		return false
+	return territory != null and territory.can_afford(BuildingTypes.get_type(next_id).get("build_cost", {}))
 
 ## 그 영지에 type_id를 지을 수 있는지 종합 판정(자원/조건 게이트, 배치 유효성 can_place와는 별개):
 ## ① 선행 충족 ② 자재 충분(build_cost) ③ 인구 >= 필요인원(required_pop). 셋 다 참이어야 참.
