@@ -204,14 +204,30 @@ func merge_from(other) -> void:
 	other.queue_redraw()
 	queue_redraw()
 
-## 부대 이동력 = 멤버 이동력의 최소값(가장 느린 멤버). 멤버 없으면 0.
-func movement() -> int:
+## 기본 이동력 = 멤버 이동력의 최소값(가장 느린 멤버). 멤버 없으면 0. 과적 반영 전 값.
+func base_movement() -> int:
 	if members.is_empty():
 		return 0
 	var m: int = members[0].movement
 	for h in members:
 		m = mini(m, h.movement)
 	return m
+
+## 화물 과적 이동력 감소량. 화물이 용량(CARGO_CAPACITY) 초과 시 step(=용량÷기본이동력)마다 −1.
+## 정수식 (초과량 × 기본) ÷ 용량 (= floor(초과 ÷ (용량÷기본)), 부동소수점 오차 없음). 용량 이하·멤버 없으면 0.
+## 화물이 용량의 2배면 페널티 = 기본 이동력(→ movement 0, 정지).
+func overload_penalty() -> int:
+	var base := base_movement()
+	if base <= 0:
+		return 0
+	var excess := cargo_total() - CARGO_CAPACITY
+	if excess <= 0:
+		return 0
+	return excess * base / CARGO_CAPACITY   # 정수 나눗셈(내림)
+
+## 부대 이동력 = 기본 이동력 − 과적 페널티(하한 0). 이동 범위·NPC 경로·정보 패널에 쓰인다.
+func movement() -> int:
+	return maxi(0, base_movement() - overload_penalty())
 
 ## 부대 시야 = 멤버 시야의 최대값. 멤버 없으면 0.
 func vision() -> int:

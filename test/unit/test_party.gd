@@ -165,6 +165,44 @@ func test_movement_is_min_of_members() -> void:
 	p.add_member(_human(2, 5))
 	assert_eq(p.movement(), 2, "이동력은 멤버 중 최소값(가장 느린 멤버)")
 
+# --- 과적 이동력 감소 (overload_penalty) ---
+
+func test_no_overload_when_within_capacity() -> void:
+	var p := _party()
+	p.add_member(_human(3, 5))
+	p.add_cargo("목재", 50)   # 용량 딱 채움
+	assert_eq(p.overload_penalty(), 0, "용량 이하면 페널티 0")
+	assert_eq(p.movement(), 3, "이동력 기본과 같음")
+
+func test_overload_reduces_movement() -> void:
+	# 기본 3, 화물 67(초과 17, step 50/3≈16.7) → 페널티 1. 과적은 병합/약탈로 용량 초과된 상태(직접 세팅).
+	var p := _party()
+	p.add_member(_human(3, 5))
+	p.cargo["목재"] = 67
+	assert_eq(p.overload_penalty(), 1, "초과 17 → 페널티 1")
+	assert_eq(p.movement(), 2, "3 − 1 = 2")
+
+func test_overload_stops_at_double_capacity() -> void:
+	# 기본 3, 화물 100(용량 2배, 초과 50) → 페널티 3 → 이동력 0(정지).
+	var p := _party()
+	p.add_member(_human(3, 5))
+	p.cargo["목재"] = 100
+	assert_eq(p.overload_penalty(), 3, "초과 50 → 페널티 3")
+	assert_eq(p.movement(), 0, "2배 용량이면 정지")
+
+func test_faster_party_tolerates_more_overload() -> void:
+	# 기본 5, 화물 60(초과 10, step 50/5=10) → 페널티 1 → 이동력 4.
+	var p := _party()
+	p.add_member(_human(5, 5))
+	p.cargo["목재"] = 60
+	assert_eq(p.overload_penalty(), 1, "초과 10 · step 10 → 페널티 1")
+	assert_eq(p.movement(), 4, "5 − 1 = 4")
+
+func test_overload_penalty_zero_without_members() -> void:
+	var p := _party()
+	assert_eq(p.overload_penalty(), 0, "멤버 없으면 페널티 0")
+	assert_eq(p.movement(), 0, "멤버 없으면 이동력 0")
+
 func test_vision_is_max_of_members() -> void:
 	var p := _party()
 	p.add_member(_human(3, 5))

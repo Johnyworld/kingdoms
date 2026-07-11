@@ -48,7 +48,8 @@
 
 | 속성 | 메서드 | 규칙 | 설명 |
 | --- | --- | --- | --- |
-| 이동력 | `movement()` | 멤버 `movement`의 **최소값** | 가장 느린 멤버를 따라간다. 멤버 없으면 `0` |
+| 이동력 | `movement()` | `max(0, 기본 − overload_penalty())` | 기본 = 멤버 `movement`의 **최소값**(가장 느린 멤버). **과적 페널티**를 뺀 값(아래). 멤버 없으면 `0` |
+| 과적 페널티 | `overload_penalty()` | `floor(초과량 ÷ (CARGO_CAPACITY ÷ 기본))` | 화물이 [용량](#화물-cargo--캐러반)(50)을 넘으면 감소. 초과량=`cargo_total()−50`. step=`50÷기본이동력`(예 50÷3≈16.7)마다 −1. **2배 용량(100)에서 이동력 0**. 화물 용량 이하·멤버 없으면 `0` |
 | 시야 | `vision()` | 멤버 `vision`의 **최대값** | 가장 멀리 보는 멤버를 따라간다. 멤버 없으면 `0` |
 | 공격거리 | `attack_range()` | 멤버별 무기 공격거리([ItemTypes](../data/items.md) `max_range(멤버.weapons)`)의 **최대값** | 가장 사거리 긴 멤버·무기 기준. 검+활 소지자는 활(3)로 계산. 월드맵 공격 개시 거리. 멤버 없으면 `0` |
 
@@ -77,12 +78,14 @@
 - `take_all_loot(source) -> void` — `source`의 모든 화물을 전량 이 부대로 옮긴다(NPC/자동 약탈). `source` 화물은 빈 Dictionary가 된다.
 - `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
 - `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
-- `transfer_cargo_to(other, res_name, n) -> int` — 이 부대 화물의 자원을 `other` 부대로 옮긴다([부대 분할 분배](../features/party-composition.md)). `min(n, 이 부대 보유)`만큼 — **받는 부대 `CARGO_CAPACITY` 초과 허용**(병합·약탈과 동일). 음수 n은 0. 옮긴 만큼 이 부대에서 빼고 `other`에 싣는다. **실제 옮긴 양** 반환. *(적재량이 용량을 넘으면 이동력 감소는 `미구현`(예정).)*
+- `transfer_cargo_to(other, res_name, n) -> int` — 이 부대 화물의 자원을 `other` 부대로 옮긴다([부대 분할 분배](../features/party-composition.md)). `min(n, 이 부대 보유)`만큼 — **받는 부대 `CARGO_CAPACITY` 초과 허용**(병합·약탈과 동일). 음수 n은 0. 옮긴 만큼 이 부대에서 빼고 `other`에 싣는다. **실제 옮긴 양** 반환. *(적재량이 용량을 넘으면 [이동력이 감소](#유도-능력치-derived)한다 — `overload_penalty`.)*
 - `transfer_loot_to(other, id) -> bool` — 이 부대 `loot_items`의 장비 `id` 하나를 `other.loot_items`로 옮긴다. 이 부대가 그 id를 안 가졌으면 `false`(no-op). 성공 시 이 부대에서 그 id 하나 빼고 `other`에 더해 `true`.
 - `can_equip_from_loot(member, id) -> bool` — `member`가 `id`를 장착할 수 있는지 판정(dry-run, 변경 없음). id가 `loot_items`에 있고 슬롯 종류가 명확하며 그 슬롯에 여유가 있으면 `true`. **장착 성공 조건의 단일 출처** — `equip_from_loot`와 [장비 관리 UI](../features/equipment.md)의 `[장착]` 버튼 활성이 모두 이 함수를 쓴다.
 - `equip_from_loot(member, id) -> bool` — 인벤토리(`loot_items`)의 장비 `id`를 `member`에게 장착한다([장비 관리](../features/equipment.md)). `can_equip_from_loot`이 `false`면 no-op으로 `false`. 슬롯은 [`ItemTypes.item_slot`](../data/items.md)로 판별: 무기는 `weapons`(상한 [`MAX_WEAPONS`](Human.md)), 방어구는 `armor`(상한 [`MAX_ARMOR`](Human.md)), 방패는 `shield`(비어 있을 때만). **id가 인벤토리에 없거나 / 슬롯 종류 불명 / 슬롯이 꽉 차면 `false`**(no-op). 성공 시 멤버 슬롯에 넣고 `loot_items`에서 그 id 하나를 빼고 `true`.
 - `unequip_to_loot(member, id) -> bool` — `member`가 장착한 장비 `id`를 빼서 인벤토리(`loot_items`)로 되돌린다. 무기·방어구는 목록에서 그 id 하나 제거(주무기[0]를 빼면 다음 무기가 주무기), 방패는 일치할 때 `""`로. **멤버가 그 장비를 안 갖고 있으면 `false`**(no-op). 성공 시 `loot_items`에 더하고 `true`.
-- `movement() -> int` — 멤버 `movement`의 최소값(멤버 없으면 0). 이동/공격 범위 계산에 사용.
+- `base_movement() -> int` — 멤버 `movement`의 최소값(가장 느린 멤버, 멤버 없으면 0). 과적 반영 전 기본 이동력. `movement()`·`overload_penalty()`가 공유한다.
+- `movement() -> int` — **`base_movement()` − `overload_penalty()`**, `max(0, …)`으로 하한 0(멤버 없으면 0). 이동 범위 계산에 사용 — 과적이면 감소된 값이 그대로 [이동 범위](../features/selection-and-movement.md)·NPC 경로에 반영.
+- `overload_penalty() -> int` — 화물 과적으로 인한 이동력 감소량. 화물 `cargo_total()`이 `CARGO_CAPACITY`(50) 이하이거나 기본 이동력이 0이면 `0`. 초과 시 개념상 `floor(초과량 ÷ (50 ÷ 기본))` — step `50÷기본`(예 16.7)마다 −1. **구현은 정수식 `(초과량 × 기본) ÷ CARGO_CAPACITY`**(정수 나눗셈, 부동소수점 오차 없음, 동일 결과). 화물이 용량의 2배면 페널티 = 기본 이동력(→ movement 0, 정지).
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
@@ -109,6 +112,11 @@
 - [정상] 생성 직후 `commander`는 `null`, `commander_name() == "—"`
 - [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
 - [정상] 이동력 3·2 멤버 → `movement() == 2` (최소값, 가장 느린 멤버)
+- [정상] 화물이 용량(50) 이하면 `overload_penalty() == 0`, `movement()`는 기본과 같음
+- [정상] 과적: 기본 이동력 3·화물 67(초과 17, step 16.7) → `overload_penalty() == 1`, `movement() == 2`
+- [경계] 과적: 기본 3·화물 100(용량 2배, 초과 50) → `overload_penalty() == 3`, `movement() == 0`(정지)
+- [정상] 빠른 부대는 초과에 더 오래 버틴다 — 기본 5·화물 60(초과 10, step 10) → 페널티 1, `movement() == 4`
+- [경계] 멤버 없으면 `overload_penalty() == 0`, `movement() == 0`
 - [정상] 시야 5·2 멤버 → `vision() == 5` (최대값)
 - [정상] 무기 공격거리 1·3 멤버 → `attack_range() == 3` (최대값), 멤버 없으면 0
 - [정상] 생성 직후 `moved_this_turn`·`attacked_this_turn` 거짓, `can_move()`·`can_attack()` 참

@@ -43,6 +43,18 @@ func test_summary_shows_movement_and_vision() -> void:
 	panel.open(_sample_party())
 	assert_eq(panel._summary.text, "이동력 2 · 시야 5 · 사거리 근접", "요약 = 이동력(min)·시야(max)·사거리(근접)")
 
+func test_summary_shows_overload() -> void:
+	# 과적(화물 용량 초과)이면 요약에 "과적 −K"가 붙고 이동력이 감소한다.
+	var p := _party([_human("짐꾼", 3, 5)])
+	p.cargo["목재"] = 67   # 초과 17, 기본 3 → 페널티 1
+	panel.open(p)
+	assert_string_contains(panel._summary.text, "과적 −1", "과적 시 요약에 과적 −1 표시")
+	assert_string_contains(panel._summary.text, "이동력 2", "이동력은 감소분 반영(3−1=2)")
+
+func test_summary_no_overload_when_within_capacity() -> void:
+	panel.open(_sample_party())   # 화물 없음
+	assert_false(panel._summary.text.contains("과적"), "과적 아니면 과적 표기 없음")
+
 func test_member_list_count() -> void:
 	panel.open(_sample_party())
 	assert_eq(panel._member_list.get_child_count(), 2, "멤버 리스트 자식 수 = 멤버 수")
