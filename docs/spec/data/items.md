@@ -3,26 +3,28 @@
 > 스크립트: `scenes/item/item_types.gd` (`class_name ItemTypes`)
 
 전투에 쓰이는 **무기·방어구 카탈로그**와 **상성표**. `BuildingTypes`·`Terrain`·`UnitTypes`와 같은 "GDScript 카탈로그" 패턴이다.
-기획 원본 `docs/table/아이템/무기.md`·`방어구.md`에서 **전투에 쓰는 필드만** 옮긴 **부분집합**이다(무게·공격거리·근접거리·생산비용·가치·부위 등은 미수록 — 관련 기능이 생길 때 추가).
+기획 원본 `docs/table/아이템/무기.md`·`방어구.md`에서 **전투에 쓰는 필드만** 옮긴 **부분집합**이다(무게·공격거리·근접거리·생산비용·부위 등은 미수록 — 관련 기능이 생길 때 추가). **판매 [가치(`value`)](../features/selling.md)** 는 수록(무기=공격력, 방어구·방패=방어력×2 기준).
 
 ## 무기 (`ItemTypes.WEAPONS`)
 
-`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?}}`. `damage_type` = `참격|자돌|타격|원거리|마법`([방어구 상성](#상성표)에 사용). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투씬([Battle](../features/battle.md))에서 쓴다:
+`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법`([방어구 상성](#상성표)에 사용). `value`는 판매가([Selling](../features/selling.md)). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투씬([Battle](../features/battle.md))에서 쓴다:
 - **`reach`(근접거리)** — 전투씬 근접 공격 개시 거리(원본 무기.md). **클수록 리치가 길어 먼저 사거리에 진입 = 선제 공격**. 맨손 1.0.
 - **`attack_speed`(공격속도)** — 1회 공격에 걸리는 초(민첩 0 기준). 낮을수록 빠름. 최종 공격 간격은 민첩으로 단축([Combat](../features/combat.md) `attack_interval`).
 - **`throw_range`**(선택, 기본 0) — **던지는 무기**의 전투씬 투척 사거리. 활과 달리 월드맵 `range`는 1이지만 접근 중 이 거리부터 투척한다.
 
-| id | 이름 | 공격력 | 데미지 타입 | 무게 | 공격거리 | 근접거리 | 공격속도 | 투척 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `sword` | 검 | 14 | 참격 | 3 | 0 | 1.2 | 2.0 | — |
-| `longsword` | 장검 | 18 | 참격 | 4 | 0 | 1.4 | 2.2 | — |
-| `scimitar` | 곡도 | 15 | 참격 | 3 | 0 | 1.1 | 1.8 | — |
-| `battleaxe` | 전투도끼 | 16 | 참격 | 4 | 0 | 1.1 | 2.6 | — |
-| `spear` | 장창 | 15 | 자돌 | 3 | 0 | 2.0 | 2.4 | — |
-| `mace` | 모닝스타 | 19 | 타격 | 5 | 0 | 1.1 | 2.8 | — |
-| `javelin` | 투창 | 10 | 원거리 | 2 | 0 | 1.3 | 2.0 | 2 |
-| `bow` | 단궁 | 12 | 원거리 | 2 | 3 | 0.7 | 3.3 | — |
-| `wand` | 완드 | 8 | 마법 | 1 | 2 | 0.5 | 2.6 | — |
+`value`(가치) = 판매가(금). 무기는 공격력과 동일.
+
+| id | 이름 | 공격력 | 데미지 타입 | 무게 | 공격거리 | 근접거리 | 공격속도 | 투척 | 가치 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `sword` | 검 | 14 | 참격 | 3 | 0 | 1.2 | 2.0 | — | 14 |
+| `longsword` | 장검 | 18 | 참격 | 4 | 0 | 1.4 | 2.2 | — | 18 |
+| `scimitar` | 곡도 | 15 | 참격 | 3 | 0 | 1.1 | 1.8 | — | 15 |
+| `battleaxe` | 전투도끼 | 16 | 참격 | 4 | 0 | 1.1 | 2.6 | — | 16 |
+| `spear` | 장창 | 15 | 자돌 | 3 | 0 | 2.0 | 2.4 | — | 15 |
+| `mace` | 모닝스타 | 19 | 타격 | 5 | 0 | 1.1 | 2.8 | — | 19 |
+| `javelin` | 투창 | 10 | 원거리 | 2 | 0 | 1.3 | 2.0 | 2 | 10 |
+| `bow` | 단궁 | 12 | 원거리 | 2 | 3 | 0.7 | 3.3 | — | 12 |
+| `wand` | 완드 | 8 | 마법 | 1 | 2 | 0.5 | 2.6 | — | 8 |
 
 - **근접 무기**: 월드맵 `range` **0**(사거리 없음) → **이동해서 인접해야** 공격(근접). 표기는 `"근접"`([Selection & Movement](../features/selection-and-movement.md)).
 - **활·완드(쏘는 무기)**: 월드맵 `range` ≥ 2 → 원거리(사격). **현재 위치**에서 사거리 내 적을 제자리 사격.
@@ -31,29 +33,33 @@
 
 ## 방어구 (`ItemTypes.ARMORS`)
 
-`{id: {name, defense, armor_class, weight}}`. `armor_class` = `천|가죽|사슬|판금`. 부위(머리·몸통·팔·다리)는 미수록 — 유닛은 방어구 id 목록을 들고 DF는 그 합, 상성 분류는 방어력이 가장 큰 조각의 분류로 대표한다.
+`{id: {name, defense, armor_class, weight, value}}`. `armor_class` = `천|가죽|사슬|판금`. `value`는 판매가. 부위(머리·몸통·팔·다리)는 미수록 — 유닛은 방어구 id 목록을 들고 DF는 그 합, 상성 분류는 방어력이 가장 큰 조각의 분류로 대표한다.
 
-| id | 이름 | 방어력 | 분류 | 무게 |
-| --- | --- | --- | --- | --- |
-| `cloth_hood` | 두건 | 2 | 천 | 1 |
-| `robe` | 로브 | 4 | 천 | 2 |
-| `leather_helm` | 가죽 투구 | 4 | 가죽 | 2 |
-| `leather_armor` | 가죽 갑옷 | 8 | 가죽 | 4 |
-| `leather_gloves` | 가죽 장갑 | 2 | 가죽 | 1 |
-| `leather_greaves` | 가죽 각반 | 3 | 가죽 | 2 |
-| `chain_coif` | 사슬 코이프 | 6 | 사슬 | 3 |
-| `chain_mail` | 사슬 갑옷 | 14 | 사슬 | 8 |
+`value`(가치) = 방어력 × 2.
+
+| id | 이름 | 방어력 | 분류 | 무게 | 가치 |
+| --- | --- | --- | --- | --- | --- |
+| `cloth_hood` | 두건 | 2 | 천 | 1 | 4 |
+| `robe` | 로브 | 4 | 천 | 2 | 8 |
+| `leather_helm` | 가죽 투구 | 4 | 가죽 | 2 | 8 |
+| `leather_armor` | 가죽 갑옷 | 8 | 가죽 | 4 | 16 |
+| `leather_gloves` | 가죽 장갑 | 2 | 가죽 | 1 | 4 |
+| `leather_greaves` | 가죽 각반 | 3 | 가죽 | 2 | 6 |
+| `chain_coif` | 사슬 코이프 | 6 | 사슬 | 3 | 12 |
+| `chain_mail` | 사슬 갑옷 | 14 | 사슬 | 8 | 28 |
 
 ## 방패 (`ItemTypes.SHIELDS`)
 
-`{id: {name, defense, block, weight}}`. `defense`는 DF에 합산, `block`은 막기 확률(%), `weight`는 회피 페널티. 유닛은 방패 id 하나(`""`=없음)를 든다. 양손무기 제약은 미수록.
+`{id: {name, defense, block, weight, value}}`. `defense`는 DF에 합산, `block`은 막기 확률(%), `weight`는 회피 페널티, `value`는 판매가. 유닛은 방패 id 하나(`""`=없음)를 든다. 양손무기 제약은 미수록.
 
-| id | 이름 | 방어력 | 막기(%) | 무게 |
-| --- | --- | --- | --- | --- |
-| `buckler` | 버클러 | 2 | 15 | 1 |
-| `round_shield` | 라운드 실드 | 5 | 25 | 3 |
-| `kite_shield` | 카이트 실드 | 8 | 30 | 5 |
-| `tower_shield` | 타워 실드 | 12 | 40 | 8 |
+`value`(가치) = 방어력 × 2.
+
+| id | 이름 | 방어력 | 막기(%) | 무게 | 가치 |
+| --- | --- | --- | --- | --- | --- |
+| `buckler` | 버클러 | 2 | 15 | 1 | 4 |
+| `round_shield` | 라운드 실드 | 5 | 25 | 3 | 10 |
+| `kite_shield` | 카이트 실드 | 8 | 30 | 5 | 16 |
+| `tower_shield` | 타워 실드 | 12 | 40 | 8 | 24 |
 
 ## 상성표 (`ItemTypes.AFFINITY`)
 
@@ -92,6 +98,7 @@
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
 - `item_name(id) -> String` — 무기·방어구·방패 카탈로그를 통합 조회한 이름. 무기→방어구→방패 순으로 찾고, 세 곳 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
 - `item_slot(id) -> String` — 그 아이템이 들어가는 장비 슬롯 분류. 무기면 `"weapon"`, 방어구면 `"armor"`, 방패면 `"shield"`, 세 곳 어디에도 없으면 `""`. [장비 관리](../features/equipment.md)에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
+- `item_value(id) -> int` — 그 아이템의 판매가([Selling](../features/selling.md)). 무기→방어구→방패 순으로 `value`를 찾고, 세 곳 어디에도 없으면 `0`.
 
 ## 미수록 / 미구현
 
@@ -126,6 +133,7 @@
 - [정상] `affinity("판금", "마법") == 1.3`, `affinity("사슬", "참격") == 0.7`
 - [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패); [예외] `item_name("") == ""`, 없는 id → `""`
 - [정상] `item_slot("sword") == "weapon"`, `item_slot("chain_mail") == "armor"`, `item_slot("buckler") == "shield"`; [예외] `item_slot("") == ""`, 없는 id → `""`
+- [정상] `item_value("sword") == 14`(무기=공격력), `item_value("chain_mail") == 28`(방어구=방어력×2), `item_value("tower_shield") == 24`(방패); [예외] `item_value("") == 0`, 없는 id → `0`
 - [예외] 없는 분류/타입 → `affinity` `1.0`
 
 ## 관련

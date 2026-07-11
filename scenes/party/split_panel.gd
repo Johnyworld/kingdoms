@@ -127,8 +127,8 @@ func _refresh_cargo() -> void:
 	for c in _cargo_list.get_children():
 		c.free()
 	for res_name in _union_keys(_orig.cargo, _new.cargo):
-		if res_name == "인구":
-			continue
+		if res_name == "인구" or res_name == "금":
+			continue   # 노동력·화폐는 부대 화물이 아니다(영지 전용)
 		var on: int = _orig.cargo.get(res_name, 0)
 		var nn: int = _new.cargo.get(res_name, 0)
 		_cargo_list.add_child(_transfer_row(res_name, on, nn, _cargo_to_new.bind(res_name), _cargo_to_orig.bind(res_name)))

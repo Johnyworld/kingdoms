@@ -6,35 +6,35 @@ class_name ItemTypes
 # 무기: id → {name, attack, damage_type(참격|자돌|타격|원거리|마법), weight, range, reach, attack_speed, throw_range?}.
 # reach(근접거리)=전투씬 근접 공격 개시 거리(원본 무기.md), 클수록 리치 김=선제. attack_speed=1회 공격 초(민첩 0 기준).
 const WEAPONS := {
-	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.2, "attack_speed": 2.0},
-	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.4, "attack_speed": 2.2},
-	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.1, "attack_speed": 1.8},
-	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.1, "attack_speed": 2.6},
-	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3, "range": 0, "reach": 2.0, "attack_speed": 2.4},
-	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5, "range": 0, "reach": 1.1, "attack_speed": 2.8},
-	"javelin": {"name": "투창", "attack": 10, "damage_type": "원거리", "weight": 2, "range": 0, "reach": 1.3, "attack_speed": 2.0, "throw_range": 2},
-	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리", "weight": 2, "range": 3, "reach": 0.7, "attack_speed": 3.3},
-	"wand": {"name": "완드", "attack": 8, "damage_type": "마법", "weight": 1, "range": 2, "reach": 0.5, "attack_speed": 2.6},
+	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.2, "attack_speed": 2.0, "value": 14},
+	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.4, "attack_speed": 2.2, "value": 18},
+	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.1, "attack_speed": 1.8, "value": 15},
+	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.1, "attack_speed": 2.6, "value": 16},
+	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3, "range": 0, "reach": 2.0, "attack_speed": 2.4, "value": 15},
+	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5, "range": 0, "reach": 1.1, "attack_speed": 2.8, "value": 19},
+	"javelin": {"name": "투창", "attack": 10, "damage_type": "원거리", "weight": 2, "range": 0, "reach": 1.3, "attack_speed": 2.0, "throw_range": 2, "value": 10},
+	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리", "weight": 2, "range": 3, "reach": 0.7, "attack_speed": 3.3, "value": 12},
+	"wand": {"name": "완드", "attack": 8, "damage_type": "마법", "weight": 1, "range": 2, "reach": 0.5, "attack_speed": 2.6, "value": 8},
 }
 
-# 방어구: id → {name, defense, armor_class(천|가죽|사슬|판금)}.
+# 방어구: id → {name, defense, armor_class(천|가죽|사슬|판금), weight, value}.
 const ARMORS := {
-	"cloth_hood": {"name": "두건", "defense": 2, "armor_class": "천", "weight": 1},
-	"robe": {"name": "로브", "defense": 4, "armor_class": "천", "weight": 2},
-	"leather_helm": {"name": "가죽 투구", "defense": 4, "armor_class": "가죽", "weight": 2},
-	"leather_armor": {"name": "가죽 갑옷", "defense": 8, "armor_class": "가죽", "weight": 4},
-	"leather_gloves": {"name": "가죽 장갑", "defense": 2, "armor_class": "가죽", "weight": 1},
-	"leather_greaves": {"name": "가죽 각반", "defense": 3, "armor_class": "가죽", "weight": 2},
-	"chain_coif": {"name": "사슬 코이프", "defense": 6, "armor_class": "사슬", "weight": 3},
-	"chain_mail": {"name": "사슬 갑옷", "defense": 14, "armor_class": "사슬", "weight": 8},
+	"cloth_hood": {"name": "두건", "defense": 2, "armor_class": "천", "weight": 1, "value": 4},
+	"robe": {"name": "로브", "defense": 4, "armor_class": "천", "weight": 2, "value": 8},
+	"leather_helm": {"name": "가죽 투구", "defense": 4, "armor_class": "가죽", "weight": 2, "value": 8},
+	"leather_armor": {"name": "가죽 갑옷", "defense": 8, "armor_class": "가죽", "weight": 4, "value": 16},
+	"leather_gloves": {"name": "가죽 장갑", "defense": 2, "armor_class": "가죽", "weight": 1, "value": 4},
+	"leather_greaves": {"name": "가죽 각반", "defense": 3, "armor_class": "가죽", "weight": 2, "value": 6},
+	"chain_coif": {"name": "사슬 코이프", "defense": 6, "armor_class": "사슬", "weight": 3, "value": 12},
+	"chain_mail": {"name": "사슬 갑옷", "defense": 14, "armor_class": "사슬", "weight": 8, "value": 28},
 }
 
-# 방패: id → {name, defense(DF에 합산), block(막기 확률 %)}.
+# 방패: id → {name, defense(DF에 합산), block(막기 확률 %), weight, value}.
 const SHIELDS := {
-	"buckler": {"name": "버클러", "defense": 2, "block": 15, "weight": 1},
-	"round_shield": {"name": "라운드 실드", "defense": 5, "block": 25, "weight": 3},
-	"kite_shield": {"name": "카이트 실드", "defense": 8, "block": 30, "weight": 5},
-	"tower_shield": {"name": "타워 실드", "defense": 12, "block": 40, "weight": 8},
+	"buckler": {"name": "버클러", "defense": 2, "block": 15, "weight": 1, "value": 4},
+	"round_shield": {"name": "라운드 실드", "defense": 5, "block": 25, "weight": 3, "value": 10},
+	"kite_shield": {"name": "카이트 실드", "defense": 8, "block": 30, "weight": 5, "value": 16},
+	"tower_shield": {"name": "타워 실드", "defense": 12, "block": 40, "weight": 8, "value": 24},
 }
 
 # 상성표: 방어구 분류 → { 데미지 타입 → 배율 }. 기획 원본과 동일.
@@ -168,6 +168,16 @@ static func item_slot(id: String) -> String:
 	if SHIELDS.has(id):
 		return "shield"
 	return ""
+
+## 아이템 판매가(금). 무기→방어구→방패 순으로 value를 찾고, 세 곳 어디에도 없으면 0. 판매([Selling](selling.md))에 쓴다.
+static func item_value(id: String) -> int:
+	if WEAPONS.has(id):
+		return WEAPONS[id].get("value", 0)
+	if ARMORS.has(id):
+		return ARMORS[id].get("value", 0)
+	if SHIELDS.has(id):
+		return SHIELDS[id].get("value", 0)
+	return 0
 
 ## 방패 무게(없는 id면 0).
 static func shield_weight(id: String) -> int:

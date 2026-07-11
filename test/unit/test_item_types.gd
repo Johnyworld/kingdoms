@@ -131,3 +131,11 @@ func test_item_slot_classifies_by_catalog() -> void:
 	assert_eq(ItemTypes.item_slot("buckler"), "shield", "방패 슬롯")
 	assert_eq(ItemTypes.item_slot(""), "", "빈 id는 빈 문자열")
 	assert_eq(ItemTypes.item_slot("없음"), "", "없는 id는 빈 문자열")
+
+func test_item_value_sell_price() -> void:
+	# 판매가: 무기=공격력, 방어구·방패=방어력×2.
+	assert_eq(ItemTypes.item_value("sword"), 14, "검 가치 14(공격력)")
+	assert_eq(ItemTypes.item_value("chain_mail"), 28, "사슬 갑옷 가치 28(방어력×2)")
+	assert_eq(ItemTypes.item_value("tower_shield"), 24, "타워 실드 가치 24(방어력×2)")
+	assert_eq(ItemTypes.item_value(""), 0, "빈 id 0")
+	assert_eq(ItemTypes.item_value("없음"), 0, "없는 id 0")

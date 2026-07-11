@@ -1,0 +1,13 @@
+extends GutTest
+## 자원 가치 카탈로그(ResourceTypes) — 자원 판매가. 판매 기능에서 화물→금 환산에 쓴다.
+
+func test_value_sellable_resources() -> void:
+	assert_eq(ResourceTypes.value("철괴"), 12, "철괴 판매가 12")
+	assert_eq(ResourceTypes.value("밀"), 1, "밀 판매가 1")
+	assert_eq(ResourceTypes.value("목재"), 2, "목재 판매가 2")
+	assert_eq(ResourceTypes.value("철"), 5, "철 판매가 5")
+
+func test_value_non_sellable() -> void:
+	assert_eq(ResourceTypes.value("인구"), 0, "인구는 판매 불가(0)")
+	assert_eq(ResourceTypes.value("금"), 0, "금은 화폐, 판매 불가(0)")
+	assert_eq(ResourceTypes.value("없는자원"), 0, "미등록 자원 0")

@@ -193,6 +193,46 @@ func test_cargo_panel_excludes_population() -> void:
 			has_pop = true
 	assert_false(has_pop, "보급 패널에 인구 행 없음(노동력)")
 
+# --- 판매 (장비·화물 → 영지 금) ---
+
+func test_sell_panel_shown_with_party() -> void:
+	menu.open(_center("town_hall"), _party_with(1))
+	assert_true(menu._sell_panel.visible, "부대 + 거점이면 판매 패널 표시")
+
+func test_sell_panel_hidden_without_party() -> void:
+	menu.open(_center("town_hall"))
+	assert_false(menu._sell_panel.visible, "부대 없으면 판매 패널 숨김")
+
+func test_sell_item_adds_gold() -> void:
+	var c := _center("town_hall")
+	var p := _party_with(1)
+	p.loot_items = ["sword"]
+	menu.open(c, p)
+	menu._sell_item("sword")
+	assert_eq(c.territory.resources.get("금", 0), 14, "영지 금 +14(검 가치)")
+	assert_false("sword" in p.loot_items, "노획 장비에서 제거")
+
+func test_sell_cargo_adds_gold() -> void:
+	var c := _center("town_hall")
+	var p := _party_with(1)
+	p.add_cargo("철괴", 10)
+	menu.open(c, p)
+	menu._sell_cargo("철괴")   # CARGO_STEP(5)씩
+	assert_eq(c.territory.resources.get("금", 0), 60, "영지 금 +60(12×5)")
+	assert_eq(p.cargo.get("철괴", 0), 5, "화물 철괴 10 → 5")
+
+func test_sell_cargo_excludes_pop_and_gold() -> void:
+	var c := _center("town_hall")
+	var p := _party_with(1)
+	p.add_cargo("철괴", 10)
+	p.cargo["인구"] = 5   # 인위적으로 넣어도
+	p.cargo["금"] = 5     # 판매 목록에 안 뜬다
+	menu.open(c, p)
+	for row in menu._sell_cargo_list.get_children():
+		var t: String = (row.get_child(0) as Label).text
+		assert_false(t.begins_with("인구"), "판매 화물에 인구 없음")
+		assert_false(t.begins_with("금"), "판매 화물에 금 없음")
+
 func test_item_disabled_when_poor() -> void:
 	_join_poor_territory()  # 캠프는 있으나 자원 0
 	menu.open(building)

@@ -39,6 +39,11 @@ var _cargo_panel: PanelContainer
 var _cargo_list: VBoxContainer     # 자원별 적재/하역 행
 const CARGO_STEP := 5              # 적재/하역 버튼 한 번당 이동량
 
+# 판매 패널(부대 있을 때만). 부대 노획 장비·화물 → 영지 금.
+var _sell_panel: PanelContainer
+var _sell_loot_list: VBoxContainer   # 노획 장비 판매 행(이름별 묶음)
+var _sell_cargo_list: VBoxContainer  # 화물 판매 행(자원별, 인구·금 제외)
+
 func _ready() -> void:
 	layer = 64
 	_build()
@@ -71,6 +76,7 @@ func _build() -> void:
 	hbox.add_child(_build_menu_panel())
 	hbox.add_child(_build_garrison_panel())
 	hbox.add_child(_build_cargo_panel())
+	hbox.add_child(_build_sell_panel())
 
 ## 좌측: 자원 정보 패널.
 func _build_resource_panel() -> Control:
@@ -214,6 +220,38 @@ func _build_cargo_panel() -> Control:
 	_cargo_panel.hide()
 	return _cargo_panel
 
+## 우측: 판매 패널(부대 있을 때만 표시). 부대 노획 장비·화물 → 영지 금.
+func _build_sell_panel() -> Control:
+	_sell_panel = PanelContainer.new()
+	_sell_panel.custom_minimum_size = Vector2(240, 260)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_sell_panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "판매"
+	title.add_theme_font_size_override("font_size", 20)
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+
+	var loot_title := Label.new()
+	loot_title.text = "장비"
+	vbox.add_child(loot_title)
+	_sell_loot_list = VBoxContainer.new()
+	_sell_loot_list.add_theme_constant_override("separation", 4)
+	vbox.add_child(_sell_loot_list)
+
+	var cargo_title := Label.new()
+	cargo_title.text = "화물"
+	vbox.add_child(cargo_title)
+	_sell_cargo_list = VBoxContainer.new()
+	_sell_cargo_list.add_theme_constant_override("separation", 4)
+	vbox.add_child(_sell_cargo_list)
+
+	_sell_panel.hide()
+	return _sell_panel
+
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
 ## party가 주어지고 건물이 캠프면 수비대 편성 패널도 띄운다(부대↔캠프 병사 이동).
 func open(building: Building, party = null) -> void:
@@ -248,9 +286,12 @@ func open(building: Building, party = null) -> void:
 		_garrison_panel.show()
 		_refresh_cargo_lists()
 		_cargo_panel.show()
+		_refresh_sell_lists()
+		_sell_panel.show()
 	else:
 		_garrison_panel.hide()
 		_cargo_panel.hide()
+		_sell_panel.hide()
 	show()
 
 ## 좌측 자원 그리드를 비우고 영지 자원으로 다시 채운다(인구는 "현재/상한"). 적재/하역 뒤에도 갱신.
@@ -316,10 +357,10 @@ func _refresh_cargo_lists() -> void:
 		return
 	var names: Array = []
 	for r in _territory.resources:
-		if r != "인구" and not (r in names):
+		if r != "인구" and r != "금" and not (r in names):
 			names.append(r)
 	for r in _party.cargo:
-		if not (r in names):
+		if r != "인구" and r != "금" and not (r in names):
 			names.append(r)
 	for res_name in names:
 		var row := HBoxContainer.new()
@@ -355,6 +396,64 @@ func _unload_cargo(res_name) -> void:
 ## 적재/하역 뒤 목록·자원 그리드 갱신. 버튼 pressed 처리 중이라 지연 호출(그 버튼 free 시 locked 방지).
 func _after_cargo_change() -> void:
 	_refresh_cargo_lists.call_deferred()
+	_fill_resource_grid.call_deferred()
+
+## 판매 목록을 다시 채운다. 장비: loot_items를 이름별로 묶어 [판매]. 화물: cargo 자원별(인구·금 제외) [판매].
+func _refresh_sell_lists() -> void:
+	for c in _sell_loot_list.get_children():
+		c.free()
+	for c in _sell_cargo_list.get_children():
+		c.free()
+	if _territory == null or _party == null:
+		return
+	# 장비 섹션: 이름별 묶음.
+	var counts: Dictionary = {}
+	var order: Array = []
+	for id in _party.loot_items:
+		if not counts.has(id):
+			order.append(id)
+		counts[id] = counts.get(id, 0) + 1
+	for id in order:
+		var text := "%s ×%d" % [ItemTypes.item_name(id), counts[id]]
+		_sell_loot_list.add_child(_make_sell_row(text, _sell_item.bind(id)))
+	# 화물 섹션: 자원별(인구·금 제외).
+	for res_name in _party.cargo:
+		if res_name == "인구" or res_name == "금":
+			continue
+		var ctext := "%s ×%d" % [res_name, _party.cargo[res_name]]
+		_sell_cargo_list.add_child(_make_sell_row(ctext, _sell_cargo.bind(res_name)))
+
+## "라벨 + [판매]" 한 행.
+func _make_sell_row(text: String, on_sell: Callable) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lbl)
+	var btn := Button.new()
+	btn.text = "판매"
+	btn.pressed.connect(on_sell)
+	row.add_child(btn)
+	return row
+
+## 노획 장비 1개를 팔아 영지 금을 올린다(item_value). loot_items에서 그 id 하나 제거.
+func _sell_item(id: String) -> void:
+	if not (id in _party.loot_items):
+		return
+	_party.loot_items.erase(id)
+	_territory.resources["금"] = _territory.resources.get("금", 0) + ItemTypes.item_value(id)
+	_after_sell_change()
+
+## 화물 자원을 CARGO_STEP만큼 팔아 영지 금을 올린다(ResourceTypes.value × 판매량).
+func _sell_cargo(res_name: String) -> void:
+	var sold: int = _party.remove_cargo(res_name, CARGO_STEP)   # 보유분까지
+	if sold > 0:
+		_territory.resources["금"] = _territory.resources.get("금", 0) + ResourceTypes.value(res_name) * sold
+	_after_sell_change()
+
+## 판매 뒤 판매 목록·자원 그리드(금) 갱신. 지연 호출(버튼 free locked 방지).
+func _after_sell_change() -> void:
+	_refresh_sell_lists.call_deferred()
 	_fill_resource_grid.call_deferred()
 
 func close_menu() -> void:
