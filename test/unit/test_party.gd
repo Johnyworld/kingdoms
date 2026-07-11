@@ -489,3 +489,55 @@ func test_unequip_fails_when_not_equipped() -> void:
 	p.add_member(m)
 	assert_false(p.unequip_to_loot(m, "bow"), "멤버가 안 가진 장비 탈착 실패")
 	assert_eq(p.loot_items, [], "인벤토리 변화 없음")
+
+# --- 부대 분할 분배 (transfer_cargo_to / transfer_loot_to) ---
+
+func test_transfer_cargo_to() -> void:
+	var a := _party()
+	var b := _party()
+	a.add_cargo("목재", 20)
+	assert_eq(a.transfer_cargo_to(b, "목재", 5), 5, "옮긴 양 5")
+	assert_eq(a.cargo["목재"], 15, "A 15로 감소")
+	assert_eq(b.cargo["목재"], 5, "B 5로 증가")
+
+func test_transfer_cargo_to_clamps_to_holding() -> void:
+	var a := _party()
+	var b := _party()
+	a.add_cargo("목재", 3)
+	assert_eq(a.transfer_cargo_to(b, "목재", 10), 3, "보유분(3)까지만")
+	assert_false(a.cargo.has("목재"), "A 0이면 키 삭제")
+	assert_eq(b.cargo["목재"], 3, "B에 3")
+
+func test_transfer_cargo_to_allows_overflow() -> void:
+	# 초과 허용(병합·약탈과 동일) — 받는 부대 용량 무시.
+	var a := _party()
+	var b := _party()
+	a.add_cargo("목재", 5)
+	b.add_cargo("석재", 48)
+	assert_eq(a.transfer_cargo_to(b, "목재", 5), 5, "전량 이동")
+	assert_eq(b.cargo_total(), 53, "받는 부대 용량 초과 허용(53 > 50)")
+
+func test_transfer_cargo_to_negative_or_missing() -> void:
+	var a := _party()
+	var b := _party()
+	a.add_cargo("목재", 5)
+	assert_eq(a.transfer_cargo_to(b, "목재", -3), 0, "음수는 0")
+	assert_eq(a.transfer_cargo_to(b, "석재", 5), 0, "미보유 자원은 0")
+	assert_eq(a.cargo["목재"], 5, "A 변화 없음")
+	assert_true(b.cargo.is_empty(), "B 변화 없음")
+
+func test_transfer_loot_to() -> void:
+	var a := _party()
+	var b := _party()
+	a.loot_items = ["sword", "bow"]
+	assert_true(a.transfer_loot_to(b, "sword"), "장비 1개 이동 성공")
+	assert_eq(a.loot_items, ["bow"], "A에서 sword 빠짐")
+	assert_eq(b.loot_items, ["sword"], "B에 sword")
+
+func test_transfer_loot_to_not_held() -> void:
+	var a := _party()
+	var b := _party()
+	a.loot_items = ["sword"]
+	assert_false(a.transfer_loot_to(b, "bow"), "미보유 id는 false")
+	assert_eq(a.loot_items, ["sword"], "A 변화 없음")
+	assert_true(b.loot_items.is_empty(), "B 변화 없음")

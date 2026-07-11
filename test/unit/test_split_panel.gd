@@ -58,3 +58,38 @@ func test_button_press_moves_member() -> void:
 	panel.open(orig, newp)
 	(panel._orig_list.get_child(0) as Button).pressed.emit()
 	assert_true(h in newp.members, "버튼 클릭 → 새 부대로 이동")
+
+# --- 화물·노획 장비 분배 ---
+
+func test_cargo_section_populated() -> void:
+	var orig := _party_with(2)
+	orig.add_cargo("목재", 10)
+	panel.open(orig, _party_with(0))
+	assert_gt(panel._cargo_list.get_child_count(), 0, "화물 있으면 화물 행 표시")
+
+func test_cargo_transfer_to_new() -> void:
+	var orig := _party_with(2)
+	var newp := _party_with(0)
+	orig.add_cargo("목재", 10)
+	panel.open(orig, newp)
+	panel._cargo_to_new("목재")   # CARGO_STEP(5)씩
+	assert_eq(orig.cargo.get("목재", 0), 5, "원 부대 −5")
+	assert_eq(newp.cargo.get("목재", 0), 5, "새 부대 +5")
+
+func test_cargo_transfer_emits_changed() -> void:
+	var orig := _party_with(2)
+	orig.add_cargo("목재", 10)
+	panel.open(orig, _party_with(0))
+	watch_signals(panel)
+	panel._cargo_to_new("목재")
+	assert_signal_emitted(panel, "changed", "화물 이동 시 changed 방출")
+
+func test_loot_section_and_transfer() -> void:
+	var orig := _party_with(2)
+	var newp := _party_with(0)
+	orig.loot_items = ["sword", "bow"]
+	panel.open(orig, newp)
+	assert_gt(panel._loot_list.get_child_count(), 0, "노획 장비 있으면 장비 행 표시")
+	panel._loot_to_new("sword")   # 1개씩
+	assert_false("sword" in orig.loot_items, "원 부대에서 sword 빠짐")
+	assert_true("sword" in newp.loot_items, "새 부대에 sword")

@@ -604,7 +604,10 @@ func _on_split_changed() -> void:
 func _on_split_closed() -> void:
 	if _split_new != null:
 		if _split_new.members.is_empty():
-			_units.erase(_split_new)   # 취소
+			# 취소 — 새 부대로 옮겨둔 화물·노획 장비를 원 부대로 회수(소실 방지) 후 제거.
+			party.take_all_loot(_split_new)   # 화물 회수(초과 허용 — 원래 원 부대 것)
+			party.loot_items.append_array(_split_new.loot_items)
+			_units.erase(_split_new)
 			_split_new.queue_free()
 		else:
 			party.mark_attacked()          # 분할 확정 → 양쪽 이번 턴 종료

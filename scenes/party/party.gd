@@ -121,6 +121,23 @@ func equipment_ids() -> Array:
 func take_all_equipment(source) -> void:
 	loot_items.append_array(source.equipment_ids())
 
+## 이 부대 화물의 자원 res_name을 other 부대로 n만큼 옮긴다(부대 분할 분배). min(n, 보유)만큼, 음수 n은 0.
+## 받는 부대 CARGO_CAPACITY 초과 허용(병합·약탈과 동일 — 다음 적재만 막힘). 실제 옮긴 양 반환.
+func transfer_cargo_to(other, res_name: String, n: int) -> int:
+	var amount := mini(maxi(n, 0), cargo.get(res_name, 0))
+	if amount > 0:
+		remove_cargo(res_name, amount)
+		other.cargo[res_name] = other.cargo.get(res_name, 0) + amount
+	return amount
+
+## 이 부대 loot_items의 장비 id 하나를 other.loot_items로 옮긴다(부대 분할 분배). 미보유면 false(no-op).
+func transfer_loot_to(other, id: String) -> bool:
+	if not (id in loot_items):
+		return false
+	loot_items.erase(id)   # 첫 일치 하나
+	other.loot_items.append(id)
+	return true
+
 ## member가 인벤토리(loot_items)의 장비 id를 장착할 수 있는지(dry-run). 장착 성공 조건의 단일 출처.
 ## id가 인벤토리에 있고, 슬롯 종류가 명확하며, 그 슬롯에 여유가 있어야(무기 MAX_WEAPONS·방어구 MAX_ARMOR·방패 빈칸) true.
 ## equip_from_loot의 판정과 장비 관리 UI([장착] 버튼 활성)가 모두 이 함수를 쓴다.

@@ -27,7 +27,7 @@
 
 ### 화물 (Cargo — 캐러반)
 
-거점에서 자원을 싣고 다른 거점으로 옮긴다([캠프 메뉴 보급](../features/camp-menu.md#보급-화물-적재하역)). 부대와 함께 이동하고, 전멸(부대 제거)하면 남은 화물은 소실되지만, **전투로 전멸당하면 승자가 노획한다**([약탈](../features/raid.md)). **병합** 시 화물은 합쳐진다(`merge_from`, 소실 방지). **분할**([부대 편성](../features/party-composition.md)) 시 화물은 **원래 부대에 남고 새 부대는 빈 화물로 시작**한다(화물 분배 UI는 **미구현**).
+거점에서 자원을 싣고 다른 거점으로 옮긴다([캠프 메뉴 보급](../features/camp-menu.md#보급-화물-적재하역)). 부대와 함께 이동하고, 전멸(부대 제거)하면 남은 화물은 소실되지만, **전투로 전멸당하면 승자가 노획한다**([약탈](../features/raid.md)). **병합** 시 화물은 합쳐진다(`merge_from`, 소실 방지). **분할**([부대 편성](../features/party-composition.md)) 시 화물·[노획 장비](#노획-장비-loot-items)를 **분할 패널에서 원 부대 ↔ 새 부대로 나눠 실을 수 있다**(`transfer_cargo_to`/`transfer_loot_to`). 기본값은 원 부대에 남는다.
 
 | 속성 | 변수 | 타입 | 초기값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -77,6 +77,8 @@
 - `take_all_loot(source) -> void` — `source`의 모든 화물을 전량 이 부대로 옮긴다(NPC/자동 약탈). `source` 화물은 빈 Dictionary가 된다.
 - `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
 - `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
+- `transfer_cargo_to(other, res_name, n) -> int` — 이 부대 화물의 자원을 `other` 부대로 옮긴다([부대 분할 분배](../features/party-composition.md)). `min(n, 이 부대 보유)`만큼 — **받는 부대 `CARGO_CAPACITY` 초과 허용**(병합·약탈과 동일). 음수 n은 0. 옮긴 만큼 이 부대에서 빼고 `other`에 싣는다. **실제 옮긴 양** 반환. *(적재량이 용량을 넘으면 이동력 감소는 `미구현`(예정).)*
+- `transfer_loot_to(other, id) -> bool` — 이 부대 `loot_items`의 장비 `id` 하나를 `other.loot_items`로 옮긴다. 이 부대가 그 id를 안 가졌으면 `false`(no-op). 성공 시 이 부대에서 그 id 하나 빼고 `other`에 더해 `true`.
 - `can_equip_from_loot(member, id) -> bool` — `member`가 `id`를 장착할 수 있는지 판정(dry-run, 변경 없음). id가 `loot_items`에 있고 슬롯 종류가 명확하며 그 슬롯에 여유가 있으면 `true`. **장착 성공 조건의 단일 출처** — `equip_from_loot`와 [장비 관리 UI](../features/equipment.md)의 `[장착]` 버튼 활성이 모두 이 함수를 쓴다.
 - `equip_from_loot(member, id) -> bool` — 인벤토리(`loot_items`)의 장비 `id`를 `member`에게 장착한다([장비 관리](../features/equipment.md)). `can_equip_from_loot`이 `false`면 no-op으로 `false`. 슬롯은 [`ItemTypes.item_slot`](../data/items.md)로 판별: 무기는 `weapons`(상한 [`MAX_WEAPONS`](Human.md)), 방어구는 `armor`(상한 [`MAX_ARMOR`](Human.md)), 방패는 `shield`(비어 있을 때만). **id가 인벤토리에 없거나 / 슬롯 종류 불명 / 슬롯이 꽉 차면 `false`**(no-op). 성공 시 멤버 슬롯에 넣고 `loot_items`에서 그 id 하나를 빼고 `true`.
 - `unequip_to_loot(member, id) -> bool` — `member`가 장착한 장비 `id`를 빼서 인벤토리(`loot_items`)로 되돌린다. 무기·방어구는 목록에서 그 id 하나 제거(주무기[0]를 빼면 다음 무기가 주무기), 방패는 일치할 때 `""`로. **멤버가 그 장비를 안 갖고 있으면 `false`**(no-op). 성공 시 `loot_items`에 더하고 `true`.
@@ -138,6 +140,12 @@
 - [정상] `unequip_to_loot`: 멤버 무기 `["sword","bow"]`에서 `"sword"` 탈착 → `true`, 멤버 `["bow"]`, `loot_items`에 `"sword"`
 - [정상] `unequip_to_loot` 방패: 멤버 방패 `"buckler"` 탈착 → `member.shield==""`, `loot_items`에 `"buckler"`
 - [경계] `unequip_to_loot` 멤버가 안 가진 장비 → `false`, 변화 없음
+- [정상] `transfer_cargo_to`: A 목재 20 → `transfer_cargo_to(B, "목재", 5)` = 5, A `["목재"]==15` / B `["목재"]==5`
+- [경계] `transfer_cargo_to`는 보유분까지만 — A 목재 3에서 10 요청 → 3만 이동
+- [경계] `transfer_cargo_to` 용량 초과 허용 — B가 이미 48이어도 5 더 받아 `cargo_total()==53`(>50)
+- [경계] `transfer_cargo_to` 음수/0/미보유 → 0, 변화 없음
+- [정상] `transfer_loot_to`: A `loot_items`에 `"sword"` → `transfer_loot_to(B, "sword")` = `true`, A에서 빠지고 B에 `"sword"`
+- [경계] `transfer_loot_to` A가 안 가진 id → `false`, 양쪽 변화 없음(중복이면 첫 개만 이동)
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 
