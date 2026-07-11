@@ -14,12 +14,16 @@ signal raise_party(building: Building)
 ## 업그레이드 버튼 클릭 시 방출. game.gd가 받아 거점을 다음 티어로 업그레이드한다.
 signal upgrade_requested(building: Building)
 
+## 캠프 건설 버튼 클릭 시 방출. game.gd가 받아 새 영지 캠프 건설 모드(부대 시야 배치)로 진입한다.
+signal found_camp_requested(territory: Territory)
+
 var _root: Control
 var _res_grid: GridContainer
 var _camp_title: Label     # 우측 패널 제목 = 영지 이름
 var _faction_label: Label  # 제목 아래 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
 var _upgrade_btn: Button   # 거점 업그레이드 버튼(다음 티어 있을 때만)
+var _found_camp_btn: Button  # 캠프 건설(새 영지) 버튼
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
 var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
 
@@ -108,6 +112,11 @@ func _build_menu_panel() -> Control:
 	_upgrade_btn.hide()
 	vbox.add_child(_upgrade_btn)
 
+	# 캠프 건설(새 영지) 버튼 — 활성 부대 시야에 새 캠프를 세운다. open()에서 활성 여부 갱신.
+	_found_camp_btn = Button.new()
+	_found_camp_btn.pressed.connect(func() -> void: found_camp_requested.emit(_territory))
+	vbox.add_child(_found_camp_btn)
+
 	_build_btn = Button.new()
 	_build_btn.text = "건축"
 	_build_btn.pressed.connect(_on_build_pressed)
@@ -189,6 +198,7 @@ func open(building: Building, party = null) -> void:
 	_build_list.hide()
 	_build_btn.show()
 	_refresh_upgrade_button()
+	_refresh_found_camp_button()
 
 	# 우측 패널: 영지 이름 + 세력.
 	_camp_title.text = territory.name if territory != null else ""
@@ -279,6 +289,12 @@ func _refresh_upgrade_button() -> void:
 	_upgrade_btn.text = "%s으로 업그레이드  %s" % [spec.get("label", next_id), _format_cost(spec.get("build_cost", {}))]
 	_upgrade_btn.disabled = not BuildPlanner.can_upgrade(_territory, _building)
 	_upgrade_btn.show()
+
+## 캠프 건설(새 영지) 버튼 갱신: 라벨(비용)과 활성 여부(여는 영지가 캠프 비용 감당 가능한지).
+func _refresh_found_camp_button() -> void:
+	var cost: Dictionary = BuildingTypes.get_type(BuildingTypes.CAMP).get("build_cost", {})
+	_found_camp_btn.text = "캠프 건설 (새 영지)  %s" % _format_cost(cost)
+	_found_camp_btn.disabled = _territory == null or not BuildPlanner.can_build(_territory, BuildingTypes.CAMP)
 
 ## 건축 버튼: 우측 패널을 건설 가능 건물 리스트로 전환한다.
 func _on_build_pressed() -> void:

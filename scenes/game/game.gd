@@ -99,6 +99,7 @@ var _turn := TurnManager.new()
 var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
 var _npc_parties: Array = []    # NPC 부대. 안개 표시·턴 리셋·턴 종료 시 이동(NpcAi) 대상. 일람은 제외.
 var _territories: Array = []    # 자원 수입을 받는 영지(플레이어). NPC 영지는 미포함(경제 미사용).
+var _outpost_count := 0         # 캠프 건설로 만든 전초기지 수(이름 단조 증가 카운터).
 var _buildings: Array = []      # 플레이어 건물(캠프 + 건설된 농장). 겹침 검사·시야 합산·추적용.
 var _npc_buildings: Array = []  # NPC 세력 거점(캠프). 안개(탐험됨) 표시 + 클릭 정보 대상. 시야 합산 제외.
 var _player_faction: Faction    # 플레이어 세력(캠프 흡수 시 영지 편입 대상). _setup_factions에서 설정.
@@ -159,6 +160,7 @@ func _ready() -> void:
 	camp_menu.garrison_changed.connect(_on_garrison_changed)
 	camp_menu.raise_party.connect(_on_raise_party)
 	camp_menu.upgrade_requested.connect(_on_upgrade_requested)
+	camp_menu.found_camp_requested.connect(_on_found_camp_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
@@ -1499,11 +1501,33 @@ func _on_party_focused(focused_party) -> void:
 ## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
 ## 건물을 지을 수 있는 영역(영지 시야) 윤곽선을 파랑으로 표시한다 — 시야는 배치 중 변하지 않으므로 한 번만 계산한다.
 func _on_build_selected(type_id: String, territory: Territory) -> void:
+	_enter_build_mode(type_id, territory)
+
+## 캠프 메뉴의 "캠프 건설" → 새 영지 캠프 건설 모드. 배치 영역은 활성 부대 시야(_build_vision).
+## 활성 부대가 비어(멤버 0) 있으면 시야가 없어 배치 불가 → 진입하지 않고 안내 토스트만 띄운다.
+func _on_found_camp_requested(territory: Territory) -> void:
+	camp_menu.close_menu()
+	if party == null or party.members.is_empty():
+		toast.show_message("캠프를 세우려면 부대가 필요하다")
+		return
+	_enter_build_mode(BuildingTypes.CAMP, territory)
+
+## 건설 모드 진입 공통. 배치 영역(윤곽선)을 종류에 맞는 시야로 그린다 — 캠프는 부대 시야, 그 외는 영지 시야.
+func _enter_build_mode(type_id: String, territory: Territory) -> void:
 	_build_mode = true
 	_build_type = type_id
 	_build_territory = territory
 	build_preview.clear()
-	build_area.show_area(BuildPlanner.territory_vision(terrain, territory, MAP_WIDTH, MAP_HEIGHT))
+	build_area.show_area(_build_vision())
+
+## 현재 건설 종류의 배치 가능 시야 {cell: true}. 캠프(새 영지)는 활성 부대 시야 반경, 그 외는 영지 시야.
+func _build_vision() -> Dictionary:
+	if _build_type == BuildingTypes.CAMP:
+		var vis := {}
+		for c in HexGrid.cells_within(terrain, terrain.local_to_map(party.position), party.vision(), MAP_WIDTH, MAP_HEIGHT):
+			vis[c] = true
+		return vis
+	return BuildPlanner.territory_vision(terrain, _build_territory, MAP_WIDTH, MAP_HEIGHT)
 
 ## 건설 모드를 끝내고 미리보기·영역 윤곽선을 지운다.
 func _exit_build_mode() -> void:
@@ -1516,7 +1540,7 @@ func _exit_build_mode() -> void:
 ## 현재 시야·점유를 기준으로 그 셀에 건물을 놓을 수 있는지.
 ## 점유는 플레이어 건물 + NPC 거점 모두 — 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
 func _can_build_at(cell: Vector2i) -> bool:
-	var vision := BuildPlanner.territory_vision(terrain, _build_territory, MAP_WIDTH, MAP_HEIGHT)
+	var vision := _build_vision()   # 캠프=부대 시야, 그 외=영지 시야
 	var occupied := BuildPlanner.occupied_cells(_buildings + _npc_buildings)
 	return BuildPlanner.can_place(terrain, cell, MAP_WIDTH, MAP_HEIGHT, vision, occupied, _build_footprint())
 
@@ -1550,12 +1574,33 @@ func _try_place(cell: Vector2i) -> void:
 	if not BuildPlanner.can_build(_build_territory, _build_type):
 		return
 	_build_territory.build_pay(_build_type)   # 자재 차감 + 필요인원 고용
+	if _build_type == BuildingTypes.CAMP:
+		_found_camp(cell)   # 캠프는 새 영지 생성
+	else:
+		var b := Building.new()
+		add_child(b)
+		b.setup(terrain, cell, _build_type, true)   # 건설 중으로 생성
+		_build_territory.add_building(b)
+		_buildings.append(b)
+	_exit_build_mode()
+
+## 새 영지를 개척한다: 자원 0인 새 영지를 플레이어 세력에 편입하고, 건설 중 캠프를 그 자리에 세운다.
+## 비용은 여는 영지가 이미 지불(build_pay). 새 영지는 인구·자원 0(전초기지), 수비대 없음(부대 편성으로 방어).
+func _found_camp(cell: Vector2i) -> void:
+	var territory := Territory.new(_next_outpost_name(), {})
+	_player_faction.add_territory(territory)
 	var b := Building.new()
 	add_child(b)
-	b.setup(terrain, cell, _build_type, true)   # 건설 중으로 생성
-	_build_territory.add_building(b)
+	b.setup(terrain, cell, BuildingTypes.CAMP, true)   # 건설 중 캠프
+	territory.add_building(b)
 	_buildings.append(b)
-	_exit_build_mode()
+	_territories.append(territory)
+	_update_fog()
+
+## 새 전초기지 영지 이름("전초기지 N"). 단조 증가 카운터라 영지를 잃어도 이름이 겹치지 않는다.
+func _next_outpost_name() -> String:
+	_outpost_count += 1
+	return "전초기지 %d" % _outpost_count
 
 ## 줌 조절: 마우스 휠 / 트랙패드 두 손가락 스크롤 / 트랙패드 핀치.
 ## 값이 작을수록 확대이므로, 확대 = _zoom_level 감소.

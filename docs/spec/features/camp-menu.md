@@ -23,6 +23,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - `close_menu()` — 숨긴다.
 - 닫기 트리거: 배경 좌클릭, "닫기" 버튼.
 - **업그레이드 버튼** (`_upgrade_btn`) — 연 건물이 거점이고 [`next_center`](../data/buildings.md#거점-업그레이드)가 있으면(캠프·마을회관) 표시한다. 텍스트 `"<다음 티어 라벨>으로 업그레이드  <비용>"`(예: `"마을회관으로 업그레이드  목재 10 · 석재 10 · 밀 20"`). `BuildPlanner.can_upgrade`면 활성, 비용 부족이면 비활성. 최종 티어(성)·비거점이면 **숨김**. 누르면 `upgrade_requested(building)` 방출 → `game.gd`가 지불·`upgrade_to` 처리([건축](building.md#거점-업그레이드)).
+- **캠프 건설 버튼** (`_found_camp_btn`) — `"캠프 건설 (새 영지)  목재 10 · 밀 10"`. 여는 영지가 캠프 비용을 감당하면(`BuildPlanner.can_build(territory, "camp")`) 활성, 아니면 비활성. 누르면 `found_camp_requested(territory)` 방출 → `game.gd`가 [캠프 건설](building.md#캠프-건설-새-영지-확장) 모드(부대 시야 배치)로 진입. `territory == null`이면 비활성.
 - **건축 버튼** (`_on_build_pressed`) — 우측 패널을 **건설 리스트**로 전환한다(건축 버튼은 숨기고 리스트를 보임).
   - 리스트 = [건물 카탈로그](../data/buildings.md)의 **건축 가능 종류**(`BuildingTypes.BUILDABLE_IDS` — 채석장·농장·집·벌목소). 거점(캠프·마을회관·성)은 제외(캠프=새 영지, 마을회관·성=업그레이드).
   - 각 항목 = 버튼 `"<라벨>  <비용>[  인원 N]"`(예: `"농장  목재 5 · 밀 5  인원 2"`). 비용은 종류의 `build_cost`, `인원 N`은 [`required_pop`](../data/buildings.md#필요인원-required_pop)이 0보다 클 때만 덧붙인다.
@@ -33,6 +34,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - **수비대 편성 패널** (`party != null` + **거점**(`is_center`)일 때) — 부대(`party.members`)·수비대(`building.garrison`) 두 목록을 병사 버튼으로 보인다. 부대원 클릭 → 수비대로, 수비대원 클릭 → 부대로 옮기고(양방향 자유) 목록을 다시 그린다. 이동할 때마다 `garrison_changed` 시그널을 방출한다. `party`가 없으면 패널을 숨긴다. → [Garrison](garrison.md).
 - `signal garrison_changed` — 편성으로 병사가 이동할 때 방출. `game.gd`가 받아 [부대 일람](party-roster.md)·[안개](fog-of-war.md)를 갱신한다.
 - `signal upgrade_requested(building)` — 업그레이드 버튼을 누르면 방출. `game.gd`가 받아 거점 [업그레이드](building.md#거점-업그레이드)를 처리한다.
+- `signal found_camp_requested(territory)` — 캠프 건설 버튼을 누르면 방출. `game.gd`가 받아 [새 영지 캠프 건설](building.md#캠프-건설-새-영지-확장) 모드로 진입한다.
 
 ## 테스트 시나리오
 
@@ -54,6 +56,8 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - [정상] **캠프** 거점으로 `open` → 업그레이드 버튼 표시, 텍스트에 `"마을회관"` 포함; 비용 충분하면 활성
 - [정상] **성** 거점으로 `open` → 업그레이드 버튼 **숨김**(next_center 없음)
 - [정상] 업그레이드 버튼 누르면 `upgrade_requested(building)` 방출
+- [정상] 캠프 비용 감당 가능한 영지로 `open` → **캠프 건설 버튼** 활성, 텍스트에 `"캠프 건설"` 포함; 누르면 `found_camp_requested(territory)` 방출
+- [경계] 자원 부족·영지 없음 → 캠프 건설 버튼 비활성
 
 ## 관련
 

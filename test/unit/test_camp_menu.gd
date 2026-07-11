@@ -138,6 +138,26 @@ func test_upgrade_button_emits_signal() -> void:
 	menu._upgrade_btn.pressed.emit()
 	assert_signal_emitted_with_parameters(menu, "upgrade_requested", [c])
 
+# --- 캠프 건설 (새 영지) 버튼 ---
+
+func test_found_camp_button_active_when_affordable() -> void:
+	menu.open(_center("town_hall"))  # RES: 목재20·밀50 → 캠프 비용 목재10·밀10 감당
+	assert_true(menu._found_camp_btn.visible, "캠프 건설 버튼 표시")
+	assert_string_contains(menu._found_camp_btn.text, "캠프 건설", "라벨 표시")
+	assert_false(menu._found_camp_btn.disabled, "비용 충분 → 활성")
+
+func test_found_camp_button_disabled_when_poor() -> void:
+	menu.open(_center("town_hall", {}))  # 자원 0
+	assert_true(menu._found_camp_btn.disabled, "비용 부족이면 비활성")
+
+func test_found_camp_button_emits_signal() -> void:
+	var c := _center("town_hall")
+	var t = c.territory
+	menu.open(c)
+	watch_signals(menu)
+	menu._found_camp_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(menu, "found_camp_requested", [t])
+
 func test_item_disabled_when_poor() -> void:
 	_join_poor_territory()  # 캠프는 있으나 자원 0
 	menu.open(building)

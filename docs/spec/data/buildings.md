@@ -36,7 +36,7 @@
 
 | id | `build_turns` | `build_cost`(업그레이드 비용) | `demolish_refund` | `required_pop` | `pop_cap` | `production` | 특수 효과 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | 0 | **0** | (없음) | 거점 tier 0. 새 영지의 시작 티어(캠프 건설은 3단계·미구현) |
+| `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | 0 | **0** | (없음) | 거점 tier 0. [캠프 건설](../features/building.md#캠프-건설-새-영지-확장)로 새 영지의 시작 티어가 된다 |
 | `town_hall` | 8 | 목재 10 / 석재 10 / 밀 20 | 목재 2 / 석재 2 | 0 | **10** | (없음) | 거점 tier 1. 인구 상한 10. 대부분 건물의 선행. 상인 방문 **미구현** |
 | `castle` | 12 | 석재 50 / 밀 30 | 석재 10 | 0 | **20** | (없음) | 거점 tier 2(최종). 인구 상한 20. 고급 건물 해금 **미구현** |
 | `farm` | 3 | 목재 5 / 밀 5 | 목재 1 | 2 | — | 밀 1 (턴당) | 농부 2명(노동력) |
@@ -51,7 +51,7 @@
 - 외형 색상 필드: `fill_color`(부지) · `edge_color`(테두리) · `tent_color`(중심 표식).
   - 농장 전용 렌더링(작물 표현 등)은 배치가 생기는 **Phase 2**에서 다듬는다.
 - `build_cost`·`demolish_refund`·`production`은 자원명→수량 Dictionary. `build_turns`는 건설 소요 턴.
-- **턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성** 효과는 아직 **미구현**이다(캠프 외 건물 건설만 다룸, [건축](../features/building.md) 참고).
+- **턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성**은 [캠프 건설](../features/building.md#캠프-건설-새-영지-확장)에서 구현됨(활성 부대 시야에 배치, 새 영지 자원 0).
 - **`footprint`은 [배치 유효성](../features/building.md#배치-유효성-buildplanner)에 반영된다** — `BuildPlanner.footprint`/`can_place`가 종류별 헥스 수로 판정하고, `Building.setup`이 그만큼 점유 셀을 잡는다.
 - **인구 상한(`pop_cap`)**: 종류가 영지 [인구 상한](../entities/Territory.md#인구-상한population_cap)에 더하는 값(없으면 0). **거점 티어에서 나온다** — 캠프 `0`, 마을회관 `10`, 성 `20`(집 `+2`로 보조). 완성 건물만 상한에 기여한다(`Building.pop_cap()`은 건설 중이면 0). 매 턴 종료 시 영지 인구가 상한까지 +1씩 [자연 증가](turn.md)한다. **캠프 티어는 인구 상한 0** — 마을회관으로 업그레이드해야 인구가 생긴다.
 - **신규 소형 건물은 석재를 요구**한다. 영지 초기 자원에 석재가 없으므로(위 캠프 `resources`) **채석장(목재만)으로 석재를 확보한 뒤** 벌목소·집을 짓는 순서가 된다. 새 자원 키(`석재`)는 `Territory.collect_income`/`can_afford`가 자동으로 처리한다.
@@ -94,7 +94,7 @@
 
 - `BuildingTypes.CAMP` — 캠프 종류 id 상수(`"camp"`).
 - `BuildingTypes.FARM` — 농장 종류 id 상수(`"farm"`).
-- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["quarry", "farm", "house", "lumberjack"]`. **거점(캠프·마을회관·성)은 제외** — 캠프는 새 영지(3단계·미구현), 마을회관·성은 [업그레이드](#거점-업그레이드)로만 도달. 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
+- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["quarry", "farm", "house", "lumberjack"]`. **거점(캠프·마을회관·성)은 제외** — 캠프는 [새 영지 건설](../features/building.md#캠프-건설-새-영지-확장)(별도 버튼), 마을회관·성은 [업그레이드](#거점-업그레이드)로만 도달. 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
 - `BuildingTypes.get_type(type_id) -> Dictionary` — 종류 스펙 반환. 없는 id면 빈 Dictionary.
 - `BuildingTypes.CENTER_IDS` — **거점(center)** 종류 목록 `["camp", "town_hall", "castle"]`(티어 순). 세력의 전략 앵커. **승리·점령·수비대·[캠프 메뉴](../features/camp-menu.md) 판정이 이 세트를 기준**으로 한다.
 - `BuildingTypes.is_center(type_id) -> bool` — 그 종류가 거점인지(`type_id in CENTER_IDS`). 세 티어 중 하나라도 세력이 가지면 유지된다([승패](../features/victory.md)).
@@ -129,4 +129,4 @@
 
 - 종류를 배치·사용하는 주체: [Building 엔티티](../entities/Building.md)
 - 자원 목록: [resources.md](resources.md)
-- 생산(`production`) 로직은 [턴](../features/turn.md)에서 구현됨. 건설 코어 로직(자원 소비·건설 중 상태·배치 유효성)은 [건축](../features/building.md) 슬라이스 1에서 구현됨. **철거**는 [건물 정보 패널](../features/building-info.md#철거)에서 구현됨(캠프 제외). 캠프 건설(새 영지 생성)은 아직 **미구현**.
+- 생산(`production`) 로직은 [턴](../features/turn.md)에서 구현됨. 건설 코어 로직(자원 소비·건설 중 상태·배치 유효성)은 [건축](../features/building.md) 슬라이스 1에서 구현됨. **철거**는 [건물 정보 패널](../features/building-info.md#철거)에서 구현됨(거점 제외). **캠프 건설(새 영지)**은 [건축](../features/building.md#캠프-건설-새-영지-확장)에서 구현됨.
