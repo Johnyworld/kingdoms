@@ -47,6 +47,15 @@ func spend(cost: Dictionary) -> void:
 	for res_name in cost:
 		resources[res_name] = resources.get(res_name, 0) - cost[res_name]
 
+## 그 종류 건물의 건설 비용을 지불한다: build_cost 자재 차감 + 필요인원(required_pop)만큼 인구 고용.
+## 음수 방지는 하지 않으므로 호출 전 BuildPlanner.can_build로 확인한다.
+func build_pay(type_id: String) -> void:
+	var spec := BuildingTypes.get_type(type_id)
+	spend(spec.get("build_cost", {}))
+	var labor: int = spec.get("required_pop", 0)
+	if labor > 0:
+		resources["인구"] = resources.get("인구", 0) - labor
+
 ## 턴 종료 시 호출. 소속 건물들의 건설을 1턴씩 진행한다(건설 중 건물만 영향).
 func advance_construction() -> void:
 	for building in buildings:
@@ -71,6 +80,9 @@ func demolish(building) -> void:
 	if not (building in buildings):
 		return
 	var refund: Dictionary = building.demolish_refund()
+	var labor: int = building.required_pop()   # 고용 해제 — 인구 반환
 	remove_building(building)
 	for res_name in refund:
 		resources[res_name] = resources.get(res_name, 0) + refund[res_name]
+	if labor > 0:
+		resources["인구"] = resources.get("인구", 0) + labor

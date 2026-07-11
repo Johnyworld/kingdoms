@@ -101,6 +101,10 @@ func pop_cap() -> int:
 func demolish_refund() -> Dictionary:
 	return _spec.get("demolish_refund", {})
 
+## 이 건물이 고용하는 노동력(인구 수). 카탈로그 required_pop(없으면 0). 건설 시 소비·철거 시 반환.
+func required_pop() -> int:
+	return _spec.get("required_pop", 0)
+
 ## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
 ## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.
 func map_label_lines() -> Array:

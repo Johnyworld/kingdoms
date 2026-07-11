@@ -267,15 +267,17 @@ func _on_build_pressed() -> void:
 		var cost: Dictionary = spec.get("build_cost", {})
 		var item := Button.new()
 		var label_text = "%s  %s" % [spec.get("label", type_id), _format_cost(cost)]
-		# 선행건물 충족 여부(영지 있을 때만 판정 — 없으면 어차피 전부 비활성).
-		var prereq_ok = _territory != null and BuildPlanner.prerequisite_met(_territory, type_id)
-		# 선행 미충족이면 사유를 라벨에 덧붙인다.
-		if _territory != null and not prereq_ok:
+		# 필요인원(노동력)이 있으면 표시.
+		var required: int = spec.get("required_pop", 0)
+		if required > 0:
+			label_text += "  인원 %d" % required
+		# 선행건물 충족 여부(영지 있을 때만 판정 — 없으면 어차피 전부 비활성). 미충족이면 사유를 라벨에 덧붙인다.
+		if _territory != null and not BuildPlanner.prerequisite_met(_territory, type_id):
 			var prereq_id: String = spec.get("prerequisite", "")
 			label_text += "  (선행: %s 필요)" % BuildingTypes.get_type(prereq_id).get("label", prereq_id)
 		item.text = label_text
-		# 영지가 없거나 · 비용을 감당 못 하거나 · 선행 미충족이면 비활성.
-		item.disabled = _territory == null or not _territory.can_afford(cost) or not prereq_ok
+		# 영지가 없거나 · 건축 조건(선행·자재·필요인원) 미충족이면 비활성.
+		item.disabled = _territory == null or not BuildPlanner.can_build(_territory, type_id)
 		item.pressed.connect(_on_build_item_selected.bind(type_id))
 		_build_list.add_child(item)
 	_build_btn.hide()

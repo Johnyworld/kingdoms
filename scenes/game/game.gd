@@ -1533,13 +1533,10 @@ func _handle_build_input(event: InputEvent) -> void:
 func _try_place(cell: Vector2i) -> void:
 	if not _can_build_at(cell):
 		return
-	# 선행건물 게이트 재확인(방어적). 리스트에서 비활성 항목은 애초에 못 고르지만, 배치 시점에도 지킨다.
-	if not BuildPlanner.prerequisite_met(_build_territory, _build_type):
+	# 건축 조건(선행·자재·필요인원) 재확인(방어적). 리스트에서 비활성 항목은 애초에 못 고르지만, 배치 시점에도 지킨다.
+	if not BuildPlanner.can_build(_build_territory, _build_type):
 		return
-	var cost: Dictionary = BuildingTypes.get_type(_build_type).get("build_cost", {})
-	if not _build_territory.can_afford(cost):
-		return
-	_build_territory.spend(cost)
+	_build_territory.build_pay(_build_type)   # 자재 차감 + 필요인원 고용
 	var b := Building.new()
 	add_child(b)
 	b.setup(terrain, cell, _build_type, true)   # 건설 중으로 생성

@@ -158,7 +158,7 @@ func test_pop_cap_zero_under_construction() -> void:
 
 func test_demolish_refund_by_type() -> void:
 	building.setup(terrain, _center(), "farm")
-	assert_eq(building.demolish_refund(), {"인구": 2, "목재": 1}, "농장 철거 환급")
+	assert_eq(building.demolish_refund(), {"목재": 1}, "농장 철거 환급(자재만)")
 	var house = load("res://scenes/building/building.gd").new()
 	add_child_autofree(house)
 	house.setup(terrain, Vector2i(30, 30), "house")
@@ -166,4 +166,18 @@ func test_demolish_refund_by_type() -> void:
 
 func test_demolish_refund_same_under_construction() -> void:
 	building.setup(terrain, _center(), "farm", true)  # 건설 중
-	assert_eq(building.demolish_refund(), {"인구": 2, "목재": 1}, "건설 중에도 같은 환급")
+	assert_eq(building.demolish_refund(), {"목재": 1}, "건설 중에도 같은 환급")
+
+# --- 필요인원 (required_pop) ---
+
+func test_required_pop_by_type() -> void:
+	building.setup(terrain, _center(), "farm")
+	assert_eq(building.required_pop(), 2, "농장 필요인원 2")
+	var lumber = load("res://scenes/building/building.gd").new()
+	add_child_autofree(lumber)
+	lumber.setup(terrain, Vector2i(30, 30), "lumberjack")
+	assert_eq(lumber.required_pop(), 1, "벌목소 필요인원 1")
+	var house = load("res://scenes/building/building.gd").new()
+	add_child_autofree(house)
+	house.setup(terrain, Vector2i(10, 10), "house")
+	assert_eq(house.required_pop(), 0, "집 필요인원 0")

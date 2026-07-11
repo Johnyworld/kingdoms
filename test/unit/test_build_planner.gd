@@ -153,6 +153,33 @@ func test_prerequisite_under_construction_not_met() -> void:
 	t.add_building(hall)
 	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "건설 중 마을회관은 아직 미충족")
 
+# --- can_build (선행 + 자재 + 필요인원 종합) ---
+
+func _territory_with_res(camp, res: Dictionary) -> Object:
+	var t = load("res://scenes/territory/territory.gd").new("파리", res)
+	t.add_building(camp)
+	return t
+
+func test_can_build_true_when_all_met() -> void:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with_res(camp, {"인구": 10, "목재": 20})
+	assert_true(BuildPlanner.can_build(t, "quarry"), "선행 camp·목재10·인원1 모두 충족")
+
+func test_can_build_false_short_population() -> void:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with_res(camp, {"인구": 0, "목재": 20})  # 인구 0 < 1
+	assert_false(BuildPlanner.can_build(t, "quarry"), "인구가 필요인원 미만이면 거짓")
+
+func test_can_build_false_short_materials() -> void:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with_res(camp, {"인구": 10, "목재": 0})  # 목재 부족
+	assert_false(BuildPlanner.can_build(t, "quarry"), "자재 부족이면 거짓")
+
+func test_can_build_false_prerequisite() -> void:
+	var camp := _building(_center(), "camp")
+	var t := _territory_with_res(camp, {"인구": 10, "목재": 20, "밀": 50})
+	assert_false(BuildPlanner.can_build(t, "farm"), "마을회관 없으면 농장 불가(선행)")
+
 func test_cannot_place_at_map_edge() -> void:
 	# 모서리(0,0)는 이웃이 맵 밖 → footprint 일부가 범위 밖.
 	# 시야는 footprint 전부를 포함시켜, 오직 '범위 밖' 조건만으로 걸리는지 확인한다.

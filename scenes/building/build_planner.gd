@@ -42,6 +42,17 @@ static func prerequisite_met(territory, type_id: String) -> bool:
 			return true
 	return false
 
+## 그 영지에 type_id를 지을 수 있는지 종합 판정(자원/조건 게이트, 배치 유효성 can_place와는 별개):
+## ① 선행 충족 ② 자재 충분(build_cost) ③ 인구 >= 필요인원(required_pop). 셋 다 참이어야 참.
+static func can_build(territory, type_id: String) -> bool:
+	if not prerequisite_met(territory, type_id):
+		return false
+	var spec := BuildingTypes.get_type(type_id)
+	if not territory.can_afford(spec.get("build_cost", {})):
+		return false
+	var labor: int = spec.get("required_pop", 0)
+	return territory.resources.get("인구", 0) >= labor
+
 ## 건물 목록의 점유 셀(building.cells) 합집합 { cell: true }. 겹침 검사에 쓴다.
 static func occupied_cells(buildings: Array) -> Dictionary:
 	var occ := {}

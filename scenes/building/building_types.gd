@@ -77,8 +77,9 @@ const CATALOG := {
 		"tent_color": Color(0.85, 0.78, 0.5),
 		# 건설 · 경제 (Phase 2에서 사용).
 		"build_turns": 3,
-		"build_cost": {"인구": 2, "목재": 5, "밀": 5},
-		"demolish_refund": {"인구": 2, "목재": 1},
+		"build_cost": {"목재": 5, "밀": 5},
+		"demolish_refund": {"목재": 1},
+		"required_pop": 2,   # 농부 2명(노동력). 원래 build_cost의 인구2를 재분류.
 		"production": {"밀": 1},
 	},
 	# --- 소형 생산 건물(footprint 1). 필요직업/인원은 미구현(다음 슬라이스). ---
@@ -109,6 +110,7 @@ const CATALOG := {
 		"build_turns": 3,
 		"build_cost": {"목재": 5, "석재": 5},
 		"demolish_refund": {"목재": 1},
+		"required_pop": 1,   # 나뭇꾼 1명(노동력).
 		"production": {"나무": 2},
 	},
 	"quarry": {
@@ -123,6 +125,7 @@ const CATALOG := {
 		"build_turns": 4,
 		"build_cost": {"목재": 10},
 		"demolish_refund": {"목재": 2},
+		"required_pop": 1,   # 채석꾼 1명(노동력).
 		"production": {"석재": 2},
 	},
 }

@@ -31,7 +31,7 @@
 - 진입: `_build_mode = true`, 건설할 종류·비용 지불 영지를 기억한다. **건설 가능 영역**(영지 시야) 윤곽선을 계산해 표시한다(아래 `BuildArea`).
 - **마우스 이동**: 커서 아래 셀을 중심으로 **종류의 footprint만큼**(7헥스 또는 1헥스) **미리보기**를 그린다(`BuildPreview`). 배치 가능하면 초록, 불가하면 빨강.
   - 배치 가능 판정 = `BuildPlanner.can_place(..., hexes)`. `hexes`는 건설할 종류의 카탈로그 `footprint`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)` — 플레이어 건물(`_buildings`) + [NPC 거점](npc-bases.md)(`_npc_buildings`)을 합쳐 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
-- **좌클릭**: 배치 가능한 자리면 → 영지에서 `build_cost` 차감(`spend`) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
+- **좌클릭**: 배치 가능한 자리(`can_place`)이고 **조건 충족**(`BuildPlanner.can_build` — 선행·자재·[필요인원](#필요인원-게이트))이면 → `territory.build_pay(type_id)`(자재 차감 + 인구 고용) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
 - **우클릭 / ESC**: 건설 모드 취소(미리보기·영역 윤곽선 제거).
 - 건설 모드 중에는 유닛 선택·이동·캠프 메뉴 열기 등 일반 클릭이 동작하지 않는다.
 
@@ -102,6 +102,7 @@
   3. `occupied`(이미 건물이 점유한 셀 집합)와 겹치지 않으면
   참. 하나라도 위반하면 거짓. 맵 가장자리라 이웃이 범위를 벗어나면 배치 불가(1헥스 건물은 중심만 판정하므로 가장자리 제약이 완화됨).
 - `prerequisite_met(territory, type_id) -> bool` — `type_id`의 [`prerequisite`](../data/buildings.md#선행건물-prerequisite)가 그 영지에서 충족됐는지. 선행이 `""`(없음)이면 항상 참. 아니면 `territory.buildings` 중 **완성**(`is_complete()`)이고 `building_type`이 선행과 같은 건물이 하나라도 있으면 참. 건설 중인 선행 건물은 아직 미충족(완성돼야 해금).
+- `can_build(territory, type_id) -> bool` — 그 영지에 `type_id`를 지을 수 있는지 종합 판정: **① 선행 충족**(`prerequisite_met`) **② 자재 충분**(`territory.can_afford(build_cost)`) **③ 인구 ≥ [필요인원](../data/buildings.md#필요인원-required_pop)**(`territory.resources["인구"] >= required_pop`). 셋 다 참이어야 참. 배치 유효성(`can_place`, 지형·시야·겹침)과는 별개 — 이건 "자원/조건" 게이트다. [캠프 메뉴](camp-menu.md) 리스트 활성 여부와 `game.gd`의 배치 시점 판정이 공유한다.
 
 ## 선행건물 게이트
 
@@ -110,6 +111,15 @@
 - 판정 = `BuildPlanner.prerequisite_met(territory, type_id)`. 영지에 선행 종류의 **완성** 건물이 있어야 참.
 - [캠프 메뉴](camp-menu.md) 건축 리스트: 각 종류 버튼은 **자원 부족 또는 선행 미충족**이면 비활성. 선행 미충족이면 라벨에 `(선행: <라벨> 필요)`를 덧붙여 이유를 보인다.
 - 예: 시작 영지엔 캠프만 완성돼 있으므로 **채석장·마을회관만 활성**, 농장·집·벌목소는 마을회관 완성 전까지 비활성.
+
+## 필요인원 게이트
+
+생산 건물은 [필요인원](../data/buildings.md#필요인원-required_pop)(노동력)만큼 인구가 있어야 짓고, 지을 때 그만큼 고용한다.
+
+- 판정은 [`BuildPlanner.can_build`](#배치-유효성-buildplanner)의 ③(인구 ≥ `required_pop`)로 선행·자재와 함께 묶인다.
+- **지불**: 배치 시 `territory.build_pay(type_id)` — `build_cost` 자재 차감 + 인구 `required_pop`만큼 소비(고용). [철거](building-info.md#철거) 시 `Territory.demolish`가 인구를 되돌린다.
+- [캠프 메뉴](camp-menu.md) 리스트: 항목 텍스트에 `인원 N`(N>0)을 덧붙여 보이고, `can_build`가 거짓이면 비활성. 인구 부족도 비활성 사유가 된다.
+- 예: 시작 인구 10이면 채석장(인원 1)·농장(인원 2, 마을회관 후)을 여러 채 짓다 인구가 바닥나면 더는 못 짓는다 — 집으로 [인구 상한](../entities/Territory.md#인구-상한population_cap)을 올리고 인구를 늘려야 한다.
 
 ## 테스트 시나리오
 
@@ -140,6 +150,9 @@
   - [정상] `prerequisite_met` — 선행 `""`(캠프)은 항상 참; 캠프만 있는 영지에서 `quarry`·`town_hall`(선행 camp)은 참, `farm`·`house`·`lumberjack`·`castle`(선행 town_hall)은 거짓
   - [정상] `prerequisite_met` — 영지에 **완성** 마을회관을 추가하면 `farm`·`house`·`lumberjack`·`castle`이 참으로 전환
   - [경계] `prerequisite_met` — 선행 건물이 **건설 중**이면 아직 거짓(완성돼야 충족)
+  - [정상] `can_build` — 캠프만 있고 인구·목재 충분한 영지에서 `quarry`(선행 camp·목재10·인원1)는 참
+  - [예외] `can_build` — 인구가 `required_pop` 미만이면 거짓(선행·자재 충족이어도)
+  - [예외] `can_build` — 선행 미충족이면 거짓; 자재 부족이면 거짓
 - `test/unit/test_hex_grid.gd` (영역 윤곽선, `HexGrid.region_outline`)
   - [정상] 단일 셀 → 경계 변 6개(헥스의 모든 변)
   - [정상] 인접한 두 셀 → 경계 변 10개(총 12변 중 공유 변 1개 제외)

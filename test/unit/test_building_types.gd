@@ -98,9 +98,17 @@ func test_prerequisite_fields() -> void:
 func test_farm_economy() -> void:
 	var spec: Dictionary = types.get_type("farm")
 	assert_eq(spec["build_turns"], 3, "농장 필요 턴 3")
-	assert_eq(spec["build_cost"], {"인구": 2, "목재": 5, "밀": 5}, "농장 필요 자원")
-	assert_eq(spec["demolish_refund"], {"인구": 2, "목재": 1}, "농장 파괴 환산")
+	assert_eq(spec["build_cost"], {"목재": 5, "밀": 5}, "농장 필요 자재(인구는 required_pop으로 이동)")
+	assert_eq(spec["demolish_refund"], {"목재": 1}, "농장 파괴 환산(자재만)")
+	assert_eq(spec["required_pop"], 2, "농장 필요인원 2")
 	assert_eq(spec["production"], {"밀": 1}, "농장 턴당 생산")
+
+func test_required_pop_fields() -> void:
+	assert_eq(types.get_type("farm")["required_pop"], 2, "농장 필요인원 2")
+	assert_eq(types.get_type("lumberjack")["required_pop"], 1, "벌목소 필요인원 1")
+	assert_eq(types.get_type("quarry")["required_pop"], 1, "채석장 필요인원 1")
+	for id in ["camp", "town_hall", "castle", "house"]:
+		assert_eq(types.get_type(id).get("required_pop", 0), 0, "%s 필요인원 0" % id)
 
 func test_camp_economy() -> void:
 	var spec: Dictionary = types.get_type("camp")

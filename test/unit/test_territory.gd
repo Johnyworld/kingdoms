@@ -129,8 +129,8 @@ func test_demolish_removes_and_refunds() -> void:
 	t.demolish(farm)
 	assert_false(farm in t.buildings, "철거된 건물은 buildings에서 빠짐")
 	assert_null(farm.territory, "farm.territory == null")
-	assert_eq(t.resources["인구"], 7, "인구 환급 +2")
-	assert_eq(t.resources["목재"], 1, "목재 환급 +1")
+	assert_eq(t.resources["인구"], 7, "노동력 반환 +2(required_pop)")
+	assert_eq(t.resources["목재"], 1, "자재 환급 +1(demolish_refund)")
 
 func test_demolish_creates_missing_resource_key() -> void:
 	var t := _territory("파리", {})  # 목재·인구 키 없음
@@ -144,3 +144,18 @@ func test_demolish_not_owned_is_noop() -> void:
 	var farm := _typed_building(Vector2i(20, 20), "farm")  # 편입 안 함
 	t.demolish(farm)
 	assert_eq(t.resources["목재"], 5, "보유하지 않은 건물 철거는 환급 없음")
+
+# --- 건설 지불 (build_pay) — 자재 + 필요인원 고용 ---
+
+func test_build_pay_farm_deducts_cost_and_labor() -> void:
+	var t := _territory("파리", {"인구": 10, "목재": 20, "밀": 50})
+	t.build_pay("farm")
+	assert_eq(t.resources["목재"], 15, "목재 5 차감")
+	assert_eq(t.resources["밀"], 45, "밀 5 차감")
+	assert_eq(t.resources["인구"], 8, "필요인원 2 고용(인구 -2)")
+
+func test_build_pay_quarry_employs_one() -> void:
+	var t := _territory("파리", {"인구": 10, "목재": 20})
+	t.build_pay("quarry")
+	assert_eq(t.resources["목재"], 10, "목재 10 차감")
+	assert_eq(t.resources["인구"], 9, "채석장 필요인원 1 고용")

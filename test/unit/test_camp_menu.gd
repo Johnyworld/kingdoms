@@ -105,6 +105,20 @@ func test_item_text_has_label_and_cost() -> void:
 	var text := _item(1).text  # 채석장
 	assert_string_contains(text, "채석장", "항목에 라벨 포함")
 	assert_string_contains(text, "목재", "항목에 비용(목재) 포함")
+	assert_string_contains(text, "인원 1", "항목에 필요인원 표시")
+
+## camp(building)을 넘긴 자원의 영지에 편입한다.
+func _join_custom(res: Dictionary) -> Object:
+	var t = load("res://scenes/territory/territory.gd").new("커스텀", res)
+	t.add_building(building)
+	return t
+
+func test_item_disabled_when_low_population() -> void:
+	# 선행(캠프)·자재(목재)는 충분하지만 인구가 필요인원 미만 → 비활성.
+	_join_custom({"인구": 0, "목재": 20})
+	menu.open(building)
+	menu._on_build_pressed()
+	assert_true(_item(1).disabled, "인구 부족(0 < 1)이면 채석장 비활성")
 
 func test_farm_locked_without_town_hall() -> void:
 	_join_territory()  # 캠프만 완성, 마을회관 없음
