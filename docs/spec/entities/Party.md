@@ -77,6 +77,9 @@
 - `take_all_loot(source) -> void` — `source`의 모든 화물을 전량 이 부대로 옮긴다(NPC/자동 약탈). `source` 화물은 빈 Dictionary가 된다.
 - `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
 - `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
+- `can_equip_from_loot(member, id) -> bool` — `member`가 `id`를 장착할 수 있는지 판정(dry-run, 변경 없음). id가 `loot_items`에 있고 슬롯 종류가 명확하며 그 슬롯에 여유가 있으면 `true`. **장착 성공 조건의 단일 출처** — `equip_from_loot`와 [장비 관리 UI](../features/equipment.md)의 `[장착]` 버튼 활성이 모두 이 함수를 쓴다.
+- `equip_from_loot(member, id) -> bool` — 인벤토리(`loot_items`)의 장비 `id`를 `member`에게 장착한다([장비 관리](../features/equipment.md)). `can_equip_from_loot`이 `false`면 no-op으로 `false`. 슬롯은 [`ItemTypes.item_slot`](../data/items.md)로 판별: 무기는 `weapons`(상한 [`MAX_WEAPONS`](Human.md)), 방어구는 `armor`(상한 [`MAX_ARMOR`](Human.md)), 방패는 `shield`(비어 있을 때만). **id가 인벤토리에 없거나 / 슬롯 종류 불명 / 슬롯이 꽉 차면 `false`**(no-op). 성공 시 멤버 슬롯에 넣고 `loot_items`에서 그 id 하나를 빼고 `true`.
+- `unequip_to_loot(member, id) -> bool` — `member`가 장착한 장비 `id`를 빼서 인벤토리(`loot_items`)로 되돌린다. 무기·방어구는 목록에서 그 id 하나 제거(주무기[0]를 빼면 다음 무기가 주무기), 방패는 일치할 때 `""`로. **멤버가 그 장비를 안 갖고 있으면 `false`**(no-op). 성공 시 `loot_items`에 더하고 `true`.
 - `movement() -> int` — 멤버 `movement`의 최소값(멤버 없으면 0). 이동/공격 범위 계산에 사용.
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
@@ -127,6 +130,14 @@
 - [경계] `equipment_ids`는 빈 방패(`shield==""`)를 제외하고, 같은 id 중복은 유지(두 멤버가 `sword`면 두 개); 멤버 없으면 `[]`
 - [정상] `take_all_equipment`: source 멤버 장비 전부가 self `loot_items`에 더해짐(중복 유지), `source`는 불변
 - [경계] `take_all_equipment` 장비 없는 source → `loot_items` 변화 없음
+- [정상] `can_equip_from_loot`: `loot_items`에 `"sword"`·빈 무기 슬롯 → `true`; 무기 3개면 `false`; `loot_items`에 없는 id → `false`(변경 없음)
+- [정상] `equip_from_loot`: `loot_items`에 `"sword"`, 멤버 무기 비었을 때 장착 → `true`, 멤버 `weapons==["sword"]`, `loot_items`에서 제거
+- [정상] `equip_from_loot` 방어구/방패: `"chain_mail"`→멤버 `armor`, `"buckler"`→멤버 `shield`(빈 슬롯)
+- [경계] `equip_from_loot` 슬롯 꽉 참 — 무기 3개(`MAX_WEAPONS`)면 4번째 장착 `false`(no-op); 방패 이미 있으면 `false`; 방어구 4개면 `false`
+- [경계] `equip_from_loot` id가 `loot_items`에 없거나 슬롯 불명(카탈로그 없는 id) → `false`, 변화 없음
+- [정상] `unequip_to_loot`: 멤버 무기 `["sword","bow"]`에서 `"sword"` 탈착 → `true`, 멤버 `["bow"]`, `loot_items`에 `"sword"`
+- [정상] `unequip_to_loot` 방패: 멤버 방패 `"buckler"` 탈착 → `member.shield==""`, `loot_items`에 `"buckler"`
+- [경계] `unequip_to_loot` 멤버가 안 가진 장비 → `false`, 변화 없음
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 

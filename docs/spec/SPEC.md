@@ -51,6 +51,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Combat (전투 판정)](features/combat.md) — 능력치 기반 1회 공방·3회 교대 교전 순수 로직
 - [Battle (전투씬·개시·복귀)](features/battle.md) — 인접 적 클릭 개시 → 실시간 관전 오버레이 → 사상자 반영·복귀
 - [Raid (약탈)](features/raid.md) — 전투로 전멸한 적 부대의 화물·전사자 장비를 승자가 노획(플레이어=선택 패널 / NPC=자동 전량)
+- [Equipment (장비 관리)](features/equipment.md) — 노획 장비를 멤버에게 장착·탈착(무기3·방어구4·방패1 슬롯, 스왑 없음). 행동 메뉴 [장비]로 여는 모달
 - [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
 - [Combat Feedback (전투 연출)](features/combat-feedback.md) — 대미지 숫자·타격 반짝임·흔들림·돌진·상태이상 텍스트·사망 넉백
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
@@ -94,6 +95,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 부대 행동 메뉴 | `scenes/party/party_action_menu.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
 | 약탈 패널 | `scenes/loot/loot_menu.gd` |
+| 장비 관리 모달 | `scenes/equip/equip_menu.gd` |
 | 사람(데이터) | `scenes/human/human.gd` |
 | 유닛·부대 카탈로그 | `scenes/party/unit_types.gd` |
 | 건물 | `scenes/building/building.gd` |

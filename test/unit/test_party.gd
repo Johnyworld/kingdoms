@@ -412,3 +412,80 @@ func test_take_all_equipment_empty_source_noop() -> void:
 	winner.loot_items = ["sword"]
 	winner.take_all_equipment(_party())   # 멤버 없는 부대
 	assert_eq(winner.loot_items, ["sword"], "장비 없는 source면 변화 없음")
+
+# --- 장비 장착·탈착 (equip_from_loot / unequip_to_loot) ---
+
+func test_can_equip_from_loot_dry_run() -> void:
+	var p := _party()
+	var m := _human()
+	p.add_member(m)
+	p.loot_items = ["sword"]
+	assert_true(p.can_equip_from_loot(m, "sword"), "인벤토리에 있고 빈 슬롯 → 가능")
+	assert_false(p.can_equip_from_loot(m, "bow"), "인벤토리에 없으면 불가")
+	assert_eq(m.weapons, [], "판정만 — 멤버 변화 없음")
+	assert_eq(p.loot_items, ["sword"], "판정만 — 인벤토리 변화 없음")
+	var full := _equipped_human(["sword", "spear", "bow"], [], "")
+	p.add_member(full)
+	assert_false(p.can_equip_from_loot(full, "sword"), "무기 3개면 불가")
+
+func test_equip_weapon_from_loot() -> void:
+	var p := _party()
+	var m := _human()   # 무기 비어 있음
+	p.add_member(m)
+	p.loot_items = ["sword"]
+	assert_true(p.equip_from_loot(m, "sword"), "빈 무기 슬롯에 장착 성공")
+	assert_eq(m.weapons, ["sword"], "멤버 무기에 검")
+	assert_false("sword" in p.loot_items, "인벤토리에서 제거")
+
+func test_equip_armor_and_shield_from_loot() -> void:
+	var p := _party()
+	var m := _human()
+	p.add_member(m)
+	p.loot_items = ["chain_mail", "buckler"]
+	assert_true(p.equip_from_loot(m, "chain_mail"), "방어구 장착")
+	assert_true(p.equip_from_loot(m, "buckler"), "방패 장착(빈 슬롯)")
+	assert_eq(m.armor, ["chain_mail"], "멤버 방어구에 사슬 갑옷")
+	assert_eq(m.shield, "buckler", "멤버 방패에 버클러")
+	assert_eq(p.loot_items, [], "인벤토리 비워짐")
+
+func test_equip_fails_when_slot_full() -> void:
+	var p := _party()
+	var m := _equipped_human(["sword", "spear", "bow"], [], "round_shield")  # 무기 3(꽉), 방패 있음
+	p.add_member(m)
+	p.loot_items = ["mace", "kite_shield"]
+	assert_false(p.equip_from_loot(m, "mace"), "무기 3개면 4번째 장착 실패")
+	assert_false(p.equip_from_loot(m, "kite_shield"), "방패 있으면 장착 실패")
+	assert_eq(p.loot_items, ["mace", "kite_shield"], "실패 시 인벤토리 변화 없음")
+	assert_eq(m.weapons.size(), 3, "무기 그대로 3개")
+
+func test_equip_fails_when_not_in_loot_or_unknown() -> void:
+	var p := _party()
+	var m := _human()
+	p.add_member(m)
+	p.loot_items = ["sword"]
+	assert_false(p.equip_from_loot(m, "bow"), "인벤토리에 없는 장비 실패")
+	assert_false(p.equip_from_loot(m, "없는아이템"), "카탈로그에 없는 id 실패")
+	assert_eq(m.weapons, [], "멤버 무기 변화 없음")
+
+func test_unequip_weapon_to_loot() -> void:
+	var p := _party()
+	var m := _equipped_human(["sword", "bow"], [], "")
+	p.add_member(m)
+	assert_true(p.unequip_to_loot(m, "sword"), "무기 탈착 성공")
+	assert_eq(m.weapons, ["bow"], "검 빠지고 활이 주무기")
+	assert_true("sword" in p.loot_items, "인벤토리로 반환")
+
+func test_unequip_shield_to_loot() -> void:
+	var p := _party()
+	var m := _equipped_human(["sword"], [], "buckler")
+	p.add_member(m)
+	assert_true(p.unequip_to_loot(m, "buckler"), "방패 탈착 성공")
+	assert_eq(m.shield, "", "방패 빔")
+	assert_true("buckler" in p.loot_items, "인벤토리로 반환")
+
+func test_unequip_fails_when_not_equipped() -> void:
+	var p := _party()
+	var m := _equipped_human(["sword"], [], "")
+	p.add_member(m)
+	assert_false(p.unequip_to_loot(m, "bow"), "멤버가 안 가진 장비 탈착 실패")
+	assert_eq(p.loot_items, [], "인벤토리 변화 없음")

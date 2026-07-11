@@ -29,6 +29,7 @@
 - `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool) -> Array` — **중앙 메뉴**. `{id="shoot", label="사격", enabled=can_shoot_any}` 는 항상 첫 버튼.
   - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
   - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
+  - **양쪽 공통 — 맨 뒤에 `{id="equip", label="장비", enabled=true}`**: [장비 관리](equipment.md) 모달을 연다. **행동을 끝내지 않는다**(이동/공격 상태 불변) — 노획 장비 장착·탈착은 턴을 소비하지 않는다.
 - `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
 - `capture_actions() -> Array` — **적 거점 클릭 팝업** `[흡수][파괴]`(둘 다 활성). → [Camp Capture](camp-capture.md).
@@ -59,10 +60,11 @@
 ## 테스트 시나리오
 
 ### 버튼 구성 — `test/unit/test_party_action_menu.gd`
-- [정상] `party_actions(false, true, false)` → `[사격(활성), 휴식, 경계]`(이동 전)
-- [정상] `party_actions(false, false, false)` → `[사격(비활성), 휴식, 경계]`
-- [정상] `party_actions(true, true, false)` → `[사격(활성), 대기]`(이동 후 — 휴식·경계 없음)
-- [정상] `party_actions(true, false, true)` → `[사격(비활성), 대기, 취소]`(되돌리기 가능)
+- [정상] `party_actions(false, true, false)` → `[사격(활성), 휴식, 경계, 장비]`(이동 전, 맨 뒤 [장비])
+- [정상] `party_actions(false, false, false)` → `[사격(비활성), 휴식, 경계, 장비]`
+- [정상] `party_actions(true, true, false)` → `[사격(활성), 대기, 장비]`(이동 후 — 휴식·경계 없음)
+- [정상] `party_actions(true, false, true)` → `[사격(비활성), 대기, 취소, 장비]`(되돌리기 가능)
+- [정상] `party_actions`의 마지막 버튼은 항상 `{id="equip", enabled=true}`(양쪽 상태 공통)
 - [경계] `party_actions(false, true, true)` → `[사격, 휴식, 경계]`(이동 전이면 취소 없음)
 - [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
 - [정상] `enemy_actions(false, true)` → `[공격(비활성), 사격(활성)]`

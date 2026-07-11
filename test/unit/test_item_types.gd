@@ -123,3 +123,11 @@ func test_item_name_unified_lookup() -> void:
 	assert_eq(ItemTypes.item_name("buckler"), "버클러", "방패 이름")
 	assert_eq(ItemTypes.item_name(""), "", "빈 id는 빈 문자열")
 	assert_eq(ItemTypes.item_name("없음"), "", "없는 id는 빈 문자열")
+
+func test_item_slot_classifies_by_catalog() -> void:
+	# 장비 관리에서 노획 장비를 알맞은 슬롯에 넣기 위한 분류.
+	assert_eq(ItemTypes.item_slot("sword"), "weapon", "무기 슬롯")
+	assert_eq(ItemTypes.item_slot("chain_mail"), "armor", "방어구 슬롯")
+	assert_eq(ItemTypes.item_slot("buckler"), "shield", "방패 슬롯")
+	assert_eq(ItemTypes.item_slot(""), "", "빈 id는 빈 문자열")
+	assert_eq(ItemTypes.item_slot("없음"), "", "없는 id는 빈 문자열")

@@ -24,6 +24,7 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 		out.append({"id": "alert", "label": "경계", "enabled": true})
 		if can_split:
 			out.append({"id": "split", "label": "분할", "enabled": true})
+	out.append({"id": "equip", "label": "장비", "enabled": true})   # 항상 맨 뒤. 턴 소비 없음(장비 관리 모달).
 	return out
 
 ## 적 클릭 팝업 버튼 [공격][사격]을 각 활성 조건으로(이동은 없음).

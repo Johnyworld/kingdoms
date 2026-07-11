@@ -28,9 +28,12 @@ var alert := false     # 경계 버프. true면 전투 공격력·방어력 ×1.
 var morale := 20       # 사기
 
 # --- 장비 (ItemTypes id) ---
-var weapons: Array = []   # 무기 id 목록(2~3개). 첫 원소=주무기. 근접=주무기·원거리=활. 무게 전부 합산. []=맨몸
+var weapons: Array = []   # 무기 id 목록(최대 MAX_WEAPONS). 첫 원소=주무기. 근접=주무기·원거리=활. 무게 전부 합산. []=맨몸(정상)
 var armor: Array = []  # 착용 방어구 id 목록(최대 4). DF=방어력 합, 상성 분류=방어력 최대 조각
 var shield := ""       # 방패 id. DF에 방어력 합산 + 막기 확률. ""=없음
+
+const MAX_WEAPONS := 3   # 무기 슬롯 상한(장비 관리 장착이 지킨다). 방패는 단일 슬롯.
+const MAX_ARMOR := 4     # 방어구 슬롯 상한.
 
 const BASE_HIT_POINTS := 40   # max_hp() 기본값
 const REST_PCT := 0.25        # 휴식: hp·스태미나 회복 비율

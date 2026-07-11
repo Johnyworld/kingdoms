@@ -25,7 +25,7 @@ const CARGO_CAPACITY := 50   # 총 적재 상한(모든 자원 수량 합).
 
 # --- 노획 장비 ---
 ## 전투로 전멸시킨 패자 전사자의 장비 아이템 id 목록(무기·방어구·방패). 장착 안 된 채 보관한다.
-## 중복 허용(같은 id 여러 개), 용량 제한 없음. 활용(장착/판매/표시)은 미구현.
+## 중복 허용(같은 id 여러 개), 용량 제한 없음. 멤버에게 장착·탈착할 수 있다(장비 관리). 판매는 미구현.
 var loot_items: Array = []
 
 const _RADIUS := 12.0
@@ -120,6 +120,58 @@ func equipment_ids() -> Array:
 ## source의 장비(equipment_ids)를 전부 이 부대 loot_items에 더한다(NPC/자동 장비 약탈). source는 바뀌지 않는다.
 func take_all_equipment(source) -> void:
 	loot_items.append_array(source.equipment_ids())
+
+## member가 인벤토리(loot_items)의 장비 id를 장착할 수 있는지(dry-run). 장착 성공 조건의 단일 출처.
+## id가 인벤토리에 있고, 슬롯 종류가 명확하며, 그 슬롯에 여유가 있어야(무기 MAX_WEAPONS·방어구 MAX_ARMOR·방패 빈칸) true.
+## equip_from_loot의 판정과 장비 관리 UI([장착] 버튼 활성)가 모두 이 함수를 쓴다.
+func can_equip_from_loot(member, id: String) -> bool:
+	if not (id in loot_items):
+		return false
+	match ItemTypes.item_slot(id):
+		"weapon":
+			return member.weapons.size() < Human.MAX_WEAPONS
+		"armor":
+			return member.armor.size() < Human.MAX_ARMOR
+		"shield":
+			return member.shield == ""
+		_:
+			return false
+
+## 인벤토리(loot_items)의 장비 id를 member에게 장착한다(장비 관리). 슬롯은 ItemTypes.item_slot로 판별.
+## 스왑 없음 — can_equip_from_loot이 false면 no-op으로 false. 성공 시 슬롯에 넣고 loot_items에서 그 id 하나 제거.
+func equip_from_loot(member, id: String) -> bool:
+	if not can_equip_from_loot(member, id):
+		return false
+	match ItemTypes.item_slot(id):
+		"weapon":
+			member.weapons.append(id)
+		"armor":
+			member.armor.append(id)
+		"shield":
+			member.shield = id
+	loot_items.erase(id)   # 첫 일치 하나 제거
+	return true
+
+## member가 장착한 장비 id를 빼서 인벤토리(loot_items)로 되돌린다. 주무기[0]를 빼면 다음 무기가 주무기.
+## 멤버가 그 장비를 안 갖고 있으면 false(no-op). 성공 시 loot_items에 더하고 true.
+func unequip_to_loot(member, id: String) -> bool:
+	match ItemTypes.item_slot(id):
+		"weapon":
+			if not (id in member.weapons):
+				return false
+			member.weapons.erase(id)
+		"armor":
+			if not (id in member.armor):
+				return false
+			member.armor.erase(id)
+		"shield":
+			if member.shield != id:
+				return false   # item_slot이 "shield"면 id는 빈 문자열이 아니다(카탈로그 방패 id)
+			member.shield = ""
+		_:
+			return false
+	loot_items.append(id)
+	return true
 
 ## 다른 부대(other)의 멤버를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
 ## 이 부대 지휘관은 유지된다(없으면 add_member가 첫 합류 멤버로 지정). 빈 other면 변화 없음.

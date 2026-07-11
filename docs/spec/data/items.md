@@ -91,6 +91,7 @@
 - `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
 - `item_name(id) -> String` — 무기·방어구·방패 카탈로그를 통합 조회한 이름. 무기→방어구→방패 순으로 찾고, 세 곳 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
+- `item_slot(id) -> String` — 그 아이템이 들어가는 장비 슬롯 분류. 무기면 `"weapon"`, 방어구면 `"armor"`, 방패면 `"shield"`, 세 곳 어디에도 없으면 `""`. [장비 관리](../features/equipment.md)에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
 
 ## 미수록 / 미구현
 
@@ -124,6 +125,7 @@
 - [경계] `armor_class_of([])` → `""`
 - [정상] `affinity("판금", "마법") == 1.3`, `affinity("사슬", "참격") == 0.7`
 - [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패); [예외] `item_name("") == ""`, 없는 id → `""`
+- [정상] `item_slot("sword") == "weapon"`, `item_slot("chain_mail") == "armor"`, `item_slot("buckler") == "shield"`; [예외] `item_slot("") == ""`, 없는 id → `""`
 - [예외] 없는 분류/타입 → `affinity` `1.0`
 
 ## 관련

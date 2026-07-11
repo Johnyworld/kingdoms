@@ -158,6 +158,17 @@ static func item_name(id: String) -> String:
 		return SHIELDS[id]["name"]
 	return ""
 
+## 그 아이템이 들어가는 장비 슬롯 분류: 무기="weapon", 방어구="armor", 방패="shield", 없으면 "".
+## 장비 관리([Equipment](equipment.md))에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
+static func item_slot(id: String) -> String:
+	if WEAPONS.has(id):
+		return "weapon"
+	if ARMORS.has(id):
+		return "armor"
+	if SHIELDS.has(id):
+		return "shield"
+	return ""
+
 ## 방패 무게(없는 id면 0).
 static func shield_weight(id: String) -> int:
 	return SHIELDS.get(id, {}).get("weight", 0)

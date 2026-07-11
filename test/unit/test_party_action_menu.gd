@@ -18,16 +18,16 @@ func _ids(list: Array) -> Array:
 # --- 중앙 메뉴 (party_actions) ---
 
 func test_party_actions_before_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false)), ["shoot", "rest", "alert"], "이동 전 사격·휴식·경계")
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false)), ["shoot", "rest", "alert", "equip"], "이동 전 사격·휴식·경계·장비")
 
 func test_party_actions_after_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(true, true, false)), ["shoot", "wait"], "이동 후 사격·대기(휴식·경계 없음)")
+	assert_eq(_ids(PartyActionMenu.party_actions(true, true, false)), ["shoot", "wait", "equip"], "이동 후 사격·대기·장비(휴식·경계 없음)")
 
 func test_party_actions_after_move_with_undo() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(true, false, true)), ["shoot", "wait", "undo"], "되돌리기 가능하면 취소 추가")
+	assert_eq(_ids(PartyActionMenu.party_actions(true, false, true)), ["shoot", "wait", "undo", "equip"], "되돌리기 가능하면 취소 추가(장비는 맨 뒤)")
 
 func test_party_actions_no_undo_before_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true, true)), ["shoot", "rest", "alert"], "이동 전이면 can_undo여도 취소 없음")
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, true)), ["shoot", "rest", "alert", "equip"], "이동 전이면 can_undo여도 취소 없음(장비는 맨 뒤)")
 
 func test_party_actions_shoot_enabled_by_target() -> void:
 	assert_true(_by_id(PartyActionMenu.party_actions(false, true, false), "shoot")["enabled"], "사격 대상 있으면 활성")
@@ -80,11 +80,19 @@ func test_merge_actions_button() -> void:
 
 func test_party_actions_split_when_can() -> void:
 	# 이동 전 + 분할 가능 → [사격][휴식][경계][분할].
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, true)), ["shoot", "rest", "alert", "split"], "분할 가능 시 분할 버튼 추가")
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, true)), ["shoot", "rest", "alert", "split", "equip"], "분할 가능 시 분할 버튼 추가(장비는 맨 뒤)")
 
 func test_party_actions_no_split_when_cannot() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false)), ["shoot", "rest", "alert"], "분할 불가 시 분할 없음")
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false)), ["shoot", "rest", "alert", "equip"], "분할 불가 시 분할 없음(장비는 맨 뒤)")
 
 func test_party_actions_no_split_after_move() -> void:
 	# 이동 후에는 분할 없음(휴식·경계와 동일).
-	assert_eq(_ids(PartyActionMenu.party_actions(true, true, false, true)), ["shoot", "wait"], "이동 후엔 분할 없음")
+	assert_eq(_ids(PartyActionMenu.party_actions(true, true, false, true)), ["shoot", "wait", "equip"], "이동 후엔 분할 없음(장비는 맨 뒤)")
+
+func test_party_actions_equip_always_last() -> void:
+	# [장비]는 이동 전/후 항상 맨 뒤에 온다(턴 소비 없음).
+	var before := PartyActionMenu.party_actions(false, true, false)
+	assert_eq(before[-1]["id"], "equip", "이동 전 마지막은 장비")
+	assert_true(before[-1]["enabled"], "장비 항상 활성")
+	var after := PartyActionMenu.party_actions(true, true, false)
+	assert_eq(after[-1]["id"], "equip", "이동 후 마지막은 장비")
