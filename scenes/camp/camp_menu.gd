@@ -44,6 +44,11 @@ var _sell_panel: PanelContainer
 var _sell_loot_list: VBoxContainer   # 노획 장비 판매 행(이름별 묶음)
 var _sell_cargo_list: VBoxContainer  # 화물 판매 행(자원별, 인구·금 제외)
 
+# 구매 패널(부대 있을 때만). 영지 금 → 부대 노획 장비.
+var _buy_panel: PanelContainer
+var _buy_list: VBoxContainer          # 카탈로그 장비 구매 행(무기·방어구·방패)
+const BUY_MARKUP := 2                 # 구매가 = item_value × BUY_MARKUP(판매가의 2배)
+
 func _ready() -> void:
 	layer = 64
 	_build()
@@ -77,6 +82,7 @@ func _build() -> void:
 	hbox.add_child(_build_garrison_panel())
 	hbox.add_child(_build_cargo_panel())
 	hbox.add_child(_build_sell_panel())
+	hbox.add_child(_build_buy_panel())
 
 ## 좌측: 자원 정보 패널.
 func _build_resource_panel() -> Control:
@@ -252,6 +258,28 @@ func _build_sell_panel() -> Control:
 	_sell_panel.hide()
 	return _sell_panel
 
+## 우측: 구매 패널(부대 있을 때만 표시). 영지 금 → 부대 노획 장비. 전 카탈로그 나열.
+func _build_buy_panel() -> Control:
+	_buy_panel = PanelContainer.new()
+	_buy_panel.custom_minimum_size = Vector2(240, 260)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_buy_panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "구매"
+	title.add_theme_font_size_override("font_size", 20)
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+
+	_buy_list = VBoxContainer.new()
+	_buy_list.add_theme_constant_override("separation", 4)
+	vbox.add_child(_buy_list)
+
+	_buy_panel.hide()
+	return _buy_panel
+
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
 ## party가 주어지고 건물이 캠프면 수비대 편성 패널도 띄운다(부대↔캠프 병사 이동).
 func open(building: Building, party = null) -> void:
@@ -288,10 +316,13 @@ func open(building: Building, party = null) -> void:
 		_cargo_panel.show()
 		_refresh_sell_lists()
 		_sell_panel.show()
+		_refresh_buy_list()
+		_buy_panel.show()
 	else:
 		_garrison_panel.hide()
 		_cargo_panel.hide()
 		_sell_panel.hide()
+		_buy_panel.hide()
 	show()
 
 ## 좌측 자원 그리드를 비우고 영지 자원으로 다시 채운다(인구는 "현재/상한"). 적재/하역 뒤에도 갱신.
@@ -454,6 +485,58 @@ func _sell_cargo(res_name: String) -> void:
 ## 판매 뒤 판매 목록·자원 그리드(금) 갱신. 지연 호출(버튼 free locked 방지).
 func _after_sell_change() -> void:
 	_refresh_sell_lists.call_deferred()
+	_fill_resource_grid.call_deferred()
+
+## 구매 목록을 다시 채운다. 전 카탈로그(무기·방어구·방패)를 섹션별로 나열, 각 행 "이름 가격금" + [구매].
+## 영지 금이 구매가보다 적으면 그 행의 [구매]는 비활성.
+func _refresh_buy_list() -> void:
+	for c in _buy_list.get_children():
+		c.free()
+	if _territory == null or _party == null:
+		return
+	_add_buy_section("무기", ItemTypes.WEAPONS)
+	_add_buy_section("방어구", ItemTypes.ARMORS)
+	_add_buy_section("방패", ItemTypes.SHIELDS)
+
+## 아이템 구매가 = 기준가(item_value) × BUY_MARKUP. 구매 목록·구매 처리가 공유(단일 출처).
+func _buy_price(id: String) -> int:
+	return ItemTypes.item_value(id) * BUY_MARKUP
+
+## 한 카탈로그(무기/방어구/방패)를 섹션 제목 + 아이템 행들로 구매 목록에 더한다.
+func _add_buy_section(title: String, catalog: Dictionary) -> void:
+	var header := Label.new()
+	header.text = title
+	_buy_list.add_child(header)
+	var gold: int = _territory.resources.get("금", 0)
+	for id in catalog:
+		var price: int = _buy_price(id)
+		if price <= 0:
+			continue   # 가치 0(미등록) 아이템은 판매 대상이 아니다 — 금 0 무한 구매 방지
+		var row := HBoxContainer.new()
+		var lbl := Label.new()
+		lbl.text = "%s  %d금" % [ItemTypes.item_name(id), price]
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+		var btn := Button.new()
+		btn.text = "구매"
+		btn.disabled = gold < price
+		btn.pressed.connect(_buy_item.bind(id))
+		row.add_child(btn)
+		_buy_list.add_child(row)
+
+## 장비를 사서 부대 노획 장비로. 영지 금 ≥ 구매가일 때만(금 차감 + loot_items 추가). 부족하면 no-op.
+func _buy_item(id: String) -> void:
+	var price: int = _buy_price(id)
+	if price <= 0 or _territory.resources.get("금", 0) < price:
+		return   # 가치 0(미등록) 아이템·금 부족이면 no-op
+	_territory.resources["금"] = _territory.resources.get("금", 0) - price
+	_party.loot_items.append(id)
+	_after_buy_change()
+
+## 구매 뒤 구매·판매 목록과 자원 그리드(금) 갱신. 지연 호출(버튼 free locked 방지).
+func _after_buy_change() -> void:
+	_refresh_buy_list.call_deferred()
+	_refresh_sell_lists.call_deferred()   # loot_items 늘었으니 판매 장비 목록도 갱신
 	_fill_resource_grid.call_deferred()
 
 func close_menu() -> void:

@@ -169,7 +169,7 @@ static func item_slot(id: String) -> String:
 		return "shield"
 	return ""
 
-## 아이템 판매가(금). 무기→방어구→방패 순으로 value를 찾고, 세 곳 어디에도 없으면 0. 판매([Selling](selling.md))에 쓴다.
+## 아이템 기준가(금). 무기→방어구→방패 순으로 value를 찾고, 세 곳 어디에도 없으면 0. 상거래([Trade](trade.md) — 판매가, 구매가 ×2)에 쓴다.
 static func item_value(id: String) -> int:
 	if WEAPONS.has(id):
 		return WEAPONS[id].get("value", 0)

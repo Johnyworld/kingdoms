@@ -14,7 +14,7 @@
 | 목재 | 20 | 2 | |
 | 철 | 10 | 5 | |
 | 철괴 | 10 | 12 | |
-| 금 | 0 | — | **화폐**. [판매](../features/selling.md)로만 획득(생산 없음). 영지 금고 — 부대 화물로 운반 안 함, 판매 대상도 아님 |
+| 금 | 0 | — | **화폐**. [상거래](../features/trade.md)(판매)로만 획득(생산 없음). 영지 금고 — 부대 화물로 운반 안 함, 판매 대상도 아님 |
 
 ## 자원 가치 카탈로그 (`ResourceTypes`)
 
@@ -32,5 +32,5 @@
 
 ## 관련
 
-- 표시: [Camp Menu](../features/camp-menu.md). 판매: [Selling](../features/selling.md).
+- 표시: [Camp Menu](../features/camp-menu.md). 판매·구매: [Trade](../features/trade.md).
 - 소비 로직(건축 등)은 Phase 2 미구현.

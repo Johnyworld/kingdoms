@@ -233,6 +233,56 @@ func test_sell_cargo_excludes_pop_and_gold() -> void:
 		assert_false(t.begins_with("인구"), "판매 화물에 인구 없음")
 		assert_false(t.begins_with("금"), "판매 화물에 금 없음")
 
+# --- 구매 (금 → 장비) ---
+
+func _buy_button(id: String) -> Button:
+	# 구매 목록에서 그 아이템 행의 [구매] 버튼을 찾는다(섹션 헤더 Label은 건너뛰고 HBox 행만).
+	var want := ItemTypes.item_name(id)
+	for row in menu._buy_list.get_children():
+		if not (row is HBoxContainer):
+			continue
+		if (row.get_child(0) as Label).text.begins_with(want):
+			return row.get_child(1) as Button
+	return null
+
+func test_buy_panel_shown_with_party() -> void:
+	menu.open(_center("town_hall"), _party_with(1))
+	assert_true(menu._buy_panel.visible, "부대 + 거점이면 구매 패널 표시")
+
+func test_buy_panel_hidden_without_party() -> void:
+	menu.open(_center("town_hall"))
+	assert_false(menu._buy_panel.visible, "부대 없으면 구매 패널 숨김")
+
+func test_buy_item_spends_gold() -> void:
+	var c := _center("town_hall", {"금": 30})
+	var p := _party_with(1)
+	menu.open(c, p)
+	menu._buy_item("sword")   # 구매가 14×2=28
+	assert_eq(c.territory.resources.get("금", 0), 2, "영지 금 30 → 2(-28)")
+	assert_true("sword" in p.loot_items, "부대 노획 장비에 sword")
+
+func test_buy_disabled_when_poor() -> void:
+	var c := _center("town_hall", {"금": 10})
+	menu.open(c, _party_with(1))
+	assert_true(_buy_button("sword").disabled, "금 10 < 28이면 [구매] 비활성")
+
+func test_buy_no_op_when_poor() -> void:
+	var c := _center("town_hall", {"금": 10})
+	var p := _party_with(1)
+	menu.open(c, p)
+	menu._buy_item("sword")   # 금 부족
+	assert_eq(c.territory.resources.get("금", 0), 10, "금 변화 없음")
+	assert_false("sword" in p.loot_items, "장비 추가 안 됨")
+
+func test_buy_valueless_item_no_op() -> void:
+	# 가치 0(카탈로그에 없는) id는 구매가 0 → 금 넉넉해도 no-op(금 0 무한 구매 방지).
+	var c := _center("town_hall", {"금": 100})
+	var p := _party_with(1)
+	menu.open(c, p)
+	menu._buy_item("없는아이템")
+	assert_eq(c.territory.resources.get("금", 0), 100, "금 변화 없음")
+	assert_false("없는아이템" in p.loot_items, "장비 추가 안 됨")
+
 func test_item_disabled_when_poor() -> void:
 	_join_poor_territory()  # 캠프는 있으나 자원 0
 	menu.open(building)
