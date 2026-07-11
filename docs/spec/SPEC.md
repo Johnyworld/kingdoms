@@ -121,7 +121,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - **`features/settings.md`** — 타이틀의 "설정" 버튼이 아직 `TODO`다. 해상도 · 사운드 · 언어 등 저장 가능한 설정 화면을 정의하면 좋다.
 - **`features/save-load.md`** — 세이브/로드. 게임 진행(주인공 위치, 자원, 탐험된 안개)을 직렬화하는 규칙.
 - **턴/행동력 확장** — 기본 턴 시스템([features/turn.md](features/turn.md))은 도입됨(턴 종료 · 1턴 1이동 · 자원 수입). 남은 것은 행동력(AP) · 공격/전투 행동 · 적 턴(AI) 등으로의 확장이다.
-- **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))·완성 건물 시야의 fog 반영([features/fog-of-war.md](features/fog-of-war.md))은 구현됨. 남은 것은 **캠프 건설**(새 영지 생성), **철거**(demolish_refund)다.
+- **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))·완성 건물 시야의 fog 반영([features/fog-of-war.md](features/fog-of-war.md))·**캠프 건설**(새 영지 생성)·**철거**([building-info.md#철거](features/building-info.md#철거) — `demolish_refund` 자재 환급 + `required_pop` 인구 반환)까지 구현됨. 남은 세부: **철거 확인 다이얼로그**, **캠프(거점) 철거**(영지 상실), **건설 중 부분 환급**([building-info.md 미구현](features/building-info.md)).
 - **`entities/Enemy.md`** — 공격 범위가 있으니 적/전투 대상 엔티티가 자연스러운 다음 단계.
 - **`data/items.md`** — 아이템/장비 리스트 (능력치 보정 등).
 - **`features/input-scheme.md`** — 키보드/마우스/게임패드/터치 입력 매핑을 한곳에 정리 (전 플랫폼 배포 목표에 맞춤).
