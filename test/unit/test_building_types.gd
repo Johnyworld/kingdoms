@@ -71,11 +71,22 @@ func test_town_hall_spec() -> void:
 	assert_eq(spec["prerequisite"], "camp", "마을회관 선행 = 캠프")
 	assert_eq(spec.get("production", {}).size(), 0, "마을회관은 생산 없음")
 
+func test_castle_spec() -> void:
+	var spec: Dictionary = types.get_type("castle")
+	assert_eq(spec["label"], "성", "라벨은 성")
+	assert_eq(spec["vision"], 8, "시야 8")
+	assert_eq(spec["footprint"], 7, "성 footprint 7헥스")
+	assert_eq(spec["build_turns"], 12, "성 필요 턴 12(조정)")
+	assert_eq(spec["build_cost"], {"석재": 50, "밀": 30}, "성 필요 자원(조정)")
+	assert_eq(spec["demolish_refund"], {"석재": 10}, "성 파괴 환산")
+	assert_eq(spec["prerequisite"], "town_hall", "성 선행 = 마을회관")
+	assert_eq(spec.get("production", {}).size(), 0, "성은 생산 없음")
+
 # --- 선행건물(prerequisite) ---
 
 func test_prerequisite_fields() -> void:
 	assert_eq(types.get_type("camp").get("prerequisite", ""), "", "캠프는 선행 없음")
-	for id in ["farm", "house", "lumberjack"]:
+	for id in ["castle", "farm", "house", "lumberjack"]:
 		assert_eq(types.get_type(id)["prerequisite"], "town_hall", "%s 선행 = 마을회관" % id)
 
 # --- 건설 · 경제 ---
@@ -99,5 +110,5 @@ func test_unknown_type_empty() -> void:
 # --- 건축 가능 목록 ---
 
 func test_buildable_ids() -> void:
-	assert_eq(types.BUILDABLE_IDS, ["town_hall", "quarry", "farm", "house", "lumberjack"], "건축 가능 목록")
+	assert_eq(types.BUILDABLE_IDS, ["town_hall", "quarry", "farm", "house", "lumberjack", "castle"], "건축 가능 목록")
 	assert_does_not_have(types.BUILDABLE_IDS, "camp", "캠프는 건축 목록에서 제외")

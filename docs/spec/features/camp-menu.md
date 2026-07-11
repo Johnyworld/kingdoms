@@ -23,7 +23,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - `close_menu()` — 숨긴다.
 - 닫기 트리거: 배경 좌클릭, "닫기" 버튼.
 - **건축 버튼** (`_on_build_pressed`) — 우측 패널을 **건설 리스트**로 전환한다(건축 버튼은 숨기고 리스트를 보임).
-  - 리스트 = [건물 카탈로그](../data/buildings.md)의 **건축 가능 종류**(`BuildingTypes.BUILDABLE_IDS` — 마을회관·채석장·농장·집·벌목소). 캠프는 새 영지 생성이라 제외.
+  - 리스트 = [건물 카탈로그](../data/buildings.md)의 **건축 가능 종류**(`BuildingTypes.BUILDABLE_IDS` — 마을회관·채석장·농장·집·벌목소·성). 캠프는 새 영지 생성이라 제외.
   - 각 항목 = 버튼 `"<라벨>  <비용>"`(예: `"농장  인구 2 · 목재 5 · 밀 5"`). 비용은 종류의 `build_cost`.
   - 다음 중 하나라도면 해당 항목 버튼은 **비활성**(`disabled`): 영지가 비용을 **감당 못 함**(`territory.can_afford(build_cost) == false`) · **영지가 없음** · **[선행건물 미충족](building.md#선행건물-게이트)**(`BuildPlanner.prerequisite_met(territory, type_id) == false`).
   - 선행 미충족이면 라벨 뒤에 `"  (선행: <선행 라벨> 필요)"`를 덧붙여 이유를 보인다(예: `"농장  ...  (선행: 마을회관 필요)"`).

@@ -135,6 +135,7 @@ func test_prerequisite_met_camp_only_territory() -> void:
 	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "농장(선행 town_hall) 미충족")
 	assert_false(BuildPlanner.prerequisite_met(t, "house"), "집(선행 town_hall) 미충족")
 	assert_false(BuildPlanner.prerequisite_met(t, "lumberjack"), "벌목소(선행 town_hall) 미충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "castle"), "성(선행 town_hall) 미충족")
 
 func test_prerequisite_met_after_town_hall() -> void:
 	var camp := _building(_center(), "camp")
@@ -143,6 +144,7 @@ func test_prerequisite_met_after_town_hall() -> void:
 	t.add_building(hall)
 	assert_true(BuildPlanner.prerequisite_met(t, "farm"), "마을회관 완성 후 농장 충족")
 	assert_true(BuildPlanner.prerequisite_met(t, "house"), "마을회관 완성 후 집 충족")
+	assert_true(BuildPlanner.prerequisite_met(t, "castle"), "마을회관 완성 후 성 충족")
 
 func test_prerequisite_under_construction_not_met() -> void:
 	var camp := _building(_center(), "camp")

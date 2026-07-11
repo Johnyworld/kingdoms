@@ -63,7 +63,7 @@ func test_resource_grid_filled() -> void:
 	assert_eq(menu._res_grid.get_child_count(), 14, "자원 그리드가 영지 자원 7종으로 채워진다")
 
 # --- 건축 리스트 (2a) + 선행건물 게이트 ---
-# BUILDABLE_IDS 순서 = [town_hall(0), quarry(1), farm(2), house(3), lumberjack(4)].
+# BUILDABLE_IDS 순서 = [town_hall(0), quarry(1), farm(2), house(3), lumberjack(4), castle(5)].
 
 func _item(idx: int) -> Button:
 	return menu._build_list.get_child(idx) as Button
@@ -80,9 +80,16 @@ func test_build_opens_list_with_items() -> void:
 	menu.open(building)
 	menu._on_build_pressed()
 	assert_true(menu._build_list.visible, "건축 후 리스트 표시")
-	assert_eq(menu._build_list.get_child_count(), 5, "건축 가능 5종")
+	assert_eq(menu._build_list.get_child_count(), 6, "건축 가능 6종")
 	# 채석장(선행 camp, 목재10 ≤ 보유 20) 활성.
 	assert_false(_item(1).disabled, "채석장은 시작부터 활성(선행 camp)")
+
+func test_castle_locked_without_town_hall() -> void:
+	_join_territory()  # 캠프만 완성, 마을회관 없음
+	menu.open(building)
+	menu._on_build_pressed()
+	assert_true(_item(5).disabled, "마을회관 없으면 성 비활성")
+	assert_string_contains(_item(5).text, "선행: 마을회관", "성 선행 미충족 사유 표기")
 
 func test_item_text_has_label_and_cost() -> void:
 	_join_territory()

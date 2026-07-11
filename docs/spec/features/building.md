@@ -10,9 +10,9 @@
 4. 턴이 종료될 때마다 건설이 **1턴씩 진행**되고, `build_turns`만큼 지나면 **완성**된다.
 5. 완성된 건물부터 생산(`production`)·시야가 동작한다.
 
-건설 가능한 종류는 `BuildingTypes.BUILDABLE_IDS` — **마을회관 · 채석장 · 농장 · 집 · 벌목소**([buildings.md](../data/buildings.md)). 캠프 건설(새 영지 생성)은 이후로 미룬다. 종류마다 발자국(`footprint`)이 다르다 — 마을회관·농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
+건설 가능한 종류는 `BuildingTypes.BUILDABLE_IDS` — **마을회관 · 채석장 · 농장 · 집 · 벌목소 · 성**([buildings.md](../data/buildings.md)). 캠프 건설(새 영지 생성)은 이후로 미룬다. 종류마다 발자국(`footprint`)이 다르다 — 마을회관·성·농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
 
-**선행건물 체인**: 각 종류는 [`prerequisite`](../data/buildings.md#선행건물-prerequisite)(선행 건물)를 가진다. 캠프 → (채석장·마을회관) → (농장·집·벌목소). 선행 미충족 종류는 건축 리스트에 뜨되 비활성이다(아래 [선행건물 게이트](#선행건물-게이트)).
+**선행건물 체인**: 각 종류는 [`prerequisite`](../data/buildings.md#선행건물-prerequisite)(선행 건물)를 가진다. 캠프 → (채석장·마을회관) → (성·농장·집·벌목소). 성은 선행 2단 깊이(캠프→마을회관→성). 선행 미충족 종류는 건축 리스트에 뜨되 비활성이다(아래 [선행건물 게이트](#선행건물-게이트)).
 
 ## 구현 범위 (슬라이스)
 
@@ -137,8 +137,8 @@
   - [정상] `footprint`는 기본 7헥스(중심+이웃 6); `hexes=1`이면 중심 1칸만; `hexes=7`은 기본과 동일
   - [정상] `can_place(..., 1)`(1헥스)는 중심 1칸만 판정 — 이웃이 시야 밖/점유여도 중심이 유효하면 참
   - [정상] `occupied_cells`는 건물들의 점유 셀 합집합(건물 1개면 7셀, 겹치지 않는 2개면 14셀)
-  - [정상] `prerequisite_met` — 선행 `""`(캠프)은 항상 참; 캠프만 있는 영지에서 `quarry`·`town_hall`(선행 camp)은 참, `farm`·`house`·`lumberjack`(선행 town_hall)은 거짓
-  - [정상] `prerequisite_met` — 영지에 **완성** 마을회관을 추가하면 `farm`·`house`·`lumberjack`이 참으로 전환
+  - [정상] `prerequisite_met` — 선행 `""`(캠프)은 항상 참; 캠프만 있는 영지에서 `quarry`·`town_hall`(선행 camp)은 참, `farm`·`house`·`lumberjack`·`castle`(선행 town_hall)은 거짓
+  - [정상] `prerequisite_met` — 영지에 **완성** 마을회관을 추가하면 `farm`·`house`·`lumberjack`·`castle`이 참으로 전환
   - [경계] `prerequisite_met` — 선행 건물이 **건설 중**이면 아직 거짓(완성돼야 충족)
 - `test/unit/test_hex_grid.gd` (영역 윤곽선, `HexGrid.region_outline`)
   - [정상] 단일 셀 → 경계 변 6개(헥스의 모든 변)

@@ -8,7 +8,7 @@ const FARM := "farm"
 
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 캠프는 새 영지 생성이라 제외(미구현).
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
-const BUILDABLE_IDS := ["town_hall", "quarry", "farm", "house", "lumberjack"]
+const BUILDABLE_IDS := ["town_hall", "quarry", "farm", "house", "lumberjack", "castle"]
 
 const CATALOG := {
 	"camp": {
@@ -49,6 +49,21 @@ const CATALOG := {
 		"build_cost": {"목재": 10, "석재": 10, "밀": 20},
 		"demolish_refund": {"목재": 2, "석재": 2},
 		# 상인 방문 등 특수효과는 미구현. production 없음.
+	},
+	# --- 성: 지휘소 최종 단계(선행 마을회관). 값은 테이블에서 조정(금·목재 도달 불가, docs 참고). ---
+	"castle": {
+		"label": "성",
+		"vision": 8,
+		"footprint": 7,
+		"prerequisite": "town_hall",
+		# 외형(회청색 석조 계열).
+		"fill_color": Color(0.5, 0.54, 0.6, 0.9),
+		"edge_color": Color(0.28, 0.32, 0.4),
+		"tent_color": Color(0.72, 0.76, 0.82),
+		"build_turns": 12,
+		"build_cost": {"석재": 50, "밀": 30},
+		"demolish_refund": {"석재": 10},
+		# 고급 건물 해금(마법사의 탑·성벽 등)은 미구현. production 없음.
 	},
 	"farm": {
 		"label": "농장",
