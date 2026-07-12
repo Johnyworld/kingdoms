@@ -433,7 +433,8 @@ func _base_discovered(b) -> bool:
 ## - 부대 우선(캠프 위 재클릭 시 메뉴) → 선택 중 이동(건물 위 통행) → 캠프 메뉴 → 건물 정보 → 선택 해제.
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
-	var party_cell := terrain.local_to_map(party.position)   # 활성 부대 칸(이동 시작점)
+	# 활성 부대 칸(이동 시작점). party가 null(전멸로 부대 0)이면 이동 관련 분기는 _selected=false라 안 타므로 더미.
+	var party_cell := terrain.local_to_map(party.position) if party != null else Vector2i(-1, -1)
 	var reachable: bool = _reachable.has(cell)
 	var clicked := _building_at(cell)   # 플레이어 건물. 거점(캠프·마을회관·성)은 CAMP_MENU, 그 외는 BUILDING_INFO로 분기.
 	var clicked_party := _player_party_at(cell)   # 그 칸의 플레이어 부대(선택/전환 대상).
@@ -1132,15 +1133,34 @@ func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -
 	if is_garrison:
 		winner.home_territory.receive_loot(winner)
 
-## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, NPC 부대 전멸 시 맵에서 제거.
-## 플레이어 부대는 전멸해도 노드를 유지한다(전멸 후 처리는 미구현).
+## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, 전멸(생존자 0)한 부대는 NPC·플레이어 모두 맵에서 제거.
+## 전멸한 게 활성 party였으면 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null — 부대 0이어도 패배 아님, 세력 소멸은 거점 0에서만).
 func _apply_survivors(p, survivors: Array) -> void:
 	p.members = survivors
 	if not (p.commander in survivors):
 		p.commander = survivors[0] if not survivors.is_empty() else null
-	if survivors.is_empty() and p in _npc_parties:
+	if not survivors.is_empty():
+		return
+	# 전멸 — 부대를 맵에서 제거한다(NPC·플레이어 모두 껍데기 안 남김).
+	if p in _npc_parties:
 		_npc_parties.erase(p)
 		p.queue_free()
+	elif p in _units:
+		_units.erase(p)
+		if party == p:   # 활성 부대가 전멸 → 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null)
+			if _selected:
+				_deselect()
+			_hide_party_info()
+			party = _first_living_unit()   # 부대 0이면 null(패배 아님 — 세력 소멸은 거점 0에서만)
+		p.queue_free()
+		party_roster.set_parties(_units)
+
+## _units 중 멤버가 있는(살아있는) 첫 부대. 없으면 null. 활성 부대 재할당에 쓴다.
+func _first_living_unit():
+	for u in _units:
+		if not u.members.is_empty():
+			return u
+	return null
 
 ## 주인공 부대를 선택하고 이동 범위·공격 가능 적·중앙 메뉴를 표시한다.
 func _select() -> void:
