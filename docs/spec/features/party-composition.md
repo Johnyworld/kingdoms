@@ -1,9 +1,9 @@
 # Feature: Party Composition (부대 편성 — 다중 부대)
 
-> 스크립트: `scenes/game/game.gd` (`_units`, `party`(활성 부대), `_player_party_at`, `_raise_party`, `_split_party`, `_merge_targets`) · `scenes/camp/camp_menu.gd` (`raise_party` 시그널) · `scenes/party/split_panel.gd` (`SplitPanel`) · `scenes/party/party.gd` (`merge_from`)
+> 스크립트: `scenes/game/game.gd` (`_units`, `party`(활성 부대), `_player_party_at`, `_split_party`, `_merge_targets`) · `scenes/party/split_panel.gd` (`SplitPanel`) · `scenes/party/party.gd` (`merge_from`)
 
 플레이어가 **여러 부대**를 거느리고, 각각을 선택해 조작한다. 지금까지는 단일 부대(`party`) 전제였으나,
-이 기능으로 **다중 부대 + 선택** 토대를 놓고, 첫 생성 수단으로 **캠프 수비대에서 새 부대를 편성**한다.
+이 기능으로 **다중 부대 + 선택** 토대를 놓고, **분할·병합**으로 부대를 재조직한다. (거점 [주둔 부대](garrison.md)도 하나의 부대라, 새 부대는 주둔 부대를 [주둔 종료] 후 **분할**해 만든다.)
 
 ## 다중 부대 모델 (토대 리팩터)
 
@@ -19,24 +19,13 @@
 - **전투**: 플레이어가 방어하는 전투 판정은 `공격 대상 in _units`(단일 `== party` 대신).
 - **빈 부대**: 멤버 0명 부대는 토큰 미표시·일람 제외([Party](../entities/Party.md) `_draw`·[Party Roster](party-roster.md)). `_units`에는 남되 선택·이동은 무의미(멤버 0 → 이동력 0).
 
-## 부대 생성 — 캠프 수비대에서 편성 (`_raise_party`)
-
-자기 [캠프](garrison.md)에서 **새 부대**를 일으켜 수비대 병력으로 채운다.
-
-- [캠프 메뉴](camp-menu.md)에 **[새 부대 편성]** 버튼(자기 캠프). 누르면 `raise_party` 시그널 → `game.gd` `_raise_party(camp)`:
-  1. 캠프에 **인접한 빈 칸**(부대 없는 칸)을 하나 찾는다. 없으면 아무 일도 안 함.
-  2. 새 [부대](../entities/Party.md)를 생성(플레이어 세력·금색, 이름 "새 부대")해 그 칸에 두고 `_units`에 추가한다. 처음엔 멤버 0명(빈 부대 → 토큰 안 보임).
-  3. 캠프 메뉴를 그 **새 부대를 편성 대상으로** 다시 연다(`camp_menu.open(camp, 새 부대)`).
-- 이후 기존 [수비대 편성](garrison.md#수비대-편성-camp_menu)으로 수비대 병사를 새 부대로 옮기면 부대가 나타난다.
-- 생성된 부대는 완전한 플레이어 부대다 — 선택·이동·전투·점령·수비대 편성 모두 가능.
-
 ## 부대 분할 (`_split_party` + `SplitPanel`)
 
 선택한 부대의 멤버 일부를 인접 칸의 **새 부대**로 나눈다(재조직 — 턴 소비 없음).
 
 - **[분할]** — 부대 [행동 메뉴](party-action-menu.md)의 버튼. 활성 부대의 **멤버가 2명 이상**이고 **인접 빈 칸**이 있을 때만 활성.
 - `game.gd` `_split_party()`: 활성 부대 인접 빈 칸(`_empty_adjacent_cell` 재사용, 캠프가 아니라 부대 기준)에 **빈 새 부대**를 만들어 `_units`에 넣고, **분할 패널**(`SplitPanel`)을 연다.
-- **분할 패널**(`scenes/party/split_panel.gd`, 코드 UI CanvasLayer — [수비대 편성](garrison.md#수비대-편성-camp_menu)과 같은 두 목록 패턴): 왼쪽 **원 부대**·오른쪽 **새 부대**. 멤버 버튼 클릭으로 양쪽을 오간다(`Party.add_member`/`remove_member`). 변경 시 `changed` 시그널 → `game.gd`가 일람·안개 갱신.
+- **분할 패널**(`scenes/party/split_panel.gd`, 코드 UI CanvasLayer — 두 목록 패턴): 왼쪽 **원 부대**·오른쪽 **새 부대**. 멤버 버튼 클릭으로 양쪽을 오간다(`Party.add_member`/`remove_member`). 변경 시 `changed` 시그널 → `game.gd`가 일람·안개 갱신.
 - **화물·노획 장비 분배**: 멤버 목록 아래 두 섹션 —
   - **화물**: 자원별 행 `자원 · 원N [→][←] 새M`. `[→]`/`[←]`가 `CARGO_STEP`(5)씩 원↔새로 옮긴다(`Party.transfer_cargo_to`). **받는 부대 [화물 용량](../entities/Party.md#화물-cargo--캐러반)(50) 초과 허용**(병합·약탈과 동일) — 그 방향 **보유가 0일 때만** 비활성. `인구`·`금`은 제외(노동력·화폐 — 영지 전용). *(적재 초과 시 이동력 감소는 `미구현`(예정).)*
   - **노획 장비**: 아이템별(이름 묶음) 행 `이름 · 원N [→][←] 새M`. `[→]`/`[←]`가 **1개씩** 옮긴다(`Party.transfer_loot_to`). 용량 제한 없음.
@@ -65,10 +54,6 @@
 
 다중 부대 토대·생성은 대부분 `game.gd`(씬 트리·터레인 의존) 오케스트레이션이라 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)* 단위 테스트 가능한 표면:
 
-**캠프 메뉴 [새 부대 편성] 버튼** — `test/unit/test_camp_menu.gd`:
-- [정상] 자기 캠프 `open` → "새 부대 편성" 버튼 존재
-- [정상] 버튼 클릭 → `raise_party(building)` 시그널 방출
-
 **빈 부대 처리**(기존, 재확인) — `test/unit/test_party_roster.gd`·`test/unit/test_party.gd`:
 - 멤버 0명 부대는 일람 제외, `_draw` 생략.
 
@@ -88,9 +73,9 @@
 - [경계] 그 방향 보유가 0이면 `[→]`/`[←]` 비활성(용량 초과는 허용이라 여유와 무관)
 - 취소 시 화물·장비 원 부대 회수·확정은 `game.gd` 배선이라 실행 확인
 
-`game.gd`의 활성 `party` 전환·`_player_party_at`·`_raise_party`·다중 시야 합산은 하네스로 검증한다(선택·이동·공격·점령·안개가 부대 1개일 때 이전과 동일, 2개 이상에서 각각 독립 동작).
+`game.gd`의 활성 `party` 전환·`_player_party_at`·다중 시야 합산은 하네스로 검증한다(선택·이동·공격·점령·안개가 부대 1개일 때 이전과 동일, 2개 이상에서 각각 독립 동작).
 
 ## 관련
 
-- [Parties (부대 배치)](parties.md) — 초기 부대 생성. [Garrison (수비대)](garrison.md) — 새 부대를 채우는 병력원. [Camp Menu](camp-menu.md) — [새 부대 편성] 버튼.
+- [Parties (부대 배치)](parties.md) — 초기 부대 생성. [Garrison / 주둔](garrison.md) — 거점 주둔 부대(분할로 병력을 나눠 새 부대 편성).
 - [Selection & Movement](selection-and-movement.md) — 선택·이동(이제 활성 `party` 기준). [Party Roster](party-roster.md) · [Fog of War](fog-of-war.md).

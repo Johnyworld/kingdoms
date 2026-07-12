@@ -28,14 +28,14 @@ func _join_territory() -> void:
 	f.add_territory(t)
 	t.add_building(building)
 
-# --- 수비대 (garrison) ---
+# --- 수비 배지 (defender_count, 표시 전용) ---
 
-func test_garrison_default_empty() -> void:
-	assert_eq(building.garrison.size(), 0, "생성 직후 수비대 없음(빈 배열)")
+func test_defender_count_default_zero() -> void:
+	assert_eq(building.defender_count, 0, "생성 직후 수비 인원 0")
 
-func test_garrison_settable() -> void:
-	building.garrison = load("res://scenes/party/unit_types.gd").make_garrison(4)
-	assert_eq(building.garrison.size(), 4, "수비대를 설정할 수 있다")
+func test_defender_count_settable() -> void:
+	building.defender_count = 4   # game.gd가 중심 타일 주둔 부대 인원으로 채운다
+	assert_eq(building.defender_count, 4, "수비 인원 표시값 설정 가능")
 
 # --- 점유 영역 ---
 
@@ -165,7 +165,6 @@ func test_pop_cap_complete_buildings() -> void:
 
 func test_upgrade_to_next_tier() -> void:
 	_camp()
-	building.garrison = load("res://scenes/party/unit_types.gd").make_garrison(3)
 	building.upgrade_to("town_hall")
 	assert_eq(building.building_type, "town_hall", "종류가 마을회관으로")
 	assert_eq(building.vision, 6, "시야 6으로 교체")
@@ -173,7 +172,6 @@ func test_upgrade_to_next_tier() -> void:
 	assert_true(building.is_complete(), "업그레이드 후 완성 상태")
 	assert_eq(building.cells.size(), 7, "footprint 7 유지")
 	assert_eq(building.center_cell(), _center(), "위치 유지")
-	assert_eq(building.garrison.size(), 3, "수비대 보존")
 
 func test_pop_cap_zero_under_construction() -> void:
 	building.setup(terrain, _center(), "house", true)  # 건설 중

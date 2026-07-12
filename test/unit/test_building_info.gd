@@ -81,9 +81,9 @@ func test_reopen_replaces_info_lines() -> void:
 
 func test_camp_shows_garrison_count() -> void:
 	var b := _building("camp")
-	b.garrison = load("res://scenes/party/unit_types.gd").make_garrison(3)
+	b.defender_count = 3   # game.gd가 중심 타일 주둔 부대 인원으로 채운 값
 	panel.open(b)
-	assert_string_contains(_info_text(), "수비대 3명", "캠프는 수비대 수 표시")
+	assert_string_contains(_info_text(), "수비대 3명", "거점은 수비 인원 표시")
 
 func test_farm_no_garrison_line() -> void:
 	panel.open(_building("farm"))

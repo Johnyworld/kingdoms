@@ -136,40 +136,6 @@ func test_demolish_removes_and_refunds() -> void:
 	assert_eq(t.resources["인구"], 7, "노동력 반환 +2(required_pop)")
 	assert_eq(t.resources["목재"], 1, "자재 환급 +1(demolish_refund)")
 
-# --- 수비대 노획 귀속 (loot_items / receive_loot) ---
-
-func _party_with_loot(cargo := {}, loot := []) -> Node2D:
-	var p: Node2D = load("res://scenes/party/party.gd").new()
-	add_child_autofree(p)
-	for res_name in cargo:
-		p.cargo[res_name] = cargo[res_name]
-	p.loot_items = loot.duplicate()
-	return p
-
-func test_loot_items_empty_at_start() -> void:
-	assert_eq(_territory().loot_items.size(), 0, "생성 직후 영지 노획 장비 없음")
-
-func test_receive_loot_absorbs_cargo_and_equipment() -> void:
-	var t := _territory("파리", {"목재": 0})
-	var gp := _party_with_loot({"목재": 10}, ["sword", "bow"])
-	t.receive_loot(gp)
-	assert_eq(t.resources["목재"], 10, "화물 → 영지 자원 +10")
-	assert_eq(t.loot_items, ["sword", "bow"], "장비 → 영지 loot_items")
-	assert_true(gp.cargo.is_empty(), "부대 화물 비워짐")
-	assert_true(gp.loot_items.is_empty(), "부대 loot_items 비워짐")
-
-func test_receive_loot_creates_missing_resource_key() -> void:
-	var t := _territory("파리", {})   # 목재 키 없음
-	var gp := _party_with_loot({"목재": 5}, [])
-	t.receive_loot(gp)
-	assert_eq(t.resources.get("목재"), 5, "없던 자원 키도 귀속으로 생성")
-
-func test_receive_loot_empty_party_noop() -> void:
-	var t := _territory("파리", {"목재": 3})
-	t.receive_loot(_party_with_loot({}, []))
-	assert_eq(t.resources["목재"], 3, "빈 부대 귀속은 변화 없음")
-	assert_eq(t.loot_items.size(), 0, "영지 loot_items 변화 없음")
-
 func test_demolish_under_construction_refunds_partial_build_cost() -> void:
 	# 건설 중 농장(build_turns 3, build_cost 목재5·밀5) 1턴 진행(remaining 2) 철거 → floor(5×2/3)=3씩 환급.
 	var t := _territory("파리", {"인구": 5, "목재": 0, "밀": 0})

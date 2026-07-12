@@ -21,9 +21,9 @@ var vision := 0
 var under_construction := false   # 참이면 건설 중(생산·시야 없음).
 var remaining_turns := 0          # 완성까지 남은 턴. setup에서 build_turns로 채움.
 
-# 캠프 수비대(방어 병력, Human 목록). game.gd가 캠프 생성 시 기본 4명을 채운다.
-# 비어 있으면 무방비 → 점령 가능. → docs/spec/features/garrison.md
-var garrison: Array = []
+# 수비 인원 표시값(맵 "수비 N" 배지 전용). 방어 자체는 거점 중심 타일 위 주둔 부대가 맡고,
+# game.gd가 그 부대 인원으로 이 값을 채운다. 0이면 배지 없음(무방비). → docs/spec/features/garrison.md
+var defender_count := 0
 
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
@@ -123,7 +123,7 @@ func required_pop() -> int:
 	return _spec.get("required_pop", 0)
 
 ## 거점을 다음 티어(type_id)로 제자리 업그레이드한다: 종류·스펙·시야·점유 셀을 교체하고 완성 상태로 둔다.
-## 위치(중심)·영지(territory)·수비대(garrison)는 그대로 유지한다. 비용 지불은 호출부가 먼저 한다.
+## 위치(중심)·영지(territory)는 그대로 유지한다. 주둔 부대는 별도 부대라 무관. 비용 지불은 호출부가 먼저 한다.
 func upgrade_to(type_id: String) -> void:
 	building_type = type_id
 	_spec = BuildingTypes.get_type(type_id)
@@ -188,13 +188,13 @@ func _draw() -> void:
 
 	_draw_labels(center - Vector2(0, hh * 0.6))
 
-	# 건설 중이면 남은 턴을, 완성 캠프면 수비대 인원을 중심 아래에 표시(둘은 겹치지 않음).
+	# 건설 중이면 남은 턴을, 완성 거점이면 수비 인원을 중심 아래에 표시(둘은 겹치지 않음).
 	if under_construction:
 		_draw_construction_badge(center + Vector2(0, hh * 0.7))
-	elif BuildingTypes.is_center(building_type) and not garrison.is_empty():
-		_draw_garrison_badge(center + Vector2(0, hh * 0.7), garrison.size())
+	elif BuildingTypes.is_center(building_type) and defender_count > 0:
+		_draw_garrison_badge(center + Vector2(0, hh * 0.7), defender_count)
 
-## 수비대 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 캠프).
+## 수비 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 거점, 주둔 부대 있을 때).
 func _draw_garrison_badge(anchor: Vector2, count: int) -> void:
 	var font := ThemeDB.fallback_font
 	var font_size := 12

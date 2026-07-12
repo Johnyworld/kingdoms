@@ -1,6 +1,6 @@
 extends GutTest
 ## 부대 분할 패널(SplitPanel) — 원 부대 / 새 부대 두 목록, 멤버를 양쪽으로 이동.
-## 수비대 편성 패널과 같은 두 목록 전송 패턴.
+## 원 부대 ↔ 새 부대 두 목록 전송 패턴.
 
 var panel: CanvasLayer
 

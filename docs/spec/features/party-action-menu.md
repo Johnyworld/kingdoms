@@ -26,18 +26,20 @@
 
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
-- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool) -> Array` — **중앙 메뉴**. `{id="shoot", label="사격", enabled=can_shoot_any}` 는 항상 첫 버튼.
-  - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
-  - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
+- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false) -> Array` — **중앙 메뉴**.
+  - **주둔 중**(`stationed=true`): `[주둔 종료][장비]`만. 주둔 부대는 대기 상태라 다른 행동을 못 하고, `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·공격이 열린다. → [Garrison](garrison.md).
+  - **그 외**(`stationed=false`): `{id="shoot", label="사격", enabled=can_shoot_any}` 가 항상 첫 버튼.
+    - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
+    - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
+    - 활성 부대가 **분할 가능**(멤버 2+ · 인접 빈 칸)하면 `{id="split", label="분할"}`이 추가된다(이동 전만). → [Party Composition](party-composition.md).
+    - **자기 세력 거점 중심 타일 위**(`on_center=true`)면 `{id="station", label="주둔", enabled=true}`이 추가된다(거점에 들어와 대기). → [Garrison](garrison.md).
   - **양쪽 공통 — 맨 뒤에 `{id="equip", label="장비", enabled=true}`**: [장비 관리](equipment.md) 모달을 연다. **행동을 끝내지 않는다**(이동/공격 상태 불변) — 노획 장비 장착·탈착은 턴을 소비하지 않는다.
 - `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
+  - 방어된 적 거점은 그 **중심 타일 위 부대를 이 팝업으로 공격**한다(별도 캠프 공격 팝업 없음). → [Garrison](garrison.md).
 - `capture_actions() -> Array` — **적 거점 클릭 팝업** `[흡수][파괴]`(둘 다 활성). → [Camp Capture](camp-capture.md).
   - `{id="absorb", label="흡수", enabled=true}` · `{id="destroy", label="파괴", enabled=true}`.
-- `camp_attack_actions() -> Array` — **방어된 적 거점 클릭 팝업** `[공격]`. → [Garrison](garrison.md).
 - `merge_actions() -> Array` — **인접 아군 부대 클릭 팝업** `[병합]`. → [Party Composition](party-composition.md).
-
-중앙 메뉴 `party_actions`에는 활성 부대가 **분할 가능**(멤버 2+ · 인접 빈 칸)하면 `{id="split", label="분할"}`이 추가된다. → [Party Composition](party-composition.md).
 
 ## UI (`party_action_menu.gd`)
 
@@ -65,7 +67,10 @@
 - [정상] `party_actions(true, true, false)` → `[사격(활성), 대기, 장비]`(이동 후 — 휴식·경계 없음)
 - [정상] `party_actions(true, false, true)` → `[사격(비활성), 대기, 취소, 장비]`(되돌리기 가능)
 - [정상] `party_actions`의 마지막 버튼은 항상 `{id="equip", enabled=true}`(양쪽 상태 공통)
-- [경계] `party_actions(false, true, true)` → `[사격, 휴식, 경계]`(이동 전이면 취소 없음)
+- [경계] `party_actions(false, true, true)` → `[사격, 휴식, 경계, 장비]`(이동 전이면 취소 없음)
+- [정상] `party_actions(false, true, false, false, true)` → 목록에 `{id="station"}` 포함(거점 위, `[장비]` 앞)
+- [경계] `party_actions(false, true, false, false, false)` → `{id="station"}` 없음(거점 밖)
+- [정상] `party_actions(false, true, false, false, true, true)`(주둔 중) → `[주둔 종료(unstation), 장비]`만(다른 행동 없음)
 - [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
 - [정상] `enemy_actions(false, true)` → `[공격(비활성), 사격(활성)]`
 

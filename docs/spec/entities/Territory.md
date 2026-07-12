@@ -19,7 +19,6 @@
 | 보유 자원 | `resources` | `Dictionary` | `{}` | **모든 자원**(인구·밀·빵·나무·목재·철·철괴·금). 삽입 순서 = 메뉴 표시 순서. `금`은 [상거래](../features/trade.md)로 오가는 화폐(금고) |
 | 소속 세력 | `faction` | `Faction` | `null` | 이 영지를 보유한 세력. `Faction.add_territory`로 연결 |
 | 소속 건물 | `buildings` | `Array` | `[]` | 이 영지에 속한 [건물](Building.md) 목록(중심 캠프 + 그 안의 건물들) |
-| 노획 장비 | `loot_items` | `Array` | `[]` | 영지가 소유한 노획 장비 아이템 id 목록([수비대 노획](../features/raid.md#수비대-노획)으로 귀속). 중복 허용. 캠프 [판매](../features/trade.md#영지-노획-장비-판매)로 금으로 환산(장착은 멤버 없어 불가) |
 
 ## 동작
 
@@ -32,7 +31,6 @@
 - `spend(cost: Dictionary) -> void` — `cost`의 각 자원을 `resources`에서 뺀다. 음수 방지는 하지 않으므로 호출 전 `can_afford`로 확인한다. [건축](../features/building.md) 시 자원 차감.
 - `build_pay(type_id: String) -> void` — 그 종류를 지을 때의 비용을 한 번에 지불한다: `build_cost` 자재 차감(`spend`) + **[필요인원](../data/buildings.md#필요인원-required_pop)만큼 `인구` 차감**(고용). 호출 전 [`BuildPlanner.can_build`](../features/building.md#필요인원-게이트)로 지불 가능 여부를 확인한다(음수 방지 안 함).
 - `advance_construction() -> void` — [턴](../features/turn.md) 종료 시 호출. 소속 건물들의 `advance_construction()`을 불러 건설 중 건물을 1턴씩 진행한다.
-- `receive_loot(party) -> void` — 부대의 노획물을 이 영지로 흡수한다([수비대 노획](../features/raid.md#수비대-노획)). `party.cargo`(자원)를 `resources`에 더하고(없던 키 생성), `party.loot_items`(장비)를 이 영지 `loot_items`에 append한다. 옮긴 뒤 부대의 `cargo`·`loot_items`는 비운다(부대는 곧 제거되는 임시 수비대).
 
 ### 인구 상한(`population_cap`)
 
@@ -63,9 +61,6 @@
 - [경계] 보유하지 않은 건물 `demolish` → no-op(자원 변화 없음)
 - [정상] `build_pay("farm")` → `build_cost`(목재5·밀5) 차감 + `인구 -= 2`(고용)
 - [정상] `build_pay("quarry")` → 목재10 차감 + `인구 -= 1`(벌목소·채석장의 신규 노동력)
-- [정상] 생성 직후 `loot_items`는 빈 배열
-- [정상] `receive_loot`: 부대 화물 목재10·장비 `["sword"]` → 영지 `resources["목재"] += 10`, `loot_items`에 `"sword"`; 부대 `cargo`·`loot_items` 비워짐
-- [경계] `receive_loot` 빈 부대(화물·장비 없음) → 영지 변화 없음
 
 ## 관련
 

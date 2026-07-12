@@ -12,8 +12,12 @@ var _root: Control
 var _panel: PanelContainer
 var _list: VBoxContainer
 
-## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계](+분할 가능하면 [분할]), 이동 후 [사격][대기](+되돌리기 가능하면 [취소]). 노드 비의존.
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false) -> Array:
+## 부대 메뉴 버튼. 주둔 중이면 [주둔 종료][장비]만. 그 외: 이동 전 [사격][휴식][경계](+분할 가능하면 [분할]),
+## 이동 후 [사격][대기](+되돌리기 가능하면 [취소]). 자기 거점 중심 타일 위(on_center)면 [주둔] 추가. 노드 비의존. → garrison.md
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false) -> Array:
+	if stationed:
+		# 주둔 부대는 대기 상태 — 주둔 종료로 풀어야 이동·공격이 열린다.
+		return [{"id": "unstation", "label": "주둔 종료", "enabled": true}, {"id": "equip", "label": "장비", "enabled": true}]
 	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
 	if moved:
 		out.append({"id": "wait", "label": "대기", "enabled": true})
@@ -24,6 +28,8 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 		out.append({"id": "alert", "label": "경계", "enabled": true})
 		if can_split:
 			out.append({"id": "split", "label": "분할", "enabled": true})
+	if on_center:
+		out.append({"id": "station", "label": "주둔", "enabled": true})   # 거점에 들어와 대기
 	out.append({"id": "equip", "label": "장비", "enabled": true})   # 항상 맨 뒤. 턴 소비 없음(장비 관리 모달).
 	return out
 
@@ -40,10 +46,6 @@ static func capture_actions() -> Array:
 		{"id": "absorb", "label": "흡수", "enabled": true},
 		{"id": "destroy", "label": "파괴", "enabled": true},
 	]
-
-## 방어된(수비대 있는) 적 캠프 클릭 팝업 버튼 [공격]. 인접 가능한 캠프에서만 열리므로 활성.
-static func camp_attack_actions() -> Array:
-	return [{"id": "attack", "label": "공격", "enabled": true}]
 
 ## 인접 아군 부대 클릭 팝업 버튼 [병합]. 인접 아군에서만 열리므로 활성.
 static func merge_actions() -> Array:

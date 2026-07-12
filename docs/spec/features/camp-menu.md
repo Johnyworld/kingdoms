@@ -16,7 +16,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 
 ## 동작
 
-- `open(building: Building, party := null, can_demolish := false)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `party`가 주어지고 건물이 **거점**(`BuildingTypes.is_center`)이면 **수비대 편성 패널**을 함께 띄운다(아래). `can_demolish`가 참이면 [철거 버튼](#철거-버튼)을 보인다(재오픈 대비 매번 토글).
+- `open(building: Building, party := null, can_demolish := false)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `party`(= 그 거점 **주둔 부대**, [Garrison](garrison.md))가 주어지고 건물이 **거점**(`BuildingTypes.is_center`)이면 보급·판매·구매 패널을 함께 띄운다(아래). `can_demolish`가 참이면 [철거 버튼](#철거-버튼)을 보인다(재오픈 대비 매번 토글).
   - 제목 라벨 = `territory.name`.
   - 세력 라벨 = `territory.faction.name` (색상 = `territory.faction.color`). `faction`이 `null`이면 세력 라벨은 빈 문자열.
   - `building.territory`가 `null`이거나 영지에 세력이 없으면 라벨은 빈 문자열이고, 세력 색상 오버라이드를 제거한다(다른 영지로 재오픈 대비). `territory == null`이면 자원 그리드도 비어 있다.
@@ -32,11 +32,10 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
   - 선행 미충족이면 라벨 뒤에 `"  (선행: <선행 라벨> 필요)"`를 덧붙여 이유를 보인다(예: `"농장  ...  (선행: 마을회관 필요)"`).
   - 항목을 누르면 `build_selected(type_id, territory)` 시그널을 방출하고 메뉴를 닫는다. 실제 배치(건설 모드)는 게임이 이 시그널을 받아 처리한다 — **건설 모드 배치(2b)는 미구현**.
 - `open`은 열 때마다 리스트를 숨기고 건축 버튼을 다시 보여 **정보 화면 상태로 초기화**한다(이전 오픈에서 리스트가 열려 있던 상태가 남지 않도록).
-- **수비대 편성 패널** (`party != null` + **거점**(`is_center`)일 때) — 부대(`party.members`)·수비대(`building.garrison`) 두 목록을 병사 버튼으로 보인다. 부대원 클릭 → 수비대로, 수비대원 클릭 → 부대로 옮기고(양방향 자유) 목록을 다시 그린다. 이동할 때마다 `garrison_changed` 시그널을 방출한다. `party`가 없으면 패널을 숨긴다. → [Garrison](garrison.md).
-- **보급(화물) 패널** (`_cargo_panel`, `party != null` + **거점**일 때 — 수비대 패널과 같은 조건) — 영지 자원 ↔ 부대 [화물](../entities/Party.md#화물-cargo--캐러반)을 적재/하역한다. 자원별 행: `"<자원>  <영지량> / <화물량>"` + **[적재]**(영지→화물) · **[하역]**(화물→영지) 버튼. 한 번에 `CARGO_STEP`(5)씩, 영지 재고·화물 용량·화물 보유분으로 상한. `인구`·`금`은 운반 대상에서 제외(노동력·화폐). 이동할 때마다 화물 목록과 좌측 자원 그리드를 다시 그린다(버튼 free 지연 — locked 방지). → [캐러반](building.md#캠프-건설-새-영지-확장)으로 전초기지에 자원을 옮겨 개발한다.
-- **판매 패널** (`_sell_panel`, `party != null` + **거점**일 때 — 보급 패널과 같은 조건) — 부대의 노획 장비·화물을 **금**으로 판다([Trade](trade.md)). **장비 섹션**: `loot_items`를 이름별로 묶어 `[판매]`(1개씩 → 영지 금 += `ItemTypes.item_value`). **화물 섹션**: `cargo` 자원별(`인구`·`금` 제외) `[판매]`(`CARGO_STEP`씩 → 영지 금 += `ResourceTypes.value` × 판매량). **영지 장비 섹션**: 영지 `loot_items`(이름별 묶음) `[판매]`(1개씩 → 영지 금 += `ItemTypes.item_value`, [수비대 노획](raid.md#수비대-노획) 귀속분). 판매할 때마다 판매 목록과 좌측 자원 그리드(금)를 다시 그린다.
-- **구매 패널** (`_buy_panel`, `party != null` + **거점**일 때 — 판매 패널과 같은 조건) — 금으로 [상거래](trade.md#구매-camp_menu-구매-패널) 매입. **장비 섹션**: `ItemTypes` 전 카탈로그(무기/방어구/방패) `"<이름> <구매가>금"` + `[구매]`(구매가 = `item_value × BUY_MARKUP`(2), → 부대 `loot_items`). **자원 섹션**: `ResourceTypes.VALUES` 자원 `[구매]`(`CARGO_STEP`씩, 구매가 = `value × BUY_MARKUP × CARGO_STEP`, → 영지 자원). **병사 섹션**: 소집병 `[구매]`(`SOLDIER_GOLD_COST`(20)금 + `SOLDIER_POP_COST`(1)인구, → `building.garrison`). 각 `[구매]`는 비용(금·인구) 부족이면 비활성. 구매마다 구매·판매·수비대 목록과 좌측 자원 그리드를 다시 그린다.
-- `signal garrison_changed` — 편성으로 병사가 이동할 때 방출. `game.gd`가 받아 [부대 일람](party-roster.md)·[안개](fog-of-war.md)를 갱신한다.
+- **보급(화물) 패널** (`_cargo_panel`, `party != null` + **거점**(`is_center`)일 때) — 영지 자원 ↔ 부대 [화물](../entities/Party.md#화물-cargo--캐러반)을 적재/하역한다. 자원별 행: `"<자원>  <영지량> / <화물량>"` + **[적재]**(영지→화물) · **[하역]**(화물→영지) 버튼. 한 번에 `CARGO_STEP`(5)씩, 영지 재고·화물 용량·화물 보유분으로 상한. `인구`·`금`은 운반 대상에서 제외(노동력·화폐). 이동할 때마다 화물 목록과 좌측 자원 그리드를 다시 그린다(버튼 free 지연 — locked 방지). → [캐러반](building.md#캠프-건설-새-영지-확장)으로 전초기지에 자원을 옮겨 개발한다.
+- **판매 패널** (`_sell_panel`, `party != null` + **거점**일 때 — 보급 패널과 같은 조건) — 부대의 노획 장비·화물을 **금**으로 판다([Trade](trade.md)). **장비 섹션**: `loot_items`를 이름별로 묶어 `[판매]`(1개씩 → 영지 금 += `ItemTypes.item_value`). **화물 섹션**: `cargo` 자원별(`인구`·`금` 제외) `[판매]`(`CARGO_STEP`씩 → 영지 금 += `ResourceTypes.value` × 판매량). 판매할 때마다 판매 목록과 좌측 자원 그리드(금)를 다시 그린다.
+- **구매 패널** (`_buy_panel`, `party != null` + **거점**일 때 — 판매 패널과 같은 조건) — 금으로 [상거래](trade.md#구매-camp_menu-구매-패널) 매입. **장비 섹션**: `ItemTypes` 전 카탈로그(무기/방어구/방패) `"<이름> <구매가>금"` + `[구매]`(구매가 = `item_value × BUY_MARKUP`(2), → 부대 `loot_items`). **자원 섹션**: `ResourceTypes.VALUES` 자원 `[구매]`(`CARGO_STEP`씩, 구매가 = `value × BUY_MARKUP × CARGO_STEP`, → 영지 자원). **병사 섹션**: 소집병 `[구매]`(`SOLDIER_GOLD_COST`(20)금 + `SOLDIER_POP_COST`(1)인구, → **주둔 부대**(`_party`) `members`에 소집병 1명 편입). 각 `[구매]`는 비용(금·인구) 부족이면 비활성. 주둔 부대(`_party`)가 없으면 구매 패널 자체가 숨겨져 병사 구매 불가. 구매마다 구매·판매 목록과 좌측 자원 그리드를 다시 그린다.
+- `signal garrison_changed` — 병사 구매로 주둔 부대에 병사가 추가될 때 방출. `game.gd`가 받아 [부대 일람](party-roster.md)·[안개](fog-of-war.md)·수비 배지를 갱신한다.
 - `signal upgrade_requested(building)` — 업그레이드 버튼을 누르면 방출. `game.gd`가 받아 거점 [업그레이드](building.md#거점-업그레이드)를 처리한다.
 - `signal found_camp_requested(territory)` — 캠프 건설 버튼을 누르면 방출. `game.gd`가 받아 [새 영지 캠프 건설](building.md#캠프-건설-새-영지-확장) 모드로 진입한다.
 - `signal demolish_requested(building)` — 철거 버튼을 누르면 방출. `game.gd`가 받아 확인 후 [캠프 철거](building-info.md#캠프-철거)를 처리한다.
@@ -77,8 +76,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - [정상] 장비 구매: 영지 금 30 · `sword`(구매가 28) → 영지 금 2, 부대 `loot_items`에 `sword`
 - [경계] 금 부족(10 < 28) → `sword` [구매] 비활성
 - [정상] 자원 구매: 영지 금 30 → `밀` [구매](10=1×2×5) → 영지 금 20·`밀 +5`; [경계] 금 부족 시 비활성
-- [정상] 병사 구매: 영지 금 30·인구 5 → [구매] → 금 10·인구 4·`garrison` +1; [경계] 금<20 또는 인구<1 → 비활성
-- [정상] 영지 장비 판매: 영지 `loot_items=["sword"]` + 부대 → [판매] → 영지 `금` +14, 영지 `loot_items` 비워짐
+- [정상] 병사 구매: 주둔 부대 + 영지 금 30·인구 5 → [구매] → 금 10·인구 4·주둔 부대 `members` +1; [경계] 금<20 또는 인구<1 → 비활성
 
 ## 관련
 

@@ -62,14 +62,15 @@
 | 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지 |
 | 이번 턴 공격함 | `attacked_this_turn` | 이번 턴에 이미 공격했는지. 공격은 그 부대의 행동을 끝낸다([전투](../features/battle.md)) |
 | 이번 턴 휴식함 | `rested_this_turn` | 이번 턴 `[휴식]`/`[대기]`을 선택했는지([행동 메뉴](../features/party-action-menu.md)). 회복 연동은 `미구현` |
-| 소속 영지 | `home_territory` | 임시 **수비대 부대**([Garrison](../features/garrison.md))만 설정하는 방어 영지 참조(그 외 부대는 `null`). [수비대 노획](../features/raid.md#수비대-노획) 시 노획물 귀속 대상 |
+| 주둔 중 | `stationed` | `bool`, 기본 `false`. 부대가 거점에서 **주둔(대기)** 중인지([Garrison](../features/garrison.md)). 참이면 명령([주둔 종료]) 전까지 대기하며, `can_move()`·`can_attack()`이 거짓이 된다. `reset_turn()`에도 **유지**(턴을 넘겨 지속) |
+| 소속 영지 | `home_territory` | **거점 주둔 부대**([Garrison](../features/garrison.md))가 설정하는 방어 영지 참조(그 외 부대는 `null`). [수비대 노획](../features/raid.md#수비대-노획) 시 노획물 귀속 대상 |
 
-한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다.
+한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다. **주둔 중**이면 이동·공격을 모두 막는다(대기).
 
 ## 동작
 
 - `add_member(human) -> void` — 멤버를 `members`에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다. **지휘관이 없으면**(빈 부대의 첫 멤버) 그 멤버를 지휘관으로 삼는다. 다시 그린다.
-- `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. [수비대 편성](../features/garrison.md)에서 부대→캠프 이동에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
+- `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. [부대 분할](../features/party-composition.md)·전투 사상자 반영에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
 - `cargo_total() -> int` — 화물 총량(모든 자원 수량 합).
 - `cargo_space() -> int` — 화물 여유 공간(`CARGO_CAPACITY - cargo_total()`).
@@ -90,14 +91,14 @@
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
-- `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn and not attacked_this_turn` — 공격했으면 이동 불가).
-- `can_attack() -> bool` — 이번 턴에 공격 가능한지(`not attacked_this_turn` — 이동만 했으면 아직 가능).
+- `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn and not attacked_this_turn and not stationed` — 공격했거나 주둔 중이면 이동 불가).
+- `can_attack() -> bool` — 이번 턴에 공격 가능한지(`not attacked_this_turn and not stationed` — 이동만 했으면 아직 가능, 주둔 중이면 불가).
 - `mark_moved() -> void` — 이동 완료 표시(`moved_this_turn = true`). 흐리게 다시 그린다.
 - `mark_attacked() -> void` — 공격 완료 표시(`attacked_this_turn = true`). 흐리게 다시 그린다.
 - `mark_rested() -> void` — 휴식/대기 표시. `rested_this_turn = true` + `attacked_this_turn = true`(행동 종료). `moved_this_turn`은 유지. 흐리게 다시 그린다.
 - `undo_move() -> void` — 이동 되돌리기. `moved_this_turn = false`(다시 이동 가능)로 되돌리고 불투명하게 다시 그린다. 위치 복원·시야 갱신은 `game.gd`([행동 메뉴](../features/party-action-menu.md) `[취소]`).
 - `can_rest() -> bool` — 휴식 가능 여부(`not attacked_this_turn` — 아직 행동을 끝내지 않았으면 가능).
-- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`·`rested_this_turn`를 모두 `false`로 되돌리고 불투명하게 다시 그린다.
+- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`·`rested_this_turn`를 모두 `false`로 되돌리고 불투명하게 다시 그린다. **`stationed`는 유지**(주둔은 턴을 넘겨 지속). 단 주둔 부대는 `can_move()`/`can_attack()`이 거짓이라 리셋 후에도 대기 상태를 이어간다.
 - `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다.
 
 ## 테스트 시나리오
@@ -155,7 +156,10 @@
 - [경계] `transfer_cargo_to` 음수/0/미보유 → 0, 변화 없음
 - [정상] `transfer_loot_to`: A `loot_items`에 `"sword"` → `transfer_loot_to(B, "sword")` = `true`, A에서 빠지고 B에 `"sword"`
 - [경계] `transfer_loot_to` A가 안 가진 id → `false`, 양쪽 변화 없음(중복이면 첫 개만 이동)
-- [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
+- [정상] 생성 직후 `stationed == false`; 설정 가능
+- [정상] `stationed = true`면 `can_move()`·`can_attack()` 거짓(주둔은 대기 — 이동·공격 불가)
+- [정상] `stationed = true`로 두고 `reset_turn()` → `stationed` 여전히 참(주둔은 턴을 넘겨 유지), `can_move()` 거짓
+- [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓(주둔 아님 기준)
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 
 ## 관련

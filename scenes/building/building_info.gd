@@ -76,10 +76,10 @@ func open(building, can_demolish := false) -> void:
 		label.add_theme_color_override("font_color", line["color"])
 		_info_list.add_child(label)
 
-	# 수비대(거점만): "수비대 N명". 거점 아닌 건물(농장 등)은 표시하지 않는다.
+	# 수비(거점만): "수비대 N명"(중심 타일 주둔 부대 인원). 거점 아닌 건물(농장 등)은 표시하지 않는다.
 	if BuildingTypes.is_center(building.building_type):
 		var g := Label.new()
-		g.text = "수비대 %d명" % building.garrison.size()
+		g.text = "수비대 %d명" % building.defender_count
 		_info_list.add_child(g)
 
 	# 생산 줄(있으면). 건설 중에도 완성 시 생산량을 보여준다.

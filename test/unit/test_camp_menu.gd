@@ -259,40 +259,36 @@ func test_buy_resource_no_op_when_poor() -> void:
 	assert_eq(c.territory.resources.get("금", 0), 5, "금 변화 없음")
 	assert_eq(c.territory.resources.get("밀", 0), 0, "밀 변화 없음")
 
-func test_buy_soldier_costs_gold_and_pop() -> void:
+func test_buy_soldier_joins_stationed_party() -> void:
 	var c := _center("town_hall", {"금": 30, "인구": 5})
-	menu.open(c, _party_with(1))
+	var p := _party_with(1)
+	menu.open(c, p)
 	menu._buy_soldier()
 	assert_eq(c.territory.resources.get("금", 0), 10, "금 30 → 10(-20)")
 	assert_eq(c.territory.resources.get("인구", 0), 4, "인구 5 → 4(-1)")
-	assert_eq(c.garrison.size(), 1, "수비대에 소집병 +1")
+	assert_eq(p.members.size(), 2, "주둔 부대에 소집병 +1(1→2)")
 
 func test_buy_soldier_no_op_when_poor() -> void:
 	var c := _center("town_hall", {"금": 10, "인구": 5})   # 금 부족
-	menu.open(c, _party_with(1))
+	var p := _party_with(1)
+	menu.open(c, p)
 	menu._buy_soldier()
 	assert_eq(c.territory.resources.get("금", 0), 10, "금 부족 → 변화 없음")
-	assert_eq(c.garrison.size(), 0, "수비대 변화 없음")
+	assert_eq(p.members.size(), 1, "부대 변화 없음")
 
 func test_buy_soldier_no_op_when_no_pop() -> void:
 	var c := _center("town_hall", {"금": 30, "인구": 0})   # 인구 부족
-	menu.open(c, _party_with(1))
+	var p := _party_with(1)
+	menu.open(c, p)
 	menu._buy_soldier()
 	assert_eq(c.territory.resources.get("금", 0), 30, "인구 부족 → 금 변화 없음")
-	assert_eq(c.garrison.size(), 0, "수비대 변화 없음")
+	assert_eq(p.members.size(), 1, "부대 변화 없음")
 
-func test_sell_territory_item_adds_gold() -> void:
-	var c := _center("town_hall")
-	c.territory.loot_items = ["sword"]   # 수비대 노획 귀속분
-	menu.open(c, _party_with(1))
-	menu._sell_territory_item("sword")   # 구매가 아님 — 판매(item_value 14)
-	assert_eq(c.territory.resources.get("금", 0), 14, "영지 금 +14(검 가치)")
-	assert_false("sword" in c.territory.loot_items, "영지 loot_items에서 제거")
-
-func test_territory_sell_section_empty_without_loot() -> void:
-	var c := _center("town_hall")   # 영지 loot_items 없음
-	menu.open(c, _party_with(1))
-	assert_eq(menu._sell_territory_list.get_child_count(), 0, "영지 장비 없으면 섹션 비어 있음")
+func test_buy_soldier_no_op_without_party() -> void:
+	var c := _center("town_hall", {"금": 30, "인구": 5})
+	menu.open(c)   # 주둔 부대 없음
+	menu._buy_soldier()
+	assert_eq(c.territory.resources.get("금", 0), 30, "주둔 부대 없으면 no-op")
 
 func test_sell_cargo_excludes_pop_and_gold() -> void:
 	var c := _center("town_hall")
@@ -384,7 +380,7 @@ func test_reopen_resets_to_info_view() -> void:
 	assert_false(menu._build_list.visible, "재오픈 시 리스트 숨김")
 	assert_true(menu._build_btn.visible, "재오픈 시 건축 버튼 표시")
 
-# --- 수비대 편성 ---
+# --- 부대 헬퍼 ---
 
 func _party_with(n: int) -> Node2D:
 	var p: Node2D = load("res://scenes/party/party.gd").new()
@@ -394,97 +390,3 @@ func _party_with(n: int) -> Node2D:
 	if n > 0:
 		p.commander = p.members[0]
 	return p
-
-func _soldier() -> Object:
-	return load("res://scenes/human/human.gd").new("수비병")
-
-func test_garrison_panel_shown_with_party() -> void:
-	_join_territory()
-	building.garrison = [_soldier(), _soldier()]
-	menu.open(building, _party_with(3))
-	assert_true(menu._garrison_panel.visible, "부대 있으면 편성 패널 표시")
-	assert_eq(menu._party_list.get_child_count(), 3, "부대 목록 3명")
-	assert_eq(menu._garrison_list.get_child_count(), 2, "수비대 목록 2명")
-
-func test_garrison_panel_hidden_without_party() -> void:
-	_join_territory()
-	menu.open(building)
-	assert_false(menu._garrison_panel.visible, "부대 없으면 편성 패널 숨김")
-
-func test_garrison_panel_shown_for_town_hall_center() -> void:
-	# 거점은 캠프뿐 아니라 마을회관·성도 포함 — 마을회관 거점도 수비대 편성 패널이 뜬다.
-	var hall = load("res://scenes/building/building.gd").new()
-	add_child_autofree(hall)
-	hall.setup(terrain, Vector2i(28, 28), "town_hall")
-	var t = load("res://scenes/territory/territory.gd").new("파리", RES.duplicate(true))
-	t.add_building(hall)
-	menu.open(hall, _party_with(2))
-	assert_true(menu._garrison_panel.visible, "마을회관(거점)도 편성 패널 표시")
-
-func test_garrison_panel_hidden_for_non_center() -> void:
-	# 농장(거점 아님)은 편성 패널 안 뜸.
-	var farm = load("res://scenes/building/building.gd").new()
-	add_child_autofree(farm)
-	farm.setup(terrain, Vector2i(28, 28), "farm")
-	var t = load("res://scenes/territory/territory.gd").new("파리", RES.duplicate(true))
-	t.add_building(farm)
-	menu.open(farm, _party_with(2))
-	assert_false(menu._garrison_panel.visible, "농장(거점 아님)은 편성 패널 숨김")
-
-func test_move_member_to_garrison() -> void:
-	_join_territory()
-	building.garrison = []
-	var p := _party_with(2)
-	var h = p.members[0]
-	menu.open(building, p)
-	menu._member_to_garrison(h)
-	assert_false(h in p.members, "부대에서 빠짐")
-	assert_true(h in building.garrison, "수비대에 들어감")
-
-func test_move_member_to_party() -> void:
-	_join_territory()
-	var sol := _soldier()
-	building.garrison = [sol]
-	var p := _party_with(1)
-	menu.open(building, p)
-	menu._member_to_party(sol)
-	assert_true(sol in p.members, "부대로 들어감")
-	assert_false(sol in building.garrison, "수비대에서 빠짐")
-
-func test_move_emits_garrison_changed() -> void:
-	_join_territory()
-	var p := _party_with(2)
-	menu.open(building, p)
-	watch_signals(menu)
-	menu._member_to_garrison(p.members[0])
-	assert_signal_emitted(menu, "garrison_changed", "편성 이동 시 방출")
-
-# --- 새 부대 편성 ---
-
-func _raise_button() -> Button:
-	# 편성 패널 vbox의 마지막 자식이 "새 부대 편성" 버튼.
-	var vbox = menu._garrison_panel.get_child(0)
-	return vbox.get_child(vbox.get_child_count() - 1) as Button
-
-func test_raise_button_present() -> void:
-	_join_territory()
-	menu.open(building, _party_with(1))
-	assert_eq(_raise_button().text, "새 부대 편성", "편성 패널에 새 부대 편성 버튼")
-
-func test_raise_button_emits_signal() -> void:
-	_join_territory()
-	menu.open(building, _party_with(1))
-	watch_signals(menu)
-	_raise_button().pressed.emit()
-	assert_signal_emitted_with_parameters(menu, "raise_party", [building], "버튼 클릭 → raise_party(building)")
-
-func test_party_button_press_moves_member() -> void:
-	# 버튼 pressed 시그널 경로(실제 클릭)로 이동 — 시그널 처리 중 리스트 재구성이 안전해야 한다(locked 방지).
-	_join_territory()
-	building.garrison = []
-	var p := _party_with(2)
-	var h = p.members[0]
-	menu.open(building, p)
-	(menu._party_list.get_child(0) as Button).pressed.emit()
-	assert_true(h in building.garrison, "부대 버튼 클릭 → 수비대로 이동")
-	assert_false(h in p.members, "부대에서 빠짐")

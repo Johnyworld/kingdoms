@@ -37,7 +37,8 @@
 | --- | --- | --- | --- | --- |
 | 건설 중 | `under_construction` | `bool` | `false` | 참이면 건설 중(생산·시야 없음). 완성되면 거짓 |
 | 남은 턴 | `remaining_turns` | `int` | `0` | 완성까지 남은 턴. `setup`에서 `build_turns`로 채워짐. 완성 시 0 |
-| 수비대 | `garrison` | `Array` | `[]` | 캠프를 지키는 [Human](Human.md) 병력. `game.gd`가 캠프 생성 시 기본 4명을 채운다. → [Garrison](../features/garrison.md) |
+
+> **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([Garrison / 주둔](../features/garrison.md)). 예전 `Building.garrison`(Human 배열)은 폐지됐다.
 
 > 자원은 건물이 아니라 [영지](Territory.md)가 보유한다. 캠프 카탈로그의 `resources`는 **건설 시 생성되는 영지의 초기 자원**으로 쓰인다.
 
@@ -64,7 +65,7 @@
 - `demolish_refund() -> Dictionary` — **완성 건물** 철거 시 돌려받는 salvage 자재(자원명→수량). 카탈로그 `demolish_refund`(없으면 빈 Dictionary). 순수 카탈로그값(건설 여부 무관).
 - `refund_on_demolish() -> Dictionary` — [철거](../features/building-info.md#철거) 시 **실제 환급** 자재. **완성**이면 `demolish_refund()`. **건설 중**이면 낸 `build_cost`를 진행도 비례로 — `floor(build_cost[자원] × remaining_turns ÷ build_turns)`(안 쓴 자재 회수, 0인 자원은 생략). `build_turns ≤ 0`이면 `build_cost` 전액(방어). `Territory.demolish`와 철거 미리보기가 이걸 쓴다.
 - `required_pop() -> int` — 이 건물이 고용하는 [노동력](../data/buildings.md#필요인원-required_pop)(인구 수). 카탈로그 `required_pop`(없으면 0). 건설 시 영지 인구에서 소비, 철거 시 반환. 건설 여부와 무관(카탈로그 값).
-- `upgrade_to(type_id) -> void` — 거점 [인플레이스 업그레이드](../data/buildings.md#거점-업그레이드). `building_type`·`_spec`·`vision`·`cells`(footprint)를 새 티어로 교체하고 **완성 상태**로 둔다. **위치(center)·영지·수비대(garrison)는 유지**. 모든 거점이 footprint 7이라 점유 셀은 그대로. 비용 지불(`Territory.build_pay`)은 호출부([건축](../features/building.md#거점-업그레이드))가 먼저 한다.
+- `upgrade_to(type_id) -> void` — 거점 [인플레이스 업그레이드](../data/buildings.md#거점-업그레이드). `building_type`·`_spec`·`vision`·`cells`(footprint)를 새 티어로 교체하고 **완성 상태**로 둔다. **위치(center)·영지는 유지**. 모든 거점이 footprint 7이라 점유 셀은 그대로. 주둔 부대는 별도 부대라 업그레이드와 무관하게 그 자리에 남는다. 비용 지불(`Territory.build_pay`)은 호출부([건축](../features/building.md#거점-업그레이드))가 먼저 한다.
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
   - 영지가 없으면(`territory == null`) 빈 배열.
   - 영지 이름이 있으면 첫 줄 = `{territory.name, 흰색}`.
@@ -89,7 +90,7 @@
 - [경계] `production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}` (`test/unit/test_turn.gd`)
 - [정상] 완성 농장 `planned_production() == {밀:1}`, 캠프 `planned_production() == {}`
 - [정상] `pop_cap()` — 완성 캠프 0, 마을회관 10, 성 20, 집 2, 농장 0; **건설 중** 집은 0(완성 후 2)
-- [정상] `upgrade_to("town_hall")` — 캠프를 마을회관으로: `building_type == "town_hall"`, `vision == 6`, `pop_cap() == 10`, `is_complete()`, 점유 셀 7 유지, 수비대 보존
+- [정상] `upgrade_to("town_hall")` — 캠프를 마을회관으로: `building_type == "town_hall"`, `vision == 6`, `pop_cap() == 10`, `is_complete()`, 점유 셀 7 유지
 - [정상] `demolish_refund()` — 농장 `{목재1}`, 집 `{목재2}`; **건설 중**에도 동일(순수 카탈로그값)
 - [정상] `refund_on_demolish()` **완성** = `demolish_refund()`(카탈로그 salvage)
 - [정상] `refund_on_demolish()` **건설 중 진행도 비례** — 농장(build_turns 3, build_cost 목재5·밀5): 갓 시작(remaining 3) → `{목재5,밀5}`(전액); 1턴 진행(remaining 2) → `{목재3,밀3}`(floor 5×2/3)

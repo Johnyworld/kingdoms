@@ -63,13 +63,18 @@ func test_capture_actions_both_enabled() -> void:
 	assert_true(_by_id(a, "absorb")["enabled"], "흡수 활성")
 	assert_true(_by_id(a, "destroy")["enabled"], "파괴 활성")
 
-# --- 방어된 캠프 공격 팝업 (camp_attack_actions) ---
+# --- 주둔 / 주둔 종료 (party_actions on_center·stationed) ---
 
-func test_camp_attack_actions_buttons() -> void:
-	assert_eq(_ids(PartyActionMenu.camp_attack_actions()), ["attack"], "방어 캠프 팝업 [공격]")
+func test_party_actions_station_on_center() -> void:
+	# 거점 위·미행동·주둔 아님 → [주둔]이 [장비] 앞에 추가.
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false, true)), ["shoot", "rest", "alert", "station", "equip"], "거점 위면 주둔 버튼 추가")
 
-func test_camp_attack_actions_enabled() -> void:
-	assert_true(_by_id(PartyActionMenu.camp_attack_actions(), "attack")["enabled"], "공격 활성")
+func test_party_actions_no_station_off_center() -> void:
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false, false)), ["shoot", "rest", "alert", "equip"], "거점 밖이면 주둔 없음")
+
+func test_party_actions_unstation_when_stationed() -> void:
+	# 주둔 중이면 [주둔 종료][장비]만(다른 행동 없음).
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false, true, true)), ["unstation", "equip"], "주둔 중이면 주둔 종료·장비만")
 
 # --- 병합 팝업 (merge_actions) ---
 

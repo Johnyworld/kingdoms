@@ -269,6 +269,25 @@ func test_reset_turn_restores_attack() -> void:
 	assert_true(p.can_move(), "reset 후 이동 가능")
 	assert_true(p.can_attack(), "reset 후 공격 가능")
 
+# --- 주둔 (stationed) ---
+
+func test_stationed_default_false() -> void:
+	var p := _party()
+	assert_false(p.stationed, "생성 직후 주둔 아님")
+
+func test_stationed_blocks_move_and_attack() -> void:
+	var p := _party()
+	p.stationed = true
+	assert_false(p.can_move(), "주둔 중이면 이동 불가(대기)")
+	assert_false(p.can_attack(), "주둔 중이면 공격 불가(대기)")
+
+func test_stationed_persists_through_reset() -> void:
+	var p := _party()
+	p.stationed = true
+	p.reset_turn()
+	assert_true(p.stationed, "reset_turn 후에도 주둔 유지(턴을 넘겨 지속)")
+	assert_false(p.can_move(), "주둔 유지라 리셋 후에도 이동 불가")
+
 # --- 휴식/대기 (행동 메뉴) ---
 
 func test_can_rest_by_default() -> void:

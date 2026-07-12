@@ -24,7 +24,7 @@
 
 ## 동작
 
-- `set_parties(parties: Array) -> void` — 부대 리스트를 **비우고** 다시 채운다(재구성 대비). 부대당 버튼 한 개를 만들고, 버튼을 누르면 그 부대를 실어 `party_selected` 시그널을 방출한다. **멤버가 0명인 부대는 건너뛴다**(수비대로 전부 옮겨 사라진 부대 → [Garrison](garrison.md)).
+- `set_parties(parties: Array) -> void` — 부대 리스트를 **비우고** 다시 채운다(재구성 대비). 부대당 버튼 한 개를 만들고, 버튼을 누르면 그 부대를 실어 `party_selected` 시그널을 방출한다. 거점 [주둔 부대](garrison.md)도 일반 부대라 일람에 포함된다. **멤버가 0명인 부대는 건너뛴다**(분할로 전부 옮겨 사라진 부대).
 - `signal party_selected(party)` — 항목 클릭 시 방출. `game.gd`가 받아 카메라를 그 부대 위치로 이동시킨다.
 
 ## 카메라 이동 (`game.gd` `_on_party_focused`)
