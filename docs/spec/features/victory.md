@@ -7,7 +7,8 @@
 승패는 **세력 소멸(유예)** 로만 난다 — 어떤 세력이 **거점**([center](../data/buildings.md#동작) = 캠프·마을회관·성 중 하나)을 하나도 안 가지면 **10턴 유예** 뒤 소멸(턴 종료마다 판정). 세 티어 중 무엇이든 하나라도 있으면 유지된다.
 
 - 모든 NPC 세력이 소멸하면 **정복 승리**, 플레이어 세력이 소멸하면 **패배**.
-- **부대 전멸로는 게임 오버되지 않는다** — 플레이어 부대가 전멸해도(거점은 남으므로) 판이 끝나지 않는다.
+- **부대 전멸만으로는 게임 오버되지 않는다** — 거점이 남아 있으면(캠프에서 재편 가능) 판이 끝나지 않는다.
+- **즉시 패배**: 다만 플레이어가 **거점도 부대도 모두 잃으면**(수복 수단이 전혀 없음) **10턴 유예 없이 즉시 패배**한다(`immediate_defeat`). 거점 0이지만 부대가 있으면(수복 기회) 기존 유예를 따른다.
 
 ## 판정 (`GameResult` — 순수)
 
@@ -21,6 +22,7 @@
   - 캠프 0 + `grace < 0`(방금 잃음) → `GRACE_TURNS`(카운트다운 시작).
   - 캠프 0 + `grace >= 0` → `max(0, grace - 1)`(계속 감소, 0에서 멈춤).
 - `grace_eliminated(grace: int) -> bool` — `grace == 0`이면 소멸 확정.
+- `immediate_defeat(has_center: bool, has_party: bool) -> bool` — 거점도(`has_center=false`) 살아있는 부대도(`has_party=false`) 없으면 `true` — **유예 없이 즉시 패배**(수복 수단 전무). 둘 중 하나라도 있으면 `false`. `game.gd`가 부대 전멸(`_apply_survivors`)·거점 상실(`_transfer_camp`)·턴 종료(`_update_endgame`, 유예 판정보다 먼저)마다 확인해 참이면 즉시 `_trigger_game_over("패배", ...)`.
 
 ### 종합 판정
 
@@ -77,6 +79,8 @@
 - [경계] `advance_grace(false, 0)` → `0` (0에서 멈춤)
 - [정상] `grace_eliminated(0)` 참; `grace_eliminated(3)`·`grace_eliminated(-1)` 거짓
 - [정상] `endgame(false, false)` → `ONGOING`; `endgame(false, true)` → `VICTORY`; `endgame(true, false)`·`endgame(true, true)` → `DEFEAT`
+- [정상] `immediate_defeat(false, false)` → 참(거점·부대 모두 없음 → 즉시 패배)
+- [경계] `immediate_defeat(true, false)`·`immediate_defeat(false, true)`·`immediate_defeat(true, true)` → 거짓(하나라도 있으면 유예/유지)
 
 **세력 상태 필드** — `test/unit/test_faction.gd`:
 - [정상] 생성 직후 `grace_turns == -1`, `eliminated == false`

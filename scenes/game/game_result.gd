@@ -1,8 +1,8 @@
 class_name GameResult
 extends RefCounted
 ## 한 판의 승패 판정(순수 로직). 노드 비의존이라 테스트하기 쉽다(HexGrid·ClickRouter와 같은 헬퍼 패턴).
-## 승패는 세력 소멸(캠프 0 → 10턴 유예)로만 난다 — 모든 NPC 세력 소멸 = 정복 승리, 플레이어 세력 소멸 = 패배.
-## (부대 전멸로는 게임 오버되지 않는다.)
+## 승패는 세력 소멸(캠프 0 → 10턴 유예)로 난다 — 모든 NPC 세력 소멸 = 정복 승리, 플레이어 세력 소멸 = 패배.
+## 단, 거점도 부대도 모두 잃으면(수복 수단 전무) 유예 없이 즉시 패배(immediate_defeat).
 
 const ONGOING := "ongoing"
 const DEFEAT := "defeat"
@@ -34,3 +34,8 @@ static func endgame(player_eliminated: bool, all_npc_eliminated: bool) -> String
 	if all_npc_eliminated:
 		return VICTORY
 	return ONGOING
+
+## 즉시 패배 판정. 거점도(has_center) 살아있는 부대도(has_party) 없으면 참 — 유예 없이 즉시 패배(수복 수단 전무).
+## 둘 중 하나라도 있으면 거짓(거점 있으면 재편·유예, 부대 있으면 거점 수복 가능).
+static func immediate_defeat(has_center: bool, has_party: bool) -> bool:
+	return not has_center and not has_party

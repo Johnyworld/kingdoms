@@ -967,6 +967,7 @@ func _transfer_camp(camp, new_faction) -> void:
 			_territories.erase(territory)    # 잃은 영지는 수입에서 제외
 	camp.visible = true       # 이전 직후 표시(NPC 캠프는 _update_npc_building_visibility가 탐험 기준으로 재조정)
 	camp.queue_redraw()       # 라벨색을 새 세력색으로 갱신
+	_check_immediate_defeat()   # 플레이어가 캠프를 뺏겼으면 — 부대도 없으면 즉시 패배
 
 ## 파괴: 캠프를 영지·맵에서 제거한다(획득 없음). 영지·세력은 남지만 캠프 0개가 된다(소멸 판정은 다음 슬라이스).
 func _destroy_camp(camp) -> void:
@@ -1024,7 +1025,21 @@ func _run_battle(attacker, defender, ranged := false, occupy_cell := Vector2i(-1
 
 ## 세력 소멸 유예 판정(턴 종료마다). 각 세력의 캠프 수로 유예 카운트를 갱신하고, 소멸한 세력은 붕괴시킨다.
 ## 이어서 정복 승리/플레이어 세력 소멸 패배를 판정한다.
+## 즉시 패배 확인: 플레이어가 거점도 부대도 모두 잃으면(수복 수단 전무) 유예 없이 즉시 게임 오버.
+## 부대 전멸(_apply_survivors)·거점 상실(_transfer_camp)·턴 종료(_update_endgame)마다 호출한다.
+func _check_immediate_defeat() -> void:
+	if _game_over:
+		return
+	var has_center := _faction_center_count(_player_faction) > 0
+	var has_party := _first_living_unit() != null
+	if GameResult.immediate_defeat(has_center, has_party):
+		_player_faction.eliminated = true
+		_trigger_game_over("패배", "거점과 부대를 모두 잃었다")
+
 func _update_endgame() -> void:
+	if _game_over:
+		return
+	_check_immediate_defeat()   # 거점·부대 동시 상실 → 유예 없이 즉시 패배(유예 판정보다 먼저)
 	if _game_over:
 		return
 	for f in _factions:
@@ -1154,6 +1169,7 @@ func _apply_survivors(p, survivors: Array) -> void:
 			party = _first_living_unit()   # 부대 0이면 null(패배 아님 — 세력 소멸은 거점 0에서만)
 		p.queue_free()
 		party_roster.set_parties(_units)
+		_check_immediate_defeat()   # 부대 전멸 — 거점도 없으면 즉시 패배
 
 ## _units 중 멤버가 있는(살아있는) 첫 부대. 없으면 null. 활성 부대 재할당에 쓴다.
 func _first_living_unit():

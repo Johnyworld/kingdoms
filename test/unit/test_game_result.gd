@@ -38,3 +38,13 @@ func test_endgame_defeat_when_player_eliminated() -> void:
 
 func test_endgame_player_defeat_takes_priority() -> void:
 	assert_eq(GameResult.endgame(true, true), GameResult.DEFEAT, "동시면 패배 우선")
+
+# --- 즉시 패배 (거점·부대 모두 상실) ---
+
+func test_immediate_defeat_when_no_center_no_party() -> void:
+	assert_true(GameResult.immediate_defeat(false, false), "거점·부대 모두 없음 → 즉시 패배")
+
+func test_immediate_defeat_false_when_has_something() -> void:
+	assert_false(GameResult.immediate_defeat(true, false), "거점 있으면 거짓")
+	assert_false(GameResult.immediate_defeat(false, true), "부대 있으면 거짓(유예/수복)")
+	assert_false(GameResult.immediate_defeat(true, true), "둘 다 있으면 거짓")
