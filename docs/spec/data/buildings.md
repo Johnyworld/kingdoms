@@ -90,6 +90,13 @@
 - 체인: **캠프 →(업그레이드) 마을회관 →(업그레이드) 성**, 그리고 마을회관 티어에서 **농장·집·벌목소** 해금(채석장은 캠프 티어부터).
 - 병영 등 군사 체인, 필요직업/인원(직업 클래스)은 아직 **미구현**.
 
+### 성벽 (`WALL_COST`)
+
+거점 [성벽](../features/wall.md)은 카탈로그 건물이 아니라 거점에 붙는 값(`Building.wall_level`)이지만, 건설 비용은 여기 `BuildingTypes.WALL_COST` 상수로 둔다.
+
+- `WALL_COST := {목재: 15, 석재: 10}` — 성벽 1단계 건설 비용(자재 Dictionary). *이번 슬라이스 단일 단계.*
+- `can_build_wall(territory, building) -> bool` — **거점 tier ≥ town_hall**(마을회관·성) + **성벽 없음**(`not building.is_walled()`) + `territory.can_afford(WALL_COST)`면 참. 캠프·이미 성벽·자재 부족·영지 없음이면 거짓.
+
 ## 동작
 
 - `BuildingTypes.CAMP` — 캠프 종류 id 상수(`"camp"`).
@@ -119,6 +126,8 @@
 - [정상] `get_type("quarry")` — `label == "채석장"`, `vision == 3`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재10}`, `production == {석재2}`, `prerequisite == "camp"`
 - [정상] `get_type("town_hall")` — `label == "마을회관"`, `vision == 6`, `footprint == 7`, `build_turns == 8`, `build_cost == {목재10, 석재10, 밀20}`, `prerequisite == "camp"`, `production` 없음(빈/미정의)
 - [정상] `get_type("castle")` — `label == "성"`, `vision == 8`, `footprint == 7`, `build_turns == 12`, `build_cost == {석재50, 밀30}`, `demolish_refund == {석재10}`, `prerequisite == "town_hall"`, `production` 없음
+- [정상] `WALL_COST == {목재15, 석재10}`(자재 Dictionary)
+- [정상] `can_build_wall` — 마을회관 거점 + 자재 충분 → 참; [경계] 캠프(tier 0) → 거짓, 이미 성벽(`wall_level=1`) → 거짓, 자재 부족 → 거짓
 - [정상] 선행 필드 — `get_type("camp").prerequisite == ""`, `farm`·`house`·`lumberjack`의 `prerequisite == "town_hall"`
 - [경계] `get_type("없는id")`는 빈 Dictionary
 - [정상] `BUILDABLE_IDS`가 `["quarry", "farm", "house", "lumberjack"]`(거점 3종 모두 미포함)

@@ -157,6 +157,7 @@ func _ready() -> void:
 	camp_menu.build_selected.connect(_on_build_selected)
 	camp_menu.garrison_changed.connect(_on_garrison_changed)
 	camp_menu.upgrade_requested.connect(_on_upgrade_requested)
+	camp_menu.wall_requested.connect(_on_wall_requested)
 	camp_menu.found_camp_requested.connect(_on_found_camp_requested)
 	camp_menu.demolish_requested.connect(_on_camp_demolish_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
@@ -287,7 +288,7 @@ func _place_party() -> void:
 func _update_ranges() -> void:
 	var start := terrain.local_to_map(party.position)
 	var move_range: int = party.movement() if party.can_move() else 0
-	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, _occupied_cells(party))
+	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, _blocked_for(party))
 	var move_cells: Array[Vector2i] = ranges["move"]
 	_reachable = {}
 	for c in move_cells:
@@ -323,10 +324,13 @@ func _compute_attack_targets(start: Vector2i) -> void:
 				continue
 			shoot_area[c] = true
 			_shoot_area_cells.append(c)   # SHOOT 모드에서 사거리 전체를 빨강으로 표시
+	var walls := _wall_blocked_cells(party.faction_name)   # 적 세력 성벽 안 부대는 표적 제외(성벽이 보호) → wall.md
 	for p in _npc_parties:
 		if not p.visible:
 			continue
 		var ec: Vector2i = terrain.local_to_map(p.position)
+		if walls.has(ec):
+			continue   # 성벽 안 수비대는 공격·사격 대상 아님
 		var melee := _cell_melee_reachable(ec, start)
 		var shoot: bool = rng >= 2 and shoot_area.has(ec)
 		if melee or shoot:
@@ -349,6 +353,8 @@ func _compute_camp_targets(start: Vector2i) -> void:
 	for camp in _npc_buildings:
 		if not camp.visible:
 			continue   # 미발견(안개) 거점은 대상 아님
+		if camp.is_walled():
+			continue   # 성벽 있는 적 거점은 진입 불가 → 점령 대상 아님(사다리·공성병기는 후속 슬라이스) → wall.md
 		# 방어됨 = 중심 타일에 그 거점 세력의 주둔 부대가 있음(일반 전투로 먼저 격파해야 함).
 		# 격파 후 플레이어 부대가 중심에 진입해 서 있으면(적 세력 아님) 방어로 치지 않아 점령할 수 있다.
 		if _camp_defender(camp) != null:
@@ -701,6 +707,15 @@ func _on_upgrade_requested(b) -> void:
 	_update_fog()                    # 티어별 시야 변화 반영
 	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
 
+## 성벽 건설 버튼 → 자재 지불 + wall_level 설정. 마을회관·성 + 자재 충분일 때만. → wall.md
+func _on_wall_requested(b) -> void:
+	if not BuildingTypes.can_build_wall(b.territory, b):
+		return
+	b.territory.spend(BuildingTypes.WALL_COST)   # 자재 차감
+	b.wall_level = 1
+	b.queue_redraw()   # 성벽 링 그리기
+	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
+
 ## 철거 버튼 → 바로 철거하지 않고 확인 다이얼로그를 띄운다(환급 미리보기 포함). [철거] 확인 시 _do_demolish(b).
 func _on_demolish_requested(b) -> void:
 	var label: String = BuildingTypes.get_type(b.building_type).get("label", "건물")
@@ -770,6 +785,27 @@ func _occupied_cells(exclude) -> Dictionary:
 		occ[terrain.local_to_map(p.position)] = true
 	return occ
 
+## faction_name 세력이 아닌 성벽 있는 거점들의 footprint 칸 집합({cell: true}). 그 세력에겐 완전 장애물·표적 제외. → wall.md
+func _wall_blocked_cells(faction_name: String) -> Dictionary:
+	var blocked := {}
+	for b in _buildings + _npc_buildings:
+		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
+			continue
+		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
+		if bf == faction_name:
+			continue   # 같은 세력 성벽은 통행·표적 자유
+		for c in b.cells:
+			blocked[c] = true
+	return blocked
+
+## party의 이동 장애물 = 다른 부대 점유 칸 + 적 세력 성벽 거점 footprint. 이동 범위·경로에 넘긴다. → wall.md
+func _blocked_for(party) -> Dictionary:
+	var occ := _occupied_cells(party)
+	if party != null:
+		for c in _wall_blocked_cells(party.faction_name):
+			occ[c] = true
+	return occ
+
 ## NPC 세력 fn이 향할 타깃 칸 목록. 적 부대·캠프로 진격하되, 자기 캠프가 위협받으면 침입자를 요격 우선.
 ## party_entries·camp_entries는 세력 무관하게 같으므로 _move_npcs가 턴당 한 번만 만들어 넘긴다.
 ## (enemy_cells가 세력으로 걸러 자기 부대·아군·자기 캠프는 자동 제외된다.)
@@ -789,6 +825,8 @@ func _npc_targets(p, party_entries: Array, camp_entries: Array) -> Array:
 	for b in _buildings + _npc_buildings:
 		if not BuildingTypes.is_center(b.building_type) or _party_on_cell(b.center_cell()) != null:
 			continue   # 중심 타일에 수비 부대가 있으면 방어됨 — 무방비 목록 제외
+		if b.is_walled():
+			continue   # 성벽 있으면 진입 불가 — 손쉬운 점령 대상 아님 → wall.md
 		var bf := ""
 		if b.territory != null and b.territory.faction != null:
 			bf = b.territory.faction.name
@@ -1346,7 +1384,7 @@ func _move_npcs() -> void:
 		if p.stationed:
 			continue   # 주둔 NPC 부대는 이동하지 않고 거점에서 대기 → garrison.md
 		var start := terrain.local_to_map(p.position)
-		var occ := _occupied_cells(p)   # 자기 외 모든 부대의 현재 위치 = 이동 장애물.
+		var occ := _blocked_for(p)   # 자기 외 부대 점유 + 적 세력 성벽 거점 footprint = 이동 장애물.
 		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p, party_entries, camp_entries))
 		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 		var f: String = p.faction_name
@@ -1424,10 +1462,16 @@ func _adjacent_enemy(attacker):
 	var in_range := {}
 	for c in HexGrid.cells_within(terrain, terrain.local_to_map(attacker.position), reach, MAP_WIDTH, MAP_HEIGHT):
 		in_range[c] = true
+	var walls := _wall_blocked_cells(attacker.faction_name)   # 적 성벽 안 수비대는 접근 불가 → 표적 제외 → wall.md
 	for other in _units + _npc_parties:
 		if other == attacker or other.members.is_empty():
 			continue
-		if in_range.has(terrain.local_to_map(other.position)):
+		if other.faction_name == attacker.faction_name:
+			continue   # 같은 세력(아군)은 공격 대상 아님(주둔 부대 도입 후 같은 세력 인접이 생겨 필요)
+		var oc: Vector2i = terrain.local_to_map(other.position)
+		if walls.has(oc):
+			continue   # 성벽 안 수비대는 표적 아님
+		if in_range.has(oc):
 			return other
 	return null
 
@@ -1439,6 +1483,8 @@ func _adjacent_enemy_camp(attacker):
 	for b in _buildings + _npc_buildings:
 		if not BuildingTypes.is_center(b.building_type):
 			continue
+		if b.is_walled():
+			continue   # 성벽 있는 적 거점은 진입 불가 → 흡수 대상 아님(공성 수단은 후속) → wall.md
 		var bf := ""
 		if b.territory != null and b.territory.faction != null:
 			bf = b.territory.faction.name
@@ -1509,7 +1555,7 @@ func _finish_pending_npc_moves() -> void:
 ## then_attack가 주어지면 이동 완료 후 그 적과 전투를 시작하고,
 ## 아니면 이동 후 공격 범위에 적이 있는지 재평가한다(빨강 재표시).
 func _move_player_to(start_cell: Vector2i, dest_cell: Vector2i, then_attack = null) -> void:
-	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT, _occupied_cells(party))
+	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT, _blocked_for(party))
 	_player_move_target = dest_cell
 	var tw := _animate_path(party, path, 0.0, func(_cell: Vector2i) -> void: _update_fog())
 	if tw == null:

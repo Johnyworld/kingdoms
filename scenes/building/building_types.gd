@@ -29,6 +29,19 @@ static func next_center(type_id: String) -> String:
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
 const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack"]
 
+# 거점 성벽 1단계 건설 비용(자재). 성벽은 카탈로그 건물이 아니라 거점에 붙는 값(Building.wall_level). → docs/spec/features/wall.md
+const WALL_COST := {"목재": 15, "석재": 10}
+
+## 그 거점에 성벽을 지을 수 있는지 — 마을회관·성(tier ≥ 1) + 성벽 없음 + 영지가 WALL_COST 감당. → docs/spec/features/wall.md
+static func can_build_wall(territory, building) -> bool:
+	if territory == null or building == null:
+		return false
+	if center_tier(building.building_type) < 1:
+		return false   # 캠프(tier 0)·비거점은 성벽 불가
+	if building.is_walled():
+		return false   # 이미 성벽 있음(이번 슬라이스 단일 단계)
+	return territory.can_afford(WALL_COST)
+
 const CATALOG := {
 	"camp": {
 		"label": "캠프",

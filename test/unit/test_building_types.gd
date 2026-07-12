@@ -151,3 +151,30 @@ func test_buildable_ids() -> void:
 	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack"], "건축 가능 목록(거점 제외)")
 	for id in ["camp", "town_hall", "castle"]:
 		assert_does_not_have(types.BUILDABLE_IDS, id, "거점 %s는 건축 목록 제외(업그레이드/새영지)" % id)
+
+# --- 성벽 (WALL_COST / can_build_wall) ---
+
+func _terr(res := {}) -> Object:
+	return load("res://scenes/territory/territory.gd").new("파리", res)
+
+func _bld(type_id: String, walled := false) -> Node2D:
+	var b: Node2D = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.building_type = type_id   # setup 없이 종류만 지정(can_build_wall은 종류·성벽만 본다)
+	b.wall_level = 1 if walled else 0
+	return b
+
+func test_wall_cost_is_materials() -> void:
+	assert_eq(types.WALL_COST, {"목재": 15, "석재": 10}, "성벽 비용 = 목재15·석재10")
+
+func test_can_build_wall_town_hall_affordable() -> void:
+	assert_true(types.can_build_wall(_terr({"목재": 20, "석재": 20}), _bld("town_hall")), "마을회관 + 자재 충분 → 참")
+
+func test_can_build_wall_camp_false() -> void:
+	assert_false(types.can_build_wall(_terr({"목재": 20, "석재": 20}), _bld("camp")), "캠프(tier 0)는 성벽 불가")
+
+func test_can_build_wall_already_walled_false() -> void:
+	assert_false(types.can_build_wall(_terr({"목재": 20, "석재": 20}), _bld("town_hall", true)), "이미 성벽 → 거짓")
+
+func test_can_build_wall_poor_false() -> void:
+	assert_false(types.can_build_wall(_terr({"목재": 5}), _bld("town_hall")), "자재 부족 → 거짓")

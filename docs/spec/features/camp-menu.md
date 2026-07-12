@@ -23,6 +23,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - `close_menu()` — 숨긴다.
 - 닫기 트리거: 배경 좌클릭, "닫기" 버튼.
 - **업그레이드 버튼** (`_upgrade_btn`) — 연 건물이 거점이고 [`next_center`](../data/buildings.md#거점-업그레이드)가 있으면(캠프·마을회관) 표시한다. 텍스트 `"<다음 티어 라벨>으로 업그레이드  <비용>"`(예: `"마을회관으로 업그레이드  목재 10 · 석재 10 · 밀 20"`). `BuildPlanner.can_upgrade`면 활성, 비용 부족이면 비활성. 최종 티어(성)·비거점이면 **숨김**. 누르면 `upgrade_requested(building)` 방출 → `game.gd`가 지불·`upgrade_to` 처리([건축](building.md#거점-업그레이드)).
+- **성벽 건설 버튼** (`_wall_btn`) — 연 건물이 **tier ≥ town_hall**(마을회관·성)이고 **성벽 없음**(`not is_walled()`)일 때 표시. 텍스트 `"성벽 건설  <비용>"`(비용 = [`WALL_COST`](../data/buildings.md#성벽-wall_cost)). `BuildingTypes.can_build_wall(territory, building)`면 활성, 자재 부족이면 비활성. 캠프·이미 성벽 있음·비거점이면 **숨김**. 누르면 `wall_requested(building)` 방출 → `game.gd`가 자재 지불·`wall_level = 1` 처리([성벽](wall.md)).
 - **캠프 건설 버튼** (`_found_camp_btn`) — `"캠프 건설 (새 영지)  목재 10 · 밀 10"`. 여는 영지가 캠프 비용을 감당하면(`BuildPlanner.can_build(territory, "camp")`) 활성, 아니면 비활성. 누르면 `found_camp_requested(territory)` 방출 → `game.gd`가 [캠프 건설](building.md#캠프-건설-새-영지-확장) 모드(부대 시야 배치)로 진입. `territory == null`이면 비활성.
 - **철거 버튼** (`_demolish_btn`) — `open`의 `can_demolish`가 참일 때만 표시(텍스트 `"캠프 철거 (영지 포기)"`). 누르면 `demolish_requested(building)` 방출 → `game.gd`가 [확인 다이얼로그](confirm-dialog.md) 후 **영지 통째 제거**를 처리한다([건물 정보 철거](building-info.md#철거)와 별개 — 거점은 캠프 메뉴에서). `can_demolish` 판정은 `game.gd` — **캠프(tier 0)**·**내 세력 영지**·**마지막 거점 아님**(세력 소멸 방지)일 때만 참. 마을회관·성은 거짓(철거 불가).
 - **건축 버튼** (`_on_build_pressed`) — 우측 패널을 **건설 리스트**로 전환한다(건축 버튼은 숨기고 리스트를 보임).
@@ -36,6 +37,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - **판매 패널** (`_sell_panel`, `party != null` + **거점**일 때 — 보급 패널과 같은 조건) — 부대의 노획 장비·화물을 **금**으로 판다([Trade](trade.md)). **장비 섹션**: `loot_items`를 이름별로 묶어 `[판매]`(1개씩 → 영지 금 += `ItemTypes.item_value`). **화물 섹션**: `cargo` 자원별(`인구`·`금` 제외) `[판매]`(`CARGO_STEP`씩 → 영지 금 += `ResourceTypes.value` × 판매량). 판매할 때마다 판매 목록과 좌측 자원 그리드(금)를 다시 그린다.
 - **구매 패널** (`_buy_panel`, `party != null` + **거점**일 때 — 판매 패널과 같은 조건) — 금으로 [상거래](trade.md#구매-camp_menu-구매-패널) 매입. **장비 섹션**: `ItemTypes` 전 카탈로그(무기/방어구/방패) `"<이름> <구매가>금"` + `[구매]`(구매가 = `item_value × BUY_MARKUP`(2), → 부대 `loot_items`). **자원 섹션**: `ResourceTypes.VALUES` 자원 `[구매]`(`CARGO_STEP`씩, 구매가 = `value × BUY_MARKUP × CARGO_STEP`, → 영지 자원). **병사 섹션**: 소집병 `[구매]`(`SOLDIER_GOLD_COST`(20)금 + `SOLDIER_POP_COST`(1)인구, → **주둔 부대**(`_party`) `members`에 소집병 1명 편입). 각 `[구매]`는 비용(금·인구) 부족이면 비활성. 주둔 부대(`_party`)가 없으면 구매 패널 자체가 숨겨져 병사 구매 불가. 구매마다 구매·판매 목록과 좌측 자원 그리드를 다시 그린다.
 - `signal garrison_changed` — 병사 구매로 주둔 부대에 병사가 추가될 때 방출. `game.gd`가 받아 [부대 일람](party-roster.md)·[안개](fog-of-war.md)·수비 배지를 갱신한다.
+- `signal wall_requested(building)` — 성벽 건설 버튼을 누르면 방출. `game.gd`가 받아 자재 지불 + `wall_level` 설정을 처리한다([성벽](wall.md)).
 - `signal upgrade_requested(building)` — 업그레이드 버튼을 누르면 방출. `game.gd`가 받아 거점 [업그레이드](building.md#거점-업그레이드)를 처리한다.
 - `signal found_camp_requested(territory)` — 캠프 건설 버튼을 누르면 방출. `game.gd`가 받아 [새 영지 캠프 건설](building.md#캠프-건설-새-영지-확장) 모드로 진입한다.
 - `signal demolish_requested(building)` — 철거 버튼을 누르면 방출. `game.gd`가 받아 확인 후 [캠프 철거](building-info.md#캠프-철거)를 처리한다.
@@ -60,6 +62,9 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - [정상] **캠프** 거점으로 `open` → 업그레이드 버튼 표시, 텍스트에 `"마을회관"` 포함; 비용 충분하면 활성
 - [정상] **성** 거점으로 `open` → 업그레이드 버튼 **숨김**(next_center 없음)
 - [정상] 업그레이드 버튼 누르면 `upgrade_requested(building)` 방출
+- [정상] **마을회관** 거점 + 자재 충분 → **성벽 건설 버튼** 표시·활성, 텍스트에 `"성벽 건설"`·비용 포함; 누르면 `wall_requested(building)` 방출
+- [경계] **캠프** 거점 → 성벽 건설 버튼 **숨김**(tier 0); 이미 성벽 있는 거점(`wall_level=1`) → 숨김
+- [경계] 자재 부족 → 성벽 건설 버튼 표시하되 **비활성**
 - [정상] 캠프 비용 감당 가능한 영지로 `open` → **캠프 건설 버튼** 활성, 텍스트에 `"캠프 건설"` 포함; 누르면 `found_camp_requested(territory)` 방출
 - [경계] 자원 부족·영지 없음 → 캠프 건설 버튼 비활성
 - [정상] `open(camp, party, true)` → **철거 버튼** 표시; `open(camp, party)`(기본 false) → 철거 버튼 숨김(재오픈 토글)
