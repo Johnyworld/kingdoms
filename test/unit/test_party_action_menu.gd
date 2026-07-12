@@ -73,8 +73,12 @@ func test_party_actions_no_station_off_center() -> void:
 	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false, false)), ["shoot", "rest", "alert", "equip"], "거점 밖이면 주둔 없음")
 
 func test_party_actions_unstation_when_stationed() -> void:
-	# 주둔 중이면 [주둔 종료][장비]만(다른 행동 없음).
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false, true, true)), ["unstation", "equip"], "주둔 중이면 주둔 종료·장비만")
+	# 주둔 중 + 사격 대상 없음 → [주둔 종료][장비]만(다른 행동 없음).
+	assert_eq(_ids(PartyActionMenu.party_actions(false, false, false, false, true, true)), ["unstation", "equip"], "주둔 중·사격 대상 없으면 주둔 종료·장비만")
+
+func test_party_actions_stationed_shoot_when_target() -> void:
+	# 주둔 중 + 사격 가능 적 있음(can_shoot_any) → [사격]이 맨 앞(주둔 유지한 채 제자리 사격).
+	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false, true, true)), ["shoot", "unstation", "equip"], "주둔 중·사격 대상 있으면 사격이 맨 앞")
 
 # --- 병합 팝업 (merge_actions) ---
 

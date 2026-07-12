@@ -433,8 +433,9 @@ func _handle_click(world_pos: Vector2) -> void:
 	var on_building := clicked != null and not BuildingTypes.is_center(clicked.building_type)
 
 	# SHOOT 모드: 사격 가능 적을 클릭하면 제자리 사격, 그 외 클릭은 MOVE 모드로 취소.
+	# 주둔 부대도 사격 가능(_can_fire) — 발사해도 주둔 유지(garrison.md 주둔 중 사격).
 	if _selected and _mode == MODE_SHOOT:
-		if _attack_targets.has(cell) and _attack_targets[cell]["shoot"] and party.can_attack():
+		if _attack_targets.has(cell) and _attack_targets[cell]["shoot"] and _can_fire():
 			var e: Dictionary = _attack_targets[cell]
 			_shoot_enemy(e["enemy"])
 		else:
@@ -1176,7 +1177,9 @@ func _enter_shoot_mode() -> void:
 func _open_action_menu() -> void:
 	_clear_popup_targets()
 	if party.stationed:
-		party_action_menu.open(PartyActionMenu.party_actions(false, false, false, false, false, true), _screen_pos(party.position))
+		# 주둔 부대 — 사거리 안 사격 가능 적이 있고 이번 턴 아직 안 쐈으면 [사격](주둔 유지) + [주둔 종료].
+		var can_fire_now: bool = not _shoot_cells.is_empty() and _can_fire()
+		party_action_menu.open(PartyActionMenu.party_actions(false, can_fire_now, false, false, false, true), _screen_pos(party.position))
 		return
 	if party.can_rest():
 		var can_undo: bool = _undo_party == party
@@ -1187,6 +1190,10 @@ func _open_action_menu() -> void:
 ## 활성 부대가 분할 가능한지 — 멤버 2명 이상이고 인접 빈 칸이 있어야 한다.
 func _can_split() -> bool:
 	return party.members.size() >= 2 and _empty_adjacent_to([terrain.local_to_map(party.position)]) != Vector2i(-1, -1)
+
+## 이번 턴 사격 가능한지 — 일반 부대는 can_attack, 주둔 부대는 아직 발사 안 했으면 가능(주둔 유지한 채 사격). → garrison.md
+func _can_fire() -> bool:
+	return party.can_attack() or (party.stationed and not party.attacked_this_turn)
 
 ## 활성 부대가 자기 세력 거점 중심 타일 위에 있는지([주둔] 버튼 노출 조건). → garrison.md
 func _on_own_center() -> bool:
@@ -1369,7 +1376,16 @@ func _npc_attack_phase(epoch: int) -> void:
 		if not is_instance_valid(attacker) or not (attacker in _npc_parties):
 			continue   # 이전 전투로 제거됨.
 		if attacker.stationed:
-			continue   # 주둔 NPC 부대는 대기(공격받으면 방어만 한다) → garrison.md
+			# 주둔 NPC 부대는 이동·근접 개시는 안 하되, 원거리 무기 + 사거리 안 적이 있으면 제자리 사격(주둔 유지). → garrison.md
+			if attacker.attack_range() >= 2 and not attacker.attacked_this_turn:
+				var st = _adjacent_enemy(attacker)   # 사거리(=attack_range) 안 적
+				if st != null:
+					attacker.mark_attacked()
+					if st in _units:
+						await _run_battle(attacker, st, true)   # 플레이어가 방어 → 오버레이 관전
+					else:
+						_resolve_battle_headless(attacker, st, true)   # NPC끼리 → 즉시 결산
+			continue   # 사격 후에도 이동·근접 개시 없이 대기
 		if not attacker.can_attack():
 			continue
 		var target = _adjacent_enemy(attacker)

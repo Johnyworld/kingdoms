@@ -62,8 +62,8 @@
 | 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지 |
 | 이번 턴 공격함 | `attacked_this_turn` | 이번 턴에 이미 공격했는지. 공격은 그 부대의 행동을 끝낸다([전투](../features/battle.md)) |
 | 이번 턴 휴식함 | `rested_this_turn` | 이번 턴 `[휴식]`/`[대기]`을 선택했는지([행동 메뉴](../features/party-action-menu.md)). 회복 연동은 `미구현` |
-| 주둔 중 | `stationed` | `bool`, 기본 `false`. 부대가 거점에서 **주둔(대기)** 중인지([Garrison](../features/garrison.md)). 참이면 명령([주둔 종료]) 전까지 대기하며, `can_move()`·`can_attack()`이 거짓이 된다. `reset_turn()`에도 **유지**(턴을 넘겨 지속) |
-| 소속 영지 | `home_territory` | **거점 주둔 부대**([Garrison](../features/garrison.md))가 설정하는 방어 영지 참조(그 외 부대는 `null`). [수비대 노획](../features/raid.md#수비대-노획) 시 노획물 귀속 대상 |
+| 주둔 중 | `stationed` | `bool`, 기본 `false`. 부대가 거점에서 **주둔(대기)** 중인지([Garrison](../features/garrison.md)). 참이면 명령([주둔 종료]) 전까지 대기하며, `can_move()`·`can_attack()`이 거짓이 된다(이동·근접 개시 불가). 단 **원거리 무기가 있으면 주둔을 유지한 채 제자리 사격**은 가능(턴당 1회). `reset_turn()`에도 **유지**(턴을 넘겨 지속) |
+| 소속 영지 | `home_territory` | **거점 주둔 부대**([Garrison](../features/garrison.md))가 설정하는 방어 영지 참조(그 외 부대는 `null`). 현재 소비처 없음(수비대 노획 폐지) — 향후 공성 확장 대비 메타데이터 |
 
 한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다. **주둔 중**이면 이동·공격을 모두 막는다(대기).
 

@@ -96,7 +96,7 @@ const GARRISON_STATS := {
 	"strength": 62, "wisdom": 40, "agility": 58, "charm": 40, "luck": 50,
 	"leadership": 30, "diligence": 55, "sensitivity": 40, "stamina": 40, "morale": 60,
 }
-const GARRISON_WEAPONS := ["sword"]
+const GARRISON_WEAPONS := ["bow", "sword"]   # 활 주무기 + 검 보조 — 방어 전투 원거리 반격·주둔 사격. → garrison.md
 const GARRISON_ARMOR := ["leather_helm", "leather_armor"]
 
 ## 캠프 수비대 병력(소집병) count명을 Human으로 생성한다. 생성 시 풀피·풀 스태미나.

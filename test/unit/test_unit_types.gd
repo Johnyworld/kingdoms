@@ -119,6 +119,11 @@ func test_make_garrison_count_and_full_hp() -> void:
 		assert_eq(h.hit_points, h.max_hp(), "생성 시 풀피")
 		assert_eq(h.movement, 4, "이동력 인간 기본")
 
+func test_make_garrison_ranged_loadout() -> void:
+	# 소집병은 활 주무기 + 검 보조 — 방어 전투 원거리 반격·주둔 사격용.
+	var h = types.make_garrison(1)[0]
+	assert_eq(h.weapons, ["bow", "sword"], "활 주무기 + 검 보조")
+
 func test_make_garrison_zero_empty() -> void:
 	assert_eq(types.make_garrison(0).size(), 0, "0명 → 빈 배열")
 

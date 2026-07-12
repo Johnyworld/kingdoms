@@ -27,7 +27,7 @@
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
 - `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false) -> Array` — **중앙 메뉴**.
-  - **주둔 중**(`stationed=true`): `[주둔 종료][장비]`만. 주둔 부대는 대기 상태라 다른 행동을 못 하고, `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·공격이 열린다. → [Garrison](garrison.md).
+  - **주둔 중**(`stationed=true`): `[사격]?[주둔 종료][장비]`. 주둔 부대는 대기라 이동·근접을 못 하지만, **사격 가능 적이 있으면**(`can_shoot_any`) 맨 앞에 `{id="shoot"}`을 넣어 **주둔을 유지한 채 제자리 사격**한다([주둔 중 사격](garrison.md#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)). `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·근접이 열린다.
   - **그 외**(`stationed=false`): `{id="shoot", label="사격", enabled=can_shoot_any}` 가 항상 첫 버튼.
     - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
     - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
@@ -70,7 +70,8 @@
 - [경계] `party_actions(false, true, true)` → `[사격, 휴식, 경계, 장비]`(이동 전이면 취소 없음)
 - [정상] `party_actions(false, true, false, false, true)` → 목록에 `{id="station"}` 포함(거점 위, `[장비]` 앞)
 - [경계] `party_actions(false, true, false, false, false)` → `{id="station"}` 없음(거점 밖)
-- [정상] `party_actions(false, true, false, false, true, true)`(주둔 중) → `[주둔 종료(unstation), 장비]`만(다른 행동 없음)
+- [정상] `party_actions(false, false, false, false, true, true)`(주둔 중·사격 대상 없음) → `[주둔 종료(unstation), 장비]`만
+- [정상] `party_actions(false, true, false, false, true, true)`(주둔 중·사격 대상 있음) → `[사격, 주둔 종료, 장비]`(사격이 맨 앞)
 - [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
 - [정상] `enemy_actions(false, true)` → `[공격(비활성), 사격(활성)]`
 

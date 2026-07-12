@@ -16,8 +16,13 @@ var _list: VBoxContainer
 ## 이동 후 [사격][대기](+되돌리기 가능하면 [취소]). 자기 거점 중심 타일 위(on_center)면 [주둔] 추가. 노드 비의존. → garrison.md
 static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false) -> Array:
 	if stationed:
-		# 주둔 부대는 대기 상태 — 주둔 종료로 풀어야 이동·공격이 열린다.
-		return [{"id": "unstation", "label": "주둔 종료", "enabled": true}, {"id": "equip", "label": "장비", "enabled": true}]
+		# 주둔 부대는 대기 상태 — 사격 가능 적이 있으면 주둔 유지한 채 제자리 사격, 주둔 종료로 풀어야 이동·근접이 열린다.
+		var held: Array = []
+		if can_shoot_any:
+			held.append({"id": "shoot", "label": "사격", "enabled": true})   # 주둔 중 사격(발사해도 주둔 유지)
+		held.append({"id": "unstation", "label": "주둔 종료", "enabled": true})
+		held.append({"id": "equip", "label": "장비", "enabled": true})
+		return held
 	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
 	if moved:
 		out.append({"id": "wait", "label": "대기", "enabled": true})

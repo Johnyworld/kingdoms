@@ -26,7 +26,7 @@ NPC는 전력을 비교해 무모한 교전을 피하고, 약하면 물러선다
 
 - **전력 지표**(순수, `NpcAi`): `party_power(members)` = 멤버 `hit_points` 합(부상당하면 낮아짐). `should_engage(my_power, enemy_power)` = `my_power >= enemy_power * CAUTION_RATIO`(`CAUTION_RATIO = 0.7`) — 자기 전력이 적의 70% 이상일 때만 교전.
 - **신중한 교전**(공격 페이즈, `_npc_attack_phase`): 인접 적 **부대**(거점 [주둔 부대](garrison.md) 포함 — 이제 수비대도 부대다)를 치기 전에 `should_engage`로 판단한다. 불리하면(false) 그 NPC는 이번 턴 **교전을 건너뛴다**(대기). 무방비 거점 흡수는 전투가 아니므로 그대로 진행.
-- **주둔 부대 제외**: `stationed`인 NPC 부대는 이동·공격 페이즈에서 **건너뛴다**(거점에서 대기). 공격받으면 일반 부대로 방어한다. → [Garrison / 주둔](garrison.md).
+- **주둔 부대**: `stationed`인 NPC 부대는 이동 페이즈에서 **건너뛴다**(거점에서 대기). 공격 페이즈에서는 근접 개시는 안 하되, **원거리 무기 + 사거리 안 적이 있으면 [주둔 중 사격](garrison.md#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)한다**(주둔 유지, 턴당 1회). 공격받으면 일반 부대로 방어한다. → [Garrison / 주둔](garrison.md).
 - **약하면 후퇴**(이동, `_npc_targets`): NPC 근처(`NPC_RETREAT_SCAN` 반경) 적 부대 중 가장 강한 것과 비교해 `should_engage`가 false면, 접근 타깃 대신 **안전한 자기 캠프 중심**을 타깃으로 삼아 물러선다. 자연히 거점 수비로 이어진다. **적이 2칸 이내로 붙은 캠프는 후퇴 대상에서 제외**(위협받는 캠프로 도망쳐 오히려 적에게 다가가는 것을 막는다). 안전한 캠프가 없으면 후퇴하지 않는다(기존 접근/방어).
 
 ## 표적 우선순위 (`_npc_targets` + `NpcAi.prioritize`)
