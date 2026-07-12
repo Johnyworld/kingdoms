@@ -13,7 +13,7 @@
 - 패자에게 노획할 것(화물 `cargo_total() > 0` **또는** 장비 `equipment_ids()` 비어있지 않음)이 하나도 없으면 아무 일도 일어나지 않는다(패널도 안 뜸).
 - 승자 화물에 담을 때 **`CARGO_CAPACITY`(50) 초과 허용**(병합과 동일 — 다음 적재만 막힌다). 장비 `loot_items`는 용량 제한 없음.
 - 약탈은 패자 부대가 맵에서 제거(`_apply_survivors`의 `queue_free`)되기 **전에** 처리한다. 패자 화물·멤버 장비를 읽어야 하므로(전멸 시점 `loser.members`는 아직 전사자 전원을 담고 있다).
-- **승자가 임시 수비대 부대**(`_make_garrison_party` — `_units`·`_npc_parties`에 없는 방어 부대)면 노획하지 않는다(화물·장비 모두). 전투 후 곧 제거돼 소실되므로(수비대 노획은 `미구현`). 지속 부대(플레이어·NPC)가 승자일 때만 노획한다.
+- **승자가 임시 수비대 부대**(`_make_garrison_party` — `_units`·`_npc_parties`에 없지만 `home_territory`가 설정됨)면 노획물을 **방어 영지로 귀속**한다([수비대 노획](#수비대-노획)). 지속 부대(플레이어·NPC)는 부대 자신이 노획한다. `home_territory`도 없는 완전 임시 부대만 노획 없이 넘어간다.
 
 ## 승자가 플레이어 부대 (관전 전투 · `_run_battle`)
 
@@ -30,6 +30,15 @@
 ## 승자가 NPC (또는 NPC↔NPC · `_resolve_battle_headless`)
 
 - 패널 없이 `winner.take_all_loot(loser)`(화물 전량) + `winner.take_all_equipment(loser)`(장비 전량)로 **자동 획득**한다. NPC가 플레이어를 이긴 경우(`_run_battle`)·NPC끼리(`_resolve_battle_headless`) 모두 동일.
+
+## 수비대 노획
+
+캠프를 지키는 임시 [수비대 부대](garrison.md)(`_make_garrison_party`, `home_territory` = 방어 영지)가 **방어 승리**(공격자 전멸)하면, 노획물을 그 **영지로 귀속**한다.
+
+- 노획은 승자(수비대 부대)로 먼저 받는다 — **플레이어 세력 수비대**는 [약탈 패널](#승자가-플레이어-부대-관전-전투--_run_battle)로 골라 받고, **NPC 세력 수비대**는 전량 자동. (지속 부대와 동일한 획득 경로 재사용.)
+- 이어서 승자 부대의 노획물을 **`home_territory.receive_loot(승자)`** 로 옮긴다 — 화물은 [영지 자원](../entities/Territory.md)으로, 장비는 영지 `loot_items`로. 수비대 부대는 전투 후 제거되므로(`camp.garrison`으로 병사만 복귀) 이 귀속으로 노획물이 보존된다.
+- **엣지**: 수비대의 `home_territory`가 없으면(`camp.territory == null` — 정상 캠프에선 발생 안 함) 노획물을 담을 영지가 없어 **노획하지 않는다**(소실). 담을 곳 자체가 없기 때문.
+- 영지 `loot_items`(장비)의 **판매(→금) 활용은 `미구현`**(다음 슬라이스). 영지엔 멤버가 없어 장착은 불가.
 
 ## Party 노획 API (`party.gd`)
 
@@ -66,11 +75,12 @@
 ### 약탈 연동 (실행 확인)
 
 - 승자 판정(한쪽만 전멸)·플레이어 승자 패널(좌 노획 2섹션 / 우 내 인벤토리 읽기 전용)·NPC 자동 전량은 `game.gd` 배선이라 실제 실행으로 확인한다.
+- **수비대 노획**: 수비대 부대의 `home_territory` 설정·전투 후 `receive_loot` 귀속 호출은 `game.gd`(`_make_garrison_party`·`_resolve_loot`) 배선이라 실행 확인. 귀속 자체(`Territory.receive_loot`)는 [Territory 시나리오](../entities/Territory.md#테스트-시나리오)로 단위 검증.
 
 ## 미구현
 
 - **노획 장비 활용** — 노획한 장비를 승자 멤버에게 장착하거나 판매·전용 목록 표시. 지금은 `loot_items`에 수집만 한다.
-- **수비대 노획** — 임시 수비대 부대가 방어 승리 시 노획. 수비대 화물·장비가 캠프/영지로 귀속되는 경로가 없어 `미구현`.
+- **영지 노획 장비 활용** — [수비대 노획](#수비대-노획)으로 영지 `loot_items`에 쌓인 장비의 판매(→금)는 `미구현`(다음 슬라이스). 영지엔 멤버가 없어 장착은 불가.
 - 상호 전멸 시 분배, 약탈 애니메이션.
 
 ## 관련

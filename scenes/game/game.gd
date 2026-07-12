@@ -880,6 +880,7 @@ func _run_camp_battle(attacker, camp) -> void:
 func _make_garrison_party(camp) -> Party:
 	var gp: Party = PARTY_SCENE.instantiate()
 	gp.party_name = "수비대"
+	gp.home_territory = camp.territory   # 수비대 노획물 귀속 대상(방어 영지)
 	if camp.territory != null and camp.territory.faction != null:
 		gp.faction_name = camp.territory.faction.name
 		gp.token_color = camp.territory.faction.color
@@ -1079,17 +1080,23 @@ func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -
 	var dropped: Array = loser.equipment_ids()   # 전사자 장비 스냅샷(_apply_survivors 전이라 멤버 살아있음)
 	if loser.cargo_total() <= 0 and dropped.is_empty():
 		return   # 노획할 화물·장비 없음
-	# 임시 수비대 부대(_make_garrison_party — _units·_npc_parties 어디에도 없음)가 승자면 제외한다.
-	# 전투 후 곧 queue_free돼 소실되므로(수비대 노획은 미구현). 지속 부대만 노획한다.
-	if not ((winner in _units) or (winner in _npc_parties)):
-		return
-	# 승자가 플레이어 세력이면 선택 패널(화물+장비), NPC 세력이면 전량 자동.
+	# 승자 유형: 지속 부대(자기 노획) / 임시 수비대(home_territory로 귀속) / 그 외 임시(노획 없음).
+	# 수비대라도 home_territory가 없으면(정상 캠프에선 없음) 담을 영지가 없어 노획하지 않는다(소실 — raid.md 엣지).
+	var persistent: bool = (winner in _units) or (winner in _npc_parties)
+	var is_garrison: bool = not persistent and winner.home_territory != null
+	if not persistent and not is_garrison:
+		return   # 완전 임시 부대(또는 territory 없는 수비대) — 노획 없이 소실
+	# 노획은 승자 부대로 먼저 받는다(수비대도 실제 Party라 동일 경로 재사용).
+	# 플레이어 세력이면 선택 패널(화물+장비), NPC 세력이면 전량 자동.
 	if winner.faction_name == _player_faction.name:
 		loot_menu.open(winner, loser, dropped)
 		await loot_menu.closed
 	else:
 		winner.take_all_loot(loser)
 		winner.take_all_equipment(loser)
+	# 수비대 부대는 전투 후 제거되므로, 받은 노획물을 방어 영지로 귀속한다(화물→자원, 장비→영지 loot_items).
+	if is_garrison:
+		winner.home_territory.receive_loot(winner)
 
 ## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, NPC 부대 전멸 시 맵에서 제거.
 ## 플레이어 부대는 전멸해도 노드를 유지한다(전멸 후 처리는 미구현).

@@ -18,6 +18,9 @@ class_name Party extends Node2D
 var members: Array = []   # 이 부대에 속한 Human 목록.
 var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
 
+## 임시 수비대 부대만 설정하는 방어 영지 참조(그 외 부대는 null). 수비대 노획물 귀속 대상(Territory.receive_loot).
+var home_territory = null
+
 # --- 화물(캐러반) ---
 ## 부대가 운반하는 자원(자원명→수량). 거점에서 적재/하역한다. 부대와 함께 이동하고, 전멸하면 소실된다.
 var cargo: Dictionary = {}

@@ -4,9 +4,10 @@ class_name Territory extends RefCounted
 ## 시각 요소가 없는 순수 데이터 엔티티라 씬 없이 스크립트만 둔다.
 
 var name: String
-var resources: Dictionary   # 모든 자원(인구·밀·빵·나무·목재·철·철괴). 삽입 순서 = 메뉴 표시 순서.
+var resources: Dictionary   # 모든 자원(인구·밀·빵·나무·목재·철·철괴·금). 삽입 순서 = 메뉴 표시 순서.
 var faction: Faction = null
 var buildings: Array = []
+var loot_items: Array = []   # 영지 소유 노획 장비 id 목록(수비대 노획 귀속). 활용(판매)은 미구현.
 
 func _init(p_name := "", p_resources := {}) -> void:
 	name = p_name
@@ -87,3 +88,12 @@ func demolish(building) -> void:
 		resources[res_name] = resources.get(res_name, 0) + refund[res_name]
 	if labor > 0:
 		resources["인구"] = resources.get("인구", 0) + labor
+
+## 부대의 노획물을 이 영지로 흡수한다(수비대 노획 귀속). 화물→자원, 장비→영지 loot_items.
+## 옮긴 뒤 부대의 cargo·loot_items는 비운다(부대는 곧 제거되는 임시 수비대). 빈 부대면 변화 없음.
+func receive_loot(party) -> void:
+	for res_name in party.cargo:
+		resources[res_name] = resources.get(res_name, 0) + party.cargo[res_name]
+	party.cargo = {}
+	loot_items.append_array(party.loot_items)
+	party.loot_items = []
