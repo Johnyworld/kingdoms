@@ -46,7 +46,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
 - [Fog of War (전장의 안개)](features/fog-of-war.md)
 - [Camp Menu (캠프 메뉴)](features/camp-menu.md) — 캠프 클릭 시 영지 자원·건축 메뉴
-- [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시
+- [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시 + 철거(확인 다이얼로그)
+- [Confirm Dialog (확인 다이얼로그)](features/confirm-dialog.md) — 되돌리기 어려운 동작 전 확인받는 범용 모달(첫 사용처: 건물 철거)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Combat (전투 판정)](features/combat.md) — 능력치 기반 1회 공방·3회 교대 교전 순수 로직
 - [Battle (전투씬·개시·복귀)](features/battle.md) — 인접 적 클릭 개시 → 실시간 관전 오버레이 → 사상자 반영·복귀
@@ -102,6 +103,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 유닛·부대 카탈로그 | `scenes/party/unit_types.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 정보 패널 | `scenes/building/building_info.gd` |
+| 확인 다이얼로그 | `scenes/game/confirm_dialog.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |
 | 건설 배치 유틸 | `scenes/building/build_planner.gd` |
 | 영지 | `scenes/territory/territory.gd` |

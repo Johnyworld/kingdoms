@@ -126,6 +126,7 @@ var _in_battle := false
 # 게임 오버(승패 확정) 상태. true면 월드맵 좌클릭·턴 종료를 잠그고 결과 오버레이를 띄운다.
 var _game_over := false
 var result_overlay: ResultOverlay   # 결과 화면(코드 생성, _ready에서 추가)
+var confirm_dialog: ConfirmDialog   # 확인 다이얼로그(코드 생성, _ready에서 추가). 철거 등 확인용(동작은 open 콜백).
 var split_panel: SplitPanel         # 부대 분할 패널(코드 생성, _ready에서 추가)
 var _split_new = null               # 분할 중 새로 만든 부대(닫을 때 비어 있으면 취소·제거)
 var toast: Toast                    # 점령/함락 알림(코드 생성, _ready에서 추가)
@@ -176,6 +177,8 @@ func _ready() -> void:
 	result_overlay = ResultOverlay.new()   # 결과 화면(코드 생성)
 	add_child(result_overlay)
 	result_overlay.dismissed.connect(_on_result_dismissed)
+	confirm_dialog = ConfirmDialog.new()   # 확인 다이얼로그(코드 생성). 동작은 open의 콜백으로 넘긴다.
+	add_child(confirm_dialog)
 	split_panel = SplitPanel.new()   # 부대 분할 패널(코드 생성)
 	add_child(split_panel)
 	split_panel.changed.connect(_on_split_changed)
@@ -667,9 +670,27 @@ func _on_upgrade_requested(b) -> void:
 	_update_fog()                    # 티어별 시야 변화 반영
 	camp_menu.open(b, _party_at_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
 
+## 철거 버튼 → 바로 철거하지 않고 확인 다이얼로그를 띄운다(환급 미리보기 포함). [철거] 확인 시 _do_demolish(b).
 func _on_demolish_requested(b) -> void:
+	var label: String = BuildingTypes.get_type(b.building_type).get("label", "건물")
+	confirm_dialog.open("「%s」 철거 — %s" % [label, _refund_text(b)], "철거", _do_demolish.bind(b))
+
+## 실제 환급(refund_on_demolish — 완성 salvage / 건설 중 build_cost 비례)을 "환급: 목재 2, 석재 1" 형태로. 없으면 "환급 없음".
+func _refund_text(b) -> String:
+	var refund: Dictionary = b.refund_on_demolish()
+	if refund.is_empty():
+		return "환급 없음"
+	var parts: Array = []
+	for res in refund:
+		parts.append("%s %d" % [res, refund[res]])
+	return "환급: " + ", ".join(parts)
+
+## 실제 철거(확인 다이얼로그 [철거] 확정 콜백): 영지 제거·환급 → 추적 목록 제거 → 노드 free → 안개·패널 정리.
+func _do_demolish(b) -> void:
+	if not is_instance_valid(b):
+		return   # 다이얼로그가 열린 사이 다른 경로로 건물이 제거됐으면 무시
 	if b.territory != null:
-		b.territory.demolish(b)   # 영지에서 떼고 demolish_refund 환급
+		b.territory.demolish(b)   # 영지에서 떼고 refund_on_demolish 환급(완성 salvage / 건설 중 비례)
 	_buildings.erase(b)
 	building_info.close()
 	b.queue_free.call_deferred()
