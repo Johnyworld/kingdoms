@@ -1573,6 +1573,10 @@ func _npc_attack_phase(epoch: int) -> void:
 			_transfer_camp(camp, _faction_named(attacker.faction_name))
 			_update_fog()
 			continue
+		# 칠 적·흡수할 거점이 없으면, 인접 성벽 적 거점에 빈 면이 있으면 사다리 설치(공성). → wall.md
+		if not _ladder_target_for(attacker).is_empty():
+			_place_ladder(attacker)   # 그 NPC 세력 사다리 설치 — 행동 종료(mark_attacked)
+			continue
 	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
 	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
 
@@ -1611,8 +1615,8 @@ func _adjacent_enemy_camp(attacker):
 	for b in _buildings + _npc_buildings:
 		if not BuildingTypes.is_center(b.building_type):
 			continue
-		if b.is_walled():
-			continue   # 성벽 있는 적 거점은 진입 불가 → 흡수 대상 아님(공성 수단은 후속) → wall.md
+		if b.is_walled() and not _breached_by(b, fn):
+			continue   # 성벽 거점은 진입 불가 → 흡수 대상 아님. 단 이 세력이 사다리로 돌파했으면 열린다. → wall.md
 		var bf := ""
 		if b.territory != null and b.territory.faction != null:
 			bf = b.territory.faction.name
