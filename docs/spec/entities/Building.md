@@ -10,7 +10,7 @@
 
 건물은 **건설 중**(`under_construction`) 또는 **완성** 상태를 가진다. 건설 중에는 생산·시야가 없고, 턴마다 `advance_construction()`으로 진행하다가 `build_turns`만큼 지나면 완성된다([건축](../features/building.md) 참고).
 
-> 게임 시작 시 캠프가 배치되고(즉시 완성), 이후 [건축](../features/building.md)으로 **농장을 건설**할 수 있다(건설 중 → 완성). `production`/`build_turns`/`build_cost`는 사용되며, `demolish_refund`(철거)는 아직 **미구현**이다.
+> 게임 시작 시 캠프가 배치되고(즉시 완성), 이후 [건축](../features/building.md)으로 **농장을 건설**할 수 있다(건설 중 → 완성). `production`/`build_turns`/`build_cost`/`demolish_refund` 모두 사용된다([철거](../features/building-info.md#철거) 구현됨 — 완성은 `demolish_refund`, 건설 중은 `build_cost` 진행도 비례 환급).
 
 차지하는 **발자국(footprint)은 종류별**이다([카탈로그](../data/buildings.md) `footprint`). 캠프·농장은 **중심 1헥스 + 주변 6헥스 = 7헥스**, 소형 생산 건물(집·벌목소·채석장)은 **중심 1헥스**만 차지한다. `setup`이 `_spec.footprint`(기본 7)로 점유 셀을 잡는다.
 헥스 중 하나라도 클릭되면 게임 쪽에서 종류에 따라 UI를 연다: **캠프**는 [캠프 메뉴](../features/camp-menu.md)(자원·건축), **그 외 건물(농장)**은 [건물 정보 패널](../features/building-info.md).
@@ -61,7 +61,8 @@
 - `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). **건설 중에는 빈 Dictionary**. 완성 후에는 카탈로그의 `production`(없으면 빈 Dictionary, 캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
 - `planned_production() -> Dictionary` — 완성 시 생산량(카탈로그 `production`). **건설 여부와 무관**하게 항상 반환(`production()`과 달리 건설 중에도 값이 있음). [건물 정보 패널](../features/building-info.md)이 건설 중에도 완성 시 생산량을 보여줄 때 쓴다.
 - `pop_cap() -> int` — 이 건물이 영지 [인구 상한](Territory.md#인구-상한population_cap)에 더하는 값. **건설 중에는 0**(완성 건물만 기여), 완성 후 카탈로그 `pop_cap`(없으면 0). 거점 티어별: 캠프 0 · 마을회관 10 · 성 20, 집 +2. `production()`과 같은 건설-게이트 패턴.
-- `demolish_refund() -> Dictionary` — [철거](../features/building-info.md#철거) 시 돌려받는 자재(자원명→수량). 카탈로그 `demolish_refund`(없으면 빈 Dictionary). **건설 여부와 무관**(건설 중 취소해도 같은 자재 회수).
+- `demolish_refund() -> Dictionary` — **완성 건물** 철거 시 돌려받는 salvage 자재(자원명→수량). 카탈로그 `demolish_refund`(없으면 빈 Dictionary). 순수 카탈로그값(건설 여부 무관).
+- `refund_on_demolish() -> Dictionary` — [철거](../features/building-info.md#철거) 시 **실제 환급** 자재. **완성**이면 `demolish_refund()`. **건설 중**이면 낸 `build_cost`를 진행도 비례로 — `floor(build_cost[자원] × remaining_turns ÷ build_turns)`(안 쓴 자재 회수, 0인 자원은 생략). `build_turns ≤ 0`이면 `build_cost` 전액(방어). `Territory.demolish`와 철거 미리보기가 이걸 쓴다.
 - `required_pop() -> int` — 이 건물이 고용하는 [노동력](../data/buildings.md#필요인원-required_pop)(인구 수). 카탈로그 `required_pop`(없으면 0). 건설 시 영지 인구에서 소비, 철거 시 반환. 건설 여부와 무관(카탈로그 값).
 - `upgrade_to(type_id) -> void` — 거점 [인플레이스 업그레이드](../data/buildings.md#거점-업그레이드). `building_type`·`_spec`·`vision`·`cells`(footprint)를 새 티어로 교체하고 **완성 상태**로 둔다. **위치(center)·영지·수비대(garrison)는 유지**. 모든 거점이 footprint 7이라 점유 셀은 그대로. 비용 지불(`Territory.build_pay`)은 호출부([건축](../features/building.md#거점-업그레이드))가 먼저 한다.
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
@@ -89,7 +90,10 @@
 - [정상] 완성 농장 `planned_production() == {밀:1}`, 캠프 `planned_production() == {}`
 - [정상] `pop_cap()` — 완성 캠프 0, 마을회관 10, 성 20, 집 2, 농장 0; **건설 중** 집은 0(완성 후 2)
 - [정상] `upgrade_to("town_hall")` — 캠프를 마을회관으로: `building_type == "town_hall"`, `vision == 6`, `pop_cap() == 10`, `is_complete()`, 점유 셀 7 유지, 수비대 보존
-- [정상] `demolish_refund()` — 농장 `{목재1}`, 집 `{목재2}`; **건설 중**에도 동일(건설 여부 무관)
+- [정상] `demolish_refund()` — 농장 `{목재1}`, 집 `{목재2}`; **건설 중**에도 동일(순수 카탈로그값)
+- [정상] `refund_on_demolish()` **완성** = `demolish_refund()`(카탈로그 salvage)
+- [정상] `refund_on_demolish()` **건설 중 진행도 비례** — 농장(build_turns 3, build_cost 목재5·밀5): 갓 시작(remaining 3) → `{목재5,밀5}`(전액); 1턴 진행(remaining 2) → `{목재3,밀3}`(floor 5×2/3)
+- [경계] `refund_on_demolish()` 건설 중 진행이 많아 어떤 자원의 몫이 0이면 그 자원은 결과에서 생략
 - [정상] `required_pop()` — 농장 2, 벌목소 1, 채석장 1, 집·캠프 0
 - [정상] **건설 중** 농장도 `planned_production() == {밀:1}` (반면 `production() == {}`)
 - [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`, `production() == {}`

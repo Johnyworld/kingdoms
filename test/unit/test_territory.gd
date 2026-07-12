@@ -136,6 +136,17 @@ func test_demolish_removes_and_refunds() -> void:
 	assert_eq(t.resources["인구"], 7, "노동력 반환 +2(required_pop)")
 	assert_eq(t.resources["목재"], 1, "자재 환급 +1(demolish_refund)")
 
+func test_demolish_under_construction_refunds_partial_build_cost() -> void:
+	# 건설 중 농장(build_turns 3, build_cost 목재5·밀5) 1턴 진행(remaining 2) 철거 → floor(5×2/3)=3씩 환급.
+	var t := _territory("파리", {"인구": 5, "목재": 0, "밀": 0})
+	var farm := _typed_building(Vector2i(20, 20), "farm", true)
+	farm.advance_construction()   # remaining 2 / 3
+	t.add_building(farm)
+	t.demolish(farm)
+	assert_eq(t.resources["목재"], 3, "건설 중 부분 환급 목재 3(build_cost 비례)")
+	assert_eq(t.resources["밀"], 3, "건설 중 부분 환급 밀 3")
+	assert_eq(t.resources["인구"], 7, "노동력은 전액 반환 +2")
+
 func test_demolish_creates_missing_resource_key() -> void:
 	var t := _territory("파리", {})  # 목재·인구 키 없음
 	var house := _typed_building(Vector2i(20, 20), "house")

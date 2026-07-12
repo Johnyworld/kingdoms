@@ -97,9 +97,26 @@ func pop_cap() -> int:
 		return 0
 	return _spec.get("pop_cap", 0)
 
-## 철거 시 돌려받는 자재(자원명→수량). 건설 여부와 무관하게 카탈로그 demolish_refund(없으면 빈 Dictionary).
+## 완성 건물 철거 시 돌려받는 salvage 자재(자원명→수량). 순수 카탈로그 demolish_refund(없으면 빈 Dictionary).
 func demolish_refund() -> Dictionary:
 	return _spec.get("demolish_refund", {})
+
+## 철거 시 실제 환급 자재. 완성이면 demolish_refund(salvage), 건설 중이면 낸 build_cost를 진행도 비례로 회수.
+## 건설 중 = floor(build_cost[자원] × remaining_turns / build_turns) — 안 쓴 자재만. 몫이 0인 자원은 생략.
+## build_turns <= 0이면(즉시 건물 방어) build_cost 전액. Territory.demolish·철거 미리보기가 쓴다.
+func refund_on_demolish() -> Dictionary:
+	if is_complete():
+		return demolish_refund()
+	var cost: Dictionary = _spec.get("build_cost", {})
+	var bt: int = _spec.get("build_turns", 0)
+	if bt <= 0:
+		return cost.duplicate()
+	var out: Dictionary = {}
+	for res_name in cost:
+		var amount: int = cost[res_name] * remaining_turns / bt   # 정수 나눗셈(내림)
+		if amount > 0:
+			out[res_name] = amount
+	return out
 
 ## 이 건물이 고용하는 노동력(인구 수). 카탈로그 required_pop(없으면 0). 건설 시 소비·철거 시 반환.
 func required_pop() -> int:

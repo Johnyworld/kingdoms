@@ -113,6 +113,19 @@ func test_advance_construction_completes_on_last_turn() -> void:
 	assert_true(building.is_complete(), "완성됨")
 	assert_eq(building.production(), {"밀": 1}, "완성 후 생산 시작")
 
+func test_refund_on_demolish_complete_uses_salvage() -> void:
+	building.setup(terrain, _center(), "farm")   # 완성
+	assert_eq(building.refund_on_demolish(), building.demolish_refund(), "완성은 demolish_refund(카탈로그 salvage)")
+
+func test_refund_on_demolish_under_construction_full_at_start() -> void:
+	building.setup(terrain, _center(), "farm", true)   # remaining 3 / build_turns 3
+	assert_eq(building.refund_on_demolish(), {"목재": 5, "밀": 5}, "갓 시작(진행 0) → build_cost 전액")
+
+func test_refund_on_demolish_under_construction_partial() -> void:
+	building.setup(terrain, _center(), "farm", true)
+	building.advance_construction()   # remaining 2 / 3
+	assert_eq(building.refund_on_demolish(), {"목재": 3, "밀": 3}, "1턴 진행 → floor(5×2/3)=3씩")
+
 func test_advance_construction_on_complete_is_noop() -> void:
 	_camp()
 	assert_false(building.advance_construction(), "완성 건물은 no-op false")
