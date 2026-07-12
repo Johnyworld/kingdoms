@@ -49,10 +49,14 @@ var _sell_loot_list: VBoxContainer   # 부대 노획 장비 판매 행(이름별
 var _sell_cargo_list: VBoxContainer  # 화물 판매 행(자원별, 인구·금 제외)
 var _sell_territory_list: VBoxContainer  # 영지 노획 장비 판매 행(수비대 노획 귀속분)
 
-# 구매 패널(부대 있을 때만). 영지 금 → 부대 노획 장비.
+# 구매 패널(부대 있을 때만). 영지 금 → 부대 노획 장비·영지 자원·수비대 병사.
 var _buy_panel: PanelContainer
-var _buy_list: VBoxContainer          # 카탈로그 장비 구매 행(무기·방어구·방패)
-const BUY_MARKUP := 2                 # 구매가 = item_value × BUY_MARKUP(판매가의 2배)
+var _buy_list: VBoxContainer           # 카탈로그 장비 구매 행(무기·방어구·방패)
+var _buy_resource_list: VBoxContainer  # 자원 구매 행(→ 영지 자원)
+var _buy_soldier_list: VBoxContainer   # 병사 구매 행(→ 캠프 수비대)
+const BUY_MARKUP := 2                  # 구매가 = 기준가 × BUY_MARKUP(판매가의 2배)
+const SOLDIER_GOLD_COST := 20          # 병사 1명 구매 금 비용
+const SOLDIER_POP_COST := 1            # 병사 1명 구매 인구(노동력) 비용
 
 func _ready() -> void:
 	layer = 64
@@ -292,9 +296,26 @@ func _build_buy_panel() -> Control:
 	vbox.add_child(title)
 	vbox.add_child(HSeparator.new())
 
+	var loot_title := Label.new()
+	loot_title.text = "장비"
+	vbox.add_child(loot_title)
 	_buy_list = VBoxContainer.new()
 	_buy_list.add_theme_constant_override("separation", 4)
 	vbox.add_child(_buy_list)
+
+	var res_title := Label.new()
+	res_title.text = "자원"
+	vbox.add_child(res_title)
+	_buy_resource_list = VBoxContainer.new()
+	_buy_resource_list.add_theme_constant_override("separation", 4)
+	vbox.add_child(_buy_resource_list)
+
+	var soldier_title := Label.new()
+	soldier_title.text = "병사"
+	vbox.add_child(soldier_title)
+	_buy_soldier_list = VBoxContainer.new()
+	_buy_soldier_list.add_theme_constant_override("separation", 4)
+	vbox.add_child(_buy_soldier_list)
 
 	_buy_panel.hide()
 	return _buy_panel
@@ -533,11 +554,74 @@ func _after_sell_change() -> void:
 func _refresh_buy_list() -> void:
 	for c in _buy_list.get_children():
 		c.free()
+	for c in _buy_resource_list.get_children():
+		c.free()
+	for c in _buy_soldier_list.get_children():
+		c.free()
 	if _territory == null or _party == null:
 		return
 	_add_buy_section("무기", ItemTypes.WEAPONS)
 	_add_buy_section("방어구", ItemTypes.ARMORS)
 	_add_buy_section("방패", ItemTypes.SHIELDS)
+	_refresh_buy_resources()
+	_refresh_buy_soldier()
+
+## 자원 구매가 = 자원 판매가 × BUY_MARKUP × CARGO_STEP(한 번에 CARGO_STEP개). 목록·구매가 공유.
+func _resource_buy_price(res_name: String) -> int:
+	return ResourceTypes.value(res_name) * BUY_MARKUP * CARGO_STEP
+
+## 자원 구매 행: ResourceTypes.VALUES의 자원별 "이름 가격금" + [구매]. 금 부족이면 비활성.
+func _refresh_buy_resources() -> void:
+	var gold: int = _territory.resources.get("금", 0)
+	for res_name in ResourceTypes.VALUES:
+		var price: int = _resource_buy_price(res_name)
+		var row := HBoxContainer.new()
+		var lbl := Label.new()
+		lbl.text = "%s  %d금" % [res_name, price]
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+		var btn := Button.new()
+		btn.text = "구매"
+		btn.disabled = gold < price
+		btn.pressed.connect(_buy_resource.bind(res_name))
+		row.add_child(btn)
+		_buy_resource_list.add_child(row)
+
+## 병사 구매 행: "소집병 금+인구" + [구매]. 금·인구 부족이면 비활성.
+func _refresh_buy_soldier() -> void:
+	var gold: int = _territory.resources.get("금", 0)
+	var pop: int = _territory.resources.get("인구", 0)
+	var row := HBoxContainer.new()
+	var lbl := Label.new()
+	lbl.text = "소집병  %d금 + 인구 %d" % [SOLDIER_GOLD_COST, SOLDIER_POP_COST]
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lbl)
+	var btn := Button.new()
+	btn.text = "구매"
+	btn.disabled = gold < SOLDIER_GOLD_COST or pop < SOLDIER_POP_COST
+	btn.pressed.connect(_buy_soldier)
+	row.add_child(btn)
+	_buy_soldier_list.add_child(row)
+
+## 자원을 CARGO_STEP만큼 사서 영지 재고에 넣는다. 영지 금 ≥ 구매가일 때만. 부족하면 no-op.
+func _buy_resource(res_name: String) -> void:
+	var price: int = _resource_buy_price(res_name)
+	if price <= 0 or _territory.resources.get("금", 0) < price:
+		return
+	_territory.resources["금"] = _territory.resources.get("금", 0) - price
+	_territory.resources[res_name] = _territory.resources.get(res_name, 0) + CARGO_STEP
+	_after_buy_change()
+
+## 소집병 1명을 사서 캠프 수비대에 추가한다. 금·인구가 충분할 때만(금·인구 차감). 부족하면 no-op.
+func _buy_soldier() -> void:
+	if _territory.resources.get("금", 0) < SOLDIER_GOLD_COST or _territory.resources.get("인구", 0) < SOLDIER_POP_COST:
+		return
+	_territory.resources["금"] = _territory.resources.get("금", 0) - SOLDIER_GOLD_COST
+	_territory.resources["인구"] = _territory.resources.get("인구", 0) - SOLDIER_POP_COST
+	_building.garrison.append_array(UnitTypes.make_garrison(1))   # 소집병 1명 → 수비대
+	_building.queue_redraw()   # 맵 수비대 인원 배지 갱신
+	_refresh_garrison_lists.call_deferred()   # 수비대 편성 목록 갱신
+	_after_buy_change()
 
 ## 아이템 구매가 = 기준가(item_value) × BUY_MARKUP. 구매 목록·구매 처리가 공유(단일 출처).
 func _buy_price(id: String) -> int:

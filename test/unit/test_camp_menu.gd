@@ -243,6 +243,44 @@ func test_demolish_button_emits_signal() -> void:
 	menu._demolish_btn.pressed.emit()
 	assert_signal_emitted_with_parameters(menu, "demolish_requested", [c], "철거 버튼 → demolish_requested(building)")
 
+# --- 자원 구매 / 병사 구매 ---
+
+func test_buy_resource_adds_to_territory() -> void:
+	var c := _center("town_hall", {"금": 30})
+	menu.open(c, _party_with(1))
+	menu._buy_resource("밀")   # 구매가 1×2×5 = 10, 5개 매입
+	assert_eq(c.territory.resources.get("금", 0), 20, "영지 금 30 → 20(-10)")
+	assert_eq(c.territory.resources.get("밀", 0), 5, "영지 밀 +5")
+
+func test_buy_resource_no_op_when_poor() -> void:
+	var c := _center("town_hall", {"금": 5})
+	menu.open(c, _party_with(1))
+	menu._buy_resource("밀")   # 10 필요, 5뿐
+	assert_eq(c.territory.resources.get("금", 0), 5, "금 변화 없음")
+	assert_eq(c.territory.resources.get("밀", 0), 0, "밀 변화 없음")
+
+func test_buy_soldier_costs_gold_and_pop() -> void:
+	var c := _center("town_hall", {"금": 30, "인구": 5})
+	menu.open(c, _party_with(1))
+	menu._buy_soldier()
+	assert_eq(c.territory.resources.get("금", 0), 10, "금 30 → 10(-20)")
+	assert_eq(c.territory.resources.get("인구", 0), 4, "인구 5 → 4(-1)")
+	assert_eq(c.garrison.size(), 1, "수비대에 소집병 +1")
+
+func test_buy_soldier_no_op_when_poor() -> void:
+	var c := _center("town_hall", {"금": 10, "인구": 5})   # 금 부족
+	menu.open(c, _party_with(1))
+	menu._buy_soldier()
+	assert_eq(c.territory.resources.get("금", 0), 10, "금 부족 → 변화 없음")
+	assert_eq(c.garrison.size(), 0, "수비대 변화 없음")
+
+func test_buy_soldier_no_op_when_no_pop() -> void:
+	var c := _center("town_hall", {"금": 30, "인구": 0})   # 인구 부족
+	menu.open(c, _party_with(1))
+	menu._buy_soldier()
+	assert_eq(c.territory.resources.get("금", 0), 30, "인구 부족 → 금 변화 없음")
+	assert_eq(c.garrison.size(), 0, "수비대 변화 없음")
+
 func test_sell_territory_item_adds_gold() -> void:
 	var c := _center("town_hall")
 	c.territory.loot_items = ["sword"]   # 수비대 노획 귀속분
