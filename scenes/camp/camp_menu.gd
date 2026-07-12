@@ -17,6 +17,9 @@ signal upgrade_requested(building: Building)
 ## 캠프 건설 버튼 클릭 시 방출. game.gd가 받아 새 영지 캠프 건설 모드(부대 시야 배치)로 진입한다.
 signal found_camp_requested(territory: Territory)
 
+## 캠프 철거 버튼 클릭 시 방출. game.gd가 받아 확인 후 캠프 철거(영지 통째 제거)를 처리한다.
+signal demolish_requested(building: Building)
+
 var _root: Control
 var _res_grid: GridContainer
 var _camp_title: Label     # 우측 패널 제목 = 영지 이름
@@ -24,6 +27,7 @@ var _faction_label: Label  # 제목 아래 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
 var _upgrade_btn: Button   # 거점 업그레이드 버튼(다음 티어 있을 때만)
 var _found_camp_btn: Button  # 캠프 건설(새 영지) 버튼
+var _demolish_btn: Button    # 캠프 철거 버튼(can_demolish일 때만)
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
 var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
 
@@ -140,6 +144,13 @@ func _build_menu_panel() -> Control:
 	_build_btn.text = "건축"
 	_build_btn.pressed.connect(_on_build_pressed)
 	vbox.add_child(_build_btn)
+
+	# 캠프 철거 버튼(can_demolish일 때만 표시). open()에서 표시 여부 갱신.
+	_demolish_btn = Button.new()
+	_demolish_btn.text = "캠프 철거 (영지 포기)"
+	_demolish_btn.pressed.connect(func() -> void: demolish_requested.emit(_building))
+	_demolish_btn.hide()
+	vbox.add_child(_demolish_btn)
 
 	# 건설 가능 건물 리스트. 건축 버튼을 누르면 채워져 표시된다.
 	_build_list = VBoxContainer.new()
@@ -290,7 +301,7 @@ func _build_buy_panel() -> Control:
 
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
 ## party가 주어지고 건물이 캠프면 수비대 편성 패널도 띄운다(부대↔캠프 병사 이동).
-func open(building: Building, party = null) -> void:
+func open(building: Building, party = null, can_demolish := false) -> void:
 	_building = building
 	_party = party
 	var territory := building.territory
@@ -301,6 +312,7 @@ func open(building: Building, party = null) -> void:
 	_build_btn.show()
 	_refresh_upgrade_button()
 	_refresh_found_camp_button()
+	_demolish_btn.visible = can_demolish   # 캠프 철거 버튼(game.gd가 조건 판정)
 
 	# 우측 패널: 영지 이름 + 세력.
 	_camp_title.text = territory.name if territory != null else ""

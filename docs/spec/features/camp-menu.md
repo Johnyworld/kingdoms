@@ -16,7 +16,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 
 ## 동작
 
-- `open(building: Building, party := null)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `party`가 주어지고 건물이 **거점**(`BuildingTypes.is_center`)이면 **수비대 편성 패널**을 함께 띄운다(아래).
+- `open(building: Building, party := null, can_demolish := false)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `party`가 주어지고 건물이 **거점**(`BuildingTypes.is_center`)이면 **수비대 편성 패널**을 함께 띄운다(아래). `can_demolish`가 참이면 [철거 버튼](#철거-버튼)을 보인다(재오픈 대비 매번 토글).
   - 제목 라벨 = `territory.name`.
   - 세력 라벨 = `territory.faction.name` (색상 = `territory.faction.color`). `faction`이 `null`이면 세력 라벨은 빈 문자열.
   - `building.territory`가 `null`이거나 영지에 세력이 없으면 라벨은 빈 문자열이고, 세력 색상 오버라이드를 제거한다(다른 영지로 재오픈 대비). `territory == null`이면 자원 그리드도 비어 있다.
@@ -24,6 +24,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - 닫기 트리거: 배경 좌클릭, "닫기" 버튼.
 - **업그레이드 버튼** (`_upgrade_btn`) — 연 건물이 거점이고 [`next_center`](../data/buildings.md#거점-업그레이드)가 있으면(캠프·마을회관) 표시한다. 텍스트 `"<다음 티어 라벨>으로 업그레이드  <비용>"`(예: `"마을회관으로 업그레이드  목재 10 · 석재 10 · 밀 20"`). `BuildPlanner.can_upgrade`면 활성, 비용 부족이면 비활성. 최종 티어(성)·비거점이면 **숨김**. 누르면 `upgrade_requested(building)` 방출 → `game.gd`가 지불·`upgrade_to` 처리([건축](building.md#거점-업그레이드)).
 - **캠프 건설 버튼** (`_found_camp_btn`) — `"캠프 건설 (새 영지)  목재 10 · 밀 10"`. 여는 영지가 캠프 비용을 감당하면(`BuildPlanner.can_build(territory, "camp")`) 활성, 아니면 비활성. 누르면 `found_camp_requested(territory)` 방출 → `game.gd`가 [캠프 건설](building.md#캠프-건설-새-영지-확장) 모드(부대 시야 배치)로 진입. `territory == null`이면 비활성.
+- **철거 버튼** (`_demolish_btn`) — `open`의 `can_demolish`가 참일 때만 표시(텍스트 `"캠프 철거 (영지 포기)"`). 누르면 `demolish_requested(building)` 방출 → `game.gd`가 [확인 다이얼로그](confirm-dialog.md) 후 **영지 통째 제거**를 처리한다([건물 정보 철거](building-info.md#철거)와 별개 — 거점은 캠프 메뉴에서). `can_demolish` 판정은 `game.gd` — **캠프(tier 0)**·**내 세력 영지**·**마지막 거점 아님**(세력 소멸 방지)일 때만 참. 마을회관·성은 거짓(철거 불가).
 - **건축 버튼** (`_on_build_pressed`) — 우측 패널을 **건설 리스트**로 전환한다(건축 버튼은 숨기고 리스트를 보임).
   - 리스트 = [건물 카탈로그](../data/buildings.md)의 **건축 가능 종류**(`BuildingTypes.BUILDABLE_IDS` — 채석장·농장·집·벌목소). 거점(캠프·마을회관·성)은 제외(캠프=새 영지, 마을회관·성=업그레이드).
   - 각 항목 = 버튼 `"<라벨>  <비용>[  인원 N]"`(예: `"농장  목재 5 · 밀 5  인원 2"`). 비용은 종류의 `build_cost`, `인원 N`은 [`required_pop`](../data/buildings.md#필요인원-required_pop)이 0보다 클 때만 덧붙인다.
@@ -38,6 +39,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - `signal garrison_changed` — 편성으로 병사가 이동할 때 방출. `game.gd`가 받아 [부대 일람](party-roster.md)·[안개](fog-of-war.md)를 갱신한다.
 - `signal upgrade_requested(building)` — 업그레이드 버튼을 누르면 방출. `game.gd`가 받아 거점 [업그레이드](building.md#거점-업그레이드)를 처리한다.
 - `signal found_camp_requested(territory)` — 캠프 건설 버튼을 누르면 방출. `game.gd`가 받아 [새 영지 캠프 건설](building.md#캠프-건설-새-영지-확장) 모드로 진입한다.
+- `signal demolish_requested(building)` — 철거 버튼을 누르면 방출. `game.gd`가 받아 확인 후 [캠프 철거](building-info.md#캠프-철거)를 처리한다.
 
 ## 테스트 시나리오
 
@@ -61,6 +63,8 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - [정상] 업그레이드 버튼 누르면 `upgrade_requested(building)` 방출
 - [정상] 캠프 비용 감당 가능한 영지로 `open` → **캠프 건설 버튼** 활성, 텍스트에 `"캠프 건설"` 포함; 누르면 `found_camp_requested(territory)` 방출
 - [경계] 자원 부족·영지 없음 → 캠프 건설 버튼 비활성
+- [정상] `open(camp, party, true)` → **철거 버튼** 표시; `open(camp, party)`(기본 false) → 철거 버튼 숨김(재오픈 토글)
+- [정상] `can_demolish=true`로 연 뒤 철거 버튼 누르면 `demolish_requested(building)` 방출
 - [정상] 부대 + 거점으로 `open` → 보급 패널 표시(부대 없으면 숨김)
 - [정상] 자원 있는 행에서 **적재** → 영지 자원 −5, 부대 화물 +5(용량·재고 상한)
 - [정상] 화물 있는 상태서 **하역** → 부대 화물 −5, 영지 자원 +5

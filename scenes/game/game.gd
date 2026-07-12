@@ -164,6 +164,7 @@ func _ready() -> void:
 	camp_menu.raise_party.connect(_on_raise_party)
 	camp_menu.upgrade_requested.connect(_on_upgrade_requested)
 	camp_menu.found_camp_requested.connect(_on_found_camp_requested)
+	camp_menu.demolish_requested.connect(_on_camp_demolish_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
@@ -484,7 +485,7 @@ func _handle_click(world_pos: Vector2) -> void:
 				_deselect()
 			_hide_party_info()
 			# 인접한 플레이어 부대가 있으면 수비대 편성도 가능하게 넘긴다.
-			camp_menu.open(clicked, _party_at_camp(clicked))
+			camp_menu.open(clicked, _party_at_camp(clicked), _can_demolish_camp(clicked))
 		ClickRouter.BUILDING_INFO:
 			# 내 건물(거점 아님)은 철거 가능. 거점(캠프·마을회관·성)은 CAMP_MENU로 라우팅되므로 여기 안 온다.
 			_open_building_info(clicked, not BuildingTypes.is_center(clicked.building_type))
@@ -558,7 +559,7 @@ func _on_raise_party(camp) -> void:
 	_units.append(p)
 	party_roster.set_parties(_units)
 	_update_fog()
-	camp_menu.open(camp, p)   # 새 부대를 편성 대상으로
+	camp_menu.open(camp, p, _can_demolish_camp(camp))   # 새 부대를 편성 대상으로
 
 ## 플레이어 세력의 빈 새 부대를 만들어 셀에 둔다(금색·플레이어 소속). 빈 부대라 채우기 전엔 토큰 안 보임.
 func _make_player_party(pname: String, cell: Vector2i) -> Party:
@@ -668,7 +669,7 @@ func _on_upgrade_requested(b) -> void:
 	b.territory.build_pay(next_id)   # 자재 차감(거점은 필요인원 0)
 	b.upgrade_to(next_id)
 	_update_fog()                    # 티어별 시야 변화 반영
-	camp_menu.open(b, _party_at_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
+	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
 
 ## 철거 버튼 → 바로 철거하지 않고 확인 다이얼로그를 띄운다(환급 미리보기 포함). [철거] 확인 시 _do_demolish(b).
 func _on_demolish_requested(b) -> void:
@@ -695,6 +696,39 @@ func _do_demolish(b) -> void:
 	building_info.close()
 	b.queue_free.call_deferred()
 	_update_fog()   # 철거된 건물 시야 제거
+
+## 캠프 철거 가능 판정: 캠프(tier 0)·내 세력 영지·마지막 거점 아님(세력 소멸 방지)일 때만.
+## 마을회관·성은 거짓(다운그레이드 미구현). 캠프 메뉴 [철거] 버튼 노출 여부.
+func _can_demolish_camp(b) -> bool:
+	if b == null or b.building_type != BuildingTypes.CAMP:
+		return false
+	if b.territory == null or b.territory.faction != _player_faction:
+		return false
+	return _faction_center_count(_player_faction) > 1   # 마지막 거점이면 불가
+
+## 캠프 메뉴 [철거] → 확인 다이얼로그(영지 포기 경고) → [철거] 확인 시 _do_demolish_camp.
+func _on_camp_demolish_requested(camp) -> void:
+	var terr_name: String = camp.territory.name if camp.territory != null else "영지"
+	confirm_dialog.open("「%s」 캠프를 철거하고 영지를 포기할까요?" % terr_name, "철거", _do_demolish_camp.bind(camp))
+
+## 캠프 철거 확정: 그 영지의 모든 건물을 제거하고 영지를 세력·게임에서 분리한다(영지 통째 상실, 환급 없음).
+func _do_demolish_camp(camp) -> void:
+	if not is_instance_valid(camp):
+		return
+	var territory = camp.territory
+	var terr_name: String = territory.name if territory != null else "영지"
+	if territory != null:
+		for b in territory.buildings.duplicate():   # 캠프 포함 모든 건물
+			_buildings.erase(b)
+			territory.remove_building(b)
+			if is_instance_valid(b):
+				b.queue_free.call_deferred()
+		if territory.faction != null:
+			territory.faction.remove_territory(territory)   # 세력에서 영지 분리
+		_territories.erase(territory)   # 수입·플레이어 영지 목록에서 제외
+	camp_menu.close_menu()
+	_update_fog()
+	toast.show_message("%s 철거 — 영지 포기" % terr_name)
 
 ## exclude를 뺀 모든 부대(플레이어 전부 + NPC)가 점유한 칸 집합({cell: true}). 이동 장애물로 넘긴다.
 ## 빈 부대(멤버 0)도 칸을 차지한다 — 새로 편성한 빈 부대가 자리를 지켜 겹침(두 부대가 한 칸)을 막는다.

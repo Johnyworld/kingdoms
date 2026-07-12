@@ -221,6 +221,28 @@ func test_sell_cargo_adds_gold() -> void:
 	assert_eq(c.territory.resources.get("금", 0), 60, "영지 금 +60(12×5)")
 	assert_eq(p.cargo.get("철괴", 0), 5, "화물 철괴 10 → 5")
 
+# --- 캠프 철거 버튼 ---
+
+func test_demolish_button_shown_when_can() -> void:
+	menu.open(_center("camp"), null, true)
+	assert_true(menu._demolish_btn.visible, "can_demolish=true → 철거 버튼 표시")
+
+func test_demolish_button_hidden_by_default() -> void:
+	menu.open(_center("camp"))   # 기본 can_demolish=false
+	assert_false(menu._demolish_btn.visible, "기본은 철거 버튼 숨김")
+
+func test_demolish_button_toggle_on_reopen() -> void:
+	menu.open(_center("camp"), null, true)
+	menu.open(_center("camp"), null, false)
+	assert_false(menu._demolish_btn.visible, "false로 재오픈 → 숨김(토글)")
+
+func test_demolish_button_emits_signal() -> void:
+	var c := _center("camp")
+	menu.open(c, null, true)
+	watch_signals(menu)
+	menu._demolish_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(menu, "demolish_requested", [c], "철거 버튼 → demolish_requested(building)")
+
 func test_sell_territory_item_adds_gold() -> void:
 	var c := _center("town_hall")
 	c.territory.loot_items = ["sword"]   # 수비대 노획 귀속분
