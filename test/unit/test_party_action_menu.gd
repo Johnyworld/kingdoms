@@ -80,6 +80,24 @@ func test_party_actions_stationed_shoot_when_target() -> void:
 	# 주둔 중 + 사격 가능 적 있음(can_shoot_any) → [사격]이 맨 앞(주둔 유지한 채 제자리 사격).
 	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false, false, true, true)), ["shoot", "unstation", "equip"], "주둔 중·사격 대상 있으면 사격이 맨 앞")
 
+# --- 사다리 (party_actions can_place_ladder / can_push_ladder) ---
+
+func test_party_actions_place_ladder() -> void:
+	# 비주둔·성벽 적 거점 인접(can_place_ladder) → [사다리 설치]가 [장비] 앞.
+	assert_eq(_ids(PartyActionMenu.party_actions(false, false, false, false, false, false, true)), ["shoot", "rest", "alert", "ladder", "equip"], "성벽 적 거점 인접이면 사다리 설치 추가")
+
+func test_party_actions_no_ladder_when_cannot() -> void:
+	assert_eq(_ids(PartyActionMenu.party_actions(false, false, false, false, false, false, false)), ["shoot", "rest", "alert", "equip"], "인접 아니면 사다리 설치 없음")
+
+func test_party_actions_push_ladder_when_stationed() -> void:
+	# 주둔 중 + 자기 거점 겨눈 사다리 있음(can_push_ladder) → [사다리 밀기] 포함.
+	var ids := _ids(PartyActionMenu.party_actions(false, false, false, false, true, true, false, true))
+	assert_has(ids, "push_ladder", "주둔 방어 부대는 사다리 있으면 사다리 밀기")
+	assert_does_not_have(ids, "ladder", "설치는 주둔 중엔 없음")
+
+func test_party_actions_no_push_ladder_when_none() -> void:
+	assert_does_not_have(_ids(PartyActionMenu.party_actions(false, false, false, false, true, true, false, false)), "push_ladder", "겨눈 사다리 없으면 밀기 없음")
+
 # --- 병합 팝업 (merge_actions) ---
 
 func test_merge_actions_button() -> void:

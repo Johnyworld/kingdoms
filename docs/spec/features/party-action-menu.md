@@ -26,13 +26,14 @@
 
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
-- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false) -> Array` — **중앙 메뉴**.
-  - **주둔 중**(`stationed=true`): `[사격]?[주둔 종료][장비]`. 주둔 부대는 대기라 이동·근접을 못 하지만, **사격 가능 적이 있으면**(`can_shoot_any`) 맨 앞에 `{id="shoot"}`을 넣어 **주둔을 유지한 채 제자리 사격**한다([주둔 중 사격](garrison.md#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)). `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·근접이 열린다.
+- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false) -> Array` — **중앙 메뉴**.
+  - **주둔 중**(`stationed=true`): `[사격]?[사다리 밀기]?[주둔 종료][장비]`. 주둔 부대는 대기라 이동·근접을 못 하지만, **사격 가능 적이 있으면**(`can_shoot_any`) 맨 앞에 `{id="shoot"}`([주둔 중 사격](garrison.md#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)), **자기 거점 겨눈 사다리가 있으면**(`can_push_ladder`) `{id="push_ladder", label="사다리 밀기"}`([성벽 사다리](wall.md#사다리-밀기-방어)). `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·근접이 열린다.
   - **그 외**(`stationed=false`): `{id="shoot", label="사격", enabled=can_shoot_any}` 가 항상 첫 버튼.
     - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
     - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
     - 활성 부대가 **분할 가능**(멤버 2+ · 인접 빈 칸)하면 `{id="split", label="분할"}`이 추가된다(이동 전만). → [Party Composition](party-composition.md).
     - **자기 세력 거점 중심 타일 위**(`on_center=true`)면 `{id="station", label="주둔", enabled=true}`이 추가된다(거점에 들어와 대기). → [Garrison](garrison.md).
+    - **성벽 있는 적 거점에 인접**(`can_place_ladder=true`)이면 `{id="ladder", label="사다리 설치"}`가 추가된다([성벽 사다리](wall.md#설치-플레이어)).
   - **양쪽 공통 — 맨 뒤에 `{id="equip", label="장비", enabled=true}`**: [장비 관리](equipment.md) 모달을 연다. **행동을 끝내지 않는다**(이동/공격 상태 불변) — 노획 장비 장착·탈착은 턴을 소비하지 않는다.
 - `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
