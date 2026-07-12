@@ -19,7 +19,7 @@
 | 보유 자원 | `resources` | `Dictionary` | `{}` | **모든 자원**(인구·밀·빵·나무·목재·철·철괴·금). 삽입 순서 = 메뉴 표시 순서. `금`은 [상거래](../features/trade.md)로 오가는 화폐(금고) |
 | 소속 세력 | `faction` | `Faction` | `null` | 이 영지를 보유한 세력. `Faction.add_territory`로 연결 |
 | 소속 건물 | `buildings` | `Array` | `[]` | 이 영지에 속한 [건물](Building.md) 목록(중심 캠프 + 그 안의 건물들) |
-| 노획 장비 | `loot_items` | `Array` | `[]` | 영지가 소유한 노획 장비 아이템 id 목록([수비대 노획](../features/raid.md#수비대-노획)으로 귀속). 중복 허용. 활용(판매)은 `미구현`(다음) |
+| 노획 장비 | `loot_items` | `Array` | `[]` | 영지가 소유한 노획 장비 아이템 id 목록([수비대 노획](../features/raid.md#수비대-노획)으로 귀속). 중복 허용. 캠프 [판매](../features/trade.md#영지-노획-장비-판매)로 금으로 환산(장착은 멤버 없어 불가) |
 
 ## 동작
 

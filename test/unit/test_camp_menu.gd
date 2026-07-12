@@ -221,6 +221,19 @@ func test_sell_cargo_adds_gold() -> void:
 	assert_eq(c.territory.resources.get("금", 0), 60, "영지 금 +60(12×5)")
 	assert_eq(p.cargo.get("철괴", 0), 5, "화물 철괴 10 → 5")
 
+func test_sell_territory_item_adds_gold() -> void:
+	var c := _center("town_hall")
+	c.territory.loot_items = ["sword"]   # 수비대 노획 귀속분
+	menu.open(c, _party_with(1))
+	menu._sell_territory_item("sword")   # 구매가 아님 — 판매(item_value 14)
+	assert_eq(c.territory.resources.get("금", 0), 14, "영지 금 +14(검 가치)")
+	assert_false("sword" in c.territory.loot_items, "영지 loot_items에서 제거")
+
+func test_territory_sell_section_empty_without_loot() -> void:
+	var c := _center("town_hall")   # 영지 loot_items 없음
+	menu.open(c, _party_with(1))
+	assert_eq(menu._sell_territory_list.get_child_count(), 0, "영지 장비 없으면 섹션 비어 있음")
+
 func test_sell_cargo_excludes_pop_and_gold() -> void:
 	var c := _center("town_hall")
 	var p := _party_with(1)

@@ -41,8 +41,9 @@ const CARGO_STEP := 5              # 적재/하역 버튼 한 번당 이동량
 
 # 판매 패널(부대 있을 때만). 부대 노획 장비·화물 → 영지 금.
 var _sell_panel: PanelContainer
-var _sell_loot_list: VBoxContainer   # 노획 장비 판매 행(이름별 묶음)
+var _sell_loot_list: VBoxContainer   # 부대 노획 장비 판매 행(이름별 묶음)
 var _sell_cargo_list: VBoxContainer  # 화물 판매 행(자원별, 인구·금 제외)
+var _sell_territory_list: VBoxContainer  # 영지 노획 장비 판매 행(수비대 노획 귀속분)
 
 # 구매 패널(부대 있을 때만). 영지 금 → 부대 노획 장비.
 var _buy_panel: PanelContainer
@@ -255,6 +256,13 @@ func _build_sell_panel() -> Control:
 	_sell_cargo_list.add_theme_constant_override("separation", 4)
 	vbox.add_child(_sell_cargo_list)
 
+	var terr_title := Label.new()
+	terr_title.text = "영지 장비"
+	vbox.add_child(terr_title)
+	_sell_territory_list = VBoxContainer.new()
+	_sell_territory_list.add_theme_constant_override("separation", 4)
+	vbox.add_child(_sell_territory_list)
+
 	_sell_panel.hide()
 	return _sell_panel
 
@@ -435,24 +443,37 @@ func _refresh_sell_lists() -> void:
 		c.free()
 	for c in _sell_cargo_list.get_children():
 		c.free()
+	for c in _sell_territory_list.get_children():
+		c.free()
 	if _territory == null or _party == null:
 		return
-	# 장비 섹션: 이름별 묶음.
-	var counts: Dictionary = {}
-	var order: Array = []
-	for id in _party.loot_items:
-		if not counts.has(id):
-			order.append(id)
-		counts[id] = counts.get(id, 0) + 1
-	for id in order:
-		var text := "%s ×%d" % [ItemTypes.item_name(id), counts[id]]
-		_sell_loot_list.add_child(_make_sell_row(text, _sell_item.bind(id)))
+	# 부대 장비 섹션: 이름별 묶음.
+	for g in _grouped_items(_party.loot_items):
+		var text := "%s ×%d" % [ItemTypes.item_name(g["id"]), g["count"]]
+		_sell_loot_list.add_child(_make_sell_row(text, _sell_item.bind(g["id"])))
 	# 화물 섹션: 자원별(인구·금 제외).
 	for res_name in _party.cargo:
 		if res_name == "인구" or res_name == "금":
 			continue
 		var ctext := "%s ×%d" % [res_name, _party.cargo[res_name]]
 		_sell_cargo_list.add_child(_make_sell_row(ctext, _sell_cargo.bind(res_name)))
+	# 영지 장비 섹션: 수비대 노획 귀속분(territory.loot_items) 이름별 묶음.
+	for g in _grouped_items(_territory.loot_items):
+		var ttext := "%s ×%d" % [ItemTypes.item_name(g["id"]), g["count"]]
+		_sell_territory_list.add_child(_make_sell_row(ttext, _sell_territory_item.bind(g["id"])))
+
+## 아이템 id 목록을 [{id, count}]로 묶는다(첫 등장 순서 유지).
+func _grouped_items(ids: Array) -> Array:
+	var counts: Dictionary = {}
+	var order: Array = []
+	for id in ids:
+		if not counts.has(id):
+			order.append(id)
+		counts[id] = counts.get(id, 0) + 1
+	var out: Array = []
+	for id in order:
+		out.append({"id": id, "count": counts[id]})
+	return out
 
 ## "라벨 + [판매]" 한 행.
 func _make_sell_row(text: String, on_sell: Callable) -> HBoxContainer:
@@ -467,11 +488,19 @@ func _make_sell_row(text: String, on_sell: Callable) -> HBoxContainer:
 	row.add_child(btn)
 	return row
 
-## 노획 장비 1개를 팔아 영지 금을 올린다(item_value). loot_items에서 그 id 하나 제거.
+## 부대 노획 장비 1개를 팔아 영지 금을 올린다(item_value). 부대 loot_items에서 그 id 하나 제거.
 func _sell_item(id: String) -> void:
 	if not (id in _party.loot_items):
 		return
 	_party.loot_items.erase(id)
+	_territory.resources["금"] = _territory.resources.get("금", 0) + ItemTypes.item_value(id)
+	_after_sell_change()
+
+## 영지 노획 장비 1개를 팔아 영지 금을 올린다(수비대 노획 귀속분). 영지 loot_items에서 그 id 하나 제거.
+func _sell_territory_item(id: String) -> void:
+	if not (id in _territory.loot_items):
+		return
+	_territory.loot_items.erase(id)
 	_territory.resources["금"] = _territory.resources.get("금", 0) + ItemTypes.item_value(id)
 	_after_sell_change()
 

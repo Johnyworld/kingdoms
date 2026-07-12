@@ -7,7 +7,7 @@ var name: String
 var resources: Dictionary   # 모든 자원(인구·밀·빵·나무·목재·철·철괴·금). 삽입 순서 = 메뉴 표시 순서.
 var faction: Faction = null
 var buildings: Array = []
-var loot_items: Array = []   # 영지 소유 노획 장비 id 목록(수비대 노획 귀속). 활용(판매)은 미구현.
+var loot_items: Array = []   # 영지 소유 노획 장비 id 목록(수비대 노획 귀속). 캠프 판매 패널에서 금으로 판다.
 
 func _init(p_name := "", p_resources := {}) -> void:
 	name = p_name
