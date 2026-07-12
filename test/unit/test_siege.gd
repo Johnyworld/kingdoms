@@ -6,6 +6,7 @@ var siege = load("res://scenes/siege/siege.gd")
 func test_ladder_constants() -> void:
 	assert_eq(siege.LADDER_TURNS, 3, "설치 후 준비까지 3턴")
 	assert_eq(siege.LADDER_PUSH_CHANCE, 0.15, "밀기 파괴 확률 0.15")
+	assert_eq(siege.HOOKED_PUSH_REDUCTION, 0.05, "고리 사다리 밀기 감소분 0.05")
 
 func test_push_succeeds_below_threshold() -> void:
 	assert_true(siege.push_succeeds(0.10), "0.10 < 0.15 → 파괴 성공")

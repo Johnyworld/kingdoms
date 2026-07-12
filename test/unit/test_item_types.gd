@@ -121,6 +121,7 @@ func test_item_name_unified_lookup() -> void:
 	assert_eq(ItemTypes.item_name("sword"), "검", "무기 이름")
 	assert_eq(ItemTypes.item_name("chain_mail"), "사슬 갑옷", "방어구 이름")
 	assert_eq(ItemTypes.item_name("buckler"), "버클러", "방패 이름")
+	assert_eq(ItemTypes.item_name("grapple_ladder"), "고리 사다리", "도구 이름")
 	assert_eq(ItemTypes.item_name(""), "", "빈 id는 빈 문자열")
 	assert_eq(ItemTypes.item_name("없음"), "", "없는 id는 빈 문자열")
 
@@ -129,6 +130,7 @@ func test_item_slot_classifies_by_catalog() -> void:
 	assert_eq(ItemTypes.item_slot("sword"), "weapon", "무기 슬롯")
 	assert_eq(ItemTypes.item_slot("chain_mail"), "armor", "방어구 슬롯")
 	assert_eq(ItemTypes.item_slot("buckler"), "shield", "방패 슬롯")
+	assert_eq(ItemTypes.item_slot("grapple_ladder"), "", "도구는 장착 슬롯 없음")
 	assert_eq(ItemTypes.item_slot(""), "", "빈 id는 빈 문자열")
 	assert_eq(ItemTypes.item_slot("없음"), "", "없는 id는 빈 문자열")
 
@@ -137,5 +139,6 @@ func test_item_value_sell_price() -> void:
 	assert_eq(ItemTypes.item_value("sword"), 14, "검 가치 14(공격력)")
 	assert_eq(ItemTypes.item_value("chain_mail"), 28, "사슬 갑옷 가치 28(방어력×2)")
 	assert_eq(ItemTypes.item_value("tower_shield"), 24, "타워 실드 가치 24(방어력×2)")
+	assert_eq(ItemTypes.item_value("grapple_ladder"), 12, "고리 사다리 가치 12(도구)")
 	assert_eq(ItemTypes.item_value(""), 0, "빈 id 0")
 	assert_eq(ItemTypes.item_value("없음"), 0, "없는 id 0")

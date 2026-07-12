@@ -27,6 +27,10 @@
 - 자원별 행 `"<자원> <구매가>금"` + `[구매]`. **한 번에 `CARGO_STEP`(5)씩**. **구매가 = `ResourceTypes.value(res) × BUY_MARKUP × CARGO_STEP`**.
 - `[구매]`: 영지 금 ≥ 구매가면 금 차감 + 영지 `resources[자원] += CARGO_STEP`. 금 부족이면 비활성. (`인구`·`금`은 자원 구매 대상 아님 — value 0.)
 
+### 도구 구매
+
+**「도구」 섹션** — 금으로 [`ItemTypes.TOOLS`](../data/items.md#도구-itemtypestools) 도구를 사서 부대 `loot_items`에 넣는다(장비와 같은 `[구매]` 흐름, 구매가 = `item_value × BUY_MARKUP`). 현재 **고리 사다리**(24금) — [성벽 사다리](wall.md) 설치 시 밀기 저항.
+
 ### 병사 구매
 
 **「병사」 섹션** — 금+인구로 소집병 1명을 그 거점 **주둔 부대**(`_party`)에 편입한다([Garrison / 주둔](garrison.md)).

@@ -61,6 +61,16 @@
 | `kite_shield` | 카이트 실드 | 8 | 30 | 5 | 16 |
 | `tower_shield` | 타워 실드 | 12 | 40 | 8 | 24 |
 
+## 도구 (`ItemTypes.TOOLS`)
+
+장착하지 않는(슬롯 없음) 소지 아이템. 부대 `loot_items`에 담고 [캠프 구매](../features/trade.md)로 산다. `{id: {name, value}}`.
+
+| id | 이름 | 가치 | 효과 |
+| --- | --- | --- | --- |
+| `grapple_ladder` | 고리 사다리 | 12 | 소지 부대가 [사다리를 설치](../features/wall.md#사다리-공성-siege--gamegd)하면 **1개 소모**하고 그 사다리를 `hooked`로 — 방어자 [사다리 밀기](../features/wall.md#사다리-밀기-방어) 성공 확률 −5%p(15%→10%) |
+
+- `item_slot("grapple_ladder") == ""`(장착 불가). `item_name`·`item_value`는 무기·방어구·방패에 이어 **도구도 통합 조회**한다.
+
 ## 상성표 (`ItemTypes.AFFINITY`)
 
 받는 피해에 곱하는 배율 `AFFINITY[방어구 분류][데미지 타입]`(1.0 = 기본). 기획 원본과 동일.
@@ -96,9 +106,9 @@
 - `total_defense(ids: Array) -> int` — 방어구 id 목록의 방어력 합.
 - `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
-- `item_name(id) -> String` — 무기·방어구·방패 카탈로그를 통합 조회한 이름. 무기→방어구→방패 순으로 찾고, 세 곳 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
+- `item_name(id) -> String` — 무기·방어구·방패·도구 카탈로그를 통합 조회한 이름. 무기→방어구→방패→도구 순으로 찾고, 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
 - `item_slot(id) -> String` — 그 아이템이 들어가는 장비 슬롯 분류. 무기면 `"weapon"`, 방어구면 `"armor"`, 방패면 `"shield"`, 세 곳 어디에도 없으면 `""`. [장비 관리](../features/equipment.md)에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
-- `item_value(id) -> int` — 그 아이템의 기준가([Trade](../features/trade.md) — 판매가, 구매가 ×2). 무기→방어구→방패 순으로 `value`를 찾고, 세 곳 어디에도 없으면 `0`.
+- `item_value(id) -> int` — 그 아이템의 기준가([Trade](../features/trade.md) — 판매가, 구매가 ×2). 무기→방어구→방패→도구 순으로 `value`를 찾고, 어디에도 없으면 `0`.
 
 ## 미수록 / 미구현
 
@@ -131,9 +141,9 @@
 - [정상] `armor_class_of`는 방어력이 가장 큰 조각의 분류(예: 가죽 세트 → `가죽`)
 - [경계] `armor_class_of([])` → `""`
 - [정상] `affinity("판금", "마법") == 1.3`, `affinity("사슬", "참격") == 0.7`
-- [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패); [예외] `item_name("") == ""`, 없는 id → `""`
-- [정상] `item_slot("sword") == "weapon"`, `item_slot("chain_mail") == "armor"`, `item_slot("buckler") == "shield"`; [예외] `item_slot("") == ""`, 없는 id → `""`
-- [정상] `item_value("sword") == 14`(무기=공격력), `item_value("chain_mail") == 28`(방어구=방어력×2), `item_value("tower_shield") == 24`(방패); [예외] `item_value("") == 0`, 없는 id → `0`
+- [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패), `item_name("grapple_ladder") == "고리 사다리"`(도구); [예외] `item_name("") == ""`, 없는 id → `""`
+- [정상] `item_slot("sword") == "weapon"`, `item_slot("chain_mail") == "armor"`, `item_slot("buckler") == "shield"`; [경계] `item_slot("grapple_ladder") == ""`(도구는 장착 불가); [예외] `item_slot("") == ""`, 없는 id → `""`
+- [정상] `item_value("sword") == 14`(무기=공격력), `item_value("chain_mail") == 28`(방어구=방어력×2), `item_value("tower_shield") == 24`(방패), `item_value("grapple_ladder") == 12`(도구); [예외] `item_value("") == 0`, 없는 id → `0`
 - [예외] 없는 분류/타입 → `affinity` `1.0`
 
 ## 관련

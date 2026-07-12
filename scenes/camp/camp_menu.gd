@@ -461,6 +461,7 @@ func _refresh_buy_list() -> void:
 	_add_buy_section("무기", ItemTypes.WEAPONS)
 	_add_buy_section("방어구", ItemTypes.ARMORS)
 	_add_buy_section("방패", ItemTypes.SHIELDS)
+	_add_buy_section("도구", ItemTypes.TOOLS)   # 고리 사다리 등(→ 부대 loot_items) → wall.md
 	_refresh_buy_resources()
 	_refresh_buy_soldier()
 

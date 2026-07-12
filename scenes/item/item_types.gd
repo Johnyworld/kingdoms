@@ -37,6 +37,11 @@ const SHIELDS := {
 	"tower_shield": {"name": "타워 실드", "defense": 12, "block": 40, "weight": 8, "value": 24},
 }
 
+# 도구: 장착하지 않는 소지 아이템(슬롯 없음). 부대 loot_items에 담고 캠프 구매로 산다. → docs/spec/data/items.md
+const TOOLS := {
+	"grapple_ladder": {"name": "고리 사다리", "value": 12},   # 사다리 설치 시 소모 → 방어자 밀기 확률 −5%p(wall.md)
+}
+
 # 상성표: 방어구 분류 → { 데미지 타입 → 배율 }. 기획 원본과 동일.
 const AFFINITY := {
 	"천": {"참격": 1.2, "자돌": 1.2, "타격": 1.0, "원거리": 1.2, "마법": 0.6},
@@ -156,6 +161,8 @@ static func item_name(id: String) -> String:
 		return ARMORS[id]["name"]
 	if SHIELDS.has(id):
 		return SHIELDS[id]["name"]
+	if TOOLS.has(id):
+		return TOOLS[id]["name"]
 	return ""
 
 ## 그 아이템이 들어가는 장비 슬롯 분류: 무기="weapon", 방어구="armor", 방패="shield", 없으면 "".
@@ -177,6 +184,8 @@ static func item_value(id: String) -> int:
 		return ARMORS[id].get("value", 0)
 	if SHIELDS.has(id):
 		return SHIELDS[id].get("value", 0)
+	if TOOLS.has(id):
+		return TOOLS[id].get("value", 0)
 	return 0
 
 ## 방패 무게(없는 id면 0).

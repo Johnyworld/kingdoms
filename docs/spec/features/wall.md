@@ -42,13 +42,14 @@
 
 성벽을 넘는 공성 수단. 공격자가 성벽 면에 사다리를 세워 3턴 뒤 **통로**를 열면, 그 세력이 성벽 안으로 진입해 [기존 전투·점령](camp-capture.md)으로 함락한다. 방어자는 **[사다리 밀기]**로 저지한다.
 
-- **사다리 레코드** (`game.gd._ladders` 리스트): `{building, target_cell(대상 ring 셀), from_cell(공격자 셀), faction(공격 세력), countdown}`. 한 거점에 **여러 면(ring 셀)에 각각** 허용하되, **한 면(target_cell)엔 하나만**(같은 면 중복 적층 방지 — 밀기 회피 악용 차단).
-- **상수** (`Siege`): `LADDER_TURNS = 3`(설치 후 준비까지), `LADDER_PUSH_CHANCE = 0.15`(밀기 파괴 확률).
+- **사다리 레코드** (`game.gd._ladders` 리스트): `{building, target_cell(대상 ring 셀), from_cell(공격자 셀), faction(공격 세력), countdown, hooked}`. 한 거점에 **여러 면(ring 셀)에 각각** 허용하되, **한 면(target_cell)엔 하나만**(같은 면 중복 적층 방지 — 밀기 회피 악용 차단). `hooked`=설치 시 [고리 사다리](../data/items.md#도구-itemtypestools) 소모로 세운 사다리(밀기 확률 감소).
+- **상수** (`Siege`): `LADDER_TURNS = 3`(설치 후 준비까지), `LADDER_PUSH_CHANCE = 0.15`(밀기 파괴 확률), `HOOKED_PUSH_REDUCTION = 0.05`(고리 사다리 밀기 확률 감소분).
 
 ### 설치 (플레이어)
 
 - 아군 부대가 **성벽 있는 적 거점 footprint에 인접**(바깥 셀에서 ring 셀에 붙음)하고 이번 턴 미행동이면 [행동 메뉴](party-action-menu.md)에 **[사다리 설치]**(`can_place_ladder`).
 - 선택 → 붙은 ring 셀(사다리 없는 면) 하나를 `target_cell`로, 부대 칸을 `from_cell`로 사다리 생성(`countdown = LADDER_TURNS`). 설치는 그 부대 **행동 종료**(`mark_attacked`). 인접 면이 모두 사다리면 [사다리 설치]는 뜨지 않는다.
+- **[고리 사다리](../data/items.md#도구-itemtypestools) 소모**: 설치 부대가 `grapple_ladder`를 `loot_items`에 가지고 있으면 설치 시 **1개 소모**하고 그 사다리를 `hooked = true`로 만든다(없으면 `hooked = false`). NPC는 고리 사다리를 사지 않아 항상 `false`.
 
 ### 설치 (NPC 공성 AI · `_npc_attack_phase`)
 
@@ -63,8 +64,7 @@
 ### 사다리 밀기 (방어)
 
 - 성벽 안 **주둔 방어 부대**([Garrison](garrison.md))의 행동 메뉴에, 자기 거점을 겨눈 사다리가 있으면 **[사다리 밀기]**(`can_push_ladder`).
-- 발동 → 그 거점의 **각 사다리를 독립 판정**: `Siege.push_succeeds(rng.randf())`(roll < `LADDER_PUSH_CHANCE`)면 그 사다리 제거. 밀기는 방어 부대 **행동 종료**. **NPC 방어자는 공격 페이즈에서 자동 밀기**(사다리 있을 때).
-- *(「고리 사다리」 아이템으로 밀기 확률 감소는 [슬라이스 4](#미구현))*
+- 발동 → 그 거점의 **각 사다리를 독립 판정**: `Siege.push_succeeds(rng.randf(), markup)`. `markup`은 그 사다리가 `hooked`면 `HOOKED_PUSH_REDUCTION`(0.05, 임계 0.10), 아니면 0(임계 0.15). roll < 임계면 그 사다리 제거. 밀기는 방어 부대 **행동 종료**. **NPC 방어자는 공격 페이즈에서 자동 밀기**(사다리 있을 때).
 
 ### 통로 돌파 (breach)
 
@@ -76,8 +76,7 @@
 
 ## 이번 슬라이스 제외 (미구현)
 
-- **「고리 사다리」 아이템** — 소지 시 방어자 밀기 성공 확률 −5%p는 `미구현`(슬라이스 4). `push_succeeds`의 `markup` 인자로 훅만 마련.
-- **오르기 애니메이션**·다단계 벽·성문·성벽/사다리 내구도·NPC의 성벽 건설.
+- **오르기 애니메이션**·다단계 벽·성문·성벽/사다리 내구도·NPC의 성벽 건설·NPC의 고리 사다리 사용.
 
 ## 테스트 시나리오
 
@@ -98,9 +97,15 @@
 - [정상] 버튼 누르면 `wall_requested(building)` 방출
 
 **사다리 밀기 판정(순수)** — `test/unit/test_siege.gd`:
-- [정상] `Siege.LADDER_TURNS == 3`, `Siege.LADDER_PUSH_CHANCE == 0.15`
+- [정상] `Siege.LADDER_TURNS == 3`, `Siege.LADDER_PUSH_CHANCE == 0.15`, `Siege.HOOKED_PUSH_REDUCTION == 0.05`
 - [정상] `push_succeeds(0.10)` 참(0.10 < 0.15), `push_succeeds(0.20)` 거짓
 - [경계] `push_succeeds(0.15)` 거짓(경계 미만만 성공); `push_succeeds(0.12, 0.05)` 거짓(markup 0.05 → 임계 0.10, 0.12 ≥ 0.10) — 고리 사다리 훅
+
+**고리 사다리 도구** — `test/unit/test_item_types.gd`:
+- [정상] `item_name("grapple_ladder") == "고리 사다리"`, `item_value("grapple_ladder") == 12`, `item_slot("grapple_ladder") == ""`(장착 불가)
+
+**도구 구매** — `test/unit/test_camp_menu.gd`:
+- [정상] 주둔 부대 + 금 충분 → 구매 패널 「도구」 행에서 고리 사다리 [구매] → 부대 `loot_items`에 `grapple_ladder`
 
 **사다리 메뉴 버튼** — `test/unit/test_party_action_menu.gd`:
 - [정상] `can_place_ladder=true`(비주둔) → 목록에 `{id="ladder"}` 포함([장비] 앞)

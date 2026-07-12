@@ -1319,19 +1319,23 @@ func _place_ladder(p) -> void:
 	var t := _ladder_target_for(p)
 	if t.is_empty() or _has_ladder_at(t["building"], t["target_cell"]):
 		return   # 대상 없음·그 면에 이미 사다리(면당 하나)
+	var hooked: bool = "grapple_ladder" in p.loot_items   # 고리 사다리 소지 시 밀기 저항 사다리
+	if hooked:
+		p.loot_items.erase("grapple_ladder")   # 설치 시 1개 소모 → items.md
 	_ladders.append({
 		"building": t["building"], "target_cell": t["target_cell"],
 		"from_cell": terrain.local_to_map(p.position), "faction": p.faction_name,
-		"countdown": Siege.LADDER_TURNS,
+		"countdown": Siege.LADDER_TURNS, "hooked": hooked,
 	})
 	p.mark_attacked()   # 설치는 그 부대 행동 종료
 	_undo_party = null
 	_refresh_siege_overlay()
 
-## 사다리 밀기 — 거점 b를 겨눈 각 사다리를 LADDER_PUSH_CHANCE로 독립 판정, 성공분 제거. markup=방어자 감소분(고리 사다리, 이번 0). → wall.md
-func _push_ladders(b, markup := 0.0) -> void:
+## 사다리 밀기 — 거점 b를 겨눈 각 사다리를 독립 판정, 성공분 제거. hooked(고리 사다리) 사다리는 밀기 확률 감소. → wall.md
+func _push_ladders(b) -> void:
 	var kept: Array = []
 	for L in _ladders:
+		var markup: float = Siege.HOOKED_PUSH_REDUCTION if L.get("hooked", false) else 0.0
 		if L["building"] == b and Siege.push_succeeds(_rng.randf(), markup):
 			continue   # 파괴됨
 		kept.append(L)

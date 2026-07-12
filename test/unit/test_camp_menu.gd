@@ -360,6 +360,14 @@ func test_buy_item_spends_gold() -> void:
 	assert_eq(c.territory.resources.get("금", 0), 2, "영지 금 30 → 2(-28)")
 	assert_true("sword" in p.loot_items, "부대 노획 장비에 sword")
 
+func test_buy_tool_grapple_ladder() -> void:
+	var c := _center("town_hall", {"금": 30})
+	var p := _party_with(1)
+	menu.open(c, p)
+	menu._buy_item("grapple_ladder")   # 도구 구매가 12×2=24
+	assert_eq(c.territory.resources.get("금", 0), 6, "영지 금 30 → 6(-24)")
+	assert_true("grapple_ladder" in p.loot_items, "부대 loot_items에 고리 사다리")
+
 func test_buy_disabled_when_poor() -> void:
 	var c := _center("town_hall", {"금": 10})
 	menu.open(c, _party_with(1))
