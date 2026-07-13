@@ -71,12 +71,13 @@ func _spawn_siege(party, team: String, x: float, vp: Vector2) -> void:
 		var t := 0.5 if n == 1 else float(i) / float(n - 1)
 		var pos := Vector2(x, lerpf(vp.y * 0.16, vp.y * 0.34, t))
 		var node := _make_token(party.token_color)
-		(node.get_node("hp") as Label).text = units[i].unit_name()   # hp 대신 이름 표시(피격 없음)
+		(node.get_node("hp") as Label).text = units[i].unit_name()   # 초기 라벨은 이름(피격 시 _catapult_volley가 남은 hp로 덮어씀)
 		_view.add_child(node)
 		var su := {
 			"siege": true, "team": team, "alive": true, "pos": pos,
 			"node": node, "hp_label": node.get_node("hp"), "body": node.get_node("body"), "color": party.token_color,
 			"min_range": units[i].min_range(), "range": units[i].fire_range(), "attack": units[i].attack(),
+			"hp": int(units[i].hit_points), "unit": units[i],   # 피격 가능(5d-3a) — 파괴 시 unit에 반영
 			"fired": false, "effects": {},
 		}
 		_units.append(su)
@@ -93,7 +94,7 @@ func _siege_act(u: Dictionary) -> void:
 
 ## 투석 1발 = 가장 가까운 적 유닛 최대 MAX_BOMBARD_TARGETS명에 유닛별 명중(0.4)·명중 시 flat rolled_damage(방어구·회피 무시). → siege-engines.md
 func _catapult_volley(u: Dictionary) -> void:
-	var targets := BattleField.nearest_enemies(u, _units, Siege.MAX_BOMBARD_TARGETS)
+	var targets := BattleField.bombard_targets(u, _units, Siege.MAX_BOMBARD_TARGETS)
 	for t in targets:
 		_spawn_projectile(u["pos"], t["pos"])   # 투사체 연출(피해는 즉시 적용)
 		if not Siege.hit_succeeds(_rng.randf(), Siege.CATAPULT_HIT_CHANCE):
@@ -360,8 +361,10 @@ func _sync_node(u: Dictionary) -> void:
 func _finish() -> void:
 	_running = false
 	for u in _units:
-		if u["alive"] and not u.get("siege", false):
-			u["human"].hit_points = maxi(1, int(u["hp"]))   # 생존자 최종 hp를 Human에 반영(전투 후 지속). 공성 전투원 제외.
+		if u.get("siege", false):
+			u["unit"].hit_points = maxi(0, int(u["hp"]))   # 투석기 hp 이월(파괴면 0 → 전투 후 prune)
+		elif u["alive"]:
+			u["human"].hit_points = maxi(1, int(u["hp"]))   # 생존자 최종 hp를 Human에 반영(전투 후 지속)
 	var a_surv := BattleField.survivors(_units, "a")
 	var b_surv := BattleField.survivors(_units, "b")
 	if _live_projectiles > 0:

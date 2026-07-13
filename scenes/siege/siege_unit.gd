@@ -3,7 +3,7 @@ class_name SiegeUnit extends RefCounted
 ## 일반 병사(Human)와 달리 인구를 차지하지 않는 재사용 장비 유닛. → docs/spec/features/siege-engines.md
 
 var type_id := SiegeTypes.CATAPULT   # 종류 id(기본 투석기).
-var hit_points := 0   # 현재 내구도. 생성 시 max_hp()로 채운다. 깎는 공격원은 후속(방어 요격 5d).
+var hit_points := 0   # 현재 내구도. 생성 시 max_hp()로 채운다. 적 투석에 맞으면 깎이고(전투 간 이월) 0이면 파괴. → siege-engines.md
 
 func _init(p_type_id := SiegeTypes.CATAPULT) -> void:
 	type_id = p_type_id

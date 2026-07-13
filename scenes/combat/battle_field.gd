@@ -17,16 +17,22 @@ static func nearest_enemy(unit: Dictionary, units: Array) -> Dictionary:
 			best = u
 	return best
 
-## unit과 다른 팀의 살아있는 유닛을 거리순(가까운 순)으로 최대 n명. 없으면 빈 배열. 공성 전투원 제외.
-## 투석기 광역 공격(한 발 최대 5명)이 쓴다. → docs/spec/features/siege-engines.md
-static func nearest_enemies(unit: Dictionary, units: Array, n: int) -> Array:
-	var enemies: Array = []
+## 투석기 광역 공격 표적(한 발 최대 n명). 다른 팀 살아있는 유닛 중 적 공성 전투원(siege)을 우선,
+## 그다음 일반 유닛, 각 그룹 내 거리순으로 최대 n명. nearest_enemy와 달리 공성 전투원을 포함(대포병 결투). → siege-engines.md
+static func bombard_targets(unit: Dictionary, units: Array, n: int) -> Array:
+	var siege_e: Array = []
+	var human_e: Array = []
 	for u in units:
-		if u["team"] == unit["team"] or not u["alive"] or u.get("siege", false):
+		if u["team"] == unit["team"] or not u["alive"]:
 			continue
-		enemies.append(u)
-	enemies.sort_custom(func(a, b): return unit["pos"].distance_squared_to(a["pos"]) < unit["pos"].distance_squared_to(b["pos"]))
-	return enemies.slice(0, n)
+		if u.get("siege", false):
+			siege_e.append(u)
+		else:
+			human_e.append(u)
+	var by_dist := func(a, b): return unit["pos"].distance_squared_to(a["pos"]) < unit["pos"].distance_squared_to(b["pos"])
+	siege_e.sort_custom(by_dist)
+	human_e.sort_custom(by_dist)
+	return (siege_e + human_e).slice(0, n)
 
 ## 그 팀에 살아있는 (비공성) 유닛이 하나도 없으면 true. 승패는 Human 기준 — 공성 전투원은 무시.
 static func team_wiped(units: Array, team: String) -> bool:

@@ -658,3 +658,15 @@ func test_siege_ranges_and_attack() -> void:
 	assert_eq(p.siege_fire_range(), 5, "투석기 최대 사거리 5")
 	assert_eq(p.siege_min_range(), 4, "투석기 최소 사거리 4")
 	assert_eq(p.siege_attack(), 50, "투석기 공격력 50")
+
+func test_prune_destroyed_siege() -> void:
+	var p := _party_of(4, 4)
+	var alive = SiegeUnit.new()
+	var dead = SiegeUnit.new()
+	dead.hit_points = 0   # 파괴됨
+	p.add_siege_unit(alive)
+	p.add_siege_unit(dead)
+	assert_eq(p.prune_destroyed_siege(), 1, "hp≤0 투석기 1대 제거·반환")
+	assert_eq(p.siege_units.size(), 1, "생존 1대만 남음")
+	assert_true(alive in p.siege_units, "hp>0 투석기 유지")
+	assert_eq(p.prune_destroyed_siege(), 0, "파괴 없으면 0·불변")

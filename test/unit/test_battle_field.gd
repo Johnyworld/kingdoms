@@ -49,37 +49,46 @@ func test_archer_should_charge_melee_never() -> void:
 
 func _siege(team: String, pos: Vector2, human = null) -> Dictionary:
 	var u := _unit(team, true, pos, human)
-	u["siege"] = true   # 공성 전투원 — 5d-2에선 표적 제외(피격은 5d-3)
+	u["siege"] = true   # 공성 전투원 — nearest_enemy는 제외, bombard_targets는 우선 표적
 	return u
 
-func test_nearest_enemies_orders_closest_first() -> void:
+func test_bombard_targets_orders_closest_first() -> void:
 	var u := _unit("a", true, Vector2(0, 0))
 	var e1 := _unit("b", true, Vector2(30, 0), "e1")
 	var e2 := _unit("b", true, Vector2(10, 0), "e2")
 	var e3 := _unit("b", true, Vector2(20, 0), "e3")
-	var got := BattleField.nearest_enemies(u, [u, e1, e2, e3], 2)
+	var got := BattleField.bombard_targets(u, [u, e1, e2, e3], 2)
 	assert_eq(got.size(), 2, "최대 2명")
 	assert_eq(got[0]["human"], "e2", "가장 가까운 e2 먼저")
 	assert_eq(got[1]["human"], "e3", "다음 e3")
 
-func test_nearest_enemies_fewer_than_n() -> void:
+func test_bombard_targets_prioritizes_enemy_siege() -> void:
+	# 적 투석기가 일반 적보다 멀어도 먼저 뽑힌다(대포병 우선).
+	var u := _unit("a", true, Vector2(0, 0))
+	var near_human := _unit("b", true, Vector2(10, 0), "human")
+	var far_siege := _siege("b", Vector2(90, 0), "siege")
+	var got := BattleField.bombard_targets(u, [u, near_human, far_siege], 5)
+	assert_eq(got.size(), 2, "둘 다 표적")
+	assert_eq(got[0]["human"], "siege", "뒤에 있어도 적 투석기 먼저")
+	assert_eq(got[1]["human"], "human", "그다음 일반 유닛")
+
+func test_bombard_targets_fewer_than_n() -> void:
 	var u := _unit("a", true, Vector2(0, 0))
 	var e1 := _unit("b", true, Vector2(10, 0), "e1")
-	assert_eq(BattleField.nearest_enemies(u, [u, e1], 5).size(), 1, "적이 n보다 적으면 있는 만큼")
+	assert_eq(BattleField.bombard_targets(u, [u, e1], 5).size(), 1, "적이 n보다 적으면 있는 만큼")
 
-func test_nearest_enemies_none_empty() -> void:
+func test_bombard_targets_none_empty() -> void:
 	var u := _unit("a", true, Vector2(0, 0))
-	assert_eq(BattleField.nearest_enemies(u, [u], 5), [], "적 없으면 빈 배열")
+	assert_eq(BattleField.bombard_targets(u, [u], 5), [], "적 없으면 빈 배열")
 
-func test_nearest_enemies_ignores_ally_dead_siege() -> void:
+func test_bombard_targets_ignores_ally_dead() -> void:
 	var u := _unit("a", true, Vector2(0, 0))
 	var ally := _unit("a", true, Vector2(5, 0), "ally")
 	var dead := _unit("b", false, Vector2(6, 0), "dead")
-	var siege := _siege("b", Vector2(7, 0), "siege")
 	var enemy := _unit("b", true, Vector2(50, 0), "enemy")
-	var got := BattleField.nearest_enemies(u, [u, ally, dead, siege, enemy], 5)
-	assert_eq(got.size(), 1, "같은 팀·죽은·공성 전투원 제외")
-	assert_eq(got[0]["human"], "enemy", "일반 적만 표적")
+	var got := BattleField.bombard_targets(u, [u, ally, dead, enemy], 5)
+	assert_eq(got.size(), 1, "같은 팀·죽은 유닛 제외")
+	assert_eq(got[0]["human"], "enemy", "살아있는 적만")
 
 func test_nearest_enemy_ignores_siege() -> void:
 	var u := _unit("a", true, Vector2(0, 0))

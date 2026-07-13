@@ -283,6 +283,18 @@ func siege_attack() -> int:
 func add_siege_unit(unit) -> void:
 	siege_units.append(unit)
 
+## hit_points <= 0인 공성 유닛(투석 결투로 파괴)을 siege_units에서 제거하고 제거 수를 반환한다. → siege-engines.md
+func prune_destroyed_siege() -> int:
+	var kept: Array = []
+	var removed := 0
+	for u in siege_units:
+		if u.hit_points > 0:
+			kept.append(u)
+		else:
+			removed += 1
+	siege_units = kept
+	return removed
+
 ## 부대 시야 = 멤버 시야의 최대값. 멤버 없으면 0.
 func vision() -> int:
 	if members.is_empty():

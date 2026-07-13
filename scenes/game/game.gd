@@ -1132,6 +1132,9 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	await _resolve_loot(attacker, defender, result[0], result[1])   # 전멸한 패자 화물 노획(플레이어 승자면 패널)
 	_apply_survivors(attacker, result[0])
 	_apply_survivors(defender, result[1])
+	if include_siege:   # 투석 결투로 파괴된 투석기 제거(hp≤0). → siege-engines.md
+		attacker.prune_destroyed_siege()
+		defender.prune_destroyed_siege()
 	_in_battle = false
 	if occupy_cell != Vector2i(-1, -1) and defender.members.is_empty() and not attacker.members.is_empty():
 		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
