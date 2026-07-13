@@ -50,6 +50,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Camp Menu (캠프 메뉴)](features/camp-menu.md) — 캠프 클릭 시 영지 자원·건축 메뉴
 - [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시 + 철거(확인 다이얼로그)
 - [Confirm Dialog (확인 다이얼로그)](features/confirm-dialog.md) — 되돌리기 어려운 동작 전 확인받는 범용 모달(첫 사용처: 건물 철거)
+- [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(첫 소비자: 구성원 메뉴)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Combat (전투 판정)](features/combat.md) — 능력치 기반 1회 공방·3회 교대 교전 순수 로직
 - [Battle (전투씬·개시·복귀)](features/battle.md) — 인접 적 클릭 개시 → 실시간 관전 오버레이 → 사상자 반영·복귀
@@ -82,6 +83,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 영역 | 스크립트 |
 | --- | --- |
 | 씬 전환 | `autoload/scene_manager.gd` |
+| 모달 스택(싱글턴) | `autoload/modal_stack.gd` |
+| 공용 모달 기반 | `scenes/modal/modal.gd` |
 | 스플래시 | `scenes/splash/splash.gd` |
 | 타이틀 | `scenes/title/title.gd` |
 | 게임 루트 | `scenes/game/game.gd` |

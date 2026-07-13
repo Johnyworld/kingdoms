@@ -3,8 +3,8 @@
 > 스크립트: `scenes/members/members_menu.gd` (`extends CanvasLayer`, layer 33)
 
 화면 **좌측 하단**에 항상 떠 있는 `"구성원"` 버튼과, 클릭 시 열리는 **우리 세력 전 군인 명단 오버레이**.
+오버레이 chrome(딤 배경·제목·X·닫기·ESC·입력 차단)은 공용 [Modal](modal.md)에 위임하고, 콘텐츠(명단 + 상세)만 주입한다.
 명단 표는 재사용 위젯 [Member List](member-list.md)를 그대로 쓰고, 옆에 선택한 군인의 **상세 정보 패널**을 붙인다.
-[캠프 메뉴](camp-menu.md)·[턴 HUD](turn.md)처럼 UI를 코드(`_build`)로 구성한다(별도 `.tscn` 없음).
 
 ## 대상 (누가 "우리 세력 군인"인가)
 
@@ -18,15 +18,15 @@
 - `"구성원"` `Button`을 `PRESET_BOTTOM_LEFT`(마진 16)에 둔다. 항상 표시.
 - 누르면 `open_requested` 시그널을 방출한다. `game.gd`가 받아 `open(_player_faction_members())`를 호출한다(데이터는 게임 쪽에서 주입 → 오버레이는 세력을 모른다).
 
-## 오버레이
+## 오버레이 (Modal 기반)
 
-- `open(members: Array) -> void` — 반투명 배경(`ColorRect`, `0,0,0,0.45`)을 깔고 패널을 표시한다. 배경 **좌클릭** 시 닫힌다(휠·우클릭은 무시 — 휠도 `InputEventMouseButton`이라 오작동 방지). 좌측 하단 버튼은 오버레이가 열려 있는 동안 숨긴다.
-- `is_open() -> bool` — 오버레이 표시 여부. `game.gd`가 지도 카메라 입력 차단 판단에 쓴다.
-- 중앙에 가로(HBox)로:
-  - **명단 패널** — 제목 `"구성원"` + 인원 수 + [Member List](member-list.md) 위젯 + 닫기 버튼.
+- 내부에 [Modal](modal.md) 하나를 두고(`title = "구성원"`), 콘텐츠로 **가로(HBox)** 배치를 `set_content`한다:
+  - **명단 열** — 인원 수 라벨 + [Member List](member-list.md) 위젯.
   - **상세 패널** — 선택한 군인의 전체 스탯을 세로로 표시(아래 "상세 정보"). 선택 전에는 안내 문구.
-- `close() -> void` — 오버레이를 감추고 좌측 하단 버튼을 다시 표시한다.
-- 오버레이를 열면 명단의 **첫 행이 자동 선택**되어 상세 패널이 채워지고, 명단에 **포커스**를 줘 키보드 ↑/↓ 이동을 바로 쓸 수 있다(멤버가 있을 때).
+- 배경·제목·X·ESC·닫기·지도 입력 차단은 Modal이 처리한다. Modal이 `closed`를 방출하면 좌측 하단 버튼을 다시 표시한다(`_on_modal_closed`).
+- `open(members: Array) -> void` — 인원 수를 갱신하고 좌측 하단 버튼을 숨긴 뒤 Modal을 연다. 멤버가 있으면 명단의 **첫 행을 자동 선택**하고 명단에 **포커스**를 줘 키보드 ↑/↓ 이동을 바로 쓸 수 있게 한다.
+- `close() -> void` — Modal을 닫는다(→ `closed` → 버튼 복원).
+- `is_open() -> bool` — Modal의 열림 여부를 위임 반환.
 
 ## 상세 정보 (`member_selected` 수신)
 
@@ -41,7 +41,7 @@ Member List의 `member_selected(human)`을 받아 상세 패널을 갱신한다.
 - game.tscn에 `MembersMenu` 노드를 추가하고 `@onready var members_menu = $MembersMenu`.
 - `members_menu.open_requested`를 `_on_members_requested`에 연결 → `members_menu.open(_player_faction_members())`.
 - 명단은 **여는 시점의 스냅샷**이다(열려 있는 동안 부대 변화는 반영하지 않음).
-- **지도 입력 차단** — 오버레이가 열려 있는 동안(`members_menu.is_open()`) `game.gd`의 `_process`(WASD·엣지 스크롤 카메라 팬)와 `_unhandled_input`(클릭·줌)이 즉시 반환해 지도 조작을 막는다. 반투명 배경은 마우스 클릭만 소비하고 폴링 기반 카메라 팬은 못 막으므로 명시적 확인이 필요하다. (향후 공용 Modal/ModalStack로 일반화 예정 — [SPEC.md 추천 스펙](../SPEC.md))
+- **지도 입력 차단**은 [Modal](modal.md) 공통 메커니즘(`ModalStack.blocking()`)이 담당한다 — `game.gd`의 `_process`·`_unhandled_input`이 모달 열림 시 즉시 반환한다.
 
 ## 테스트 시나리오
 
@@ -55,8 +55,9 @@ Member List의 `member_selected(human)`을 받아 상세 패널을 갱신한다.
 - [정상] `open`에 멤버가 있으면 첫 행 자동 선택 → 상세 패널이 그 군인 이름을 포함
 - [경계] `open([])` → 행 0, 상세 패널은 안내 문구
 - [정상] `is_open()` — 기본 false, `open` 후 true, `close` 후 false
-- [정상] 배경 **좌클릭** → 닫힘(`is_open()` false)
-- [경계] 배경 **우클릭·휠** → 닫히지 않음(`is_open()` true 유지)
+- [정상] `close()` 시 좌측 하단 버튼 복원(Modal `closed` 경유)
+
+> 배경 좌클릭·우클릭·휠·ESC 닫기 동작은 [Modal](modal.md) 시나리오에서 검증한다.
 
 ## 관련
 

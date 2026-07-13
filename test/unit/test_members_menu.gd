@@ -5,8 +5,15 @@ extends GutTest
 var menu   # MembersMenu (extends CanvasLayer)
 
 func before_each() -> void:
+	# 싱글턴 모달 스택 격리 — 이전 테스트에서 남은 모달 정리.
+	while ModalStack.top() != null:
+		ModalStack.top().close()
 	menu = MembersMenu.new()
 	add_child_autofree(menu)
+
+func after_each() -> void:
+	if is_instance_valid(menu) and menu.is_open():
+		menu.close()
 
 func _human(p_name: String) -> Object:
 	return load("res://scenes/human/human.gd").new(p_name)
@@ -78,24 +85,6 @@ func test_is_open_reflects_overlay() -> void:
 	assert_true(menu.is_open(), "open 후 열림")
 	menu.close()
 	assert_false(menu.is_open(), "close 후 닫힘")
-
-func _mouse_button(button_index: int) -> InputEventMouseButton:
-	var ev := InputEventMouseButton.new()
-	ev.button_index = button_index
-	ev.pressed = true
-	return ev
-
-func test_background_left_click_closes() -> void:
-	menu.open([_human("갑")])
-	menu._on_bg_input(_mouse_button(MOUSE_BUTTON_LEFT))
-	assert_false(menu.is_open(), "배경 좌클릭 시 닫힘")
-
-func test_background_right_click_and_wheel_ignored() -> void:
-	menu.open([_human("갑")])
-	menu._on_bg_input(_mouse_button(MOUSE_BUTTON_RIGHT))
-	assert_true(menu.is_open(), "우클릭은 무시")
-	menu._on_bg_input(_mouse_button(MOUSE_BUTTON_WHEEL_UP))
-	assert_true(menu.is_open(), "휠은 무시")
 
 func test_open_empty_shows_placeholder() -> void:
 	menu.open([])

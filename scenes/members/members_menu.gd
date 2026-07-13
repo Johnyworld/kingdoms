@@ -1,10 +1,12 @@
 class_name MembersMenu
 extends CanvasLayer
 ## 구성원 메뉴. 좌측 하단 상시 "구성원" 버튼 + 우리 세력 전 군인 명단 오버레이 + 상세 패널.
-## 명단 표는 재사용 위젯 MemberList를 그대로 쓴다. 세력을 모르며, 명단은 game.gd가 주입한다.
-## 캠프 메뉴·턴 HUD처럼 UI를 코드(_build)로 구성한다(별도 .tscn 없음). → docs/spec/features/members-menu.md
+## 오버레이 chrome(배경·제목·X·닫기·입력 차단)은 공용 Modal에 위임하고, 콘텐츠(명단+상세)만 주입한다.
+## 명단 표는 재사용 위젯 MemberList를 쓴다. 세력을 모르며, 명단은 game.gd가 주입한다.
+## → docs/spec/features/members-menu.md
 
 const MemberListScript = preload("res://scenes/members/member_list.gd")
+const ModalScript = preload("res://scenes/modal/modal.gd")
 
 ## 좌측 하단 버튼을 누르면 방출. game.gd가 받아 open(_player_faction_members())을 호출한다.
 signal open_requested
@@ -12,7 +14,7 @@ signal open_requested
 const MARGIN := 16
 
 var _open_button: Button
-var _overlay: Control        # 반투명 배경 + 패널 루트(기본 숨김)
+var _modal: Modal
 var _list: MemberList
 var _count_label: Label
 var _detail: VBoxContainer   # 상세 패널 내용
@@ -33,34 +35,33 @@ static func collect_faction_members(parties: Array, faction_name: String) -> Arr
 				out.append(h)
 	return out
 
-## 명단 오버레이를 연다. 좌측 하단 버튼은 숨긴다. 멤버가 있으면 첫 행을 자동 선택한다.
+## 명단 오버레이를 연다. 좌측 하단 버튼은 숨긴다. 멤버가 있으면 첫 행을 자동 선택하고 포커스한다.
 func open(members: Array) -> void:
 	_list.set_members(members)
-	_count_label.text = "  (%d명)" % members.size()
-	_overlay.show()
+	_count_label.text = "%d명" % members.size()
 	_open_button.hide()
+	_modal.open()
 	if members.size() > 0:
 		_list.move_selection(0)   # 첫 행 선택 → member_selected로 상세 갱신
 		_list.grab_focus()        # 키보드 ↑/↓ 이동을 바로 쓰도록 포커스
 	else:
 		_show_detail(null)
 
-## 오버레이가 열려 있는지. game.gd가 지도 카메라 입력 차단 여부를 판단할 때 쓴다.
-func is_open() -> bool:
-	return _overlay.visible
-
-## 오버레이를 닫고 좌측 하단 버튼을 다시 표시한다.
+## 오버레이를 닫는다(Modal 경유 → closed 시 버튼 복원).
 func close() -> void:
-	_overlay.hide()
-	_open_button.show()
+	_modal.close()
+
+## 오버레이가 열려 있는지.
+func is_open() -> bool:
+	return _modal.is_open()
 
 func _build() -> void:
+	# 좌측 하단 상시 버튼(오버레이와 별개 레이어)
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
-	# 좌측 하단 상시 버튼
 	_open_button = Button.new()
 	_open_button.text = "구성원"
 	_open_button.custom_minimum_size = Vector2(120, 44)
@@ -69,69 +70,39 @@ func _build() -> void:
 	_open_button.pressed.connect(func() -> void: open_requested.emit())
 	root.add_child(_open_button)
 
-	# 오버레이(기본 숨김)
-	_overlay = Control.new()
-	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_overlay.hide()
-	root.add_child(_overlay)
+	# 오버레이 = 공용 Modal + 콘텐츠(명단 + 상세)
+	_modal = ModalScript.new()
+	_modal.title = "구성원"
+	_modal.closed.connect(_on_modal_closed)
+	add_child(_modal)
 
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.45)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.gui_input.connect(_on_bg_input)
-	_overlay.add_child(bg)
+	var content := HBoxContainer.new()
+	content.add_theme_constant_override("separation", 12)
 
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_overlay.add_child(center)
+	var list_col := VBoxContainer.new()
+	list_col.add_theme_constant_override("separation", 6)
+	content.add_child(list_col)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 12)
-	center.add_child(hbox)
-
-	# 명단 패널
-	var list_panel := PanelContainer.new()
-	hbox.add_child(list_panel)
-	var list_vbox := VBoxContainer.new()
-	list_vbox.add_theme_constant_override("separation", 6)
-	list_panel.add_child(list_vbox)
-
-	var header := HBoxContainer.new()
-	list_vbox.add_child(header)
-	var title := Label.new()
-	title.text = "구성원"
-	title.add_theme_font_size_override("font_size", 20)
-	header.add_child(title)
 	_count_label = Label.new()
-	_count_label.add_theme_font_size_override("font_size", 20)
-	header.add_child(_count_label)
-
-	list_vbox.add_child(HSeparator.new())
+	list_col.add_child(_count_label)
 
 	_list = MemberListScript.new()
 	_list.custom_minimum_size = Vector2(780, 440)
 	_list.member_selected.connect(_on_member_selected)
-	list_vbox.add_child(_list)
+	list_col.add_child(_list)
 
-	var close_btn := Button.new()
-	close_btn.text = "닫기"
-	close_btn.pressed.connect(close)
-	list_vbox.add_child(close_btn)
-
-	# 상세 패널
 	var detail_panel := PanelContainer.new()
-	hbox.add_child(detail_panel)
+	content.add_child(detail_panel)
 	_detail = VBoxContainer.new()
 	_detail.custom_minimum_size = Vector2(220, 0)
 	_detail.add_theme_constant_override("separation", 4)
 	detail_panel.add_child(_detail)
+
+	_modal.set_content(content)
 	_show_detail(null)
 
-func _on_bg_input(event: InputEvent) -> void:
-	# 좌클릭으로만 닫는다(휠·우클릭은 무시 — 휠은 InputEventMouseButton으로 들어와 오작동 방지).
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		close()
+func _on_modal_closed() -> void:
+	_open_button.show()
 
 func _on_member_selected(human) -> void:
 	_show_detail(human)

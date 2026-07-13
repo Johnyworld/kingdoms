@@ -2181,8 +2181,8 @@ func _next_outpost_name() -> String:
 ## 줌 조절: 마우스 휠 / 트랙패드 두 손가락 스크롤 / 트랙패드 핀치.
 ## 값이 작을수록 확대이므로, 확대 = _zoom_level 감소.
 func _unhandled_input(event: InputEvent) -> void:
-	if members_menu.is_open():
-		return   # 모달 열림 동안 게임 월드 입력(클릭·줌) 차단 → members-menu.md
+	if ModalStack.blocking():
+		return   # 모달 열림 동안 게임 월드 입력(클릭·줌) 차단 → modal.md
 	# 건설 모드에서는 배치 입력만 처리한다(일반 클릭·선택 차단).
 	if _build_mode:
 		_handle_build_input(event)
@@ -2210,8 +2210,8 @@ func _set_zoom(level: float) -> void:
 	camera.zoom = Vector2.ONE / _zoom_level
 
 func _process(delta: float) -> void:
-	if members_menu.is_open():
-		return   # 모달 열림 동안 지도 카메라 팬(WASD·엣지 스크롤) 차단 → members-menu.md
+	if ModalStack.blocking():
+		return   # 모달 열림 동안 지도 카메라 팬(WASD·엣지 스크롤) 차단 → modal.md
 	var dir := Vector2.ZERO
 
 	# 키보드 (WASD)
