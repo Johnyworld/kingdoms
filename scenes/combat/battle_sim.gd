@@ -8,7 +8,13 @@ const BATTLE_TIME := 10.0   # 한 전투 지속 시간(초).
 
 ## a_members·b_members(Human 목록)의 교전을 결산한다. 반환: {a: 생존 human 목록, b: 생존 human 목록}.
 ## 각 유닛은 자기 공격 간격마다 상대 팀의 살아있는 유닛 하나를 공격한다(이산 이벤트 시뮬).
-static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumberGenerator, distance := 1) -> Dictionary:
+static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumberGenerator, distance := 1, a_siege := [], b_siege := []) -> Dictionary:
+	# 투석 볼리 프리페이즈(공성 유닛 있을 때, NPC↔NPC 투석기 결투 — 5g-B) → docs/spec/features/battle.md
+	if not a_siege.is_empty() or not b_siege.is_empty():
+		_siege_volley(a_siege, a_members, b_siege, b_members, distance, rng)
+		a_members = _living(a_members)   # 볼리로 전투불능된 멤버는 멤버 시뮬에서 제외
+		b_members = _living(b_members)
+
 	var units: Array = []
 	for h in a_members:
 		units.append(_make_unit(h, "a", distance))
@@ -51,6 +57,36 @@ static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumber
 		_advance_effects(units, BATTLE_TIME - now)
 	_persist_hp(units)   # 생존자 최종 hp를 Human에 반영(전투 후 지속)
 	return {"a": _survivors(units, "a"), "b": _survivors(units, "b")}
+
+## 투석 볼리 표적 — 적 투석기 우선(대포병) → 적 멤버, 최대 n(비공간이라 목록 앞쪽부터). → docs/spec/features/battle.md
+static func bombard_pick(enemy_siege: Array, enemy_members: Array, n: int) -> Array:
+	return (enemy_siege + enemy_members).slice(0, n)
+
+## 투석 볼리 정산(5g-B) — 양측 투석기가 전투당 1발씩 동시 사격(스냅샷 → 상호 반격 보장).
+## 밴드(min~fire) 안일 때만 발사, 표적별 명중(0.1)·명중 시 flat rolled_damage. hit_points는 SiegeUnit·Human에 in-place 반영. → docs/spec/features/battle.md
+static func _siege_volley(a_siege: Array, a_members: Array, b_siege: Array, b_members: Array, distance: int, rng: RandomNumberGenerator) -> void:
+	# 볼리 전 살아있는 표적을 스냅샷(양측이 같은 상태를 봐 한쪽이 먼저 파괴돼도 반격 1발 보장).
+	var a_targets := bombard_pick(_living(b_siege), _living(b_members), Siege.MAX_BOMBARD_TARGETS)
+	var b_targets := bombard_pick(_living(a_siege), _living(a_members), Siege.MAX_BOMBARD_TARGETS)
+	var pending := {}   # 표적 → 누적 피해(스냅샷 기준으로 모두 계산한 뒤 한 번에 적용)
+	_accumulate_volley(a_siege, a_targets, distance, rng, pending)
+	_accumulate_volley(b_siege, b_targets, distance, rng, pending)
+	for t in pending:
+		t.hit_points -= pending[t]
+
+## siege_units 각각을 targets에 전투당 1발 사격해 pending(표적→피해)에 누적. 밴드 밖·파괴된 투석기는 건너뛴다.
+static func _accumulate_volley(siege_units: Array, targets: Array, distance: int, rng: RandomNumberGenerator, pending: Dictionary) -> void:
+	for su in siege_units:
+		if su.hit_points <= 0 or not Siege.in_fire_band(distance, su.min_range(), su.fire_range()):
+			continue
+		for t in targets:
+			if not Siege.hit_succeeds(rng.randf(), Siege.CATAPULT_HIT_CHANCE):
+				continue
+			pending[t] = pending.get(t, 0) + Siege.rolled_damage(su.attack(), rng.randf())
+
+## hit_points > 0인 유닛만(멤버·투석기 공통). 볼리 표적 스냅샷·볼리 후 생존 멤버 선별에 쓴다.
+static func _living(units: Array) -> Array:
+	return units.filter(func(u): return u.hit_points > 0)
 
 ## 그 팀에 살아있는 유닛이 하나라도 있으면 true.
 static func _team_alive(units: Array, team: String) -> bool:

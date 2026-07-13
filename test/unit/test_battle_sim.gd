@@ -2,6 +2,10 @@ extends GutTest
 ## 헤드리스 전투 결산(BattleSim) 테스트 — 순수 함수. NPC끼리 전투를 화면 없이 결산.
 ## 확률은 극단 능력치로 강제한다: 회피 200↑ → 항상 빗나감 / 회피 음수 → 항상 명중.
 
+# 투석 볼리(5g-B) 명중 시드 — CATAPULT_HIT_CHANCE 0.1이라 특정 시드로 명중을 강제한다(멤버 없는 투석기 대 투석기 기준).
+const SEED_A_HITS := 13     # 첫 발(A→B 투석기) 명중
+const SEED_BOTH_HIT := 105  # A→B 명중 + B→A 명중(상호 반격)
+
 func _human(strength := 0, agility := 0, luck := 0, hp := 40, weapon := "") -> Object:
 	return _human_weapons(strength, agility, luck, hp, ([] if weapon == "" else [weapon]))
 
@@ -198,3 +202,44 @@ func test_unharmed_survivor_hp_unchanged() -> void:
 	var r := BattleSim.resolve_battle(a, [b], _rng())
 	assert_eq(r["b"].size(), 1, "B 생존")
 	assert_eq(b.hit_points, 40, "피해를 안 받은 생존자는 hp 불변")
+
+# --- NPC↔NPC 투석기 결투 (5g-B, 투석 볼리 프리페이즈) → docs/spec/features/battle.md ---
+
+func _catapult() -> Object:
+	return load("res://scenes/siege/siege_unit.gd").new()   # 투석기: 사거리 4~5·공격 50·hp 60
+
+func test_bombard_pick_siege_first() -> void:
+	# 적 투석기 우선 → 멤버, 최대 n. 타입 무관 순서·슬라이스만.
+	assert_eq(BattleSim.bombard_pick([1, 2], [3, 4, 5], 5), [1, 2, 3, 4, 5], "투석기 먼저 그다음 멤버")
+	assert_eq(BattleSim.bombard_pick([1, 2, 3], [4, 5], 4), [1, 2, 3, 4], "최대 n(4)까지")
+	assert_eq(BattleSim.bombard_pick([], [], 5), [], "적 없으면 빈 배열")
+
+func test_siege_no_fire_below_band() -> void:
+	# 거리 1(밴드 4~5 밖) → 투석기 미발사. 양측 투석기 hp 불변.
+	var sa := _catapult()
+	var sb := _catapult()
+	BattleSim.resolve_battle([], [], _rng(), 1, [sa], [sb])
+	assert_eq(sa.hit_points, 60, "밴드 밖 → A 투석기 미발사(hp 60)")
+	assert_eq(sb.hit_points, 60, "밴드 밖 → B 투석기 미발사(hp 60)")
+
+func test_siege_hits_in_band() -> void:
+	# 거리 4(밴드 안) + 명중 시드 → A 투석기가 B 투석기(유일 표적)에 피해. 멤버 없이 투석기 대 투석기.
+	var sa := _catapult()
+	var sb := _catapult()
+	BattleSim.resolve_battle([], [], _rng(SEED_A_HITS), 4, [sa], [sb])
+	assert_lt(sb.hit_points, 60, "명중 시 B 투석기 hp 감소")
+
+func test_siege_mutual_counter() -> void:
+	# 거리 4 + 양측 명중 시드 → 상호 반격(둘 다 hp 감소, 한쪽만 깎이지 않음).
+	var sa := _catapult()
+	var sb := _catapult()
+	BattleSim.resolve_battle([], [], _rng(SEED_BOTH_HIT), 4, [sa], [sb])
+	assert_lt(sa.hit_points, 60, "A 투석기도 반격당해 hp 감소")
+	assert_lt(sb.hit_points, 60, "B 투석기 hp 감소")
+
+func test_no_siege_regression() -> void:
+	# siege 인자 생략 == 빈 배열 → 멤버 전투 결과 동일(볼리 스킵).
+	var r_none := BattleSim.resolve_battle([_human(60, 20)], [_human(58, 22)], _rng(7))
+	var r_empty := BattleSim.resolve_battle([_human(60, 20)], [_human(58, 22)], _rng(7), 1, [], [])
+	assert_eq(r_none["a"].size(), r_empty["a"].size(), "siege 없음 = 빈 siege, A 생존 동일")
+	assert_eq(r_none["b"].size(), r_empty["b"].size(), "siege 없음 = 빈 siege, B 생존 동일")

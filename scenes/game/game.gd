@@ -1280,8 +1280,11 @@ func _on_result_dismissed() -> void:
 
 ## NPC끼리 전투를 화면 없이 즉시 결산한다(BattleSim). 사상자만 반영.
 func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
-	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, distance)
+	# 양측 공성 유닛도 넘겨 밴드(4~5)면 투석 볼리를 함께 결산(NPC↔NPC 투석기 결투 — 5g-B). → battle.md
+	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, distance, attacker.siege_units, defender.siege_units)
 	_resolve_loot(attacker, defender, result["a"], result["b"])   # NPC 승자 → 전량 자동(패널 없음)
+	attacker.prune_destroyed_siege()   # 볼리로 파괴된 투석기 제거(전멸 부대 queue_free 전에 처리)
+	defender.prune_destroyed_siege()
 	_apply_survivors(attacker, result["a"])
 	_apply_survivors(defender, result["b"])
 
@@ -1491,8 +1494,10 @@ func _npc_try_bombard(attacker) -> bool:
 			await _bombard_wall_by(attacker, t["ref"], int(t["dist"]))   # 플레이어 성벽 → 오버레이 관전
 		else:
 			_npc_bombard_wall_headless(attacker, t["ref"])   # 다른 NPC 성벽 → 헤드리스 정산(5g)
+	elif t["ref"] in _units:
+		await _run_battle(attacker, t["ref"], int(t["dist"]), Vector2i(-1, -1), true)   # 플레이어 부대 → 오버레이 관전
 	else:
-		await _run_battle(attacker, t["ref"], int(t["dist"]), Vector2i(-1, -1), true)   # 플레이어 부대 폭격(오버레이)
+		_resolve_battle_headless(attacker, t["ref"], int(t["dist"]))   # 다른 NPC 부대 → 헤드리스 투석 결투(5g-B)
 	return true
 
 ## attacker의 투석 사거리 밴드(min~fire) 안 최근접 표적. {kind:"wall"/"party", ref, dist} 또는 빈 Dictionary. → siege-engines.md
@@ -1507,8 +1512,8 @@ func _siege_target_for(attacker) -> Dictionary:
 	var dists: Dictionary = HexGrid.bfs_distances(terrain, terrain.local_to_map(attacker.position), rng, MAP_WIDTH, MAP_HEIGHT)
 	var best := {}
 	var best_d := 1 << 30
-	for p in _units:   # 플레이어 부대(적) — NPC 부대 대상 유닛 투석은 헤드리스 미지원(후속)
-		if p.members.is_empty():
+	for p in _units + _npc_parties:   # 적 세력 부대(플레이어·다른 NPC — 5g-B, 자기 부대·자기 세력 제외)
+		if p == attacker or p.members.is_empty() or p.faction_name == attacker.faction_name:
 			continue
 		var ec: Vector2i = terrain.local_to_map(p.position)
 		if dists.has(ec) and int(dists[ec]) >= min_r and int(dists[ec]) < best_d:
