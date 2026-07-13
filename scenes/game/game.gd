@@ -280,6 +280,7 @@ func _setup_parties() -> void:
 		var p := PARTY_SCENE.instantiate()
 		add_child(p)
 		_populate_party(p, id)
+		p.add_siege_unit(SiegeUnit.new())   # 로빙 NPC 시작 투석기 1대(5f positioning 공성) → siege-engines.md
 		p.token_color = UnitTypes.get_party(id)["color"]
 		p.position = terrain.map_to_local(center + NPC_OFFSETS[id])
 		_npc_parties.append(p)
@@ -934,9 +935,53 @@ func _npc_targets(p, party_entries: Array, camp_entries: Array) -> Array:
 		if near.has(ocell) and NpcAi.party_power(other.members) <= my_power:
 			weak.append(ocell)
 	var rest: Array = NpcAi.enemy_cells(fn, party_entries) + NpcAi.enemy_cells(fn, camp_entries)
-	var advance := NpcAi.prioritize([undefended, weak, rest])
+	# 5f: 투석기를 실은 로빙 NPC는 손쉬운 표적(무방비 캠프·약한 부대)이 없으면 rest 대신
+	#     가장 가까운 플레이어 성벽 거점의 사거리 밴드(4~5)로 접근해 자리잡는다(positioning 공성). → siege-engines.md
+	var band: Array = _siege_band_cells(p) if p.has_siege() else []
+	var advance := NpcAi.prioritize([undefended, weak, band, rest])
 	var defend := _threats_near_own_camp(fn, party_entries)
 	return NpcAi.select_targets(advance, defend)
+
+## 투석기 실은 NPC p가 자리잡을 밴드 셀 — 가장 가까운 플레이어 성벽 거점의 사거리 밴드(4~5) 안 셀.
+## _approach가 그중 최근접 셀로 접근·정착(밴드 셀에 서면 거리 0이라 유지, 오버슛 없음). 성벽 거점 없으면 빈 배열. → siege-engines.md
+func _siege_band_cells(p) -> Array:
+	var min_r: int = p.siege_min_range()
+	var fire_r: int = p.siege_fire_range()
+	if fire_r <= 0:
+		return []
+	# 가장 가까운 플레이어 성벽 거점 하나(월드 거리 — _approach가 쓰는 척도와 일치).
+	var pw: Vector2 = p.position
+	var target = null
+	var best_d := INF
+	for b in _buildings:
+		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
+			continue
+		var d := pw.distance_to(terrain.map_to_local(b.center_cell()))
+		if d < best_d:
+			best_d = d
+			target = b
+	if target == null:
+		return []
+	# 거점 footprint에서 다중 시작 BFS(지형 무시)로 최단 헥스 거리를 재, 밴드(min~fire) 안 셀만.
+	var dist := {}
+	var frontier: Array[Vector2i] = []
+	for c in target.cells:
+		dist[c] = 0
+		frontier.append(c)
+	var out: Array = []
+	while not frontier.is_empty():
+		var cur: Vector2i = frontier.pop_front()
+		var d: int = dist[cur]
+		if Siege.in_fire_band(d, min_r, fire_r):
+			out.append(cur)
+		if d >= fire_r:
+			continue
+		for n in terrain.get_surrounding_cells(cur):
+			if n.x < 0 or n.x >= MAP_WIDTH or n.y < 0 or n.y >= MAP_HEIGHT or dist.has(n):
+				continue
+			dist[n] = d + 1
+			frontier.append(n)
+	return out
 
 ## NPC p가 후퇴해야 하는지 — NPC_RETREAT_SCAN 반경 안 적 부대 중 가장 강한 것과 비교해 교전이 불리하면 참.
 func _should_retreat(p) -> bool:

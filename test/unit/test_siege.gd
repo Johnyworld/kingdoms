@@ -66,3 +66,17 @@ func test_hit_succeeds() -> void:
 	assert_true(siege.hit_succeeds(0.05, 0.1), "0.05 < 0.1 → 명중")
 	assert_false(siege.hit_succeeds(0.2, 0.1), "0.2 ≥ 0.1 → 빗나감")
 	assert_false(siege.hit_succeeds(0.1, 0.1), "경계 0.1은 미만만 명중이라 빗나감")
+
+# --- 사거리 밴드 판정(5f, 로빙 positioning 공성) → docs/spec/features/siege-engines.md ---
+
+func test_in_fire_band_inside() -> void:
+	assert_true(siege.in_fire_band(4, 4, 5), "거리 4는 밴드 4~5 안")
+	assert_true(siege.in_fire_band(5, 4, 5), "거리 5는 밴드 4~5 안")
+
+func test_in_fire_band_outside() -> void:
+	assert_false(siege.in_fire_band(3, 4, 5), "거리 3은 밴드보다 가까움 — 근거리 투석 불가")
+	assert_false(siege.in_fire_band(6, 4, 5), "거리 6은 밴드보다 멀음")
+	assert_false(siege.in_fire_band(0, 4, 5), "거점 위(0)는 밴드 밖")
+
+func test_in_fire_band_single_cell() -> void:
+	assert_true(siege.in_fire_band(4, 4, 4), "min==fire 단일 셀 밴드는 그 거리만 참")

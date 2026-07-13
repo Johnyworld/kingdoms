@@ -32,3 +32,8 @@ static func wall_broken(hp: int) -> bool:
 ## 유닛 투석 명중 판정 — roll(0~1)이 명중 확률(chance) 미만이면 명중. → siege-engines.md
 static func hit_succeeds(roll: float, chance: float) -> bool:
 	return roll < chance
+
+## 거리 dist가 투석 사거리 밴드(min_r ~ fire_r) 안인지 — 밴드보다 가깝거나 멀면 거짓.
+## 로빙 NPC positioning 공성(5f)이 밴드 셀을 고르는 필터. → siege-engines.md
+static func in_fire_band(dist: int, min_r: int, fire_r: int) -> bool:
+	return dist >= min_r and dist <= fire_r
