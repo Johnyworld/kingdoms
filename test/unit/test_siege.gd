@@ -80,3 +80,15 @@ func test_in_fire_band_outside() -> void:
 
 func test_in_fire_band_single_cell() -> void:
 	assert_true(siege.in_fire_band(4, 4, 4), "min==fire 단일 셀 밴드는 그 거리만 참")
+
+# --- 헤드리스 성벽 투석 피해 총량(5g, NPC↔NPC 성벽 공성) → docs/spec/features/siege-engines.md ---
+
+func test_total_bombard_damage_sums_rolls() -> void:
+	assert_eq(siege.total_bombard_damage([50, 50], [0.0, 1.0]), 100, "30 + 70 = 100 (유닛별 rolled_damage 합)")
+
+func test_total_bombard_damage_single() -> void:
+	assert_eq(siege.total_bombard_damage([50], [0.5]), 50, "1대 = rolled_damage 그대로")
+
+func test_total_bombard_damage_edges() -> void:
+	assert_eq(siege.total_bombard_damage([], []), 0, "공성 유닛 없음 → 0")
+	assert_eq(siege.total_bombard_damage([50, 50], [1.0]), 70, "둘 중 짧은 길이(1발)만큼 — 70")

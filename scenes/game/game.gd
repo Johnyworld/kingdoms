@@ -949,13 +949,11 @@ func _siege_band_cells(p) -> Array:
 	var fire_r: int = p.siege_fire_range()
 	if fire_r <= 0:
 		return []
-	# 가장 가까운 플레이어 성벽 거점 하나(월드 거리 — _approach가 쓰는 척도와 일치).
+	# 가장 가까운 적 세력 성벽 거점 하나(플레이어·다른 NPC 불문, 자기 세력 제외 — 5g). 월드 거리(_approach 척도와 일치).
 	var pw: Vector2 = p.position
 	var target = null
 	var best_d := INF
-	for b in _buildings:
-		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
-			continue
+	for b in _enemy_walled_centers(p.faction_name):
 		var d := pw.distance_to(terrain.map_to_local(b.center_cell()))
 		if d < best_d:
 			best_d = d
@@ -1438,10 +1436,7 @@ func _bombard_wall_by(attacker, building, distance: int) -> void:
 	await overlay.finished
 	overlay.queue_free()
 	_in_battle = false
-	if Siege.wall_broken(building.wall_hp):   # battle.gd가 building.wall_hp를 반영
-		building.wall_level = 0
-		building.wall_hp = 0
-		_clear_ladders(building)   # 붕괴된 성벽 사다리 정리 → wall.md
+	if _collapse_wall(building):   # battle.gd가 building.wall_hp를 반영
 		var tname: String = building.territory.name if building.territory != null else "성벽"
 		toast.show_message("%s 성벽 붕괴!" % tname)
 	else:
@@ -1450,20 +1445,58 @@ func _bombard_wall_by(attacker, building, distance: int) -> void:
 	attacker.prune_destroyed_siege()   # 반격 없어 보통 no-op(대칭성)
 	party_roster.set_parties(_units)
 
-## NPC 공성 AI — attacker(투석기 실은 NPC)가 사거리 밴드 4~5 안 플레이어 표적(성벽/부대)에 투석. 발동 시 true. → siege-engines.md
-## positioning 없음 — 주로 고정 위치 수비대가 접근한 플레이어를 방어 포격. NPC↔NPC는 미지원(BattleSim 공성 없음).
+## 성벽 붕괴 처리(내구도 0 이하) — wall_level·wall_hp 0, 사다리 정리. 붕괴됐으면 true. 오버레이·헤드리스(5g) 공용. → wall.md
+func _collapse_wall(building) -> bool:
+	if not Siege.wall_broken(building.wall_hp):
+		return false
+	building.wall_level = 0
+	building.wall_hp = 0
+	_clear_ladders(building)   # 붕괴된 성벽 사다리 정리 → wall.md
+	return true
+
+## 거점 b의 소유 세력 이름(territory/faction 없으면 ""). 투석 표적 세력 판정(5g). → siege-engines.md
+func _building_faction_name(b) -> String:
+	if b.territory != null and b.territory.faction != null:
+		return b.territory.faction.name
+	return ""
+
+## faction_name이 공성할 적 세력 성벽 거점 목록(플레이어·NPC 불문, 자기 세력 제외). 5g 투석 표적·밴드 셀 공용. → siege-engines.md
+func _enemy_walled_centers(faction_name: String) -> Array:
+	var out: Array = []
+	for b in _buildings + _npc_buildings:
+		if BuildingTypes.is_center(b.building_type) and b.is_walled() and _building_faction_name(b) != faction_name:
+			out.append(b)
+	return out
+
+## NPC↔NPC 헤드리스 성벽 투석(5g) — attacker 공성 유닛마다 1발 flat 피해 합산해 wall_hp 차감·붕괴. 오버레이 없음(플레이어 불참). → siege-engines.md
+func _npc_bombard_wall_headless(attacker, building) -> void:
+	var attacks: Array = []
+	var rolls: Array = []
+	for s in attacker.siege_units:
+		attacks.append(s.attack())
+		rolls.append(_rng.randf())
+	building.wall_hp = Siege.wall_after_hit(building.wall_hp, Siege.total_bombard_damage(attacks, rolls))
+	_collapse_wall(building)   # 헤드리스라 토스트 없음(안개 밖이면 링만 갱신)
+	building.queue_redraw()
+
+## NPC 공성 AI — attacker(투석기 실은 NPC)가 사거리 밴드 4~5 안 적 표적에 투석. 발동 시 true. → siege-engines.md
+## 성벽: 플레이어 소유면 오버레이, 다른 NPC 소유면 헤드리스(5g). 부대: 플레이어 부대만(NPC 부대 유닛 투석은 후속).
 func _npc_try_bombard(attacker) -> bool:
 	var t := _siege_target_for(attacker)
 	if t.is_empty():
 		return false
 	attacker.mark_attacked()
 	if t["kind"] == "wall":
-		await _bombard_wall_by(attacker, t["ref"], int(t["dist"]))
+		if _building_faction_name(t["ref"]) == _player_faction.name:
+			await _bombard_wall_by(attacker, t["ref"], int(t["dist"]))   # 플레이어 성벽 → 오버레이 관전
+		else:
+			_npc_bombard_wall_headless(attacker, t["ref"])   # 다른 NPC 성벽 → 헤드리스 정산(5g)
 	else:
 		await _run_battle(attacker, t["ref"], int(t["dist"]), Vector2i(-1, -1), true)   # 플레이어 부대 폭격(오버레이)
 	return true
 
-## attacker의 투석 사거리 밴드(min~fire) 안 최근접 플레이어 표적. {kind:"wall"/"party", ref, dist} 또는 빈 Dictionary. → siege-engines.md
+## attacker의 투석 사거리 밴드(min~fire) 안 최근접 표적. {kind:"wall"/"party", ref, dist} 또는 빈 Dictionary. → siege-engines.md
+## 성벽은 적 세력 전체(플레이어·다른 NPC, 5g), 부대는 플레이어만(NPC 부대 유닛 투석은 후속).
 func _siege_target_for(attacker) -> Dictionary:
 	if not attacker.has_siege():
 		return {}
@@ -1474,16 +1507,14 @@ func _siege_target_for(attacker) -> Dictionary:
 	var dists: Dictionary = HexGrid.bfs_distances(terrain, terrain.local_to_map(attacker.position), rng, MAP_WIDTH, MAP_HEIGHT)
 	var best := {}
 	var best_d := 1 << 30
-	for p in _units:   # 플레이어 부대(적)
+	for p in _units:   # 플레이어 부대(적) — NPC 부대 대상 유닛 투석은 헤드리스 미지원(후속)
 		if p.members.is_empty():
 			continue
 		var ec: Vector2i = terrain.local_to_map(p.position)
 		if dists.has(ec) and int(dists[ec]) >= min_r and int(dists[ec]) < best_d:
 			best_d = int(dists[ec])
 			best = {"kind": "party", "ref": p, "dist": best_d}
-	for b in _buildings:   # 플레이어 성벽 거점(적)
-		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
-			continue
+	for b in _enemy_walled_centers(attacker.faction_name):   # 적 세력 성벽 거점(플레이어·다른 NPC 불문 — 5g)
 		for c in b.cells:
 			if dists.has(c) and int(dists[c]) >= min_r and int(dists[c]) < best_d:
 				best_d = int(dists[c])

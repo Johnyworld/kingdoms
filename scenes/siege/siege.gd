@@ -37,3 +37,11 @@ static func hit_succeeds(roll: float, chance: float) -> bool:
 ## 로빙 NPC positioning 공성(5f)이 밴드 셀을 고르는 필터. → siege-engines.md
 static func in_fire_band(dist: int, min_r: int, fire_r: int) -> bool:
 	return dist >= min_r and dist <= fire_r
+
+## 헤드리스 성벽 투석(NPC↔NPC, 5g)의 피해 총량 — 공성 유닛별 rolled_damage(attack, roll)의 합.
+## attacks·rolls는 유닛별 병렬 배열(둘 중 짧은 길이만큼 정산). 성벽은 항상 명중이라 명중 판정 없음. → siege-engines.md
+static func total_bombard_damage(attacks: Array, rolls: Array) -> int:
+	var total := 0
+	for i in mini(attacks.size(), rolls.size()):
+		total += rolled_damage(int(attacks[i]), float(rolls[i]))
+	return total
