@@ -67,9 +67,10 @@ var _zoom_level := 1.0
 var _reachable: Dictionary = {}
 # 주인공이 선택되었는지. 선택 상태에서만 범위 표시 + 이동이 가능하다.
 var _selected := false
-# 상호작용 모드. MOVE=파랑 이동 범위+공격가능 적(빨강)+중앙 메뉴, SHOOT=사격 가능 적(빨강)만.
+# 상호작용 모드. MOVE=파랑 이동 범위+공격가능 적(빨강)+중앙 메뉴, SHOOT=사격 가능 적(빨강)만, BOMBARD=투석 표적(빨강)만.
 const MODE_MOVE := "move"
 const MODE_SHOOT := "shoot"
+const MODE_BOMBARD := "bombard"   # [투석] 선택 모드 — 사거리 내 성벽 적 거점·적 부대를 빨강 강조·클릭 발사 → siege-engines.md
 var _mode := MODE_MOVE
 var _move_cells: Array[Vector2i] = []     # 이동 범위(파랑) 표시용
 # 공격 가능한 적: enemy 칸 → {enemy, cell, melee, shoot}. 빨강 오버레이·팝업·사격 판단에 쓴다.
@@ -77,6 +78,9 @@ var _attack_targets: Dictionary = {}
 var _attack_cells: Array[Vector2i] = []   # 공격 가능 적 칸(MOVE에서 빨강)
 var _shoot_cells: Array[Vector2i] = []    # 사격 가능 적 칸([사격] 활성 판정·타겟)
 var _shoot_area_cells: Array[Vector2i] = []   # 사격 사거리 전체 칸(SHOOT 모드 빨강 오버레이)
+# 투석 표적: 사거리 안 성벽 적 거점·적 부대. cell → {kind:"wall"/"party", ref}. [투석] 활성·BOMBARD 오버레이·클릭에 쓴다. → siege-engines.md
+var _bombard_cells: Dictionary = {}
+var _bombard_area_cells: Array[Vector2i] = []
 # 인접 가능한 적 거점: 수비대 유무로 나뉜다. camp 칸 → {camp, stand}. 빨강 오버레이·클릭 팝업에 쓴다.
 var _capture_targets: Dictionary = {}     # 무방비 거점(중심 타일에 부대 없음 — 점령 대상)
 var _capture_cells: Array[Vector2i] = []
@@ -305,6 +309,7 @@ func _update_ranges() -> void:
 	_compute_attack_targets(start)
 	_compute_camp_targets(start)
 	_compute_merge_targets(start)
+	_compute_bombard_targets(start)
 	_refresh_overlay()
 
 ## 활성 부대 칸에 인접한 다른 플레이어 부대(멤버 있는 것)를 병합 대상으로 분류한다. cell → party.
@@ -317,6 +322,34 @@ func _compute_merge_targets(start: Vector2i) -> void:
 		var pcell := terrain.local_to_map(p.position)
 		if pcell in neighbors:
 			_merge_targets[pcell] = p
+
+## 투석 표적을 분류한다 — 투석기 실은 부대면 사거리(지형 무시 헥스 거리) 안 성벽 적 거점·적 부대. → siege-engines.md
+## cell → {kind, ref}. 성벽 거점은 footprint 각 셀을 매핑(성벽이 부대 셀을 덮으면 성벽 우선 — 성벽 먼저 부숴야 함).
+func _compute_bombard_targets(start: Vector2i) -> void:
+	_bombard_cells = {}
+	_bombard_area_cells = []
+	if not party.has_siege():
+		return
+	var rng: int = party.siege_fire_range()
+	if rng <= 0:
+		return
+	var dists: Dictionary = HexGrid.bfs_distances(terrain, start, rng, MAP_WIDTH, MAP_HEIGHT)
+	for p in _npc_parties:   # 적 부대(유닛 투석)
+		if not p.visible or p.members.is_empty():
+			continue
+		var ec: Vector2i = terrain.local_to_map(p.position)
+		if dists.has(ec):
+			_bombard_cells[ec] = {"kind": "party", "ref": p}
+	for b in _buildings + _npc_buildings:   # 성벽 적 거점(성벽 투석) — 부대 셀을 덮어써 성벽 우선
+		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
+			continue
+		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
+		if bf == party.faction_name:
+			continue   # 아군 성벽 제외
+		for c in b.cells:
+			if dists.has(c):
+				_bombard_cells[c] = {"kind": "wall", "ref": b}
+	_bombard_area_cells = _bombard_cells.keys()   # 빨강 오버레이용 표적 셀
 
 ## 보이는 각 NPC를 공격 가능 여부로 분류한다. 근접=(현재∪이동칸 중 인접칸 존재), 사격=(원거리 무기·현재 위치 사거리 내).
 func _compute_attack_targets(start: Vector2i) -> void:
@@ -390,6 +423,8 @@ func _refresh_overlay() -> void:
 	var none: Array[Vector2i] = []
 	if _mode == MODE_SHOOT:
 		overlay.show_ranges(none, _shoot_area_cells)
+	elif _mode == MODE_BOMBARD:
+		overlay.show_ranges(none, _bombard_area_cells)
 	else:
 		var red: Array[Vector2i] = []
 		red.append_array(_attack_cells)
@@ -452,6 +487,18 @@ func _handle_click(world_pos: Vector2) -> void:
 		if _attack_targets.has(cell) and _attack_targets[cell]["shoot"] and _can_fire():
 			var e: Dictionary = _attack_targets[cell]
 			_shoot_enemy(e["enemy"])
+		else:
+			_enter_move_mode()
+		return
+
+	# BOMBARD 모드: 투석 표적(성벽 적 거점/적 부대)을 클릭하면 투석, 그 외 클릭은 MOVE 모드로 취소. → siege-engines.md
+	if _selected and _mode == MODE_BOMBARD:
+		if _bombard_cells.has(cell) and party.can_attack():
+			var t: Dictionary = _bombard_cells[cell]
+			if t["kind"] == "wall":
+				_bombard_wall(t["ref"])
+			else:
+				_bombard_party(t["ref"])
 		else:
 			_enter_move_mode()
 		return
@@ -1252,6 +1299,12 @@ func _enter_shoot_mode() -> void:
 	_refresh_overlay()
 	party_action_menu.close()
 
+## BOMBARD 모드: 투석 표적(성벽 적 거점·적 부대, 빨강)만, 메뉴 감춤. 표적 클릭 시 투석. → siege-engines.md
+func _enter_bombard_mode() -> void:
+	_mode = MODE_BOMBARD
+	_refresh_overlay()
+	party_action_menu.close()
+
 ## 중앙 부대 메뉴를 부대 토큰 근처에 연다. 주둔 중이면 [주둔 종료], 그 외 행동 가능할 때 [사격][휴식][경계](+분할·주둔).
 func _open_action_menu() -> void:
 	_clear_popup_targets()
@@ -1263,7 +1316,7 @@ func _open_action_menu() -> void:
 	if party.can_rest():
 		var can_undo: bool = _undo_party == party
 		var can_ladder: bool = not party.moved_this_turn and not _ladder_target_for(party).is_empty()   # 성벽 적 거점 인접 + 미이동
-		var can_bombard: bool = party.has_siege() and party.can_attack() and _catapult_target_for(party) != null   # 투석기 실음 + 사거리 안 성벽 적 거점 → siege-engines.md
+		var can_bombard: bool = party.has_siege() and party.can_attack() and not _bombard_cells.is_empty()   # 투석기 실음 + 사거리 안 표적(성벽/적 부대) → siege-engines.md
 		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), _on_own_center(), false, can_ladder, false, can_bombard), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
@@ -1304,60 +1357,80 @@ func _ladder_target_for(p) -> Dictionary:
 				return {"building": b, "target_cell": c}   # 붙은 ring 셀 중 사다리 없는 면
 	return {}
 
-## 투석기 실은 부대 p의 투석 대상 = 사거리(fire_range) 안 가장 가까운 성벽 적 거점. 없으면 null. → siege-engines.md
-## 사거리는 지형 무시 헥스 거리(투석은 넘어 쏜다) — bfs_distances(blocked 없음)로 disk 거리 계산.
-func _catapult_target_for(p):
-	if p == null or not p.has_siege():
-		return null
-	var rng: int = p.siege_fire_range()
-	if rng <= 0:
-		return null
-	var pcell := terrain.local_to_map(p.position)
-	var dists: Dictionary = HexGrid.bfs_distances(terrain, pcell, rng, MAP_WIDTH, MAP_HEIGHT)
-	var best = null
-	var best_d := 1 << 30
-	for b in _buildings + _npc_buildings:
-		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
-			continue
-		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
-		if bf == p.faction_name:
-			continue   # 아군 성벽은 투석 대상 아님
-		var bd := 1 << 30
-		for c in b.cells:
-			if dists.has(c):
-				bd = mini(bd, int(dists[c]))   # 거점 footprint까지 최소 거리
-		if bd < best_d:
-			best_d = bd
-			best = b
-	return best
-
-## [투석] — 사거리 안 가장 가까운 성벽 적 거점에 투석. 관전 씬 뒤 wall_hp 감소, 0이면 붕괴. 부대 행동 종료(1턴 1발). → siege-engines.md
-func _bombard_wall(p) -> void:
-	var target = _catapult_target_for(p)
-	if target == null:
+## [투석]→성벽: 활성 부대가 대상 성벽 거점을 포격. 관전 씬 뒤 wall_hp 감소, 0이면 붕괴. 부대 행동 종료(1턴 1발). → siege-engines.md
+func _bombard_wall(building) -> void:
+	if building == null:
 		return
-	p.mark_attacked()   # 투석 = 부대 행동 종료 → 자연히 1턴 1발
+	party.mark_attacked()   # 투석 = 부대 행동 종료 → 자연히 1턴 1발
 	_undo_party = null
-	var dmg := Siege.rolled_damage(p.siege_attack(), _rng.randf())
-	await _run_bombard(p, target, target.wall_hp, dmg)
-	target.wall_hp = Siege.wall_after_hit(target.wall_hp, dmg)
-	if Siege.wall_broken(target.wall_hp):
-		target.wall_level = 0
-		target.wall_hp = 0
-		_clear_ladders(target)   # 붕괴된 성벽 사다리 정리 → wall.md
-		var tname: String = target.territory.name if target.territory != null else "성벽"
+	var dmg := Siege.rolled_damage(party.siege_attack(), _rng.randf())
+	var from_hp: int = building.wall_hp
+	_deselect()
+	_hide_party_info()
+	await _run_bombard(func(o): o.start_wall(party, building, from_hp, dmg))
+	building.wall_hp = Siege.wall_after_hit(building.wall_hp, dmg)
+	if Siege.wall_broken(building.wall_hp):
+		building.wall_level = 0
+		building.wall_hp = 0
+		_clear_ladders(building)   # 붕괴된 성벽 사다리 정리 → wall.md
+		var tname: String = building.territory.name if building.territory != null else "성벽"
 		toast.show_message("%s 성벽 붕괴!" % tname)
 	else:
-		toast.show_message("성벽 −%d (%d/%d)" % [dmg, target.wall_hp, Siege.WALL_MAX_HP])
-	target.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
+		toast.show_message("성벽 −%d (%d/%d)" % [dmg, building.wall_hp, Siege.WALL_MAX_HP])
+	building.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
 	party_roster.set_parties(_units)
 
-## 성벽 투석 관전 씬을 띄우고 종료까지 await(입력 잠금). 실제 wall_hp 반영은 호출부가 씬 종료 후 처리(씬은 연출만). → siege-engines.md
-func _run_bombard(attacker, building, from_hp: int, damage: int) -> void:
+## [투석]→유닛: 활성 부대가 대상 적 부대를 포격. 최대 5명(초과 시 랜덤) 후보, 유닛별 명중(0.4)·명중 시 큰 피해.
+## 계산 먼저(명중/피해) → 관전 씬 → 실제 hp 반영·사망 제거. 방어 반격 없음. 부대 행동 종료(1턴 1발). → siege-engines.md
+func _bombard_party(target) -> void:
+	if target == null or target.members.is_empty():
+		return
+	party.mark_attacked()
+	_undo_party = null
+	var count: int = Siege.bombard_target_count(target.members.size())
+	var candidates := _random_subset(target.members, count)   # 최대 5명(초과 시 랜덤)
+	var results: Array = []
+	for m in candidates:
+		var hit: bool = Siege.hit_succeeds(_rng.randf(), Siege.CATAPULT_HIT_CHANCE)
+		var dmg := 0
+		var hp_after: int = m.hit_points
+		if hit:
+			dmg = Siege.rolled_damage(party.siege_attack(), _rng.randf())
+			hp_after = maxi(0, m.hit_points - dmg)
+		results.append({"member": m, "hit": hit, "damage": dmg, "hp_after": hp_after})
+	_deselect()
+	_hide_party_info()
+	await _run_bombard(func(o): o.start_units(party, target, results))
+	for r in results:
+		r["member"].hit_points = r["hp_after"]   # 실제 hp 반영
+	var survivors: Array = []
+	for m in target.members:
+		if m.hit_points > 0:
+			survivors.append(m)
+	var killed: int = target.members.size() - survivors.size()
+	_apply_survivors(target, survivors)   # 사망 제거·전멸 시 부대 제거·즉시 패배 판정
+	toast.show_message("투석 — %d명 사상" % killed if killed > 0 else "투석 — 빗나감")
+	_update_fog()
+	party_roster.set_parties(_units)
+
+## 배열에서 무작위 n개를 뽑는다(_rng 사용, 부분 Fisher-Yates). 원본은 바꾸지 않는다. n이 크면 전체.
+func _random_subset(arr: Array, n: int) -> Array:
+	var copy := arr.duplicate()
+	var take: int = mini(n, copy.size())
+	for i in take:
+		var j := _rng.randi_range(i, copy.size() - 1)
+		var tmp = copy[i]
+		copy[i] = copy[j]
+		copy[j] = tmp
+	return copy.slice(0, take)
+
+## 투석 관전 씬을 띄우고 종료까지 await(입력 잠금). setup은 트리 진입 후 씬에 start_wall/start_units를 호출한다
+## (start_*는 get_viewport를 쓰므로 add_child 뒤에 불러야 한다). 실제 반영은 호출부가 씬 종료 후 처리(씬은 연출만). → siege-engines.md
+func _run_bombard(setup: Callable) -> void:
 	_in_battle = true
 	var overlay := SIEGE_BOMBARD_SCENE.new()
 	add_child(overlay)
-	overlay.start(attacker, building, from_hp, damage)
+	setup.call(overlay)
 	await overlay.finished
 	overlay.queue_free()
 	_in_battle = false
@@ -1531,9 +1604,7 @@ func _on_party_action(id: String) -> void:
 			_deselect()
 			_hide_party_info()
 		"catapult":
-			_deselect()
-			_hide_party_info()
-			_bombard_wall(party)   # 투석 — 성벽 관전 씬 → wall_hp 감소·붕괴, 행동 종료
+			_enter_bombard_mode()   # 투석 — 표적 선택 모드(성벽/적 부대 클릭 발사) → siege-engines.md
 		"push_ladder":
 			_push_ladders(_building_garrisoned_by(party))   # 성벽 사다리 밀기(15% 파괴)
 			party.mark_attacked()   # 밀기는 방어 부대 행동 종료(주둔 유지)
@@ -1826,6 +1897,8 @@ func _deselect() -> void:
 	_capture_cells = []
 	_shoot_cells = []
 	_shoot_area_cells = []
+	_bombard_cells = {}
+	_bombard_area_cells = []
 	party_action_menu.close()
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)

@@ -4,7 +4,7 @@
 
 부대([Party](../entities/Party.md))에 실리는 **공성 유닛**(투석기·충차·공성탑 …)의 카탈로그. [BuildingTypes](buildings.md)·[UnitTypes](units.md)·[ItemTypes](items.md)와 같은 "GDScript 카탈로그" 패턴이다. 일반 병사([Human](../entities/Human.md))와 달리 인구를 차지하지 않는 재사용 장비 유닛이며, 동작 정의는 [Siege Engines](../features/siege-engines.md)에 있다.
 
-유닛 모델·획득·이동(5a-1) 필드에 더해, 5a-2에서 **「투석」 사거리(`fire_range`)·공격력(`attack`)·내구도(`hit_points`)**를 수록한다. 성벽 피해는 `attack`에 ±20% 랜덤을 준 [`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege), 유닛 명중률·최대 표적 수는 후속(5b).
+유닛 모델·획득·이동(5a-1) 필드에 더해, **「투석」 사거리(`fire_range`)·공격력(`attack`)·내구도(`hit_points`)**를 수록한다. 성벽·유닛 투석 피해는 `attack`에 ±40% 랜덤을 준 [`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege)(30~70), 유닛 투석의 명중률·최대 표적 수는 [`Siege` 상수](../features/siege-engines.md#유닛-투석-적-부대-폭격).
 
 ## 상수
 
@@ -23,7 +23,7 @@
 
 - **견인 이동력** — 이 유닛을 실은 부대의 이동력 상한(느림). 부대 이동력 = `min(사람 기준 이동력, 견인 이동력)`, 단 사람이 `CREW_MIN` 미만이면 0. → [Party](../entities/Party.md)
 - **투석 사거리** — [투석](../features/siege-engines.md#투석-공성-성벽) 대상(성벽 있는 적 거점)까지의 헥스 사거리. 부대 셀에서 거점 footprint까지 이 거리 안이면 투석 가능.
-- **공격력** — 투석 1발의 기준 피해. **무기 기본 공격력(검 14~모닝스타 19)보다 크다** — 성벽뿐 아니라 일반 유닛도 위협하는 공성 화력. 실제 피해는 여기에 ±20% 랜덤을 준다([`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege) → 40~60·평균 50). 성벽 피해에 쓰이고, 유닛 피해는 [5b](../features/siege-engines.md#공성병기-로드맵).
+- **공격력** — 투석 1발의 기준 피해. **무기 기본 공격력(검 14~모닝스타 19)보다 크다** — 성벽뿐 아니라 일반 유닛도 위협하는 공성 화력. 실제 피해는 여기에 ±40% 랜덤을 준다([`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege) → 30~70·평균 50). 성벽·[유닛 투석](../features/siege-engines.md#유닛-투석-적-부대-폭격) 모두 이 피해를 쓴다.
 - **내구도(`hit_points`)** — 공성 유닛 자체의 HP. [SiegeUnit](../features/siege-engines.md#공성-유닛-모델-siegeunit--partysiege_units)은 생성 시 이 값을 현재 HP·최대 HP로 삼는다. **투석기를 깎는 공격원은 아직 없다**(방어 요격 5d·미구현) — 후속 대비 스탯.
 - **생산 금·자재** — [공성 작업장](../features/siege-engines.md#획득--공성-작업장에서-생산)에서 [투석기 생산] 시 영지가 지불하는 비용. **인구는 소비하지 않는다.**
 - 값은 기획 초안값(밸런스 조정 대상).
@@ -42,7 +42,7 @@
 
 ## 미수록 / 미구현
 
-- 발사 수(1턴 1발 — 투석이 부대 행동을 종료해 자연 보장, 스탯 아님)·유닛 명중률·최대 표적 수(5) — 5b에서 추가. 성벽 피해는 `attack`에 ±20% 랜덤을 준 [`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege).
+- 발사 수(1턴 1발)는 투석이 부대 행동을 종료해 자연 보장(스탯 아님). 유닛 투석 명중률·최대 표적 수는 [`Siege` 상수](../features/siege-engines.md#유닛-투석-적-부대-폭격)(카탈로그 스탯 아님).
 - 투석기 `hit_points`(내구도)는 수록했으나 **깎는 공격원은 미구현**(방어 요격 5d) — 후속 대비 스탯. 조작 인원 개별 배정도 후속.
 - 충차·공성탑 — 종류만 후속 추가 예정(같은 모델).
 

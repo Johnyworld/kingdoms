@@ -24,11 +24,11 @@ func test_push_markup_reduces_chance() -> void:
 
 func test_wall_durability_constants() -> void:
 	assert_eq(siege.WALL_MAX_HP, 180, "성벽 만피 180")
-	assert_eq(siege.DAMAGE_VARIANCE, 0.2, "데미지 랜덤 ±20%")
+	assert_eq(siege.DAMAGE_VARIANCE, 0.4, "데미지 랜덤 ±40%")
 
 func test_rolled_damage_bounds() -> void:
-	assert_eq(siege.rolled_damage(50, 0.0), 40, "roll 0 → 하한 40")
-	assert_eq(siege.rolled_damage(50, 1.0), 60, "roll 1 → 상한 60")
+	assert_eq(siege.rolled_damage(50, 0.0), 30, "roll 0 → 하한 30")
+	assert_eq(siege.rolled_damage(50, 1.0), 70, "roll 1 → 상한 70")
 	assert_eq(siege.rolled_damage(50, 0.5), 50, "roll 0.5 → 중앙 50")
 
 func test_wall_after_hit() -> void:
@@ -40,18 +40,35 @@ func test_wall_broken() -> void:
 	assert_false(siege.wall_broken(1), "1이면 아직")
 	assert_true(siege.wall_broken(-5), "음수도 붕괴")
 
-func test_wall_breaks_in_three_to_five_shots() -> void:
-	# 최대 데미지(60)면 3발, 최소(40)면 5발에 붕괴(평균 3~5발).
+func test_wall_breaks_in_three_to_six_shots() -> void:
+	# 최대 데미지(70)면 3발, 최소(30)면 6발에 붕괴(평균 3~6발).
 	var hp_max: int = siege.WALL_MAX_HP
 	var shots_min := 0
 	var hp: int = hp_max
 	while hp > 0:
-		hp = siege.wall_after_hit(hp, siege.rolled_damage(50, 1.0))   # 최대 데미지 60
+		hp = siege.wall_after_hit(hp, siege.rolled_damage(50, 1.0))   # 최대 데미지 70
 		shots_min += 1
 	assert_eq(shots_min, 3, "최대 데미지면 3발")
 	var shots_max := 0
 	hp = hp_max
 	while hp > 0:
-		hp = siege.wall_after_hit(hp, siege.rolled_damage(50, 0.0))   # 최소 데미지 40
+		hp = siege.wall_after_hit(hp, siege.rolled_damage(50, 0.0))   # 최소 데미지 30
 		shots_max += 1
-	assert_eq(shots_max, 5, "최소 데미지면 5발")
+	assert_eq(shots_max, 6, "최소 데미지면 6발")
+
+# --- 유닛 투석 판정 → docs/spec/features/siege-engines.md ---
+
+func test_bombard_constants() -> void:
+	assert_eq(siege.MAX_BOMBARD_TARGETS, 5, "최대 표적 5명")
+	assert_eq(siege.CATAPULT_HIT_CHANCE, 0.4, "명중률 0.4")
+
+func test_hit_succeeds() -> void:
+	assert_true(siege.hit_succeeds(0.2, 0.4), "0.2 < 0.4 → 명중")
+	assert_false(siege.hit_succeeds(0.5, 0.4), "0.5 ≥ 0.4 → 빗나감")
+	assert_false(siege.hit_succeeds(0.4, 0.4), "경계 0.4는 미만만 명중이라 빗나감")
+
+func test_bombard_target_count() -> void:
+	assert_eq(siege.bombard_target_count(3), 3, "멤버 이하면 전원")
+	assert_eq(siege.bombard_target_count(5), 5, "5명이면 5")
+	assert_eq(siege.bombard_target_count(8), 5, "5 초과면 상한 5")
+	assert_eq(siege.bombard_target_count(0), 0, "0명이면 0")

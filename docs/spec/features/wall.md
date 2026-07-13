@@ -39,7 +39,7 @@
 성벽은 [투석기](siege-engines.md)의 [투석](siege-engines.md#투석-공성-성벽)으로 부술 수 있다. 성벽에 내구도를 두고, 투석 피해가 쌓여 0이 되면 붕괴한다.
 
 - `Building.wall_hp: int` — 기본 `0`. 성벽 건설 시(`wall_level = 1`) `Siege.WALL_MAX_HP`(180)로 채운다(`game.gd._on_wall_requested`). `is_walled()`는 `wall_level`만 본다 — **붕괴는 `wall_level`을 0으로 내려 처리**하므로 내구도와 무관하게 일관된다.
-- **상수·헬퍼**(`Siege`): `WALL_MAX_HP = 180`, `DAMAGE_VARIANCE = 0.2`(±20% 랜덤). 투석 1발 피해는 투석기 공격력([`SiegeTypes.attack`](../data/siege-units.md) = 50)에 랜덤을 준 **`rolled_damage(base_attack, roll) -> int`**(roll 0~1 → `base × (1−0.2 .. 1+0.2)`, 즉 **40~60·평균 50**)로 계산한다 → 성벽 180은 **평균 3~5발에 붕괴**. `wall_after_hit(hp, dmg) -> int`(= `max(0, hp − dmg)`), `wall_broken(hp) -> bool`(= `hp <= 0`).
+- **상수·헬퍼**(`Siege`): `WALL_MAX_HP = 180`, `DAMAGE_VARIANCE = 0.4`(±40% 랜덤). 투석 1발 피해는 투석기 공격력([`SiegeTypes.attack`](../data/siege-units.md) = 50)에 랜덤을 준 **`rolled_damage(base_attack, roll) -> int`**(roll 0~1 → `base × (1−0.4 .. 1+0.4)`, 즉 **30~70·평균 50**)로 계산한다 → 성벽 180은 **평균 3~6발에 붕괴**. `wall_after_hit(hp, dmg) -> int`(= `max(0, hp − dmg)`), `wall_broken(hp) -> bool`(= `hp <= 0`).
 - 투석 피해는 **다른 공격처럼 랜덤성**을 가진다(고정값 아님). 유닛도 위협하도록 무기 기본 공격력(검 14~모닝스타 19)보다 크게 잡았다 — 유닛 대상 적용은 [유닛 투석 5b](siege-engines.md#공성병기-로드맵).
 - **붕괴**: 투석으로 `wall_hp`가 0이 되면(`wall_broken`) 그 거점을 **성벽 없음**(`wall_level = 0`·`wall_hp = 0`)으로 되돌리고 그 거점의 [사다리를 모두 제거](#통로-돌파-breach)(`_clear_ladders`)한다. 이후 `is_walled() == false`라 [이동 차단](#이동-차단-gamegd)·[공격·점령 차단](#공격점령-차단-gamegd)이 자동으로 풀려 **기존 점령·공격 흐름이 열린다**(추가 배선 없음).
 - **맵 표시**(`building.gd`): 성벽 링을 `wall_hp / WALL_MAX_HP` 비율로 색 보간해 그린다 — 온전(회색) → 손상(붉게). 붕괴하면 성벽 없음이라 링을 그리지 않는다.
@@ -112,11 +112,11 @@
 - [경계] `push_succeeds(0.15)` 거짓(경계 미만만 성공); `push_succeeds(0.12, 0.05)` 거짓(markup 0.05 → 임계 0.10, 0.12 ≥ 0.10) — 고리 사다리 훅
 
 **성벽 내구도 판정(순수)** — `test/unit/test_siege.gd`:
-- [정상] `Siege.WALL_MAX_HP == 180`, `Siege.DAMAGE_VARIANCE == 0.2`
-- [정상] `rolled_damage(50, 0.0) == 40`, `rolled_damage(50, 1.0) == 60`, `rolled_damage(50, 0.5) == 50`(랜덤 데미지 하한·상한·중앙)
+- [정상] `Siege.WALL_MAX_HP == 180`, `Siege.DAMAGE_VARIANCE == 0.4`
+- [정상] `rolled_damage(50, 0.0) == 30`, `rolled_damage(50, 1.0) == 70`, `rolled_damage(50, 0.5) == 50`(랜덤 데미지 하한·상한·중앙)
 - [정상] `wall_after_hit(180, 50) == 130`; [경계] `wall_after_hit(30, 50) == 0`(하한 0)
 - [정상] `wall_broken(0) == true`, `wall_broken(1) == false`; [경계] `wall_broken(-5) == true`
-- [경계] 만피 180에 최소 데미지(40)면 5발, 최대 데미지(60)면 3발에 붕괴(평균 3~5발)
+- [경계] 만피 180에 최소 데미지(30)면 6발, 최대 데미지(70)면 3발에 붕괴(평균 3~6발)
 
 **고리 사다리 도구** — `test/unit/test_item_types.gd`:
 - [정상] `item_name("grapple_ladder") == "고리 사다리"`, `item_value("grapple_ladder") == 12`, `item_slot("grapple_ladder") == ""`(장착 불가)
