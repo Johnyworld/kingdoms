@@ -184,6 +184,18 @@ func test_should_engage_outmatched() -> void:
 func test_should_engage_enemy_zero() -> void:
 	assert_true(NpcAi.should_engage(10, 0), "적 전력 0이면 교전")
 
+# --- 근·원거리 선호 (순수) → docs/spec/features/npc-movement.md ---
+
+func test_prefers_ranged_when_ranged_stronger() -> void:
+	assert_true(NpcAi.prefers_ranged(10, 20), "원거리 파워 우위 → 원거리 선호")
+
+func test_prefers_ranged_when_melee_stronger() -> void:
+	assert_false(NpcAi.prefers_ranged(20, 10), "근접 파워 우위 → 근접 선호")
+
+func test_prefers_ranged_tie_and_zero() -> void:
+	assert_false(NpcAi.prefers_ranged(15, 15), "동률은 근접(strictly greater만 원거리)")
+	assert_false(NpcAi.prefers_ranged(0, 0), "무장 없으면 근접")
+
 # --- 표적 우선순위: prioritize (순수) ---
 
 func test_prioritize_first_nonempty() -> void:

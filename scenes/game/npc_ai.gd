@@ -25,6 +25,10 @@ static func party_power(members: Array) -> int:
 static func should_engage(my_power: int, enemy_power: int) -> bool:
 	return float(my_power) >= float(enemy_power) * CAUTION_RATIO
 
+## 원거리 파워가 근접 파워보다 크면 원거리 교전 선호(동률·근접 우위·무장 없음은 근접). 교전 포지셔닝에 쓴다. → npc-movement.md
+static func prefers_ranged(melee_power: int, ranged_power: int) -> bool:
+	return ranged_power > melee_power
+
 ## entries({cell, faction}) 중 소속이 self_faction과 다른 항목의 cell만 모은다(적 셀 목록).
 ## 부대·캠프를 같은 형식으로 넘겨 세력으로 적/아군을 가른다. game.gd가 타깃 조립에 쓴다.
 static func enemy_cells(self_faction: String, entries: Array) -> Array:

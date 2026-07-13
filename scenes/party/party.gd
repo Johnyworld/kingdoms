@@ -313,6 +313,20 @@ func attack_range() -> int:
 		r = maxi(r, ItemTypes.max_range(h.weapons))
 	return r
 
+## 부대 근접 파워 = 멤버별 최선 근접 무기 공격력 합(교전 선호 판정, NPC AI). 근접 무기 없는 멤버는 0 기여. → npc-movement.md
+func melee_power() -> int:
+	var p := 0
+	for h in members:
+		p += ItemTypes.weapon_attack(ItemTypes.melee_weapon(h.weapons))
+	return p
+
+## 부대 원거리 파워 = 멤버별 최선 원거리 무기 공격력 합. 원거리 무기(사거리 ≥2) 없는 멤버는 0 기여. → npc-movement.md
+func ranged_power() -> int:
+	var p := 0
+	for h in members:
+		p += ItemTypes.weapon_attack(ItemTypes.ranged_weapon(h.weapons))
+	return p
+
 ## 선택 상태를 바꾸고 다시 그린다.
 func set_selected(value: bool) -> void:
 	if selected == value:

@@ -670,3 +670,29 @@ func test_prune_destroyed_siege() -> void:
 	assert_eq(p.siege_units.size(), 1, "생존 1대만 남음")
 	assert_true(alive in p.siege_units, "hp>0 투석기 유지")
 	assert_eq(p.prune_destroyed_siege(), 0, "파괴 없으면 0·불변")
+
+# --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
+
+func test_melee_power_sums_best_melee() -> void:
+	var p := _party()
+	p.add_member(_equipped_human(["sword"], []))   # 검 공격력 14
+	p.add_member(_equipped_human(["sword"], []))
+	assert_eq(p.melee_power(), 28, "검 든 두 멤버 → 근접 파워 28")
+	assert_eq(p.ranged_power(), 0, "원거리 무기 없음 → 원거리 파워 0")
+
+func test_ranged_power_sums_best_ranged() -> void:
+	var p := _party()
+	p.add_member(_equipped_human(["bow"], []))   # 활 공격력 12, 근접 없음
+	assert_eq(p.ranged_power(), 12, "활 든 멤버 → 원거리 파워 12")
+	assert_eq(p.melee_power(), 0, "근접 무기 없음 → 근접 파워 0")
+
+func test_power_mixed_weapons_count_both() -> void:
+	var p := _party()
+	p.add_member(_equipped_human(["sword", "bow"], []))   # 근접 14 + 원거리 12
+	assert_eq(p.melee_power(), 14, "검+활 → 근접 파워 14(검)")
+	assert_eq(p.ranged_power(), 12, "검+활 → 원거리 파워 12(활)")
+
+func test_power_empty_party_zero() -> void:
+	var p := _party()
+	assert_eq(p.melee_power(), 0, "멤버 없으면 근접 0")
+	assert_eq(p.ranged_power(), 0, "멤버 없으면 원거리 0")
