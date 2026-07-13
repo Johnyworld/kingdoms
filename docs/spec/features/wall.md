@@ -50,7 +50,7 @@
 
 ## 사다리 공성 (`Siege` · `game.gd`)
 
-성벽을 넘는 공성 수단. 공격자가 성벽 면에 사다리를 세워 3턴 뒤 **통로**를 열면, 그 세력이 성벽 안으로 진입해 [기존 전투·점령](camp-capture.md)으로 함락한다. 방어자는 **[사다리 밀기]**로 저지한다.
+성벽을 넘는 공성 수단. 공격자가 성벽 면에 사다리를 세우고 **그 자리를 3턴 지키면** **통로**가 열려, 그 세력이 성벽 안으로 진입해 [기존 전투·점령](camp-capture.md)으로 함락한다. 자리를 떠나면 공성이 멈춘다([타이머](#타이머-공성-유지)). 방어자는 **[사다리 밀기]**로 저지한다.
 
 - **사다리 레코드** (`game.gd._ladders` 리스트): `{building, target_cell(대상 ring 셀), from_cell(공격자 셀), faction(공격 세력), countdown, hooked}`. 한 거점에 **여러 면(ring 셀)에 각각** 허용하되, **한 면(target_cell)엔 하나만**(같은 면 중복 적층 방지 — 밀기 회피 악용 차단). `hooked`=설치 시 [고리 사다리](../data/items.md#도구-itemtypestools) 소모로 세운 사다리(밀기 확률 감소).
 - **상수** (`Siege`): `LADDER_TURNS = 3`(설치 후 준비까지), `LADDER_PUSH_CHANCE = 0.15`(밀기 파괴 확률), `HOOKED_PUSH_REDUCTION = 0.05`(고리 사다리 밀기 확률 감소분).
@@ -67,9 +67,13 @@
 - **전력 판단 없이** 인접 시 빈 면에 설치한다(실제 수비대 공격은 돌파 후 기존 `should_engage`가 게이트). 밀려 사라지면 다음 턴 인접 시 재설치.
 - NPC 거점은 캠프(성벽 없음)라 실제로는 **NPC가 플레이어 성벽 거점을 공성**하는 흐름이다. 접근은 기존 [NPC 이동](npc-movement.md) 타깃(`camp_entries`)이 성벽 거점을 포함해 자연히 인접까지 온다.
 
-### 타이머
+### 타이머 (공성 유지)
 
-- 매 [턴](turn.md) 종료(`_on_turn_ended`)마다 모든 사다리 `countdown -= 1`(하한 0). `countdown == 0`이면 **준비 완료**(통로 열림).
+- 매 [턴](turn.md) 종료(`_on_turn_ended` → `_advance_ladders`)마다, 사다리가 **유지(manned)되고 있을 때만** `countdown -= 1`(하한 0). `countdown == 0`이면 **준비 완료**(통로 열림). `Siege.advance_ladder_countdown(countdown, manned)`.
+- **유지 판정**(`_ladder_manned`): 사다리의 **`from_cell`(설치 위치)에 그 사다리 세력(`faction`)의 부대가 서 있으면** 유지 중. 부대가 그 자리를 지켜야 공성 단계가 진행된다.
+- **이동하면 정지**: 부대가 `from_cell`을 떠나면 유지가 끊겨 카운트가 **줄지 않고 멈춘다**(리셋은 아님 — 다시 지키면 이어서 진행). 적 부대가 그 칸을 뺏어도(세력 불일치) 정지 — 성벽 밖 요격으로 공성을 늦추는 창발.
+- **재사용**: 유지 판정은 특정 부대가 아니라 **세력·위치 기준**이라, 설치한 부대가 떠나고 **같은 세력 다른 부대가 `from_cell`에 도착**하면 그 사다리를 이어서 공성할 수 있다.
+- 준비 완료(0) 이후에는 유지와 무관하게 통로가 열린 채 유지된다(`advance_ladder_countdown(0, ·) == 0`).
 
 ### 사다리 밀기 (방어)
 
@@ -111,6 +115,11 @@
 - [정상] `push_succeeds(0.10)` 참(0.10 < 0.15), `push_succeeds(0.20)` 거짓
 - [경계] `push_succeeds(0.15)` 거짓(경계 미만만 성공); `push_succeeds(0.12, 0.05)` 거짓(markup 0.05 → 임계 0.10, 0.12 ≥ 0.10) — 고리 사다리 훅
 
+**사다리 공성 유지 카운트(순수)** — `test/unit/test_siege.gd`:
+- [정상] `advance_ladder_countdown(3, true) == 2`(유지 중 −1); `advance_ladder_countdown(1, true) == 0`
+- [정상] `advance_ladder_countdown(3, false) == 3`(유지 끊기면 정지 — 리셋 아님)
+- [경계] `advance_ladder_countdown(0, true) == 0`·`advance_ladder_countdown(0, false) == 0`(하한 0, 준비 완료 유지)
+
 **성벽 내구도 판정(순수)** — `test/unit/test_siege.gd`:
 - [정상] `Siege.WALL_MAX_HP == 180`, `Siege.DAMAGE_VARIANCE == 0.4`
 - [정상] `rolled_damage(50, 0.0) == 30`, `rolled_damage(50, 1.0) == 70`, `rolled_damage(50, 0.5) == 50`(랜덤 데미지 하한·상한·중앙)
@@ -130,7 +139,7 @@
 - [정상] 주둔 + `can_push_ladder=true` → 목록에 `{id="push_ladder"}` 포함
 - [경계] 주둔 + `can_push_ladder=false` → `push_ladder` 없음
 
-`game.gd`의 자재 차감·`wall_level` 설정·적 이동 차단·표적 제외, 그리고 **사다리 설치(플레이어·NPC)·타이머·통로 돌파·밀기·NPC 공성 AI·돌파 후 흡수 배선**(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)*
+`game.gd`의 자재 차감·`wall_level` 설정·적 이동 차단·표적 제외, 그리고 **사다리 설치(플레이어·NPC)·타이머(유지 판정 `_ladder_manned`)·통로 돌파·밀기·NPC 공성 AI·돌파 후 흡수 배선**(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음. 유지 카운트 순수 판정 `advance_ladder_countdown`은 유닛 테스트로 커버.)*
 
 ## 관련
 

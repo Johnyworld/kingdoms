@@ -20,6 +20,19 @@ func test_push_markup_reduces_chance() -> void:
 	assert_false(siege.push_succeeds(0.12, 0.05), "markup 0.05 → 임계 0.10, 0.12 실패")
 	assert_true(siege.push_succeeds(0.08, 0.05), "markup 0.05 → 임계 0.10, 0.08 성공")
 
+# --- 사다리 공성 유지 카운트(부대가 자리 지킬 때만 진행) → docs/spec/features/wall.md ---
+
+func test_advance_ladder_countdown_manned() -> void:
+	assert_eq(siege.advance_ladder_countdown(3, true), 2, "유지 중 −1")
+	assert_eq(siege.advance_ladder_countdown(1, true), 0, "1 → 0(준비 완료)")
+
+func test_advance_ladder_countdown_unmanned_pauses() -> void:
+	assert_eq(siege.advance_ladder_countdown(3, false), 3, "유지 끊기면 정지(리셋 아님)")
+
+func test_advance_ladder_countdown_floor() -> void:
+	assert_eq(siege.advance_ladder_countdown(0, true), 0, "하한 0(유지 중)")
+	assert_eq(siege.advance_ladder_countdown(0, false), 0, "준비 완료는 유지 무관 0")
+
 # --- 성벽 내구도 · 투석 데미지 → docs/spec/features/wall.md ---
 
 func test_wall_durability_constants() -> void:

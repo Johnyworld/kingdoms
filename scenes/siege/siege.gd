@@ -16,6 +16,10 @@ const CATAPULT_HIT_CHANCE := 0.1  # 유닛 투석 유닛별 명중 확률(낮음
 static func push_succeeds(roll: float, markup := 0.0) -> bool:
 	return roll < LADDER_PUSH_CHANCE - markup
 
+## 사다리 준비 카운트 진행 — 부대가 설치 위치를 지킬(manned) 때만 −1(하한 0), 아니면 정지(리셋 아님). → wall.md
+static func advance_ladder_countdown(countdown: int, manned: bool) -> int:
+	return maxi(0, countdown - 1) if manned else countdown
+
 ## 투석 1발 실제 데미지 — 기준 공격력(base_attack)에 ±DAMAGE_VARIANCE(0.4) 랜덤(roll 0~1)을 준다.
 ## roll 0 → base×0.6(하한), roll 1 → base×1.4(상한), roll 0.5 → base. 투석기 50 → 30~70. → wall.md · siege-units.md
 static func rolled_damage(base_attack: int, roll: float) -> int:

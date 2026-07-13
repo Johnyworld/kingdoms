@@ -1627,11 +1627,16 @@ func _refresh_siege_overlay() -> void:
 	_siege_overlay.ladders = _ladders
 	_siege_overlay.queue_redraw()
 
-## 턴 종료마다 모든 사다리 countdown −1(하한 0). 0이면 통로가 열린다(_wall_blocked_cells). → wall.md
+## 턴 종료마다 사다리 준비 카운트 진행 — 그 자리를 지키는(manned) 사다리만 −1. 0이면 통로가 열린다(_wall_blocked_cells). → wall.md
 func _advance_ladders() -> void:
 	for L in _ladders:
-		L["countdown"] = maxi(0, L["countdown"] - 1)
+		L["countdown"] = Siege.advance_ladder_countdown(L["countdown"], _ladder_manned(L))
 	_refresh_siege_overlay()
+
+## 사다리 L이 유지 중인지 — from_cell(설치 위치)에 그 사다리 세력의 부대가 서 있으면 참. 부대·세력 무관 위치 기준이라 재사용 가능. → wall.md
+func _ladder_manned(L: Dictionary) -> bool:
+	var holder = _party_on_cell(L["from_cell"])
+	return holder != null and holder.faction_name == L["faction"]
 
 ## 팝업 대상(적 부대/점령/병합)을 모두 비운다. 팝업을 새로 열기 전에 호출.
 func _clear_popup_targets() -> void:
