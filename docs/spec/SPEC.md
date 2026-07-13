@@ -44,6 +44,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
 - [Party Action Menu (부대 행동 메뉴)](features/party-action-menu.md) — 토큰 근처 메뉴 [사격][휴식][경계] + 적 팝업 [공격][사격], 휴식/경계 회복·버프, 근접 승리 점령
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
+- [Member List (구성원 리스트 위젯)](features/member-list.md) — Human 배열을 정렬·스크롤·키보드 이동되는 표로 그리는 재사용 위젯(Tree 기반)
+- [Members Menu (구성원 메뉴)](features/members-menu.md) — 좌측 하단 상시 버튼, 우리 세력 전 군인 명단 오버레이 + 상세 패널(Member List 재사용)
 - [Fog of War (전장의 안개)](features/fog-of-war.md)
 - [Camp Menu (캠프 메뉴)](features/camp-menu.md) — 캠프 클릭 시 영지 자원·건축 메뉴
 - [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시 + 철거(확인 다이얼로그)
@@ -100,6 +102,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 행동 메뉴 | `scenes/party/party_action_menu.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
+| 구성원 리스트 위젯 | `scenes/members/member_list.gd` |
+| 구성원 메뉴 | `scenes/members/members_menu.gd` |
 | 약탈 패널 | `scenes/loot/loot_menu.gd` |
 | 장비 관리 모달 | `scenes/equip/equip_menu.gd` |
 | 사람(데이터) | `scenes/human/human.gd` |

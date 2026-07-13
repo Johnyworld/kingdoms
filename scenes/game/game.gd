@@ -58,6 +58,7 @@ const NPC_BASE_OFFSETS := {
 @onready var party_info = $PartyInfo
 @onready var party_roster = $PartyRoster
 @onready var building_info = $BuildingInfo
+@onready var members_menu = $MembersMenu
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -174,6 +175,7 @@ func _ready() -> void:
 	camp_menu.found_camp_requested.connect(_on_found_camp_requested)
 	camp_menu.demolish_requested.connect(_on_camp_demolish_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
+	members_menu.open_requested.connect(_on_members_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
 	party_action_menu.action_selected.connect(_on_party_action)
@@ -2062,6 +2064,16 @@ func _on_party_focused(focused_party) -> void:
 	camera.position.x = clampf(camera.position.x, _min_pos.x, _max_pos.x)
 	camera.position.y = clampf(camera.position.y, _min_pos.y, _max_pos.y)
 
+## 좌측 하단 "구성원" 버튼 → 우리 세력 전 군인 명단 오버레이를 연다(여는 시점 스냅샷). → members-menu.md
+func _on_members_requested() -> void:
+	members_menu.open(_player_faction_members())
+
+## 우리 세력의 모든 부대(필드 + 거점 주둔)에 속한 군인(Human)을 모은다. 모든 플레이어 부대는 _units에 있다.
+func _player_faction_members() -> Array:
+	if _player_faction == null:
+		return []
+	return MembersMenu.collect_faction_members(_units, _player_faction.name)
+
 ## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
 ## 건물을 지을 수 있는 영역(영지 시야) 윤곽선을 파랑으로 표시한다 — 시야는 배치 중 변하지 않으므로 한 번만 계산한다.
 func _on_build_selected(type_id: String, territory: Territory) -> void:
@@ -2169,6 +2181,8 @@ func _next_outpost_name() -> String:
 ## 줌 조절: 마우스 휠 / 트랙패드 두 손가락 스크롤 / 트랙패드 핀치.
 ## 값이 작을수록 확대이므로, 확대 = _zoom_level 감소.
 func _unhandled_input(event: InputEvent) -> void:
+	if members_menu.is_open():
+		return   # 모달 열림 동안 게임 월드 입력(클릭·줌) 차단 → members-menu.md
 	# 건설 모드에서는 배치 입력만 처리한다(일반 클릭·선택 차단).
 	if _build_mode:
 		_handle_build_input(event)
@@ -2196,6 +2210,8 @@ func _set_zoom(level: float) -> void:
 	camera.zoom = Vector2.ONE / _zoom_level
 
 func _process(delta: float) -> void:
+	if members_menu.is_open():
+		return   # 모달 열림 동안 지도 카메라 팬(WASD·엣지 스크롤) 차단 → members-menu.md
 	var dir := Vector2.ZERO
 
 	# 키보드 (WASD)
