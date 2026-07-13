@@ -1649,11 +1649,19 @@ func _on_turn_ended() -> void:
 	_turn.end_turn(_units + _npc_parties, _territories)
 	_advance_ladders()   # 사다리 카운트다운 −1(0이면 통로 열림) → wall.md
 	turn_hud.set_turn(_turn.number)
+	_npc_produce_siege()   # NPC 수비대 주기 투석기 보충 생산(5e) → siege-engines.md
 	_update_fog()   # 건설 완료 농장 시야 + NPC 현재 위치 표시를 안개에 반영.
 	_update_endgame()   # 세력 소멸 유예 판정 → 소멸 시 부대 붕괴 + 정복 승리/패배
 	if _game_over:
 		return   # 승패 확정 → NPC 이동 생략
 	_move_npcs()    # 비차단: NPC를 경로 따라 애니메이션으로 이동(플레이어 조작 안 막음).
+
+## NPC 거점 수비대(stationed)가 주기(NpcAi.should_produce_siege)마다 상한 미만이면 투석기 1대 보충 생산. → siege-engines.md
+## NPC 경제 미사용이라 자원 대신 턴 주기·상한으로 추상 생산(작업장 건물 불요). 대포병 결투로 파괴된 투석기를 교체·소량 증강.
+func _npc_produce_siege() -> void:
+	for p in _npc_parties:
+		if p.stationed and NpcAi.should_produce_siege(_turn.number, p.siege_units.size()):
+			p.add_siege_unit(SiegeUnit.new())
 
 ## 각 NPC 부대를 목적지(NpcAi)까지 경로 따라 애니메이션으로 이동시킨다.
 ## 세력 간 순차, 같은 세력 내 부대는 NPC_PARTY_STAGGER 간격으로 동시 이동. 비차단(await로 백그라운드 진행).

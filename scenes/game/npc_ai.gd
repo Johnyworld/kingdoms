@@ -6,6 +6,14 @@ extends RefCounted
 # 자기 전력이 적 전력의 이 비율 미만이면 교전을 피한다(신중한 교전·후퇴 판단).
 const CAUTION_RATIO := 0.7
 
+# NPC 수비대 투석기 주기 생산(경제 미사용이라 자원 대신 턴 주기·상한). → docs/spec/features/siege-engines.md
+const NPC_SIEGE_INTERVAL := 5   # 생산 주기(턴)
+const NPC_SIEGE_CAP := 2        # 수비대 투석기 상한
+
+## NPC 수비대가 이번 턴에 투석기를 보충 생산할지 — 주기(INTERVAL) 도달 + 상한(CAP) 미만. turn 0은 생산 안 함.
+static func should_produce_siege(turn: int, siege_count: int) -> bool:
+	return turn > 0 and turn % NPC_SIEGE_INTERVAL == 0 and siege_count < NPC_SIEGE_CAP
+
 ## 부대 전력 = 멤버 hit_points 합. 부상당하면 낮아진다(교전/후퇴 판단에 쓴다).
 static func party_power(members: Array) -> int:
 	var p := 0

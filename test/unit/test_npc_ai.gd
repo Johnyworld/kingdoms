@@ -194,3 +194,24 @@ func test_prioritize_top_tier() -> void:
 
 func test_prioritize_all_empty() -> void:
 	assert_eq(NpcAi.prioritize([[], []]), [], "전부 비면 빈 배열")
+
+# --- NPC 투석기 주기 생산 판정: should_produce_siege (순수) → docs/spec/features/siege-engines.md ---
+
+func test_npc_siege_production_constants() -> void:
+	assert_eq(NpcAi.NPC_SIEGE_INTERVAL, 5, "생산 주기 5턴")
+	assert_eq(NpcAi.NPC_SIEGE_CAP, 2, "투석기 상한 2")
+
+func test_should_produce_siege_on_interval_below_cap() -> void:
+	assert_true(NpcAi.should_produce_siege(5, 0), "5턴·0대 → 생산")
+	assert_true(NpcAi.should_produce_siege(10, 1), "10턴·1대 → 생산")
+
+func test_should_produce_siege_off_interval() -> void:
+	assert_false(NpcAi.should_produce_siege(4, 0), "주기 아님 → 생산 안 함")
+	assert_false(NpcAi.should_produce_siege(7, 0), "주기 아님 → 생산 안 함")
+
+func test_should_produce_siege_at_cap() -> void:
+	assert_false(NpcAi.should_produce_siege(5, 2), "상한(2) 도달 → 생산 안 함")
+	assert_false(NpcAi.should_produce_siege(10, 3), "상한 초과 → 생산 안 함")
+
+func test_should_produce_siege_turn_zero() -> void:
+	assert_false(NpcAi.should_produce_siege(0, 0), "0턴 → 생산 안 함")

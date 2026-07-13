@@ -91,18 +91,20 @@
 - **승패**: `team_wiped`는 **Human + 구조물**을 셈(siege 제외) — 성벽만 있는 방어 팀은 **성벽이 부서질 때** 전멸로 종료(안 부서지면 원거리 전투 시간까지). 부대 전멸로는 승패가 갈리지 않는다([Victory](victory.md) — 거점만). **노획은 없다**(후속).
 - **순수 로직**: `BattleField.bombard_targets(unit, units, n) -> Array`(적 siege 우선·거리순·최대 n, siege·structure 포함) · `nearest_enemy`/`survivors`(siege·structure 제외) · `team_wiped`(structure 포함) + `Party.prune_destroyed_siege() -> int` + 기존 `Siege.hit_succeeds`·`MAX_BOMBARD_TARGETS`·`rolled_damage`·`wall_broken`.
 
-## NPC 공성 AI (5c · `_npc_attack_phase`)
+## NPC 공성 AI (5c·5e · `_npc_attack_phase`·`_on_turn_ended`)
 
-NPC도 투석기를 **운용**한다 — 지금은 **NPC 거점 주둔 수비대**가 시작 투석기 1대를 갖고, 접근하는 **플레이어**를 방어 포격한다. (작업장 건설·투석기 생산 AI, 로빙 공격형 공성은 후속.)
+NPC도 투석기를 **운용·생산**한다 — **NPC 거점 주둔 수비대**가 시작 투석기 1대를 갖고 접근하는 **플레이어**를 방어 포격하며, 주기적으로 투석기를 **보충 생산**한다. (로빙 공격형 공성·NPC 건설 AI는 후속.)
 
 - **NPC 시작 투석기**: 게임 시작 시 각 **NPC 거점 주둔 부대**(`_seed_garrison_party`, NPC만)에 투석기 1대를 실어 준다(스캐폴딩·시험용). 플레이어 수비대는 제외.
+- **주기 생산(5e, `_on_turn_ended`)**: NPC 경제는 미사용이라([npc-movement](npc-movement.md)) 자원 소진이 아니라 **주기 생산**한다. 매 턴 종료 시 각 NPC 수비대에 대해 `NpcAi.should_produce_siege(turn, siege_count)`(= `turn > 0 and turn % NPC_SIEGE_INTERVAL(5) == 0 and siege_count < NPC_SIEGE_CAP(2)`)가 참이면 투석기 1대를 편입한다. **작업장 건물·자원 불요**(추상 생산 — NPC 건설 AI는 후속). 대포병 결투로 파괴된 투석기가 시간이 지나 교체·소량 증강되어 방어가 지속된다.
 - **운용**(`_npc_attack_phase`): 투석기를 실은 NPC 부대가 **사거리 밴드 4~5 안에 플레이어 표적**(플레이어 성벽 거점 또는 플레이어 부대)이 있으면 **[투석]**한다(`_siege_target_for(attacker)` — 밴드 내 최근접). 성벽이면 성벽 구조물 전투, 부대면 `include_siege` 통합 전투. **부대 행동 종료**. 주둔 수비대는 사격보다 투석을 우선(사거리가 더 김).
 - **positioning 없음**: NPC 이동 AI는 사거리 유지를 안 하므로(접근·오버슛), 실질 발동은 **고정 위치 수비대**가 밴드에 든 플레이어를 쏘는 경우다. 예: 플레이어가 투석기로 NPC 성벽을 4~5칸 밖에서 공성 → NPC 턴에 수비대 투석기가 **그 플레이어 부대를 반격 포격**(턴제 대포병 카운터).
 - **플레이어 표적만**: NPC끼리의 투석은 **미구현** — 헤드리스 결산([BattleSim](battle.md#헤드리스-전투-결산-battle_simgd-순수))이 투석기·구조물 전투원을 다루지 않기 때문(플레이어가 낀 전투만 오버레이 battle.gd로 투석 처리). NPC↔NPC 공성은 후속(BattleSim 확장).
+- **순수 로직**: `NpcAi.should_produce_siege(turn, siege_count) -> bool` + 상수 `NPC_SIEGE_INTERVAL`(5)·`NPC_SIEGE_CAP`(2). 표적 선정(`_siege_target_for`)·운용·생산 배선은 game.gd(실행 검증).
 
 ## 이번 슬라이스 제외 (미구현)
 
-- **NPC 공성 생산·공격형 AI**: NPC의 작업장 건설·투석기 생산, 로빙 NPC의 사거리 유지(positioning) 공격형 공성, NPC↔NPC 투석(BattleSim 공성 확장) — 후속. *(5c는 NPC 수비대의 방어 투석만.)*
+- **NPC 공격형·건설 AI**: NPC의 작업장 건설(추상 생산은 5e에서 구현), 로빙 NPC의 사거리 유지(positioning) 공격형 공성, NPC↔NPC 투석(BattleSim 공성 확장) — 후속.
 - **투석 노획**(투석으로 전멸시킨 부대의 화물·장비 loot) — 후속.
 - **맵 토큰의 공성 유닛 표시**(투석기 마커)·거점 상실 시 공성 유닛 소실 처리 — 후속. *(부대에 투석기가 여러 대면 battle.gd 통합 전투에서 각 투석기가 전투원으로 1발씩 쏜다 — 전투당 1발은 유닛 단위.)*
 - 조작 인원 개별 배정 — 후속.
@@ -117,7 +119,9 @@ NPC도 투석기를 **운용**한다 — 지금은 **NPC 거점 주둔 수비대
   - **5d-2 투석기 전투원화 + 상호 반격** — (이 문서) `[투석]` 유닛 대상을 battle.gd 통합 전투로, 투석기를 전투원(사거리 4~5·1발·광역 최대 5)으로 스폰, 양쪽 투석기 상호 반격. 투석기는 아직 피격 안 됨. ✅
   - **5d-3a 투석기 피격·파괴** — (이 문서) 투석기가 표적이 되어(적 투석기 우선 대포병) 적 투석에 hp 소진 시 파괴·`siege_units`에서 제거. 방어 카운터플레이. ✅
   - **5d-3b 성벽 구조물 전투원화** — (이 문서) 성벽을 HP 구조물 전투원으로 battle.gd에 흡수(`_bombard_wall`이 통합 전투 개시·`siege_bombard.gd` 제거) → 충차·공성탑 등 구조물 공격 병기가 한 경로 공유. ✅ **5d 전투 완전 통합 완료.**
-- **5c NPC 공성 AI** — (이 문서) NPC 수비대 시작 투석기 + 접근하는 플레이어 방어 포격(밴드 4~5). 생산·positioning·NPC↔NPC는 후속. ✅
+- **5c NPC 공성 AI** — (이 문서) NPC 수비대 시작 투석기 + 접근하는 플레이어 방어 포격(밴드 4~5). ✅
+- **5e NPC 투석기 생산** — (이 문서) NPC 수비대가 주기(5턴)마다 투석기 상한(2) 미만이면 1대 보충 생산(`NpcAi.should_produce_siege`, 추상·자원 무관). ✅
+- **후속**: NPC 작업장 건설 AI, 로빙 positioning 공격형 공성, NPC↔NPC 투석(BattleSim 확장), 충차·공성탑·성문.
 
 ## 테스트 시나리오
 
@@ -141,6 +145,11 @@ NPC도 투석기를 **운용**한다 — 지금은 **NPC 거점 주둔 수비대
 **유닛 투석 판정(순수)** — `test/unit/test_siege.gd`:
 - [정상] `Siege.MAX_BOMBARD_TARGETS == 5`, `Siege.CATAPULT_HIT_CHANCE == 0.1`
 - [정상] `hit_succeeds(0.05, 0.1) == true`(0.05 < 0.1), `hit_succeeds(0.2, 0.1) == false`; [경계] `hit_succeeds(0.1, 0.1) == false`(미만만 명중)
+
+**NPC 투석기 생산 판정(순수)** — `test/unit/test_npc_ai.gd`:
+- [정상] `NpcAi.NPC_SIEGE_INTERVAL == 5`, `NpcAi.NPC_SIEGE_CAP == 2`
+- [정상] `should_produce_siege(5, 0) == true`(주기·상한 미만), `should_produce_siege(10, 1) == true`
+- [경계] `should_produce_siege(4, 0) == false`(주기 아님), `should_produce_siege(5, 2) == false`(상한 도달), `should_produce_siege(0, 0) == false`(0턴)
 
 **투석 표적 선정(순수)** — `test/unit/test_battle_field.gd`:
 - [정상] `bombard_targets(unit, units, 5)` — 적 투석기(siege) 우선 → 유닛·성벽 구조물(structure), 거리순 최대 5명
@@ -179,7 +188,7 @@ NPC도 투석기를 **운용**한다 — 지금은 **NPC 거점 주둔 수비대
 **성벽 내구도 상태** — `test/unit/test_building.gd`: → [Wall 테스트 시나리오](wall.md#테스트-시나리오)
 - [정상] 생성 직후 `wall_hp == 0`; 설정 가능; `upgrade_to` 후 `wall_hp` 유지
 
-`game.gd`의 `_on_siege_produced`, 투석 선택 모드(`MODE_BOMBARD`)·`_bombard_targets`(밴드 4~5 내 성벽 거점+적 부대), **성벽/적 부대 모두** → `_bombard_wall`/`_begin_battle`(battle.gd 통합 전투, `include_siege`·성벽은 구조물 전투원), `battle.gd`의 투석기·성벽 구조물 전투원 스폰·발사(광역·flat 피해·적 투석기 우선·성벽 항상 명중)·**투석기 피격·파괴**(hp 소진 시 `_kill`)·hp/wall_hp 이월 반영·붕괴, 전투 후 `prune_destroyed_siege`·정보 갱신, `[투석]` 행동 노출, 성벽 링 내구도 색, 작업장 건축, 정보 패널 표시, **NPC 시작 투석기(`_seed_garrison_party`)·NPC 투석 운용 AI(`_npc_attack_phase`·`_siege_target_for`)**는 실제 실행으로 확인한다(`game.gd`·오버레이·NPC AI 통합 테스트는 기존 관례상 두지 않음). *(5c는 재사용 순수 로직 외 새 유닛 테스트가 없다 — AI 배선이라 실행 검증.)*
+`game.gd`의 `_on_siege_produced`, 투석 선택 모드(`MODE_BOMBARD`)·`_bombard_targets`(밴드 4~5 내 성벽 거점+적 부대), **성벽/적 부대 모두** → `_bombard_wall`/`_begin_battle`(battle.gd 통합 전투, `include_siege`·성벽은 구조물 전투원), `battle.gd`의 투석기·성벽 구조물 전투원 스폰·발사(광역·flat 피해·적 투석기 우선·성벽 항상 명중)·**투석기 피격·파괴**(hp 소진 시 `_kill`)·hp/wall_hp 이월 반영·붕괴, 전투 후 `prune_destroyed_siege`·정보 갱신, `[투석]` 행동 노출, 성벽 링 내구도 색, 작업장 건축, 정보 패널 표시, **NPC 시작 투석기(`_seed_garrison_party`)·NPC 투석 운용 AI(`_npc_attack_phase`·`_siege_target_for`)·NPC 주기 생산(`_on_turn_ended`이 `NpcAi.should_produce_siege`로 수비대에 편입)**은 실제 실행으로 확인한다(`game.gd`·오버레이·NPC AI 통합 테스트는 기존 관례상 두지 않음). *(순수 판정은 `should_produce_siege` 등 유닛 테스트로 커버.)*
 
 ## 관련
 
