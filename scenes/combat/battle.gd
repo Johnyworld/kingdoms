@@ -45,8 +45,9 @@ var _view: Control
 
 ## 공격측(a)·방어측(b) 부대를 받아 전투를 시작한다. distance = 교전 헥스 거리(1=근접).
 ## distance >= 2면 원거리 교전 — 사거리 ≥ distance인 유닛만 행동. → docs/spec/features/battle.md
-## include_siege면 양 부대의 공성 유닛(투석기)을 전투원으로 스폰([투석] 전투). → siege-engines.md
-func start(attacker, defender, distance := 1, include_siege := false) -> void:
+## include_siege면 양 부대의 공성 유닛(투석기)을 전투원으로 스폰([투석] 전투). wall(성벽 거점)이 있으면 성벽을
+## 구조물 전투원으로 방어 팀에 스폰(성벽 투석 — defender는 null 허용, 성벽만 방어). → siege-engines.md
+func start(attacker, defender, distance := 1, include_siege := false, wall = null) -> void:
 	_distance = distance
 	_ranged_mode = distance >= 2
 	_battle_time = RANGED_BATTLE_TIME if _ranged_mode else BATTLE_TIME
@@ -55,11 +56,29 @@ func start(attacker, defender, distance := 1, include_siege := false) -> void:
 	_build_bg()
 	var vp := get_viewport().get_visible_rect().size
 	_spawn_team(attacker, "a", vp.x * 0.25, vp)
-	_spawn_team(defender, "b", vp.x * 0.75, vp)
+	if defender != null:
+		_spawn_team(defender, "b", vp.x * 0.75, vp)
 	if include_siege:
 		_spawn_siege(attacker, "a", vp.x * 0.1, vp)
-		_spawn_siege(defender, "b", vp.x * 0.9, vp)
+		if defender != null:
+			_spawn_siege(defender, "b", vp.x * 0.9, vp)
+	if wall != null:
+		_spawn_structure(wall, "b", vp)
 	_running = true
+
+## 성벽을 구조물 전투원으로 방어 팀(b)에 스폰한다. 이동·공격·상태이상 없이 투석 flat 피해만 받는다. → siege-engines.md
+func _spawn_structure(building, team: String, vp: Vector2) -> void:
+	var pos := Vector2(vp.x * 0.75, vp.y * 0.5)
+	var node := _make_token(Color(0.62, 0.62, 0.68))   # 성벽 회색
+	(node.get_node("hp") as Label).text = "성벽"
+	_view.add_child(node)
+	var su := {
+		"structure": true, "team": team, "alive": true, "pos": pos,
+		"node": node, "hp_label": node.get_node("hp"), "body": node.get_node("body"), "color": Color(0.62, 0.62, 0.68),
+		"hp": int(building.wall_hp), "building": building, "effects": {},
+	}
+	_units.append(su)
+	su["node"].position = pos - Vector2(TOKEN_R, TOKEN_R)
 
 ## 부대의 공성 유닛(투석기)을 전투원으로 스폰한다(팀 열 바깥쪽·위). 이동·근접 없이 전투당 1발만 쏜다. → siege-engines.md
 func _spawn_siege(party, team: String, x: float, vp: Vector2) -> void:
@@ -97,7 +116,8 @@ func _catapult_volley(u: Dictionary) -> void:
 	var targets := BattleField.bombard_targets(u, _units, Siege.MAX_BOMBARD_TARGETS)
 	for t in targets:
 		_spawn_projectile(u["pos"], t["pos"])   # 투사체 연출(피해는 즉시 적용)
-		if not Siege.hit_succeeds(_rng.randf(), Siege.CATAPULT_HIT_CHANCE):
+		# 성벽 구조물은 거대·부동이라 항상 명중, 유닛은 명중률 판정. → siege-engines.md
+		if not t.get("structure", false) and not Siege.hit_succeeds(_rng.randf(), Siege.CATAPULT_HIT_CHANCE):
 			_spawn_float(t["pos"], "빗나감", Color(0.7, 0.7, 0.7), false)
 			continue
 		var dmg := Siege.rolled_damage(u["attack"], _rng.randf())   # flat(방어구·회피·상성 무시)
@@ -106,7 +126,10 @@ func _catapult_volley(u: Dictionary) -> void:
 		_spawn_float(t["pos"], str(dmg), Color(1.0, 0.5, 0.3), true)
 		_hit_react(t)
 		if t["hp"] <= 0:
-			_kill(t, u["pos"])
+			if t.get("structure", false):
+				_kill(t)   # 성벽은 제자리 붕괴(넉백 없이 페이드)
+			else:
+				_kill(t, u["pos"])
 
 func _build_bg() -> void:
 	var dim := ColorRect.new()
@@ -169,8 +192,8 @@ func _process(delta: float) -> void:
 
 	# 상태이상 진행(모든 생존 유닛): 출혈 도트를 hp에서 빼고, 죽으면 전투불능 처리.
 	for u in _units:
-		if not u["alive"] or u.get("siege", false):
-			continue   # 공성 전투원은 상태이상·hp 없음(5d-2). → siege-engines.md
+		if not u["alive"] or u.get("siege", false) or u.get("structure", false):
+			continue   # 공성 전투원·성벽 구조물은 상태이상 진행 없음. → siege-engines.md
 		var dot := StatusEffects.advance(u["effects"], delta)
 		if dot > 0:
 			u["hp"] -= dot
@@ -182,6 +205,8 @@ func _process(delta: float) -> void:
 	for u in _units:
 		if not u["alive"]:
 			continue
+		if u.get("structure", false):
+			continue   # 성벽 구조물 — 이동·공격 없음(맞기만 함)
 		if u.get("siege", false):
 			_siege_act(u)   # 투석기 전투원 — 사거리 밴드면 전투당 1발 광역 → siege-engines.md
 			continue
@@ -363,6 +388,8 @@ func _finish() -> void:
 	for u in _units:
 		if u.get("siege", false):
 			u["unit"].hit_points = maxi(0, int(u["hp"]))   # 투석기 hp 이월(파괴면 0 → 전투 후 prune)
+		elif u.get("structure", false):
+			u["building"].wall_hp = maxi(0, int(u["hp"]))   # 성벽 잔여 내구도 반영(0이면 game.gd가 붕괴 처리)
 		elif u["alive"]:
 			u["human"].hit_points = maxi(1, int(u["hp"]))   # 생존자 최종 hp를 Human에 반영(전투 후 지속)
 	var a_surv := BattleField.survivors(_units, "a")

@@ -132,7 +132,6 @@ var _split_new = null               # 분할 중 새로 만든 부대(닫을 때
 var toast: Toast                    # 점령/함락 알림(코드 생성, _ready에서 추가)
 
 const BATTLE_SCENE := preload("res://scenes/combat/battle.gd")
-const SIEGE_BOMBARD_SCENE := preload("res://scenes/combat/siege_bombard.gd")   # 성벽 투석 관전 씬 → siege-engines.md
 const TITLE_SCENE := "res://scenes/title/title.tscn"
 
 # 건설 모드. 캠프 메뉴에서 건물을 고르면 진입 — 맵을 클릭해 배치한다.
@@ -153,6 +152,8 @@ func _ready() -> void:
 	add_child(_siege_overlay)
 	# 첫 거점은 마을회관 티어로 시작(캠프에서 한 번 업그레이드된 상태) — 인구 상한 10, 시작부터 생산 건물 해금.
 	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), "town_hall")
+	building.wall_level = 1   # 시작 성벽(공성 시험용) → siege-engines.md
+	building.wall_hp = Siege.WALL_MAX_HP
 	_buildings = [building]
 	_setup_factions()
 	_setup_parties()
@@ -258,6 +259,8 @@ func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
 	var camp := Building.new()
 	add_child(camp)
 	camp.setup(terrain, base_cell, BuildingTypes.CAMP)   # 완성 상태(건설 중 아님)
+	camp.wall_level = 1   # 시작 성벽(공성 시험용 — 정상 규칙상 캠프는 성벽 불가지만 테스트로 강제) → siege-engines.md
+	camp.wall_hp = Siege.WALL_MAX_HP
 	territory.add_building(camp)
 	return camp
 
@@ -271,6 +274,7 @@ func _camp_resources() -> Dictionary:
 ## NPC 부대 3개는 새로 인스턴스화해 세력 색으로 그리고 시작 지점 주변에 배치(표시만).
 func _setup_parties() -> void:
 	_populate_party(party, UnitTypes.PLAYER_ID)
+	party.add_siege_unit(SiegeUnit.new())   # 플레이어 부대 시작 투석기 1대 → siege-engines.md
 	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
 	for id in UnitTypes.NPC_IDS:
 		var p := PARTY_SCENE.instantiate()
@@ -350,7 +354,7 @@ func _compute_bombard_targets(start: Vector2i) -> void:
 		for c in b.cells:
 			if dists.has(c) and int(dists[c]) >= min_r:
 				_bombard_cells[c] = {"kind": "wall", "ref": b, "dist": int(dists[c])}
-	_bombard_area_cells = _bombard_cells.keys()   # 빨강 오버레이용 표적 셀
+	_bombard_area_cells.assign(_bombard_cells.keys())   # 빨강 오버레이용 표적 셀(타입 배열로 복사)
 
 ## 보이는 각 NPC를 공격 가능 여부로 분류한다. 근접=(현재∪이동칸 중 인접칸 존재), 사격=(원거리 무기·현재 위치 사거리 내).
 func _compute_attack_targets(start: Vector2i) -> void:
@@ -497,7 +501,7 @@ func _handle_click(world_pos: Vector2) -> void:
 		if _bombard_cells.has(cell) and party.can_attack():
 			var t: Dictionary = _bombard_cells[cell]
 			if t["kind"] == "wall":
-				_bombard_wall(t["ref"])   # 성벽 → 경량 관전 씬(SiegeBombard)
+				_bombard_wall(t["ref"], int(t["dist"]))   # 성벽 → battle.gd 통합 전투(구조물 전투원)
 			else:
 				# 적 부대 → battle.gd 통합 전투(투석기 전투원 포함, 밴드 거리). → siege-engines.md
 				_begin_battle(t["ref"], int(t["dist"]), Vector2i(-1, -1), true)
@@ -1366,18 +1370,16 @@ func _ladder_target_for(p) -> Dictionary:
 				return {"building": b, "target_cell": c}   # 붙은 ring 셀 중 사다리 없는 면
 	return {}
 
-## [투석]→성벽: 활성 부대가 대상 성벽 거점을 포격. 관전 씬 뒤 wall_hp 감소, 0이면 붕괴. 부대 행동 종료(1턴 1발). → siege-engines.md
-func _bombard_wall(building) -> void:
+## [투석]→성벽: 성벽을 구조물 전투원으로 battle.gd 통합 전투. 전투가 wall_hp를 깎고(항상 명중), 0이면 붕괴. 부대 행동 종료(1턴 1발). → siege-engines.md
+func _bombard_wall(building, distance: int) -> void:
 	if building == null:
 		return
 	party.mark_attacked()   # 투석 = 부대 행동 종료 → 자연히 1턴 1발
 	_undo_party = null
-	var dmg := Siege.rolled_damage(party.siege_attack(), _rng.randf())
 	var from_hp: int = building.wall_hp
 	_deselect()
 	_hide_party_info()
-	await _run_wall_bombard(building, from_hp, dmg)
-	building.wall_hp = Siege.wall_after_hit(building.wall_hp, dmg)
+	await _run_wall_battle(building, distance)   # battle.gd가 building.wall_hp를 반영
 	if Siege.wall_broken(building.wall_hp):
 		building.wall_level = 0
 		building.wall_hp = 0
@@ -1385,17 +1387,17 @@ func _bombard_wall(building) -> void:
 		var tname: String = building.territory.name if building.territory != null else "성벽"
 		toast.show_message("%s 성벽 붕괴!" % tname)
 	else:
-		toast.show_message("성벽 −%d (%d/%d)" % [dmg, building.wall_hp, Siege.WALL_MAX_HP])
+		toast.show_message("성벽 −%d (%d/%d)" % [from_hp - building.wall_hp, building.wall_hp, Siege.WALL_MAX_HP])
 	building.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
+	party.prune_destroyed_siege()   # 반격 없어 보통 no-op(대칭성)
 	party_roster.set_parties(_units)
 
-
-## 성벽 투석 관전 씬(SiegeBombard)을 띄우고 종료까지 await(입력 잠금). 실제 wall_hp 반영은 호출부가 씬 종료 후 처리(씬은 연출만). → siege-engines.md
-func _run_wall_bombard(building, from_hp: int, damage: int) -> void:
+## 성벽 투석 통합 전투 — 공격 부대(+투석기) vs 성벽 구조물 전투원. battle.gd가 종료 시 building.wall_hp를 반영. → siege-engines.md
+func _run_wall_battle(building, distance: int) -> void:
 	_in_battle = true
-	var overlay := SIEGE_BOMBARD_SCENE.new()
+	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
-	overlay.start_wall(party, building, from_hp, damage)
+	overlay.start(party, null, distance, true, building)
 	await overlay.finished
 	overlay.queue_free()
 	_in_battle = false

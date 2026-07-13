@@ -4,12 +4,12 @@ extends RefCounted
 ## 유닛은 `{team, alive, pos, human, ...}` 형태의 Dictionary로 다룬다(테스트 용이).
 
 ## unit과 다른 팀의 살아있는 유닛 중 pos 거리가 가장 가까운 것. 없으면 빈 Dictionary.
-## 공성 전투원(siege)은 표적에서 제외한다(투석기 피격은 5d-3). → docs/spec/features/siege-engines.md
+## 공성 전투원(siege)·성벽 구조물(structure)은 표적에서 제외한다(이들은 투석 볼리만 노림). → docs/spec/features/siege-engines.md
 static func nearest_enemy(unit: Dictionary, units: Array) -> Dictionary:
 	var best := {}
 	var best_d := INF
 	for u in units:
-		if u["team"] == unit["team"] or not u["alive"] or u.get("siege", false):
+		if u["team"] == unit["team"] or not u["alive"] or u.get("siege", false) or u.get("structure", false):
 			continue
 		var d: float = unit["pos"].distance_squared_to(u["pos"])
 		if d < best_d:
@@ -41,11 +41,11 @@ static func team_wiped(units: Array, team: String) -> bool:
 			return false
 	return true
 
-## 그 팀의 살아있는 유닛들의 human 목록. 공성 전투원(human 없음)은 제외.
+## 그 팀의 살아있는 유닛들의 human 목록. 공성 전투원·성벽 구조물(human 없음)은 제외.
 static func survivors(units: Array, team: String) -> Array:
 	var out: Array = []
 	for u in units:
-		if u["team"] == team and u["alive"] and not u.get("siege", false):
+		if u["team"] == team and u["alive"] and not u.get("siege", false) and not u.get("structure", false):
 			out.append(u["human"])
 	return out
 

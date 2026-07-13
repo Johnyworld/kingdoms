@@ -95,3 +95,41 @@ func test_nearest_enemy_ignores_siege() -> void:
 	var siege := _siege("b", Vector2(5, 0), "siege")
 	var enemy := _unit("b", true, Vector2(50, 0), "enemy")
 	assert_eq(BattleField.nearest_enemy(u, [u, siege, enemy])["human"], "enemy", "공성 전투원은 표적 제외")
+
+# --- 성벽 구조물 전투원(structure) → docs/spec/features/siege-engines.md (5d-3b) ---
+
+func _structure(team: String, pos: Vector2, human = null) -> Dictionary:
+	var u := _unit(team, true, pos, human)
+	u["structure"] = true   # 성벽 구조물 — nearest_enemy/survivors 제외, bombard_targets 포함, team_wiped 포함
+	return u
+
+func test_nearest_enemy_ignores_structure() -> void:
+	var u := _unit("a", true, Vector2(0, 0))
+	var wall := _structure("b", Vector2(5, 0), "wall")
+	var enemy := _unit("b", true, Vector2(50, 0), "enemy")
+	assert_eq(BattleField.nearest_enemy(u, [u, wall, enemy])["human"], "enemy", "성벽 구조물은 표적 제외")
+
+func test_bombard_targets_includes_structure() -> void:
+	var u := _unit("a", true, Vector2(0, 0))
+	var wall := _structure("b", Vector2(10, 0), "wall")
+	var got := BattleField.bombard_targets(u, [u, wall], 5)
+	assert_eq(got.size(), 1, "성벽 구조물도 투석 표적")
+	assert_eq(got[0]["human"], "wall", "구조물 포함")
+
+func test_bombard_targets_siege_before_structure() -> void:
+	# 적 투석기 우선 → 그다음 유닛·구조물.
+	var u := _unit("a", true, Vector2(0, 0))
+	var wall := _structure("b", Vector2(10, 0), "wall")
+	var far_siege := _siege("b", Vector2(90, 0), "siege")
+	var got := BattleField.bombard_targets(u, [u, wall, far_siege], 5)
+	assert_eq(got[0]["human"], "siege", "투석기가 먼저(뒤에 있어도)")
+	assert_eq(got[1]["human"], "wall", "구조물은 그다음")
+
+func test_survivors_excludes_structure() -> void:
+	var units := [_unit("b", true, Vector2.ZERO, "z"), _structure("b", Vector2.ONE, "wall")]
+	assert_eq(BattleField.survivors(units, "b"), ["z"], "구조물은 생존자(human) 목록에서 제외")
+
+func test_team_wiped_counts_structure() -> void:
+	# 구조물만 살아있으면 미전멸(성벽 안 부서짐), 투석기만 살아있으면 전멸(siege 제외).
+	assert_false(BattleField.team_wiped([_structure("b", Vector2.ZERO, "wall")], "b"), "성벽 살아있으면 미전멸")
+	assert_true(BattleField.team_wiped([_siege("b", Vector2.ZERO, "siege")], "b"), "투석기만 살아있으면 전멸")
