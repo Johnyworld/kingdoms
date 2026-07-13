@@ -37,15 +37,18 @@ var _units: Array = []
 var _rng := RandomNumberGenerator.new()
 var _elapsed := 0.0
 var _running := false
-var _ranged_mode := false   # 원거리 개시면 사거리<2 유닛은 정지(공격 불가)
+var _ranged_mode := false   # distance >= 2에서 참(원거리 교전). 사거리 < _distance 유닛은 정지(공격 불가)
+var _distance := 1          # 교전 헥스 거리. 원거리 교전에서 사거리 게이트(range < _distance면 정지) → docs/spec/features/battle.md
 var _battle_time := BATTLE_TIME   # 이번 전투 지속 시간(근접 10초 / 원거리 5초)
 var _live_projectiles := 0        # 날아가는 중인 투사체 수(종료 시 착탄 대기 판정)
 var _view: Control
 
-## 공격측(a)·방어측(b) 부대를 받아 전투를 시작한다. ranged_mode면 원거리 유닛만 행동한다.
-func start(attacker, defender, ranged_mode := false) -> void:
-	_ranged_mode = ranged_mode
-	_battle_time = RANGED_BATTLE_TIME if ranged_mode else BATTLE_TIME
+## 공격측(a)·방어측(b) 부대를 받아 전투를 시작한다. distance = 교전 헥스 거리(1=근접).
+## distance >= 2면 원거리 교전 — 사거리 ≥ distance인 유닛만 행동. → docs/spec/features/battle.md
+func start(attacker, defender, distance := 1) -> void:
+	_distance = distance
+	_ranged_mode = distance >= 2
+	_battle_time = RANGED_BATTLE_TIME if _ranged_mode else BATTLE_TIME
 	layer = 60
 	_rng.randomize()
 	_build_bg()
@@ -128,8 +131,8 @@ func _process(delta: float) -> void:
 	for u in _units:
 		if not u["alive"]:
 			continue
-		if _ranged_mode and u["range"] < 2:
-			continue   # 원거리 개시: 원거리 무기 없는 근접 유닛은 닿지 않아 정지
+		if _ranged_mode and u["range"] < _distance:
+			continue   # 원거리 교전: 사거리가 거리에 못 미치는 유닛(근접 무기 포함)은 닿지 않아 정지
 		if StatusEffects.is_stunned(u["effects"]):
 			continue   # 기절: 이번 프레임 이동·공격 안 함
 		u["cooldown"] = maxf(0.0, u["cooldown"] - delta)

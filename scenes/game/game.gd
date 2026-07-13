@@ -1011,16 +1011,16 @@ func _melee_attack(entry: Dictionary) -> void:
 	var ecell: Vector2i = entry["cell"]
 	var stand := _adjacent_stand(ecell, start)
 	if stand == start:
-		_begin_battle(entry["enemy"], false, ecell)   # 이미 인접 — 제자리 근접 전투
+		_begin_battle(entry["enemy"], 1, ecell)   # 이미 인접 — 제자리 근접 전투(거리 1)
 		return
 	party.mark_moved()
 	_deselect()
 	_hide_party_info()
 	_move_player_to(start, stand, {"enemy": entry["enemy"], "occupy": ecell})
 
-## [사격]: 현재 위치에서 원거리 전투(이동·점령 없음).
+## [사격]: 현재 위치에서 원거리 전투(이동·점령 없음). 거리 = 부대↔적 헥스 거리.
 func _shoot_enemy(enemy) -> void:
-	_begin_battle(enemy, true, Vector2i(-1, -1))
+	_begin_battle(enemy, _engagement_distance(party, enemy), Vector2i(-1, -1))
 
 ## [흡수]/[파괴]: 캠프 인접 칸으로(필요 시) 이동 후 점령한다. absorb=흡수, false=파괴.
 func _capture_camp(entry: Dictionary, absorb: bool) -> void:
@@ -1099,28 +1099,32 @@ func _adjacent_stand(enemy_cell: Vector2i, start: Vector2i) -> Vector2i:
 	return start
 
 ## 플레이어가 적에게 개시하는 전투. 공격은 부대 행동을 끝낸다(mark_attacked).
-## ranged=원거리 모드, occupy_cell=근접 승리 시 이동할 수비 타일((-1,-1)이면 점령 없음).
-func _begin_battle(defender, ranged: bool, occupy_cell: Vector2i) -> void:
+## distance=교전 헥스 거리(근접=1), occupy_cell=근접 승리 시 이동할 수비 타일((-1,-1)이면 점령 없음). → battle.md
+func _begin_battle(defender, distance: int, occupy_cell: Vector2i) -> void:
 	party.mark_attacked()
 	_undo_party = null   # 공격/사격은 되돌릴 수 없다
 	if _selected:
 		_deselect()
 	_hide_party_info()
-	_run_battle(party, defender, ranged, occupy_cell)   # 비차단(await로 백그라운드 진행)
+	_run_battle(party, defender, distance, occupy_cell)   # 비차단(await로 백그라운드 진행)
 
-## 개시 시 두 부대가 인접이 아니면(떨어져 있으면) 원거리 전투로 본다.
-func _is_ranged_engagement(a, b) -> bool:
+## 두 부대의 교전 헥스 거리. 인접(또는 같은 칸)이면 1(근접), 아니면 a 기준 헥스 거리(사거리 범위 내). → battle.md
+func _engagement_distance(a, b) -> int:
 	var acell := terrain.local_to_map(a.position)
 	var bcell := terrain.local_to_map(b.position)
-	return acell != bcell and not (bcell in terrain.get_surrounding_cells(acell))
+	if acell == bcell or bcell in terrain.get_surrounding_cells(acell):
+		return 1   # 인접 = 근접 교전
+	var reach: int = maxi(a.attack_range(), 1)
+	var dists: Dictionary = HexGrid.bfs_distances(terrain, acell, reach, MAP_WIDTH, MAP_HEIGHT)
+	return int(dists.get(bcell, reach))   # 사거리 범위 내에서만 개시하므로 보통 존재; 밖이면 reach로 클램프
 
 ## 오버레이 전투를 띄우고 관전한다(입력 잠금). 종료까지 await 후 사상자를 반영한다.
 ## occupy_cell != (-1,-1)이고 근접 승리(수비 전멸·공격 생존)면 공격 부대를 그 타일로 이동(점령).
-func _run_battle(attacker, defender, ranged := false, occupy_cell := Vector2i(-1, -1)) -> void:
+func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, -1)) -> void:
 	_in_battle = true
 	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
-	overlay.start(attacker, defender, ranged)
+	overlay.start(attacker, defender, distance)
 	var result: Array = await overlay.finished   # [a_survivors, b_survivors]
 	overlay.queue_free()
 	await _resolve_loot(attacker, defender, result[0], result[1])   # 전멸한 패자 화물 노획(플레이어 승자면 패널)
@@ -1221,8 +1225,8 @@ func _on_result_dismissed() -> void:
 	SceneManager.change_scene(TITLE_SCENE)
 
 ## NPC끼리 전투를 화면 없이 즉시 결산한다(BattleSim). 사상자만 반영.
-func _resolve_battle_headless(attacker, defender, ranged := false) -> void:
-	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, ranged)
+func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
+	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, distance)
 	_resolve_loot(attacker, defender, result["a"], result["b"])   # NPC 승자 → 전량 자동(패널 없음)
 	_apply_survivors(attacker, result["a"])
 	_apply_survivors(defender, result["b"])
@@ -1701,10 +1705,11 @@ func _npc_attack_phase(epoch: int) -> void:
 				var st = _adjacent_enemy(attacker)   # 사거리(=attack_range) 안 적
 				if st != null:
 					attacker.mark_attacked()
+					var sd := _engagement_distance(attacker, st)   # 교전 거리(주둔 사격은 보통 원거리)
 					if st in _units:
-						await _run_battle(attacker, st, true)   # 플레이어가 방어 → 오버레이 관전
+						await _run_battle(attacker, st, sd)   # 플레이어가 방어 → 오버레이 관전
 					else:
-						_resolve_battle_headless(attacker, st, true)   # NPC끼리 → 즉시 결산
+						_resolve_battle_headless(attacker, st, sd)   # NPC끼리 → 즉시 결산
 			continue   # 사격·밀기 후에도 이동·근접 개시 없이 대기
 		if not attacker.can_attack():
 			continue
@@ -1713,11 +1718,11 @@ func _npc_attack_phase(epoch: int) -> void:
 			if not NpcAi.should_engage(NpcAi.party_power(attacker.members), NpcAi.party_power(target.members)):
 				continue   # 신중한 교전: 불리하면 공격하지 않고 대기
 			attacker.mark_attacked()
-			var ranged := _is_ranged_engagement(attacker, target)
+			var dist := _engagement_distance(attacker, target)
 			if target in _units:
-				await _run_battle(attacker, target, ranged)   # 플레이어 부대가 방어 → 오버레이 관전
+				await _run_battle(attacker, target, dist)   # 플레이어 부대가 방어 → 오버레이 관전
 			else:
-				_resolve_battle_headless(attacker, target, ranged)   # NPC끼리 → 즉시 결산
+				_resolve_battle_headless(attacker, target, dist)   # NPC끼리 → 즉시 결산
 			continue
 		# 공격할 적 부대가 없으면 인접한 무방비 적 캠프(중심 타일에 부대 없음)를 흡수한다.
 		# 방어된 캠프의 주둔 부대는 위 부대 전투 분기(_adjacent_enemy)에서 이미 처리된다.
@@ -1864,7 +1869,7 @@ func _after_move(then_action) -> void:
 		if then_action.has("capture"):
 			_do_capture(then_action["capture"], then_action["absorb"])   # 이동 후 점령
 		else:
-			_begin_battle(then_action["enemy"], false, then_action["occupy"])   # 이동 후 근접 전투
+			_begin_battle(then_action["enemy"], 1, then_action["occupy"])   # 이동 후 근접 전투(거리 1)
 		return
 	if not party.can_rest():
 		return

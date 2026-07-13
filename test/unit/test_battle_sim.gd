@@ -55,7 +55,7 @@ func test_ranged_mode_only_ranged_attacks() -> void:
 	# 원거리 모드: A는 활(원거리, 강함), B는 검(근접) → A만 공격 → B 전멸, A 무사.
 	var a := [_human(1000, 0, 0, 40, "bow")]      # 강함(일격)
 	var b := [_human(1000, -100, 0, 40, "sword")] # 회피 음수 → A가 항상 명중, 근접이라 반격 불가
-	var r := BattleSim.resolve_battle(a, b, _rng(), true)
+	var r := BattleSim.resolve_battle(a, b, _rng(), 2)
 	assert_eq(r["b"].size(), 0, "근접만 든 B는 반격 못 하고 전멸")
 	assert_eq(r["a"].size(), 1, "원거리 A는 무사")
 
@@ -64,7 +64,7 @@ func test_ranged_mode_secondary_bow_can_retaliate() -> void:
 	# A가 항상 명중·즉사시키지만, B도 활을 들어 '행동 가능'하다(공격 못 하는 검전용과 대비).
 	var a := [_human(1000, -100, 0, 40, "bow")]
 	var b := [_human_weapons(1000, -100, 0, 40, ["sword", "bow"])]
-	var r := BattleSim.resolve_battle(a, b, _rng(), true)
+	var r := BattleSim.resolve_battle(a, b, _rng(), 2)
 	# 둘 다 활을 들어 서로 사격 — 선(先)순회한 A가 먼저 B를 처치(항상 명중·즉사).
 	assert_eq(r["b"].size(), 0, "검+활 B도 사격 대상이 되고, 먼저 맞아 전멸")
 	assert_eq(r["a"].size(), 1, "A 생존")
@@ -73,7 +73,7 @@ func test_ranged_mode_melee_only_cannot_retaliate() -> void:
 	# 대조군: B가 검만 들면 원거리 모드에서 공격(반격) 자체를 못 한다(활 없음).
 	var a := [_human(1, 200, 0, 40, "bow")]        # 회피 높은 상대라 A는 못 맞힘(무피해)
 	var b := [_human(1, 200, 0, 40, "sword")]      # 검만 → 원거리 모드 공격 불가
-	var r := BattleSim.resolve_battle(a, b, _rng(), true)
+	var r := BattleSim.resolve_battle(a, b, _rng(), 2)
 	assert_eq(r["a"].size(), 1, "A 생존")
 	assert_eq(r["b"].size(), 1, "B 생존 — 검만이라 애초에 공격 못 함")
 
@@ -81,9 +81,42 @@ func test_ranged_mode_both_melee_no_damage() -> void:
 	# 원거리 모드 + 양팀 근접만 → 아무도 공격 못 해 전원 생존.
 	var a := [_human(1000, -100, 0, 40, "sword")]
 	var b := [_human(1000, -100, 0, 40, "sword")]
-	var r := BattleSim.resolve_battle(a, b, _rng(), true)
+	var r := BattleSim.resolve_battle(a, b, _rng(), 2)
 	assert_eq(r["a"].size(), 1, "근접만이라 A 공격 못 함 → 생존")
 	assert_eq(r["b"].size(), 1, "근접만이라 B 공격 못 함 → 생존")
+
+# --- 거리 게이트(distance) — 사거리 ≥ distance인 유닛만 사격 ---
+
+func test_distance_gate_wand_idle_at_3_active_at_2() -> void:
+	# 완드(사거리 2) 강자+항상명중, B는 검(근접)·회피 낮음.
+	# 거리 3: 완드(2) < 3 → 공격 못 함 → 아무도 안 죽음. 거리 2: 완드 사격 → B 즉사.
+	var a3 := [_human(1000, -100, 0, 40, "wand")]
+	var b3 := [_human(1, -100, 0, 40, "sword")]
+	var r3 := BattleSim.resolve_battle(a3, b3, _rng(), 3)
+	assert_eq(r3["b"].size(), 1, "거리 3에선 완드(2) 사거리 부족 → B 생존")
+	var a2 := [_human(1000, -100, 0, 40, "wand")]
+	var b2 := [_human(1, -100, 0, 40, "sword")]
+	var r2 := BattleSim.resolve_battle(a2, b2, _rng(), 2)
+	assert_eq(r2["b"].size(), 0, "거리 2에선 완드 사격 → B 전멸")
+
+func test_distance_gate_bow_active_at_3() -> void:
+	# 활(사거리 3)은 거리 3에서 사격 가능 → B 전멸.
+	var a := [_human(1000, -100, 0, 40, "bow")]
+	var b := [_human(1, -100, 0, 40, "sword")]
+	var r := BattleSim.resolve_battle(a, b, _rng(), 3)
+	assert_eq(r["b"].size(), 0, "활(3)은 거리 3 사격 → B 전멸")
+	assert_eq(r["a"].size(), 1, "A 생존")
+
+func test_distance_1_melee_all_attack() -> void:
+	# 근접(거리 1, 기본): 검(근접)도 공격. 거리 2에선 같은 검이 사거리 부족으로 대기.
+	var a1 := [_human(1000, -100, 0, 40, "sword")]
+	var b1 := [_human(1, -100, 0, 40, "sword")]
+	var r1 := BattleSim.resolve_battle(a1, b1, _rng(), 1)
+	assert_eq(r1["b"].size(), 0, "거리 1(근접) — 검 공격 → B 전멸")
+	var a2 := [_human(1000, -100, 0, 40, "sword")]
+	var b2 := [_human(1, -100, 0, 40, "sword")]
+	var r2 := BattleSim.resolve_battle(a2, b2, _rng(), 2)
+	assert_eq(r2["b"].size(), 1, "거리 2 — 검(근접)은 사거리 부족으로 대기 → B 생존")
 
 # --- 상태이상(출혈·기절) 연동 ---
 # docs/spec/features/status-effects.md 참조. 극단 능력치로 명중·치명을 강제해 결정적으로 검증.

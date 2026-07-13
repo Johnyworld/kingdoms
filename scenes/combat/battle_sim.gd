@@ -8,12 +8,12 @@ const BATTLE_TIME := 10.0   # 한 전투 지속 시간(초).
 
 ## a_members·b_members(Human 목록)의 교전을 결산한다. 반환: {a: 생존 human 목록, b: 생존 human 목록}.
 ## 각 유닛은 자기 공격 간격마다 상대 팀의 살아있는 유닛 하나를 공격한다(이산 이벤트 시뮬).
-static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumberGenerator, ranged_mode := false) -> Dictionary:
+static func resolve_battle(a_members: Array, b_members: Array, rng: RandomNumberGenerator, distance := 1) -> Dictionary:
 	var units: Array = []
 	for h in a_members:
-		units.append(_make_unit(h, "a", ranged_mode))
+		units.append(_make_unit(h, "a", distance))
 	for h in b_members:
-		units.append(_make_unit(h, "b", ranged_mode))
+		units.append(_make_unit(h, "b", distance))
 
 	# 다음 공격 시점(next_t)이 가장 이른 유닛부터 처리. BATTLE_TIME을 넘으면 종료.
 	# now = 마지막으로 처리한 시각. 이벤트 사이 경과 시간만큼 상태이상(출혈 도트·기절)을 진행한다.
@@ -78,11 +78,12 @@ static func _advance_effects(units: Array, dt: float) -> void:
 			if u["hp"] <= 0:
 				u["alive"] = false
 
-## Human을 전투 유닛으로 만든다. weapon = 모드별 활성 무기(근접=주무기, 원거리=활).
-## 원거리 모드에서 원거리 무기가 없으면 공격 불가(can_attack=false).
-static func _make_unit(h, team: String, ranged_mode: bool) -> Dictionary:
-	var w: String = ItemTypes.active_weapon(h.weapons, ranged_mode)
-	var can: bool = (not ranged_mode) or (w != "")
+## Human을 전투 유닛으로 만든다. distance = 교전 거리, ranged := distance >= 2.
+## weapon = 모드별 활성 무기(근접=주무기, 원거리=활). 원거리 교전에선 활성 무기 사거리 ≥ distance일 때만 공격 가능. → docs/spec/features/battle.md
+static func _make_unit(h, team: String, distance: int) -> Dictionary:
+	var ranged := distance >= 2
+	var w: String = ItemTypes.active_weapon(h.weapons, ranged)
+	var can: bool = (not ranged) or (w != "" and ItemTypes.weapon_range(w) >= distance)
 	var interval: float = CombatResolver.attack_interval(h, w) if can else INF
 	return {"human": h, "team": team, "hp": int(h.hit_points), "alive": true, "weapon": w, "can_attack": can, "interval": interval, "next_t": interval, "effects": {}}
 
