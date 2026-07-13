@@ -42,13 +42,24 @@
 | --- | --- | --- | --- | --- |
 | 노획 장비 | `loot_items` | `Array` | `[]` | 노획한 장비 아이템 id 목록(무기·방어구·방패, [ItemTypes](../data/items.md)). **중복 허용**(같은 id 여러 개), 용량 제한 없음 |
 
+### 공성 유닛 (Siege Units)
+
+멤버(사람)와 별개로 **공성 유닛**(투석기 등)을 실을 수 있다([Siege Engines](../features/siege-engines.md)). 인구를 차지하지 않는 재사용 장비 유닛이라 시야·공격거리·전투에 영향을 주지 않는다. 실으면 부대가 느려지고(견인 이동), 끌 인력(사람 4명)이 있어야 움직인다.
+
+| 속성 | 변수/메서드 | 타입 | 초기값 | 설명 |
+| --- | --- | --- | --- | --- |
+| 공성 유닛 | `siege_units` | `Array` | `[]` | 실은 [SiegeUnit](../features/siege-engines.md) 목록(투석기 등). `members`와 별개, **인구 비소모** |
+| 공성 유닛 보유 | `has_siege()` | `bool` | — | `siege_units`가 비지 않았는지. 견인 이동 규칙 적용 여부 |
+
+- `add_siege_unit(unit) -> void` — 공성 유닛을 `siege_units`에 추가한다([공성 작업장 생산](../features/siege-engines.md#획득--공성-작업장에서-생산)).
+
 ### 유도 능력치 (Derived)
 
 멤버들의 능력치에서 계산한다.
 
 | 속성 | 메서드 | 규칙 | 설명 |
 | --- | --- | --- | --- |
-| 이동력 | `movement()` | `max(0, 기본 − overload_penalty())` | 기본 = 멤버 `movement`의 **최소값**(가장 느린 멤버). **과적 페널티**를 뺀 값(아래). 멤버 없으면 `0` |
+| 이동력 | `movement()` | `max(0, 기본 − overload_penalty())`, **공성 유닛 실으면** 견인 규칙 적용 | 기본 = 멤버 `movement`의 **최소값**(가장 느린 멤버). **과적 페널티**를 뺀 값(아래). 멤버 없으면 `0`. **공성 유닛 보유 시**([Siege Engines](../features/siege-engines.md)): 사람 `< SiegeTypes.CREW_MIN`(4)이면 `0`(견인 불가), 아니면 `min(위 값, 견인 이동력 2)` |
 | 과적 페널티 | `overload_penalty()` | `floor(초과량 ÷ (CARGO_CAPACITY ÷ 기본))` | 화물이 [용량](#화물-cargo--캐러반)(50)을 넘으면 감소. 초과량=`cargo_total()−50`. step=`50÷기본이동력`(예 50÷3≈16.7)마다 −1. **2배 용량(100)에서 이동력 0**. 화물 용량 이하·멤버 없으면 `0` |
 | 시야 | `vision()` | 멤버 `vision`의 **최대값** | 가장 멀리 보는 멤버를 따라간다. 멤버 없으면 `0` |
 | 공격거리 | `attack_range()` | 멤버별 무기 공격거리([ItemTypes](../data/items.md) `max_range(멤버.weapons)`)의 **최대값** | 가장 사거리 긴 멤버·무기 기준. 검+활 소지자는 활(3)로 계산. 월드맵 공격 개시 거리. 멤버 없으면 `0` |
@@ -86,7 +97,9 @@
 - `equip_from_loot(member, id) -> bool` — 인벤토리(`loot_items`)의 장비 `id`를 `member`에게 장착한다([장비 관리](../features/equipment.md)). `can_equip_from_loot`이 `false`면 no-op으로 `false`. 슬롯은 [`ItemTypes.item_slot`](../data/items.md)로 판별: 무기는 `weapons`(상한 [`MAX_WEAPONS`](Human.md)), 방어구는 `armor`(상한 [`MAX_ARMOR`](Human.md)), 방패는 `shield`(비어 있을 때만). **id가 인벤토리에 없거나 / 슬롯 종류 불명 / 슬롯이 꽉 차면 `false`**(no-op). 성공 시 멤버 슬롯에 넣고 `loot_items`에서 그 id 하나를 빼고 `true`.
 - `unequip_to_loot(member, id) -> bool` — `member`가 장착한 장비 `id`를 빼서 인벤토리(`loot_items`)로 되돌린다. 무기·방어구는 목록에서 그 id 하나 제거(주무기[0]를 빼면 다음 무기가 주무기), 방패는 일치할 때 `""`로. **멤버가 그 장비를 안 갖고 있으면 `false`**(no-op). 성공 시 `loot_items`에 더하고 `true`.
 - `base_movement() -> int` — 멤버 `movement`의 최소값(가장 느린 멤버, 멤버 없으면 0). 과적 반영 전 기본 이동력. `movement()`·`overload_penalty()`가 공유한다.
-- `movement() -> int` — **`base_movement()` − `overload_penalty()`**, `max(0, …)`으로 하한 0(멤버 없으면 0). 이동 범위 계산에 사용 — 과적이면 감소된 값이 그대로 [이동 범위](../features/selection-and-movement.md)·NPC 경로에 반영.
+- `movement() -> int` — **`base_movement()` − `overload_penalty()`**, `max(0, …)`으로 하한 0(멤버 없으면 0). **공성 유닛을 실었으면**([Siege Engines](../features/siege-engines.md)) 견인 규칙을 마저 적용: 사람(`members`) 수가 `SiegeTypes.CREW_MIN`(4) 미만이면 `0`(견인 인력 부족), 아니면 공성 유닛 견인 이동력(가장 느린 것, 투석기 2)으로 `min` 상한. 이동 범위 계산에 사용 — 과적이면 감소된 값이 그대로 [이동 범위](../features/selection-and-movement.md)·NPC 경로에 반영.
+- `has_siege() -> bool` — `siege_units`가 비지 않았는지. 견인 이동 규칙(`movement`)·[정보 패널](../features/party-info.md) 표시에 쓴다.
+- `add_siege_unit(unit) -> void` — 공성 유닛([SiegeUnit](../features/siege-engines.md))을 `siege_units`에 추가한다([공성 작업장 생산](../features/siege-engines.md)). 인구·멤버에는 영향 없다.
 - `overload_penalty() -> int` — 화물 과적으로 인한 이동력 감소량. 화물 `cargo_total()`이 `CARGO_CAPACITY`(50) 이하이거나 기본 이동력이 0이면 `0`. 초과 시 개념상 `floor(초과량 ÷ (50 ÷ 기본))` — step `50÷기본`(예 16.7)마다 −1. **구현은 정수식 `(초과량 × 기본) ÷ CARGO_CAPACITY`**(정수 나눗셈, 부동소수점 오차 없음, 동일 결과). 화물이 용량의 2배면 페널티 = 기본 이동력(→ movement 0, 정지).
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
@@ -161,6 +174,12 @@
 - [정상] `stationed = true`로 두고 `reset_turn()` → `stationed` 여전히 참(주둔은 턴을 넘겨 유지), `can_move()` 거짓
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓(주둔 아님 기준)
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
+- [정상] 생성 직후 `siege_units` 빈 배열, `has_siege() == false`
+- [정상] `add_siege_unit(SiegeUnit.new())` 후 `siege_units` 크기 1, `has_siege() == true`
+- [정상] 사람 4명(이동력 4) + 투석기 1대 → `movement() == 2`(견인 속도 상한)
+- [경계] 사람 3명 + 투석기 → `movement() == 0`(견인 인력 부족)
+- [경계] 사람 4명 + 투석기 + 과적으로 사람 기준 이동력 1 → `movement() == 1`(min)
+- [정상] 투석기 추가는 `vision()`·`attack_range()`·`members`에 영향 없음(인구 비소모)
 
 ## 관련
 

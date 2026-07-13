@@ -598,3 +598,53 @@ func test_transfer_loot_to_not_held() -> void:
 	assert_false(a.transfer_loot_to(b, "bow"), "미보유 id는 false")
 	assert_eq(a.loot_items, ["sword"], "A 변화 없음")
 	assert_true(b.loot_items.is_empty(), "B 변화 없음")
+
+# --- 공성 유닛 · 견인 이동 → docs/spec/features/siege-engines.md ---
+
+var SiegeUnit = load("res://scenes/siege/siege_unit.gd")
+
+## 사람 n명(각 이동력 mv)인 부대.
+func _party_of(n: int, mv := 4) -> Node2D:
+	var p := _party()
+	for i in n:
+		p.add_member(_human(mv))
+	return p
+
+func test_siege_units_empty_on_create() -> void:
+	var p := _party()
+	assert_eq(p.siege_units.size(), 0, "생성 직후 공성 유닛 없음")
+	assert_false(p.has_siege(), "has_siege 거짓")
+
+func test_add_siege_unit() -> void:
+	var p := _party()
+	p.add_siege_unit(SiegeUnit.new())
+	assert_eq(p.siege_units.size(), 1, "공성 유닛 1대")
+	assert_true(p.has_siege(), "has_siege 참")
+
+func test_siege_haul_caps_movement() -> void:
+	var p := _party_of(4, 4)   # 사람 이동력 4
+	p.add_siege_unit(SiegeUnit.new())
+	assert_eq(p.movement(), 2, "투석기 견인 속도 2로 상한")
+
+func test_siege_crew_gate_blocks_move() -> void:
+	var p := _party_of(3, 4)   # 사람 3명 < CREW_MIN 4
+	p.add_siege_unit(SiegeUnit.new())
+	assert_eq(p.movement(), 0, "견인 인력 부족 → 이동 불가")
+
+func test_siege_haul_takes_min_with_overload() -> void:
+	var p := _party_of(4, 4)
+	p.add_siege_unit(SiegeUnit.new())
+	# 과적으로 사람 기준 이동력을 1로 떨어뜨린다(용량 50, 초과분으로 페널티 3 → base 4−3=1).
+	p.cargo = {"목재": 88}   # 초과 38, (38×4)/50 = 3
+	assert_eq(p.overload_penalty(), 3, "과적 페널티 3")
+	assert_eq(p.movement(), 1, "min(사람 기준 1, 견인 2) = 1")
+
+func test_siege_does_not_affect_vision_range_members() -> void:
+	var p := _party_of(4, 4)   # 사람 이동력·시야 기본
+	var vis_before: int = p.vision()
+	var range_before: int = p.attack_range()
+	var members_before: int = p.members.size()
+	p.add_siege_unit(SiegeUnit.new())
+	assert_eq(p.vision(), vis_before, "시야 불변(인구 비소모)")
+	assert_eq(p.attack_range(), range_before, "공격거리 불변")
+	assert_eq(p.members.size(), members_before, "멤버 수 불변")

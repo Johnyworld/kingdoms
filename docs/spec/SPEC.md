@@ -60,6 +60,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Camp Capture (캠프 점령)](features/camp-capture.md) — 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
 - [Garrison / 주둔 (거점 수비)](features/garrison.md) — 수비대=부대, 거점 중심 타일 주둔 부대가 방어(초기 4명), 주둔/주둔 종료·주둔 중 사격
 - [Wall / 성벽 (거점 방어 구조물)](features/wall.md) — 마을회관·성 성벽(`wall_level`) 적 접근 차단 + 사다리 공성(3턴·밀기 15%·통로 돌파)
+- [Siege Engines / 공성병기 (부대 소속 공성 유닛)](features/siege-engines.md) — 투석기 등 인구 비소모 재사용 유닛. 공성 작업장 생산·부대 편입·견인 이동(2·사람 4명+). 투석·성벽 내구도는 후속 슬라이스
 - [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 분할·병합으로 재조직
 - [Victory & Defeat (승패)](features/victory.md) — 세력 소멸(10턴 유예)로만 승패 · 정복 승리 · 결과 오버레이 · 타이틀 복귀
 
@@ -71,6 +72,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 부대·멤버(이름·능력치·색) 데이터. game.gd가 여기서 부대 생성
 - [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그 + 상성표. 전투 AT·DF·상성에 사용
 - [Buildings (건물 종류)](data/buildings.md)
+- [Siege Units (공성 유닛 카탈로그)](data/siege-units.md) — 투석기 등 공성 유닛(`SiegeTypes`). 이름·견인 이동력·생산 비용
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
 
 ## 파일 매핑

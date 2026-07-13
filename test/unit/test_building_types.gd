@@ -148,9 +148,18 @@ func test_is_center() -> void:
 		assert_false(types.is_center(id), "%s는 거점 아님" % id)
 
 func test_buildable_ids() -> void:
-	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack"], "건축 가능 목록(거점 제외)")
+	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack", "siege_workshop"], "건축 가능 목록(거점 제외)")
 	for id in ["camp", "town_hall", "castle"]:
 		assert_does_not_have(types.BUILDABLE_IDS, id, "거점 %s는 건축 목록 제외(업그레이드/새영지)" % id)
+
+# --- 공성 작업장 → docs/spec/features/siege-engines.md ---
+
+func test_siege_workshop_spec() -> void:
+	var spec: Dictionary = types.get_type("siege_workshop")
+	assert_eq(spec.get("label"), "공성 작업장", "라벨")
+	assert_eq(spec.get("footprint"), 1, "footprint 1헥스")
+	assert_eq(spec.get("prerequisite"), "town_hall", "선행 마을회관")
+	assert_false(spec.has("production"), "턴당 생산 없음")
 
 # --- 성벽 (WALL_COST / can_build_wall) ---
 

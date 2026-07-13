@@ -14,6 +14,9 @@ signal upgrade_requested(building: Building)
 ## 성벽 건설 버튼 클릭 시 방출. game.gd가 받아 자재 지불 + wall_level 설정을 처리한다. → wall.md
 signal wall_requested(building: Building)
 
+## 투석기 생산 버튼 클릭 시 방출. game.gd가 받아 금·자재 지불 + 주둔 부대에 투석기 편입을 처리한다. → siege-engines.md
+signal siege_produced(building: Building)
+
 ## 캠프 건설 버튼 클릭 시 방출. game.gd가 받아 새 영지 캠프 건설 모드(부대 시야 배치)로 진입한다.
 signal found_camp_requested(territory: Territory)
 
@@ -27,6 +30,7 @@ var _faction_label: Label  # 제목 아래 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
 var _upgrade_btn: Button   # 거점 업그레이드 버튼(다음 티어 있을 때만)
 var _wall_btn: Button      # 성벽 건설 버튼(마을회관·성 + 성벽 없을 때만) → wall.md
+var _siege_btn: Button     # 투석기 생산 버튼(거점 + 주둔 부대 + 완성 공성 작업장) → siege-engines.md
 var _found_camp_btn: Button  # 캠프 건설(새 영지) 버튼
 var _demolish_btn: Button    # 캠프 철거 버튼(can_demolish일 때만)
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
@@ -139,6 +143,12 @@ func _build_menu_panel() -> Control:
 	_wall_btn.pressed.connect(func() -> void: wall_requested.emit(_building))
 	_wall_btn.hide()
 	vbox.add_child(_wall_btn)
+
+	# 투석기 생산 버튼(거점 + 주둔 부대 + 완성 공성 작업장일 때만 표시). open()에서 갱신. → siege-engines.md
+	_siege_btn = Button.new()
+	_siege_btn.pressed.connect(func() -> void: siege_produced.emit(_building))
+	_siege_btn.hide()
+	vbox.add_child(_siege_btn)
 
 	# 캠프 건설(새 영지) 버튼 — 활성 부대 시야에 새 캠프를 세운다. open()에서 활성 여부 갱신.
 	_found_camp_btn = Button.new()
@@ -281,6 +291,7 @@ func open(building: Building, party = null, can_demolish := false) -> void:
 	_build_btn.show()
 	_refresh_upgrade_button()
 	_refresh_wall_button()
+	_refresh_siege_button()
 	_refresh_found_camp_button()
 	_demolish_btn.visible = can_demolish   # 캠프 철거 버튼(game.gd가 조건 판정)
 
@@ -591,6 +602,19 @@ func _refresh_wall_button() -> void:
 	_wall_btn.text = "성벽 건설  %s" % _format_cost(BuildingTypes.WALL_COST)
 	_wall_btn.disabled = not BuildingTypes.can_build_wall(_territory, _building)
 	_wall_btn.show()
+
+## 투석기 생산 버튼 갱신: 거점 + 주둔 부대 + 영지에 완성 공성 작업장이 있을 때만 표시.
+## 라벨 = "투석기  <금·자재>", 영지가 비용을 감당 못 하면 비활성. 인구는 소비하지 않는다. → siege-engines.md
+func _refresh_siege_button() -> void:
+	if _building == null or _party == null or _territory == null \
+			or not BuildingTypes.is_center(_building.building_type) \
+			or not _territory.has_completed_building("siege_workshop"):
+		_siege_btn.hide()
+		return
+	var cost := SiegeTypes.produce_full_cost(SiegeTypes.CATAPULT)
+	_siege_btn.text = "투석기  %s" % _format_cost(cost)
+	_siege_btn.disabled = not _territory.can_afford(cost)
+	_siege_btn.show()
 
 ## 캠프 건설(새 영지) 버튼 갱신: 라벨(비용)과 활성 여부(여는 영지가 캠프 비용 감당 가능한지).
 func _refresh_found_camp_button() -> void:

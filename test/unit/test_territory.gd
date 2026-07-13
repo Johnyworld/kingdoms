@@ -174,3 +174,20 @@ func test_build_pay_quarry_employs_one() -> void:
 	t.build_pay("quarry")
 	assert_eq(t.resources["목재"], 10, "목재 10 차감")
 	assert_eq(t.resources["인구"], 9, "채석장 필요인원 1 고용")
+
+# --- 완성 건물 판정 (공성 작업장 생산 게이트) → docs/spec/features/siege-engines.md ---
+
+func test_has_completed_building_true() -> void:
+	var t := _territory()
+	t.add_building(_typed_building(Vector2i(30, 30), "siege_workshop"))   # 완성
+	assert_true(t.has_completed_building("siege_workshop"), "완성 작업장 있으면 참")
+
+func test_has_completed_building_under_construction() -> void:
+	var t := _territory()
+	t.add_building(_typed_building(Vector2i(31, 31), "siege_workshop", true))   # 건설 중
+	assert_false(t.has_completed_building("siege_workshop"), "건설 중 작업장만 있으면 거짓")
+
+func test_has_completed_building_absent() -> void:
+	var t := _territory()
+	t.add_building(_typed_building(Vector2i(32, 32), "farm"))
+	assert_false(t.has_completed_building("siege_workshop"), "작업장 없으면 거짓")

@@ -86,6 +86,17 @@ func open(party) -> void:
 			label.text += "\n  방어구: %s" % ", ".join(pieces)
 		_member_list.add_child(label)
 
+	# 공성 유닛(투석기 등)을 실었으면 멤버 아래에 한 줄 표시. 견인 인력 부족이면 이동 불가 사유를 덧붙인다. → siege-engines.md
+	if party.has_siege():
+		var names: Array = []
+		for u in party.siege_units:
+			names.append(u.unit_name())
+		var siege_label := Label.new()
+		siege_label.text = "공성 유닛: %s" % ", ".join(names)
+		if party.members.size() < SiegeTypes.CREW_MIN:
+			siege_label.text += "  (견인 인력 부족 — 이동 불가)"
+		_member_list.add_child(siege_label)
+
 	show()
 
 ## 패널을 숨긴다.

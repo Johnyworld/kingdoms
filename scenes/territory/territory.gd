@@ -74,6 +74,14 @@ func grow_population() -> void:
 	if cur < population_cap():
 		resources["인구"] = cur + 1
 
+## 이 영지에 그 종류(type_id)의 완성된 건물이 하나라도 있는지. 건설 중 건물은 세지 않는다.
+## 공성 작업장 완성 여부 등 생산 해금 판정에 쓴다. → docs/spec/features/siege-engines.md
+func has_completed_building(type_id: String) -> bool:
+	for building in buildings:
+		if building.building_type == type_id and building.is_complete():
+			return true
+	return false
+
 ## 건물을 철거한다. 보유한 건물이면 영지에서 떼어내고(remove_building) 실제 환급(refund_on_demolish)을 자원에 더한다.
 ## 완성=salvage(demolish_refund), 건설 중=낸 build_cost 진행도 비례. 인구는 전액 반환.
 ## 보유하지 않은 건물이면 no-op(환급도 없음). 캠프 철거(영지 상실)는 미구현이라 호출부에서 캠프를 제외한다.

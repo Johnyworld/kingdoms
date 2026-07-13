@@ -82,11 +82,11 @@ func test_population_row_shows_cap() -> void:
 func _item(idx: int) -> Button:
 	return menu._build_list.get_child(idx) as Button
 
-func test_build_list_four_items_quarry_active() -> void:
+func test_build_list_five_items_quarry_active() -> void:
 	menu.open(_center("camp"))  # 캠프 티어
 	menu._on_build_pressed()
 	assert_true(menu._build_list.visible, "건축 후 리스트 표시")
-	assert_eq(menu._build_list.get_child_count(), 4, "건축 가능 4종(거점 제외)")
+	assert_eq(menu._build_list.get_child_count(), 5, "건축 가능 5종(거점 제외, 공성 작업장 포함)")
 	assert_false(_item(0).disabled, "채석장(선행 camp)은 캠프 티어부터 활성")
 
 func test_item_text_has_label_and_cost() -> void:
@@ -428,3 +428,44 @@ func _party_with(n: int) -> Node2D:
 	if n > 0:
 		p.commander = p.members[0]
 	return p
+
+# --- 투석기 생산 (_siege_btn) → docs/spec/features/siege-engines.md ---
+
+## 거점 + 그 영지에 완성된 공성 작업장을 둔 거점을 반환한다.
+func _center_with_workshop(res := RES) -> Node2D:
+	var c := _center("town_hall", res)
+	var w = load("res://scenes/building/building.gd").new()
+	add_child_autofree(w)
+	w.setup(terrain, Vector2i(24, 24), "siege_workshop")   # 완성
+	c.territory.add_building(w)
+	return c
+
+func test_siege_button_shown_when_workshop_and_party() -> void:
+	var c := _center_with_workshop({"금": 100, "목재": 50, "석재": 50, "인구": 5})
+	menu.open(c, _party_with(4))
+	assert_true(menu._siege_btn.visible, "완성 작업장 + 주둔 부대 + 자원 충분 → 표시")
+	assert_string_contains(menu._siege_btn.text, "투석기", "투석기 생산 텍스트")
+	assert_false(menu._siege_btn.disabled, "자원 충분 → 활성")
+
+func test_siege_button_hidden_without_workshop() -> void:
+	var c := _center("town_hall", {"금": 100, "목재": 50, "석재": 50})
+	menu.open(c, _party_with(4))
+	assert_false(menu._siege_btn.visible, "작업장 없으면 숨김")
+
+func test_siege_button_hidden_without_party() -> void:
+	var c := _center_with_workshop({"금": 100, "목재": 50, "석재": 50})
+	menu.open(c)   # 주둔 부대 없음
+	assert_false(menu._siege_btn.visible, "주둔 부대 없으면 숨김")
+
+func test_siege_button_disabled_when_poor() -> void:
+	var c := _center_with_workshop({"금": 10})   # 자원 부족
+	menu.open(c, _party_with(4))
+	assert_true(menu._siege_btn.visible, "작업장 + 부대라 표시")
+	assert_true(menu._siege_btn.disabled, "자원 부족 → 비활성")
+
+func test_siege_button_emits_signal() -> void:
+	var c := _center_with_workshop({"금": 100, "목재": 50, "석재": 50})
+	menu.open(c, _party_with(4))
+	watch_signals(menu)
+	menu._siege_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(menu, "siege_produced", [c], "투석기 생산 버튼 → siege_produced(building)")

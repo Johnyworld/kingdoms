@@ -164,6 +164,7 @@ func _ready() -> void:
 	camp_menu.garrison_changed.connect(_on_garrison_changed)
 	camp_menu.upgrade_requested.connect(_on_upgrade_requested)
 	camp_menu.wall_requested.connect(_on_wall_requested)
+	camp_menu.siege_produced.connect(_on_siege_produced)
 	camp_menu.found_camp_requested.connect(_on_found_camp_requested)
 	camp_menu.demolish_requested.connect(_on_camp_demolish_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
@@ -721,6 +722,19 @@ func _on_wall_requested(b) -> void:
 	b.wall_level = 1
 	b.queue_redraw()   # 성벽 링 그리기
 	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
+
+## 투석기 생산 버튼 → 금·자재 지불 + 주둔 부대에 투석기 편입. 완성 작업장·주둔 부대·자원 충분일 때만. → siege-engines.md
+func _on_siege_produced(b) -> void:
+	var party = _party_at_camp(b)
+	if party == null or b.territory == null or not b.territory.has_completed_building("siege_workshop"):
+		return
+	var cost := SiegeTypes.produce_full_cost(SiegeTypes.CATAPULT)
+	if not b.territory.can_afford(cost):
+		return
+	b.territory.spend(cost)   # 금·자재 차감(인구 비소모)
+	party.add_siege_unit(SiegeUnit.new(SiegeTypes.CATAPULT))
+	party_roster.set_parties(_units)   # 일람·정보 갱신
+	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보로 재오픈
 
 ## 철거 버튼 → 바로 철거하지 않고 확인 다이얼로그를 띄운다(환급 미리보기 포함). [철거] 확인 시 _do_demolish(b).
 func _on_demolish_requested(b) -> void:

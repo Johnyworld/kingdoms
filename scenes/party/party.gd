@@ -31,6 +31,11 @@ const CARGO_CAPACITY := 50   # 총 적재 상한(모든 자원 수량 합).
 ## 중복 허용(같은 id 여러 개), 용량 제한 없음. 멤버에게 장착·탈착(장비 관리)하거나 캠프에서 금으로 판매할 수 있다.
 var loot_items: Array = []
 
+# --- 공성 유닛 ---
+## 부대에 실린 공성 유닛(SiegeUnit) 목록 — 투석기 등. members(사람)와 별개, 인구 비소모.
+## 실으면 부대가 느려지고(견인 이동력 상한), 끌 인력(SiegeTypes.CREW_MIN명)이 있어야 움직인다. → docs/spec/features/siege-engines.md
+var siege_units: Array = []
+
 const _RADIUS := 12.0
 
 # 이번 턴에 이동을 마치면 반투명하게 그릴 때 곱할 알파.
@@ -230,8 +235,32 @@ func overload_penalty() -> int:
 	return excess * base / CARGO_CAPACITY   # 정수 나눗셈(내림)
 
 ## 부대 이동력 = 기본 이동력 − 과적 페널티(하한 0). 이동 범위·NPC 경로·정보 패널에 쓰인다.
+## 공성 유닛을 실었으면 견인 규칙을 마저 적용: 사람 < CREW_MIN이면 0(견인 인력 부족),
+## 아니면 견인 이동력(가장 느린 공성 유닛)으로 상한. → docs/spec/features/siege-engines.md
 func movement() -> int:
-	return maxi(0, base_movement() - overload_penalty())
+	var m := maxi(0, base_movement() - overload_penalty())
+	if has_siege():
+		if members.size() < SiegeTypes.CREW_MIN:
+			return 0   # 끌 인력 부족 → 정지
+		m = mini(m, _siege_haul_speed())
+	return m
+
+## 실은 공성 유닛 중 가장 느린 견인 이동력(모두 투석기면 2). 공성 유닛이 없으면 0(호출 안 됨).
+## s를 -1로 시작해 첫 유닛으로 시딩 — 이동력 0인 유닛도 무시하지 않고 최소로 반영(향후 0속도 유닛 대비).
+func _siege_haul_speed() -> int:
+	var s := -1
+	for u in siege_units:
+		var mv: int = u.movement()
+		s = mv if s < 0 else mini(s, mv)
+	return maxi(s, 0)
+
+## 공성 유닛을 실었는지(견인 이동 규칙·정보 표시 판정).
+func has_siege() -> bool:
+	return not siege_units.is_empty()
+
+## 공성 유닛(SiegeUnit)을 부대에 싣는다(공성 작업장 생산). 인구·멤버에는 영향 없다.
+func add_siege_unit(unit) -> void:
+	siege_units.append(unit)
 
 ## 부대 시야 = 멤버 시야의 최대값. 멤버 없으면 0.
 func vision() -> int:
