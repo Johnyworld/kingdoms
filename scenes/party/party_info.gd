@@ -90,7 +90,7 @@ func open(party) -> void:
 	if party.has_siege():
 		var names: Array = []
 		for u in party.siege_units:
-			names.append(u.unit_name())
+			names.append("%s (HP %d/%d)" % [u.unit_name(), u.hit_points, u.max_hp()])
 		var siege_label := Label.new()
 		siege_label.text = "공성 유닛: %s" % ", ".join(names)
 		if party.members.size() < SiegeTypes.CREW_MIN:

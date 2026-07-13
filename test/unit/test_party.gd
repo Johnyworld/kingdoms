@@ -648,3 +648,11 @@ func test_siege_does_not_affect_vision_range_members() -> void:
 	assert_eq(p.vision(), vis_before, "시야 불변(인구 비소모)")
 	assert_eq(p.attack_range(), range_before, "공격거리 불변")
 	assert_eq(p.members.size(), members_before, "멤버 수 불변")
+
+func test_siege_fire_range_and_attack() -> void:
+	var p := _party_of(4, 4)
+	assert_eq(p.siege_fire_range(), 0, "공성 유닛 없으면 사거리 0")
+	assert_eq(p.siege_attack(), 0, "공성 유닛 없으면 공격력 0")
+	p.add_siege_unit(SiegeUnit.new())
+	assert_eq(p.siege_fire_range(), 5, "투석기 사거리 5")
+	assert_eq(p.siege_attack(), 50, "투석기 공격력 50")

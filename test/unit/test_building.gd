@@ -43,11 +43,17 @@ func test_wall_level_default_zero() -> void:
 	_camp()
 	assert_eq(building.wall_level, 0, "생성 직후 성벽 없음")
 	assert_false(building.is_walled(), "wall_level 0이면 is_walled 거짓")
+	assert_eq(building.wall_hp, 0, "생성 직후 성벽 내구도 0")
 
 func test_is_walled_when_level_set() -> void:
 	_camp()
 	building.wall_level = 1
 	assert_true(building.is_walled(), "wall_level 1이면 is_walled 참")
+
+func test_wall_hp_settable() -> void:
+	_camp()
+	building.wall_hp = 180
+	assert_eq(building.wall_hp, 180, "성벽 내구도 설정 가능")
 
 # --- 점유 영역 ---
 
@@ -178,6 +184,7 @@ func test_pop_cap_complete_buildings() -> void:
 func test_upgrade_to_next_tier() -> void:
 	_camp()
 	building.wall_level = 1   # 성벽은 업그레이드 후에도 유지되어야 한다
+	building.wall_hp = 180
 	building.upgrade_to("town_hall")
 	assert_eq(building.building_type, "town_hall", "종류가 마을회관으로")
 	assert_eq(building.vision, 6, "시야 6으로 교체")
@@ -186,6 +193,7 @@ func test_upgrade_to_next_tier() -> void:
 	assert_eq(building.cells.size(), 7, "footprint 7 유지")
 	assert_eq(building.center_cell(), _center(), "위치 유지")
 	assert_eq(building.wall_level, 1, "성벽(wall_level) 유지")
+	assert_eq(building.wall_hp, 180, "성벽 내구도(wall_hp) 유지")
 
 func test_pop_cap_zero_under_construction() -> void:
 	building.setup(terrain, _center(), "house", true)  # 건설 중

@@ -6,11 +6,15 @@ class_name SiegeTypes
 const CATAPULT := "catapult"
 const CREW_MIN := 4   # 공성 유닛을 실은 부대가 이동하려면 필요한 최소 사람(멤버) 수. 미만이면 이동력 0(견인 불가).
 
-# 종류 id → 스펙. name=이름, movement=견인 이동력(부대 이동력 상한), produce_gold·produce_cost=생산 비용(인구 비소모).
+# 종류 id → 스펙. name=이름, movement=견인 이동력(부대 이동력 상한), fire_range=투석 사거리,
+# attack=공격력(무기보다 큰 공성 화력, 투석 데미지 기준값), hit_points=내구도, produce_*=생산 비용(인구 비소모).
 const CATALOG := {
 	"catapult": {
 		"name": "투석기",
 		"movement": 2,
+		"fire_range": 5,
+		"attack": 50,
+		"hit_points": 60,
 		"produce_gold": 40,
 		"produce_cost": {"목재": 30, "석재": 20},
 	},
@@ -27,6 +31,18 @@ static func type_name(id: String) -> String:
 ## 견인 이동력(없는 id면 0).
 static func movement(id: String) -> int:
 	return CATALOG.get(id, {}).get("movement", 0)
+
+## 투석 사거리(헥스, 없는 id면 0).
+static func fire_range(id: String) -> int:
+	return CATALOG.get(id, {}).get("fire_range", 0)
+
+## 공격력(투석 데미지 기준값, 없는 id면 0).
+static func attack(id: String) -> int:
+	return CATALOG.get(id, {}).get("attack", 0)
+
+## 최대 내구도(카탈로그 hit_points, 없는 id면 0).
+static func max_hp(id: String) -> int:
+	return CATALOG.get(id, {}).get("hit_points", 0)
 
 ## 생산 금 비용(없는 id면 0).
 static func produce_gold(id: String) -> int:

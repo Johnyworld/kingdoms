@@ -128,6 +128,7 @@ var _split_new = null               # 분할 중 새로 만든 부대(닫을 때
 var toast: Toast                    # 점령/함락 알림(코드 생성, _ready에서 추가)
 
 const BATTLE_SCENE := preload("res://scenes/combat/battle.gd")
+const SIEGE_BOMBARD_SCENE := preload("res://scenes/combat/siege_bombard.gd")   # 성벽 투석 관전 씬 → siege-engines.md
 const TITLE_SCENE := "res://scenes/title/title.tscn"
 
 # 건설 모드. 캠프 메뉴에서 건물을 고르면 진입 — 맵을 클릭해 배치한다.
@@ -720,6 +721,7 @@ func _on_wall_requested(b) -> void:
 		return
 	b.territory.spend(BuildingTypes.WALL_COST)   # 자재 차감
 	b.wall_level = 1
+	b.wall_hp = Siege.WALL_MAX_HP   # 성벽 내구도 만피 — 투석으로 깎이면 붕괴 → siege-engines.md
 	b.queue_redraw()   # 성벽 링 그리기
 	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
 
@@ -1261,7 +1263,8 @@ func _open_action_menu() -> void:
 	if party.can_rest():
 		var can_undo: bool = _undo_party == party
 		var can_ladder: bool = not party.moved_this_turn and not _ladder_target_for(party).is_empty()   # 성벽 적 거점 인접 + 미이동
-		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), _on_own_center(), false, can_ladder), _screen_pos(party.position))
+		var can_bombard: bool = party.has_siege() and party.can_attack() and _catapult_target_for(party) != null   # 투석기 실음 + 사거리 안 성벽 적 거점 → siege-engines.md
+		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), _on_own_center(), false, can_ladder, false, can_bombard), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
 
@@ -1300,6 +1303,64 @@ func _ladder_target_for(p) -> Dictionary:
 			if c in neighbors and not _has_ladder_at(b, c):
 				return {"building": b, "target_cell": c}   # 붙은 ring 셀 중 사다리 없는 면
 	return {}
+
+## 투석기 실은 부대 p의 투석 대상 = 사거리(fire_range) 안 가장 가까운 성벽 적 거점. 없으면 null. → siege-engines.md
+## 사거리는 지형 무시 헥스 거리(투석은 넘어 쏜다) — bfs_distances(blocked 없음)로 disk 거리 계산.
+func _catapult_target_for(p):
+	if p == null or not p.has_siege():
+		return null
+	var rng: int = p.siege_fire_range()
+	if rng <= 0:
+		return null
+	var pcell := terrain.local_to_map(p.position)
+	var dists: Dictionary = HexGrid.bfs_distances(terrain, pcell, rng, MAP_WIDTH, MAP_HEIGHT)
+	var best = null
+	var best_d := 1 << 30
+	for b in _buildings + _npc_buildings:
+		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
+			continue
+		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
+		if bf == p.faction_name:
+			continue   # 아군 성벽은 투석 대상 아님
+		var bd := 1 << 30
+		for c in b.cells:
+			if dists.has(c):
+				bd = mini(bd, int(dists[c]))   # 거점 footprint까지 최소 거리
+		if bd < best_d:
+			best_d = bd
+			best = b
+	return best
+
+## [투석] — 사거리 안 가장 가까운 성벽 적 거점에 투석. 관전 씬 뒤 wall_hp 감소, 0이면 붕괴. 부대 행동 종료(1턴 1발). → siege-engines.md
+func _bombard_wall(p) -> void:
+	var target = _catapult_target_for(p)
+	if target == null:
+		return
+	p.mark_attacked()   # 투석 = 부대 행동 종료 → 자연히 1턴 1발
+	_undo_party = null
+	var dmg := Siege.rolled_damage(p.siege_attack(), _rng.randf())
+	await _run_bombard(p, target, target.wall_hp, dmg)
+	target.wall_hp = Siege.wall_after_hit(target.wall_hp, dmg)
+	if Siege.wall_broken(target.wall_hp):
+		target.wall_level = 0
+		target.wall_hp = 0
+		_clear_ladders(target)   # 붕괴된 성벽 사다리 정리 → wall.md
+		var tname: String = target.territory.name if target.territory != null else "성벽"
+		toast.show_message("%s 성벽 붕괴!" % tname)
+	else:
+		toast.show_message("성벽 −%d (%d/%d)" % [dmg, target.wall_hp, Siege.WALL_MAX_HP])
+	target.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
+	party_roster.set_parties(_units)
+
+## 성벽 투석 관전 씬을 띄우고 종료까지 await(입력 잠금). 실제 wall_hp 반영은 호출부가 씬 종료 후 처리(씬은 연출만). → siege-engines.md
+func _run_bombard(attacker, building, from_hp: int, damage: int) -> void:
+	_in_battle = true
+	var overlay := SIEGE_BOMBARD_SCENE.new()
+	add_child(overlay)
+	overlay.start(attacker, building, from_hp, damage)
+	await overlay.finished
+	overlay.queue_free()
+	_in_battle = false
 
 ## 거점 b의 셀 c에 이미 사다리가 걸려 있는지(면당 하나 — 같은 면 중복 적층 방지). → wall.md
 func _has_ladder_at(b, c: Vector2i) -> bool:
@@ -1469,6 +1530,10 @@ func _on_party_action(id: String) -> void:
 			_place_ladder(party)   # 성벽 적 거점에 사다리 설치 — 행동 종료
 			_deselect()
 			_hide_party_info()
+		"catapult":
+			_deselect()
+			_hide_party_info()
+			_bombard_wall(party)   # 투석 — 성벽 관전 씬 → wall_hp 감소·붕괴, 행동 종료
 		"push_ladder":
 			_push_ladders(_building_garrisoned_by(party))   # 성벽 사다리 밀기(15% 파괴)
 			party.mark_attacked()   # 밀기는 방어 부대 행동 종료(주둔 유지)

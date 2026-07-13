@@ -98,6 +98,17 @@ func test_party_actions_push_ladder_when_stationed() -> void:
 func test_party_actions_no_push_ladder_when_none() -> void:
 	assert_does_not_have(_ids(PartyActionMenu.party_actions(false, false, false, false, true, true, false, false)), "push_ladder", "겨눈 사다리 없으면 밀기 없음")
 
+# --- 투석 (party_actions can_bombard) → docs/spec/features/siege-engines.md ---
+
+func test_party_actions_bombard_when_can() -> void:
+	# 비주둔 + 투석기 실음 + 사거리 안 성벽 적 거점(can_bombard) → [투석]이 [장비] 앞.
+	var ids := _ids(PartyActionMenu.party_actions(false, false, false, false, false, false, false, false, true))
+	assert_has(ids, "catapult", "투석 가능 시 [투석] 추가")
+	assert_true(ids.find("catapult") < ids.find("equip"), "[투석]은 [장비] 앞")
+
+func test_party_actions_no_bombard_when_cannot() -> void:
+	assert_does_not_have(_ids(PartyActionMenu.party_actions(false, false, false, false, false, false, false, false, false)), "catapult", "투석 대상 없으면 [투석] 없음")
+
 # --- 병합 팝업 (merge_actions) ---
 
 func test_merge_actions_button() -> void:

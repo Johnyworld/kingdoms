@@ -14,7 +14,7 @@ var _list: VBoxContainer
 
 ## 부대 메뉴 버튼. 주둔 중이면 [사격]?[사다리 밀기]?[주둔 종료][장비]. 그 외: 이동 전 [사격][휴식][경계](+분할·주둔·사다리 설치),
 ## 이동 후 [사격][대기](+취소). 노드 비의존. → garrison.md · wall.md
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false) -> Array:
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false) -> Array:
 	if stationed:
 		# 주둔 부대는 대기 상태 — 사격 가능 적이 있으면 주둔 유지한 채 제자리 사격, [사다리 밀기]로 성벽 사다리 저지, 주둔 종료로 풀어야 이동·근접.
 		var held: Array = []
@@ -39,6 +39,8 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 		out.append({"id": "station", "label": "주둔", "enabled": true})   # 거점에 들어와 대기
 	if can_place_ladder:
 		out.append({"id": "ladder", "label": "사다리 설치", "enabled": true})   # 성벽 적 거점 인접 → 공성 → wall.md
+	if can_bombard:
+		out.append({"id": "catapult", "label": "투석", "enabled": true})   # 투석기 실음 + 사거리 안 성벽 적 거점 → 투석 → siege-engines.md
 	out.append({"id": "equip", "label": "장비", "enabled": true})   # 항상 맨 뒤. 턴 소비 없음(장비 관리 모달).
 	return out
 

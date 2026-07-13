@@ -28,6 +28,9 @@ var defender_count := 0
 # 성벽 단계. 0=없음, ≥1=성벽(적 접근 차단). 마을회관·성만 [성벽 건설]로 올린다. → docs/spec/features/wall.md
 var wall_level := 0
 
+# 성벽 내구도. 성벽 건설 시 Siege.WALL_MAX_HP로 채우고, 투석으로 깎여 0이면 붕괴(game.gd가 wall_level→0). → docs/spec/features/wall.md
+var wall_hp := 0
+
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
 const FALLBACK_EDGE := Color(0.3, 0.3, 0.3)
@@ -215,7 +218,10 @@ func _draw_wall_ring(center: Vector2) -> void:
 		return
 	pts.sort_custom(func(a, b): return (a - center).angle() < (b - center).angle())   # 각도순 정렬 → 링 순서
 	pts.append(pts[0])   # 닫힌 고리
-	draw_polyline(PackedVector2Array(pts), Color(0.62, 0.62, 0.68), 3.0, true)
+	# 내구도 비율로 색 보간: 온전(회색) → 손상(붉게). → docs/spec/features/wall.md
+	var ratio := clampf(float(wall_hp) / float(Siege.WALL_MAX_HP), 0.0, 1.0)
+	var ring_color := Color(0.85, 0.25, 0.2).lerp(Color(0.62, 0.62, 0.68), ratio)
+	draw_polyline(PackedVector2Array(pts), ring_color, 3.0, true)
 
 ## 수비 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 거점, 주둔 부대 있을 때).
 func _draw_garrison_badge(anchor: Vector2, count: int) -> void:
