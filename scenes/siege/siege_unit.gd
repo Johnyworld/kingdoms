@@ -17,7 +17,11 @@ func unit_name() -> String:
 func movement() -> int:
 	return SiegeTypes.movement(type_id)
 
-## 투석 사거리(헥스, 투석기 5).
+## 최소 투석 사거리(헥스, 투석기 4). 이보다 가까우면 투석 불가.
+func min_range() -> int:
+	return SiegeTypes.min_range(type_id)
+
+## 최대 투석 사거리(헥스, 투석기 5).
 func fire_range() -> int:
 	return SiegeTypes.fire_range(type_id)
 

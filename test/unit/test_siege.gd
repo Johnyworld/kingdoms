@@ -66,9 +66,3 @@ func test_hit_succeeds() -> void:
 	assert_true(siege.hit_succeeds(0.2, 0.4), "0.2 < 0.4 → 명중")
 	assert_false(siege.hit_succeeds(0.5, 0.4), "0.5 ≥ 0.4 → 빗나감")
 	assert_false(siege.hit_succeeds(0.4, 0.4), "경계 0.4는 미만만 명중이라 빗나감")
-
-func test_bombard_target_count() -> void:
-	assert_eq(siege.bombard_target_count(3), 3, "멤버 이하면 전원")
-	assert_eq(siege.bombard_target_count(5), 5, "5명이면 5")
-	assert_eq(siege.bombard_target_count(8), 5, "5 초과면 상한 5")
-	assert_eq(siege.bombard_target_count(0), 0, "0명이면 0")

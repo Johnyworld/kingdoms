@@ -10,7 +10,8 @@ func test_constants() -> void:
 func test_catapult_values() -> void:
 	assert_eq(types.type_name("catapult"), "투석기", "이름")
 	assert_eq(types.movement("catapult"), 2, "견인 이동력 2")
-	assert_eq(types.fire_range("catapult"), 5, "투석 사거리 5")
+	assert_eq(types.min_range("catapult"), 4, "최소 투석 사거리 4")
+	assert_eq(types.fire_range("catapult"), 5, "최대 투석 사거리 5")
 	assert_eq(types.attack("catapult"), 50, "공격력 50")
 	assert_eq(types.max_hp("catapult"), 60, "내구도 60")
 	assert_eq(types.produce_gold("catapult"), 40, "생산 금 40")
@@ -22,6 +23,7 @@ func test_produce_full_cost() -> void:
 func test_missing_id_defaults() -> void:
 	assert_eq(types.type_name("nope"), "", "없는 id 이름 빈 문자열")
 	assert_eq(types.movement("nope"), 0, "없는 id 이동력 0")
+	assert_eq(types.min_range("nope"), 0, "없는 id 최소 사거리 0")
 	assert_eq(types.fire_range("nope"), 0, "없는 id 사거리 0")
 	assert_eq(types.attack("nope"), 0, "없는 id 공격력 0")
 	assert_eq(types.max_hp("nope"), 0, "없는 id 내구도 0")

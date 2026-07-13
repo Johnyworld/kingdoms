@@ -8,7 +8,8 @@ func test_default_is_catapult() -> void:
 	assert_eq(u.type_id, "catapult", "기본 종류 투석기")
 	assert_eq(u.unit_name(), "투석기", "이름 = 카탈로그 이름")
 	assert_eq(u.movement(), 2, "견인 이동력 2")
-	assert_eq(u.fire_range(), 5, "투석 사거리 5")
+	assert_eq(u.min_range(), 4, "최소 투석 사거리 4")
+	assert_eq(u.fire_range(), 5, "최대 투석 사거리 5")
 	assert_eq(u.attack(), 50, "공격력 50")
 	assert_eq(u.max_hp(), 60, "최대 내구도 60")
 

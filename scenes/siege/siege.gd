@@ -16,8 +16,8 @@ const CATAPULT_HIT_CHANCE := 0.4  # 유닛 투석 유닛별 명중 확률(낮음
 static func push_succeeds(roll: float, markup := 0.0) -> bool:
 	return roll < LADDER_PUSH_CHANCE - markup
 
-## 투석 1발 실제 데미지 — 기준 공격력(base_attack)에 ±DAMAGE_VARIANCE 랜덤(roll 0~1)을 준다.
-## roll 0 → base×0.8(하한), roll 1 → base×1.2(상한), roll 0.5 → base. 투석기 50 → 40~60. → wall.md · siege-units.md
+## 투석 1발 실제 데미지 — 기준 공격력(base_attack)에 ±DAMAGE_VARIANCE(0.4) 랜덤(roll 0~1)을 준다.
+## roll 0 → base×0.6(하한), roll 1 → base×1.4(상한), roll 0.5 → base. 투석기 50 → 30~70. → wall.md · siege-units.md
 static func rolled_damage(base_attack: int, roll: float) -> int:
 	return int(round(base_attack * (1.0 - DAMAGE_VARIANCE + roll * 2.0 * DAMAGE_VARIANCE)))
 
@@ -32,7 +32,3 @@ static func wall_broken(hp: int) -> bool:
 ## 유닛 투석 명중 판정 — roll(0~1)이 명중 확률(chance) 미만이면 명중. → siege-engines.md
 static func hit_succeeds(roll: float, chance: float) -> bool:
 	return roll < chance
-
-## 유닛 투석이 노릴 후보 수 — 부대원 수와 MAX_BOMBARD_TARGETS 중 작은 값(초과 부대는 상한만). → siege-engines.md
-static func bombard_target_count(party_size: int) -> int:
-	return mini(party_size, MAX_BOMBARD_TARGETS)

@@ -12,6 +12,7 @@ const CATALOG := {
 	"catapult": {
 		"name": "투석기",
 		"movement": 2,
+		"min_range": 4,
 		"fire_range": 5,
 		"attack": 50,
 		"hit_points": 60,
@@ -32,7 +33,11 @@ static func type_name(id: String) -> String:
 static func movement(id: String) -> int:
 	return CATALOG.get(id, {}).get("movement", 0)
 
-## 투석 사거리(헥스, 없는 id면 0).
+## 최소 투석 사거리(헥스, 없는 id면 0). 이보다 가까우면 투석 불가.
+static func min_range(id: String) -> int:
+	return CATALOG.get(id, {}).get("min_range", 0)
+
+## 최대 투석 사거리(헥스, 없는 id면 0).
 static func fire_range(id: String) -> int:
 	return CATALOG.get(id, {}).get("fire_range", 0)
 

@@ -100,7 +100,7 @@
 - `movement() -> int` — **`base_movement()` − `overload_penalty()`**, `max(0, …)`으로 하한 0(멤버 없으면 0). **공성 유닛을 실었으면**([Siege Engines](../features/siege-engines.md)) 견인 규칙을 마저 적용: 사람(`members`) 수가 `SiegeTypes.CREW_MIN`(4) 미만이면 `0`(견인 인력 부족), 아니면 공성 유닛 견인 이동력(가장 느린 것, 투석기 2)으로 `min` 상한. 이동 범위 계산에 사용 — 과적이면 감소된 값이 그대로 [이동 범위](../features/selection-and-movement.md)·NPC 경로에 반영.
 - `has_siege() -> bool` — `siege_units`가 비지 않았는지. 견인 이동 규칙(`movement`)·[정보 패널](../features/party-info.md) 표시에 쓴다.
 - `add_siege_unit(unit) -> void` — 공성 유닛([SiegeUnit](../features/siege-engines.md))을 `siege_units`에 추가한다([공성 작업장 생산](../features/siege-engines.md)). 인구·멤버에는 영향 없다.
-- `siege_fire_range() -> int` — 실은 공성 유닛의 **최대 투석 사거리**(없으면 0). [투석](../features/siege-engines.md#투석-공성-성벽) 대상·사거리 판정에 쓴다.
+- `siege_fire_range() -> int` / `siege_min_range() -> int` — 실은 공성 유닛의 **최대/최소 투석 사거리**(없으면 0). [투석](../features/siege-engines.md#투석-공성-성벽) 대상은 이 **밴드**(예: 4~5) 안 거리여야 한다.
 - `siege_attack() -> int` — 실은 공성 유닛의 **최대 공격력**(없으면 0). 투석 데미지 기준값([`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege)).
 - `overload_penalty() -> int` — 화물 과적으로 인한 이동력 감소량. 화물 `cargo_total()`이 `CARGO_CAPACITY`(50) 이하이거나 기본 이동력이 0이면 `0`. 초과 시 개념상 `floor(초과량 ÷ (50 ÷ 기본))` — step `50÷기본`(예 16.7)마다 −1. **구현은 정수식 `(초과량 × 기본) ÷ CARGO_CAPACITY`**(정수 나눗셈, 부동소수점 오차 없음, 동일 결과). 화물이 용량의 2배면 페널티 = 기본 이동력(→ movement 0, 정지).
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.

@@ -15,14 +15,14 @@
 
 ## 카탈로그 (`CATALOG`)
 
-종류 id → 스펙. 수록 필드: `name`(이름), `movement`(견인 이동력), `fire_range`(투석 사거리), `attack`(공격력), `hit_points`(내구도), `produce_gold`(생산 금), `produce_cost`(생산 자재).
+종류 id → 스펙. 수록 필드: `name`(이름), `movement`(견인 이동력), `min_range`·`fire_range`(투석 사거리 밴드), `attack`(공격력), `hit_points`(내구도), `produce_gold`(생산 금), `produce_cost`(생산 자재).
 
-| id | 이름(`name`) | 견인 이동력(`movement`) | 투석 사거리(`fire_range`) | 공격력(`attack`) | 내구도(`hit_points`) | 생산 금(`produce_gold`) | 생산 자재(`produce_cost`) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `catapult` | 투석기 | 2 | 5 | 50 | 60 | 40 | 목재 30 · 석재 20 |
+| id | 이름(`name`) | 견인 이동력(`movement`) | 최소 사거리(`min_range`) | 최대 사거리(`fire_range`) | 공격력(`attack`) | 내구도(`hit_points`) | 생산 금(`produce_gold`) | 생산 자재(`produce_cost`) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `catapult` | 투석기 | 2 | 4 | 5 | 50 | 60 | 40 | 목재 30 · 석재 20 |
 
 - **견인 이동력** — 이 유닛을 실은 부대의 이동력 상한(느림). 부대 이동력 = `min(사람 기준 이동력, 견인 이동력)`, 단 사람이 `CREW_MIN` 미만이면 0. → [Party](../entities/Party.md)
-- **투석 사거리** — [투석](../features/siege-engines.md#투석-공성-성벽) 대상(성벽 있는 적 거점)까지의 헥스 사거리. 부대 셀에서 거점 footprint까지 이 거리 안이면 투석 가능.
+- **투석 사거리 밴드(`min_range`~`fire_range`)** — [투석](../features/siege-engines.md#투석-공성-성벽) 가능한 헥스 거리 범위(투석기 **4~5**). 너무 가까우면(< `min_range`) 못 쏜다(포물선 공성이라 근거리 불가). 부대 셀에서 표적까지 거리가 이 밴드 안이어야 투석 가능.
 - **공격력** — 투석 1발의 기준 피해. **무기 기본 공격력(검 14~모닝스타 19)보다 크다** — 성벽뿐 아니라 일반 유닛도 위협하는 공성 화력. 실제 피해는 여기에 ±40% 랜덤을 준다([`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege) → 30~70·평균 50). 성벽·[유닛 투석](../features/siege-engines.md#유닛-투석-적-부대-폭격) 모두 이 피해를 쓴다.
 - **내구도(`hit_points`)** — 공성 유닛 자체의 HP. [SiegeUnit](../features/siege-engines.md#공성-유닛-모델-siegeunit--partysiege_units)은 생성 시 이 값을 현재 HP·최대 HP로 삼는다. **투석기를 깎는 공격원은 아직 없다**(방어 요격 5d·미구현) — 후속 대비 스탯.
 - **생산 금·자재** — [공성 작업장](../features/siege-engines.md#획득--공성-작업장에서-생산)에서 [투석기 생산] 시 영지가 지불하는 비용. **인구는 소비하지 않는다.**
@@ -33,7 +33,8 @@
 - `get_type(id) -> Dictionary` — 종류 스펙(없는 id면 빈 Dictionary).
 - `type_name(id) -> String` — 이름(없는 id면 `""`).
 - `movement(id) -> int` — 견인 이동력(없는 id면 `0`).
-- `fire_range(id) -> int` — 투석 사거리(없는 id면 `0`).
+- `min_range(id) -> int` — 최소 투석 사거리(없는 id면 `0`).
+- `fire_range(id) -> int` — 최대 투석 사거리(없는 id면 `0`).
 - `attack(id) -> int` — 공격력(없는 id면 `0`).
 - `max_hp(id) -> int` — 내구도(카탈로그 `hit_points`, 없는 id면 `0`).
 - `produce_gold(id) -> int` — 생산 금(없는 id면 `0`).
@@ -51,9 +52,9 @@
 `test/unit/test_siege_types.gd`. → [Siege Engines 테스트 시나리오](../features/siege-engines.md#테스트-시나리오)
 
 - [정상] `CATAPULT == "catapult"`, `CREW_MIN == 4`
-- [정상] `type_name("catapult") == "투석기"`, `movement("catapult") == 2`, `fire_range("catapult") == 5`, `attack("catapult") == 50`, `max_hp("catapult") == 60`, `produce_gold("catapult") == 40`, `produce_cost("catapult") == {"목재":30, "석재":20}`
+- [정상] `type_name("catapult") == "투석기"`, `movement("catapult") == 2`, `min_range("catapult") == 4`, `fire_range("catapult") == 5`, `attack("catapult") == 50`, `max_hp("catapult") == 60`, `produce_gold("catapult") == 40`, `produce_cost("catapult") == {"목재":30, "석재":20}`
 - [정상] `produce_full_cost("catapult") == {"금":40, "목재":30, "석재":20}`(금+자재 통합)
-- [경계] 없는 id → `type_name` `""`, `movement` `0`, `fire_range` `0`, `attack` `0`, `max_hp` `0`, `produce_gold` `0`, `produce_cost` `{}`, `produce_full_cost` `{}`
+- [경계] 없는 id → `type_name` `""`, `movement`·`min_range`·`fire_range`·`attack`·`max_hp` `0`, `produce_gold` `0`, `produce_cost` `{}`, `produce_full_cost` `{}`
 
 ## 관련
 

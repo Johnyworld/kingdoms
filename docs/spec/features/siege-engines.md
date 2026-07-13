@@ -14,9 +14,9 @@
   - `type_id: String` — 기본 `"catapult"`.
   - `unit_name() -> String` — 카탈로그 이름(예: `"투석기"`).
   - `movement() -> int` — 견인 이동력(투석기 `2`).
-  - `fire_range() -> int` — [투석](#투석-공성-성벽) 사거리(투석기 `5`).
+  - `min_range() -> int` / `fire_range() -> int` — [투석](#투석-공성-성벽) 사거리 밴드(투석기 **4~5**). 이 거리 범위에서만 발사.
   - `attack() -> int` — 공격력(투석기 `50` — 무기보다 큰 공성 화력). 투석 피해의 기준값.
-  - `max_hp() -> int` — 최대 내구도(투석기 `60`). `hit_points`(현재 내구도)는 생성 시 `max_hp()`로 채운다. **깎는 공격원은 아직 없다**(방어 요격 5d·`미구현`).
+  - `max_hp() -> int` — 최대 내구도(투석기 `60`). `hit_points`(현재 내구도)는 생성 시 `max_hp()`로 채운다. **깎는 공격원은 아직 없다**(방어 요격 5d-3·`미구현`).
 - **재사용** — 소모품이 아니다. 생성 후 부대에 계속 남는다(전투 사상·거점 상실 시의 소실 처리는 후속 슬라이스에서 다룬다).
 - 충차·공성탑도 같은 모델을 쓸 예정이다(카탈로그에 종류만 추가).
 
@@ -54,47 +54,41 @@
 - 견인 인력이 부족(사람 ≤ 3 + 공성 유닛 보유)해 이동력이 0이면 그 사실을 덧붙여(예: `"(견인 인력 부족 — 이동 불가)"`) 이동력 0의 이유를 알린다.
 - 요약 줄의 `이동력`은 이미 견인 규칙이 반영된 `movement()` 값이라 별도 처리는 없다.
 
-## 투석 (`[투석]` 선택 모드 · `SiegeBombard`)
+## 투석 (`[투석]` 선택 모드)
 
-투석기를 실은 부대는 「투석」으로 사거리 5 안 표적을 원거리 포격한다. 표적은 **성벽 있는 적 거점**([성벽 내구도](wall.md#성벽-내구도-buildingwall_hp--siege) 파괴) 또는 **적 부대**([유닛 폭격](#유닛-투석-적-부대-폭격)) 둘 다다. [사격](party-action-menu.md#상호작용-모드)처럼 **표적 선택 모드**로 동작하며, **투석기만 공격하고 방어측 반격은 없다**(1턴 1발, 부대 행동 종료).
+투석기를 실은 부대는 「투석」으로 **사거리 밴드 4~5**([min_range~fire_range](../data/siege-units.md)) 안 표적을 원거리 포격한다. 표적은 **성벽 있는 적 거점**([성벽 내구도](wall.md#성벽-내구도-buildingwall_hp--siege) 파괴) 또는 **적 부대**([유닛 투석](#유닛-투석--battlegd-통합-전투)) 둘 다다. [사격](party-action-menu.md#상호작용-모드)처럼 **표적 선택 모드**로 동작한다.
 
 ### 행동·선택 모드 (`[투석]` · `MODE_BOMBARD`)
 
-- 조건: 아군 부대가 **공성 유닛을 실었고**(`has_siege()`) **이번 턴 미행동**(`can_attack()`)이며 **사거리 안에 유효 표적**(아래)이 하나라도 있으면 [행동 메뉴](party-action-menu.md)에 **`[투석]`**(`can_bombard`, `{id="catapult"}`).
-- 선택 → **투석 모드**(`MODE_BOMBARD`) 진입: 사거리(`Party.siege_fire_range()` = 5, **지형 무시 헥스 거리** `bfs_distances`) 안 **유효 표적을 빨강 강조**. 표적을 클릭하면 발사, 그 외 클릭은 모드 취소([사격 SHOOT](party-action-menu.md#상호작용-모드)와 같은 패턴).
-- **유효 표적**(`game.gd._bombard_targets`): (a) footprint가 사거리 안에 걸치는 **성벽 있는 적 세력 거점**, (b) 사거리 안에 있는 **적 세력 부대**. 아군은 제외.
+- 조건: 아군 부대가 **공성 유닛을 실었고**(`has_siege()`) **이번 턴 미행동**(`can_attack()`)이며 **사거리 밴드 안에 유효 표적**(아래)이 하나라도 있으면 [행동 메뉴](party-action-menu.md)에 **`[투석]`**(`can_bombard`, `{id="catapult"}`).
+- 선택 → **투석 모드**(`MODE_BOMBARD`) 진입: 유효 표적을 빨강 강조. 클릭하면 발사, 그 외 클릭은 모드 취소([사격 SHOOT](party-action-menu.md#상호작용-모드) 패턴).
+- **유효 표적**(`game.gd._bombard_targets`): 부대 셀에서 **거리가 `[Party.siege_min_range()` ~ `Party.siege_fire_range()]`(4~5) 밴드 안**(지형 무시 헥스 거리 `bfs_distances`)인 (a) **성벽 있는 적 세력 거점**, (b) **적 세력 부대**. 밴드보다 가까운(≤3) 표적은 제외(근거리 투석 불가). 아군 제외.
 - 발사는 **부대 행동 종료**(`mark_attacked`) → 자연히 **1턴 1발**. 성벽/유닛 공통.
 
-### 성벽 투석 → 내구도·붕괴 (`game.gd._bombard_wall`)
+### 성벽 투석 → 내구도·붕괴 (`game.gd._bombard_wall` · `SiegeBombard`)
 
-- 대상 성벽 거점에 [관전 씬](#관전-씬-siegebombard)(성벽 모드) → **`Siege.rolled_damage(attack 50, rng)`**(30~70·[랜덤](wall.md#성벽-내구도-buildingwall_hp--siege)) 피해를 `wall_hp`에 적용.
-- `Siege.wall_broken(wall_hp)`면 붕괴: `wall_level=0`·`wall_hp=0`·[사다리 제거](wall.md#통로-돌파-breach)·재그리기·토스트 → `is_walled()==false`라 기존 점령/공격이 자동 개방. 안 부서지면 `wall_hp`만 줄고 [성벽 링 색](wall.md#성벽-내구도-buildingwall_hp--siege) 갱신.
+성벽 대상은 **경량 관전 씬 `SiegeBombard`**(신규, `scenes/combat/siege_bombard.gd`)로 처리한다 — 성벽은 전투원(Human 팀)이 아니라 구조물이라 battle.gd 두-팀 모델에 안 맞기 때문(구조물 전투원화·battle.gd 흡수는 [5d-3](#공성병기-로드맵)).
 
-### 유닛 투석 (적 부대 폭격) (`game.gd._bombard_party`)
+- 대상 성벽에 투사체 포물선 연출 → **`Siege.rolled_damage(attack 50, rng)`**(30~70·[랜덤](wall.md#성벽-내구도-buildingwall_hp--siege)) 피해를 `wall_hp`에 적용.
+- `Siege.wall_broken(wall_hp)`면 붕괴: `wall_level=0`·`wall_hp=0`·[사다리 제거](wall.md#통로-돌파-breach)·재그리기·토스트 → `is_walled()==false`라 기존 점령/공격 자동 개방. 안 부서지면 `wall_hp`만 줄고 [성벽 링 색](wall.md#성벽-내구도-buildingwall_hp--siege) 갱신.
+- `SiegeBombard.start_wall(party, building, from_hp, damage)` — 성벽 표적 + 내구도 바. 판정은 `game.gd`가 씬 종료 후 반영(씬은 연출만).
 
-대상 적 부대의 유닛을 광역 포격한다. **명중률은 낮지만 명중하면 큰 피해**(1방 처치 가능).
+### 유닛 투석 — battle.gd 통합 전투 (`_begin_battle` + 투석기 전투원)
 
-- **표적 선정**: 대상 부대 멤버 중 **최대 `Siege.MAX_BOMBARD_TARGETS`(5)명**이 후보. 멤버가 5명 초과면 **랜덤 5명**, 이하면 전원(`Siege.bombard_target_count(size) = min(5, size)`).
-- **명중·피해**: 후보 각자 **개별 판정** — `Siege.hit_succeeds(rng.randf(), Siege.CATAPULT_HIT_CHANCE)`(명중률 `0.4`). 명중한 유닛만 `Siege.rolled_damage(attack 50, rng)`(30~70) 피해. `hit_points ≤ 0`이면 사망. 유닛마다 독립 판정이라 한 발에 **0~5명** 피해.
-- **적용**: 관전 씬 종료 후 실제 hp 반영·사망 제거(`_apply_survivors`), 전멸 부대는 토큰 사라짐. 부대 전멸로는 승패가 갈리지 않는다([Victory](victory.md) — 거점만). **노획은 없다**(투석 전멸 부대의 화물·장비 loot 미적용 — 후속).
-- 방어측 반격 없음(투석기만 공격).
-- **순수 로직**(`Siege`): `MAX_BOMBARD_TARGETS = 5`, `CATAPULT_HIT_CHANCE = 0.4`, `hit_succeeds(roll, chance) -> bool`(= `roll < chance`), `bombard_target_count(size) -> int`(= `min(5, size)`).
+적 부대 대상은 **`battle.gd` 통합 전투**로 처리한다(별도 폭격 씬 아님). `[투석]`이 헥스 거리(4~5)로 전투를 개시하며 **양 부대의 `siege_units`를 전투원으로 스폰**한다(`include_siege`). 거리 게이트([Battle](battle.md#전투-모드-교전-거리distance))로 사거리 닿는 유닛만 싸우므로, **양쪽에 투석기가 있으면 자연히 상호 반격**한다.
 
-### 관전 씬 (`SiegeBombard`)
-
-`battle.gd`(두 부대 교전)와 별개인 **투석 전용 경량 일방 폭격 관전 오버레이**(`scenes/combat/siege_bombard.gd`). 좌측 투석기 토큰 → 표적에 투사체 포물선. **판정은 씬이 하지 않고** `game.gd`가 씬 종료 후 반영한다(씬은 연출만, 입력 잠금).
-
-- **성벽 모드** `start_wall(party, building, from_hp, damage)` — 성벽 표적 + 내구도 바(`from_hp` → `from_hp − damage`).
-- **유닛 모드** `start_units(party, target, results)` — 적 유닛 토큰·HP 바를 나열하고, `results`(유닛별 `{hit, damage, hp_after}`)로 명중 유닛 바 감소·사망 페이드.
-- 둘 다 투사체 착탄 후 `finished` 방출.
+- **투석기 전투원**(battle.gd·BattleSim): 사거리 밴드 **4~5**·공격 50·**전투당 1발**. 이동·근접을 하지 않고, `min_range ≤ distance ≤ fire_range`이며 미발사(`fired=false`)일 때만 발사한다(밴드 밖이면 대기).
+- **발사 = 광역 최대 `Siege.MAX_BOMBARD_TARGETS`(5)**: 가장 가까운 적 **유닛**을 최대 5명 골라(`BattleField.nearest_enemies(unit, units, n)`) **유닛별 개별 명중** `Siege.hit_succeeds(rng, Siege.CATAPULT_HIT_CHANCE)`(0.4). 명중한 유닛만 `Siege.rolled_damage(attack 50, rng)`(30~70) 피해 — **방어구·회피·상성을 무시하는 flat 피해**(공성 고유, `CombatResolver.resolve_hit`를 타지 않음). 발사 후 대기(`fired=true`).
+- **투석기는 아직 피격 대상이 아니다**([5d-3](#공성병기-로드맵)): `BattleField.nearest_enemy`·`team_wiped`가 siege 전투원을 **무시**한다(대상·승패 판정에서 제외). 전투 승패·생존자는 **Human 기준**, 투석기는 파괴되지 않고 부대 `siege_units`에 유지된다.
+- **순수 로직**: `BattleField.nearest_enemies(unit, units, n) -> Array`(최대 n명 최근접 적, 없으면 빈 배열) + 기존 `Siege.hit_succeeds`·`MAX_BOMBARD_TARGETS`·`rolled_damage`.
+- 부대 전멸로는 승패가 갈리지 않는다([Victory](victory.md) — 거점만). **노획은 없다**(후속).
 
 ## 이번 슬라이스 제외 (미구현)
 
 - **NPC 공성 AI**(NPC의 작업장 건설·투석기 생산·투석 운용) — 5c.
 - **방어자 요격/투석기 파괴**(투석기 `hit_points`를 깎는 공격원) — 5d.
 - **투석 노획**(투석으로 전멸시킨 부대의 화물·장비 loot) — 후속.
-- **투석기 여러 대 스택**(부대에 2대 이상이어도 1턴 1발·`siege_attack()`의 가장 센 투석기 1발만) — 후속.
-- **맵 토큰의 공성 유닛 표시**(투석기 마커)·전투 사상/거점 상실 시 공성 유닛 소실 처리 — 후속.
+- **맵 토큰의 공성 유닛 표시**(투석기 마커)·거점 상실 시 공성 유닛 소실 처리 — 후속. *(부대에 투석기가 여러 대면 battle.gd 통합 전투에서 각 투석기가 전투원으로 1발씩 쏜다 — 전투당 1발은 유닛 단위.)*
 - 조작 인원 개별 배정 — 후속.
 
 ## 공성병기 로드맵
@@ -102,18 +96,22 @@
 - **5a-1 유닛 모델** — 투석기 획득·부대 편입(인구 비소모)·견인 이동 규칙·정보 표시. ✅
 - **5a-2 성벽 투석 + 내구도** — `[투석]` 성벽 공격(사거리 5·1턴 1발) → `wall_hp` 감소 → 붕괴(→ 기존 [점령](camp-capture.md)). 성벽 전용 관전 씬. ✅
 - **5b 유닛 투석** — (이 문서) `[투석]` 선택 모드 + 적 부대 폭격(최대 5명·유닛별 명중 0.4·30~70 피해). ✅
-- **5c NPC 공성 AI** / **5d 방어 카운터플레이**(투석기 요격·파괴).
+- **5d 전투 통합**(공성은 게임 핵심 재미 → **완전 통합** 방향: 구조물도 전투원화해 battle.gd 흡수):
+  - **5d-1 거리 게이트 일반화** — battle.gd·BattleSim `ranged_mode`(bool)→`distance`(int), 사거리 게이트 `range < distance`. ✅
+  - **5d-2 투석기 전투원화 + 상호 반격** — (이 문서) `[투석]` 유닛 대상을 battle.gd 통합 전투로, 투석기를 전투원(사거리 4~5·1발·광역 최대 5)으로 스폰, 양쪽 투석기 상호 반격. 투석기는 아직 피격 안 됨. ✅
+  - **5d-3 구조물 전투원(성벽) + 투석기 피격·파괴** — 성벽을 HP 전투원으로 battle.gd에 흡수(`SiegeBombard` 제거), 투석기가 피격·파괴됨(방어 카운터플레이 완성).
+- **5c NPC 공성 AI**(NPC 작업장 건설·투석기 생산·운용).
 
 ## 테스트 시나리오
 
 **공성 유닛 카탈로그(순수)** — `test/unit/test_siege_types.gd`:
 - [정상] `SiegeTypes.CATAPULT == "catapult"`, `SiegeTypes.CREW_MIN == 4`
-- [정상] `SiegeTypes.type_name("catapult") == "투석기"`, `movement("catapult") == 2`, `fire_range("catapult") == 5`, `attack("catapult") == 50`, `max_hp("catapult") == 60`
+- [정상] `SiegeTypes.type_name("catapult") == "투석기"`, `movement("catapult") == 2`, `min_range("catapult") == 4`, `fire_range("catapult") == 5`, `attack("catapult") == 50`, `max_hp("catapult") == 60`
 - [정상] `produce_gold("catapult") == 40`, `produce_cost("catapult") == {목재:30, 석재:20}`
-- [경계] 없는 id → `type_name` `""`, `movement`·`fire_range`·`attack`·`max_hp` `0`, `produce_gold` `0`, `produce_cost` `{}`
+- [경계] 없는 id → `type_name` `""`, `movement`·`min_range`·`fire_range`·`attack`·`max_hp` `0`, `produce_gold` `0`, `produce_cost` `{}`
 
 **공성 유닛 인스턴스(순수)** — `test/unit/test_siege_unit.gd`:
-- [정상] `SiegeUnit.new()` → `type_id == "catapult"`, `unit_name() == "투석기"`, `movement() == 2`, `fire_range() == 5`, `attack() == 50`, `max_hp() == 60`
+- [정상] `SiegeUnit.new()` → `type_id == "catapult"`, `unit_name() == "투석기"`, `movement() == 2`, `min_range() == 4`, `fire_range() == 5`, `attack() == 50`, `max_hp() == 60`
 - [정상] 생성 직후 `hit_points == max_hp()`(풀 내구도 60)
 - [정상] `SiegeUnit.new("catapult")` 동일
 
@@ -126,7 +124,10 @@
 **유닛 투석 판정(순수)** — `test/unit/test_siege.gd`:
 - [정상] `Siege.MAX_BOMBARD_TARGETS == 5`, `Siege.CATAPULT_HIT_CHANCE == 0.4`
 - [정상] `hit_succeeds(0.2, 0.4) == true`(0.2 < 0.4), `hit_succeeds(0.5, 0.4) == false`; [경계] `hit_succeeds(0.4, 0.4) == false`(미만만 명중)
-- [정상] `bombard_target_count(3) == 3`(멤버 이하 전원), `bombard_target_count(5) == 5`, `bombard_target_count(8) == 5`(상한 5); [경계] `bombard_target_count(0) == 0`
+
+**최근접 다중 표적(순수)** — `test/unit/test_battle_field.gd`:
+- [정상] `nearest_enemies(unit, units, 5)` — 다른 팀 살아있는 적을 거리순 최대 5명 반환(가까운 순)
+- [경계] 적이 n보다 적으면 있는 만큼만; 적 없으면 빈 배열; 죽은 적·같은 팀 제외
 
 **부대 공성 유닛·견인 이동** — `test/unit/test_party.gd`:
 - [정상] 생성 직후 `siege_units` 빈 배열, `has_siege() == false`
@@ -136,7 +137,7 @@
 - [경계] 사람 3명 + 투석기 → `movement() == 0`(견인 인력 부족)
 - [경계] 사람 4명 + 투석기 + 과적으로 사람 기준 이동력 1 → `movement() == 1`(min)
 - [정상] 투석기 추가는 `vision()`·`attack_range()`·`members`에 영향 없음(인구 비소모)
-- [정상] `siege_fire_range()`/`siege_attack()` — 공성 유닛 없으면 0, 투석기 실으면 각각 5/50(최대 집계)
+- [정상] `siege_fire_range()`/`siege_min_range()`/`siege_attack()` — 공성 유닛 없으면 0, 투석기 실으면 각각 5/4/50
 
 **영지 완성 건물 판정(순수)** — `test/unit/test_territory.gd`:
 - [정상] 완성된 `siege_workshop`이 있으면 `has_completed_building("siege_workshop") == true`
@@ -158,7 +159,7 @@
 **성벽 내구도 상태** — `test/unit/test_building.gd`: → [Wall 테스트 시나리오](wall.md#테스트-시나리오)
 - [정상] 생성 직후 `wall_hp == 0`; 설정 가능; `upgrade_to` 후 `wall_hp` 유지
 
-`game.gd`의 `_on_siege_produced`, 투석 선택 모드(`MODE_BOMBARD` 진입·유효 표적 강조·클릭 발사)·`_bombard_targets`(사거리 내 성벽 거점+적 부대)·`_bombard_wall`(성벽 → `wall_hp` 감소·붕괴·사다리 제거)·`_bombard_party`(적 부대 → 후보 선정·유닛별 명중·피해·사망 제거), `[투석]` 행동 노출, 관전 씬(`SiegeBombard`) 성벽/유닛 연출, 성벽 링 내구도 색, 작업장 건축, 정보 패널 표시는 실제 실행으로 확인한다(`game.gd`·관전 씬 통합 테스트는 기존 관례상 두지 않음).
+`game.gd`의 `_on_siege_produced`, 투석 선택 모드(`MODE_BOMBARD`)·`_bombard_targets`(밴드 4~5 내 성벽 거점+적 부대), **성벽** → `_bombard_wall`(`SiegeBombard` → `wall_hp` 감소·붕괴), **적 부대** → `_begin_battle`(투석기 전투원 포함 battle.gd 통합 전투), `battle.gd`의 투석기 전투원 스폰·발사(광역·flat 피해)·siege 무시(대상/승패), `[투석]` 행동 노출, 성벽 링 내구도 색, 작업장 건축, 정보 패널 표시는 실제 실행으로 확인한다(`game.gd`·오버레이 통합 테스트는 기존 관례상 두지 않음).
 
 ## 관련
 

@@ -45,7 +45,8 @@ var _view: Control
 
 ## 공격측(a)·방어측(b) 부대를 받아 전투를 시작한다. distance = 교전 헥스 거리(1=근접).
 ## distance >= 2면 원거리 교전 — 사거리 ≥ distance인 유닛만 행동. → docs/spec/features/battle.md
-func start(attacker, defender, distance := 1) -> void:
+## include_siege면 양 부대의 공성 유닛(투석기)을 전투원으로 스폰([투석] 전투). → siege-engines.md
+func start(attacker, defender, distance := 1, include_siege := false) -> void:
 	_distance = distance
 	_ranged_mode = distance >= 2
 	_battle_time = RANGED_BATTLE_TIME if _ranged_mode else BATTLE_TIME
@@ -55,7 +56,56 @@ func start(attacker, defender, distance := 1) -> void:
 	var vp := get_viewport().get_visible_rect().size
 	_spawn_team(attacker, "a", vp.x * 0.25, vp)
 	_spawn_team(defender, "b", vp.x * 0.75, vp)
+	if include_siege:
+		_spawn_siege(attacker, "a", vp.x * 0.1, vp)
+		_spawn_siege(defender, "b", vp.x * 0.9, vp)
 	_running = true
+
+## 부대의 공성 유닛(투석기)을 전투원으로 스폰한다(팀 열 바깥쪽·위). 이동·근접 없이 전투당 1발만 쏜다. → siege-engines.md
+func _spawn_siege(party, team: String, x: float, vp: Vector2) -> void:
+	if not party.has_siege():
+		return
+	var units: Array = party.siege_units
+	var n := units.size()
+	for i in n:
+		var t := 0.5 if n == 1 else float(i) / float(n - 1)
+		var pos := Vector2(x, lerpf(vp.y * 0.16, vp.y * 0.34, t))
+		var node := _make_token(party.token_color)
+		(node.get_node("hp") as Label).text = units[i].unit_name()   # hp 대신 이름 표시(피격 없음)
+		_view.add_child(node)
+		var su := {
+			"siege": true, "team": team, "alive": true, "pos": pos,
+			"node": node, "hp_label": node.get_node("hp"), "body": node.get_node("body"), "color": party.token_color,
+			"min_range": units[i].min_range(), "range": units[i].fire_range(), "attack": units[i].attack(),
+			"fired": false, "effects": {},
+		}
+		_units.append(su)
+		su["node"].position = pos - Vector2(TOKEN_R, TOKEN_R)
+
+## 투석기 전투원 행동 — 원거리 교전이고 사거리 밴드(min~fire) 안이며 미발사면 전투당 1발 광역 사격. → siege-engines.md
+func _siege_act(u: Dictionary) -> void:
+	if u["fired"] or not _ranged_mode:
+		return
+	if _distance < u["min_range"] or _distance > u["range"]:
+		return   # 사거리 밴드 밖 — 이번 전투에선 못 쏨
+	u["fired"] = true
+	_catapult_volley(u)
+
+## 투석 1발 = 가장 가까운 적 유닛 최대 MAX_BOMBARD_TARGETS명에 유닛별 명중(0.4)·명중 시 flat rolled_damage(방어구·회피 무시). → siege-engines.md
+func _catapult_volley(u: Dictionary) -> void:
+	var targets := BattleField.nearest_enemies(u, _units, Siege.MAX_BOMBARD_TARGETS)
+	for t in targets:
+		_spawn_projectile(u["pos"], t["pos"])   # 투사체 연출(피해는 즉시 적용)
+		if not Siege.hit_succeeds(_rng.randf(), Siege.CATAPULT_HIT_CHANCE):
+			_spawn_float(t["pos"], "빗나감", Color(0.7, 0.7, 0.7), false)
+			continue
+		var dmg := Siege.rolled_damage(u["attack"], _rng.randf())   # flat(방어구·회피·상성 무시)
+		t["hp"] -= dmg
+		t["hp_label"].text = str(maxi(0, t["hp"]))
+		_spawn_float(t["pos"], str(dmg), Color(1.0, 0.5, 0.3), true)
+		_hit_react(t)
+		if t["hp"] <= 0:
+			_kill(t, u["pos"])
 
 func _build_bg() -> void:
 	var dim := ColorRect.new()
@@ -118,8 +168,8 @@ func _process(delta: float) -> void:
 
 	# 상태이상 진행(모든 생존 유닛): 출혈 도트를 hp에서 빼고, 죽으면 전투불능 처리.
 	for u in _units:
-		if not u["alive"]:
-			continue
+		if not u["alive"] or u.get("siege", false):
+			continue   # 공성 전투원은 상태이상·hp 없음(5d-2). → siege-engines.md
 		var dot := StatusEffects.advance(u["effects"], delta)
 		if dot > 0:
 			u["hp"] -= dot
@@ -130,6 +180,9 @@ func _process(delta: float) -> void:
 
 	for u in _units:
 		if not u["alive"]:
+			continue
+		if u.get("siege", false):
+			_siege_act(u)   # 투석기 전투원 — 사거리 밴드면 전투당 1발 광역 → siege-engines.md
 			continue
 		if _ranged_mode and u["range"] < _distance:
 			continue   # 원거리 교전: 사거리가 거리에 못 미치는 유닛(근접 무기 포함)은 닿지 않아 정지
@@ -307,8 +360,8 @@ func _sync_node(u: Dictionary) -> void:
 func _finish() -> void:
 	_running = false
 	for u in _units:
-		if u["alive"]:
-			u["human"].hit_points = maxi(1, int(u["hp"]))   # 생존자 최종 hp를 Human에 반영(전투 후 지속)
+		if u["alive"] and not u.get("siege", false):
+			u["human"].hit_points = maxi(1, int(u["hp"]))   # 생존자 최종 hp를 Human에 반영(전투 후 지속). 공성 전투원 제외.
 	var a_surv := BattleField.survivors(_units, "a")
 	var b_surv := BattleField.survivors(_units, "b")
 	if _live_projectiles > 0:

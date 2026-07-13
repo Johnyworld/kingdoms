@@ -258,11 +258,18 @@ func _siege_haul_speed() -> int:
 func has_siege() -> bool:
 	return not siege_units.is_empty()
 
-## 실은 공성 유닛의 최대 투석 사거리(없으면 0). [투석] 대상·사거리 판정에 쓴다. → siege-engines.md
+## 실은 공성 유닛의 최대 투석 사거리(없으면 0). [투석] 대상 밴드 상한. → siege-engines.md
 func siege_fire_range() -> int:
 	var r := 0
 	for u in siege_units:
 		r = maxi(r, u.fire_range())
+	return r
+
+## 실은 공성 유닛의 최소 투석 사거리(없으면 0). [투석] 대상 밴드 하한 — 이보다 가까운 표적은 못 친다. → siege-engines.md
+func siege_min_range() -> int:
+	var r := 0
+	for u in siege_units:
+		r = u.min_range() if r == 0 else mini(r, u.min_range())
 	return r
 
 ## 실은 공성 유닛의 최대 공격력(없으면 0). 투석 데미지 기준값. → siege-engines.md
