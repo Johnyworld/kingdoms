@@ -17,6 +17,7 @@
 - 게임 시작 시 각 거점(캠프·마을회관·성 — [center](../data/buildings.md#동작))의 **중심 타일**에 **주둔 부대 1개**를 배치한다.
   - 멤버: `UnitTypes.make_garrison(4)`([소집병](../entities/Human.md) 4명). 위치: `building.center_cell()`. `stationed = true`.
   - **플레이어 거점** → `_units`에 등록(플레이어 소속·금색). **NPC 거점** → `_npc_parties`에 등록(세력 색). `home_territory` = 그 영지.
+  - **NPC 거점 수비대**는 시작 [투석기](siege-engines.md#npc-공성-ai-5c--_npc_attack_phase) 1대를 실어 접근하는 플레이어를 방어 포격한다(5c·시험용 스캐폴딩). 플레이어 수비대는 제외.
 - 거점당 **여러 부대 주둔 허용** — 한 중심 타일엔 한 부대만 서지만, 인접 편성·[병합](party-composition.md)으로 병력을 늘린다.
 
 ## 소집병 (`UnitTypes.make_garrison`)

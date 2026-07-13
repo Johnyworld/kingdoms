@@ -111,7 +111,7 @@ func _siege_act(u: Dictionary) -> void:
 	u["fired"] = true
 	_catapult_volley(u)
 
-## 투석 1발 = 가장 가까운 적 유닛 최대 MAX_BOMBARD_TARGETS명에 유닛별 명중(0.4)·명중 시 flat rolled_damage(방어구·회피 무시). → siege-engines.md
+## 투석 1발 = 가장 가까운 적 최대 MAX_BOMBARD_TARGETS 표적에 개별 판정 — 성벽 구조물은 항상 명중, 유닛은 CATAPULT_HIT_CHANCE(0.1). 명중 시 flat rolled_damage(방어구·회피 무시). → siege-engines.md
 func _catapult_volley(u: Dictionary) -> void:
 	var targets := BattleField.bombard_targets(u, _units, Siege.MAX_BOMBARD_TARGETS)
 	for t in targets:

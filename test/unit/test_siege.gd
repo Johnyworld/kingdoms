@@ -60,9 +60,9 @@ func test_wall_breaks_in_three_to_six_shots() -> void:
 
 func test_bombard_constants() -> void:
 	assert_eq(siege.MAX_BOMBARD_TARGETS, 5, "최대 표적 5명")
-	assert_eq(siege.CATAPULT_HIT_CHANCE, 0.4, "명중률 0.4")
+	assert_eq(siege.CATAPULT_HIT_CHANCE, 0.1, "명중률 0.1(낮음)")
 
 func test_hit_succeeds() -> void:
-	assert_true(siege.hit_succeeds(0.2, 0.4), "0.2 < 0.4 → 명중")
-	assert_false(siege.hit_succeeds(0.5, 0.4), "0.5 ≥ 0.4 → 빗나감")
-	assert_false(siege.hit_succeeds(0.4, 0.4), "경계 0.4는 미만만 명중이라 빗나감")
+	assert_true(siege.hit_succeeds(0.05, 0.1), "0.05 < 0.1 → 명중")
+	assert_false(siege.hit_succeeds(0.2, 0.1), "0.2 ≥ 0.1 → 빗나감")
+	assert_false(siege.hit_succeeds(0.1, 0.1), "경계 0.1은 미만만 명중이라 빗나감")

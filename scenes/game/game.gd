@@ -611,7 +611,9 @@ func _seed_garrisons() -> void:
 			_units.append(_spawn_garrison_party(b))
 	for b in _npc_buildings:
 		if BuildingTypes.is_center(b.building_type):
-			_npc_parties.append(_spawn_garrison_party(b))
+			var g := _spawn_garrison_party(b)
+			g.add_siege_unit(SiegeUnit.new())   # NPC 수비대 시작 투석기(5c 방어 포격) → siege-engines.md
+			_npc_parties.append(g)
 
 ## 거점 중심 타일에 서는 주둔 부대(소집병 4명, stationed)를 만든다. 세력 색·소속 영지(home_territory).
 func _spawn_garrison_party(b) -> Party:
@@ -1370,17 +1372,28 @@ func _ladder_target_for(p) -> Dictionary:
 				return {"building": b, "target_cell": c}   # 붙은 ring 셀 중 사다리 없는 면
 	return {}
 
-## [투석]→성벽: 성벽을 구조물 전투원으로 battle.gd 통합 전투. 전투가 wall_hp를 깎고(항상 명중), 0이면 붕괴. 부대 행동 종료(1턴 1발). → siege-engines.md
+## [투석]→성벽(플레이어): 활성 부대가 성벽 거점을 투석. 부대 행동 종료 후 통합 전투. → siege-engines.md
 func _bombard_wall(building, distance: int) -> void:
 	if building == null:
 		return
 	party.mark_attacked()   # 투석 = 부대 행동 종료 → 자연히 1턴 1발
 	_undo_party = null
-	var from_hp: int = building.wall_hp
 	_deselect()
 	_hide_party_info()
-	await _run_wall_battle(building, distance)   # battle.gd가 building.wall_hp를 반영
-	if Siege.wall_broken(building.wall_hp):
+	await _bombard_wall_by(party, building, distance)
+
+## 성벽을 구조물 전투원으로 battle.gd 통합 전투(attacker의 투석기가 항상 명중). 종료 후 wall_hp 0이면 붕괴. → siege-engines.md
+## 플레이어([투석])·NPC(수비대 방어 포격) 공용 — attacker만 다르다.
+func _bombard_wall_by(attacker, building, distance: int) -> void:
+	var from_hp: int = building.wall_hp
+	_in_battle = true
+	var overlay := BATTLE_SCENE.new()
+	add_child(overlay)
+	overlay.start(attacker, null, distance, true, building)   # 성벽=구조물 전투원, 방어 부대 없음
+	await overlay.finished
+	overlay.queue_free()
+	_in_battle = false
+	if Siege.wall_broken(building.wall_hp):   # battle.gd가 building.wall_hp를 반영
 		building.wall_level = 0
 		building.wall_hp = 0
 		_clear_ladders(building)   # 붕괴된 성벽 사다리 정리 → wall.md
@@ -1389,18 +1402,48 @@ func _bombard_wall(building, distance: int) -> void:
 	else:
 		toast.show_message("성벽 −%d (%d/%d)" % [from_hp - building.wall_hp, building.wall_hp, Siege.WALL_MAX_HP])
 	building.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
-	party.prune_destroyed_siege()   # 반격 없어 보통 no-op(대칭성)
+	attacker.prune_destroyed_siege()   # 반격 없어 보통 no-op(대칭성)
 	party_roster.set_parties(_units)
 
-## 성벽 투석 통합 전투 — 공격 부대(+투석기) vs 성벽 구조물 전투원. battle.gd가 종료 시 building.wall_hp를 반영. → siege-engines.md
-func _run_wall_battle(building, distance: int) -> void:
-	_in_battle = true
-	var overlay := BATTLE_SCENE.new()
-	add_child(overlay)
-	overlay.start(party, null, distance, true, building)
-	await overlay.finished
-	overlay.queue_free()
-	_in_battle = false
+## NPC 공성 AI — attacker(투석기 실은 NPC)가 사거리 밴드 4~5 안 플레이어 표적(성벽/부대)에 투석. 발동 시 true. → siege-engines.md
+## positioning 없음 — 주로 고정 위치 수비대가 접근한 플레이어를 방어 포격. NPC↔NPC는 미지원(BattleSim 공성 없음).
+func _npc_try_bombard(attacker) -> bool:
+	var t := _siege_target_for(attacker)
+	if t.is_empty():
+		return false
+	attacker.mark_attacked()
+	if t["kind"] == "wall":
+		await _bombard_wall_by(attacker, t["ref"], int(t["dist"]))
+	else:
+		await _run_battle(attacker, t["ref"], int(t["dist"]), Vector2i(-1, -1), true)   # 플레이어 부대 폭격(오버레이)
+	return true
+
+## attacker의 투석 사거리 밴드(min~fire) 안 최근접 플레이어 표적. {kind:"wall"/"party", ref, dist} 또는 빈 Dictionary. → siege-engines.md
+func _siege_target_for(attacker) -> Dictionary:
+	if not attacker.has_siege():
+		return {}
+	var rng: int = attacker.siege_fire_range()
+	var min_r: int = attacker.siege_min_range()
+	if rng <= 0:
+		return {}
+	var dists: Dictionary = HexGrid.bfs_distances(terrain, terrain.local_to_map(attacker.position), rng, MAP_WIDTH, MAP_HEIGHT)
+	var best := {}
+	var best_d := 1 << 30
+	for p in _units:   # 플레이어 부대(적)
+		if p.members.is_empty():
+			continue
+		var ec: Vector2i = terrain.local_to_map(p.position)
+		if dists.has(ec) and int(dists[ec]) >= min_r and int(dists[ec]) < best_d:
+			best_d = int(dists[ec])
+			best = {"kind": "party", "ref": p, "dist": best_d}
+	for b in _buildings:   # 플레이어 성벽 거점(적)
+		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
+			continue
+		for c in b.cells:
+			if dists.has(c) and int(dists[c]) >= min_r and int(dists[c]) < best_d:
+				best_d = int(dists[c])
+				best = {"kind": "wall", "ref": b, "dist": best_d}
+	return best
 
 ## 거점 b의 셀 c에 이미 사다리가 걸려 있는지(면당 하나 — 같은 면 중복 적층 방지). → wall.md
 func _has_ladder_at(b, c: Vector2i) -> bool:
@@ -1660,7 +1703,9 @@ func _npc_attack_phase(epoch: int) -> void:
 		if not is_instance_valid(attacker) or not (attacker in _npc_parties):
 			continue   # 이전 전투로 제거됨.
 		if attacker.stationed:
-			# 주둔 NPC 부대는 이동·근접 개시는 안 함. 성벽 사다리가 있으면 밀기 우선, 없으면 사거리 안 적 제자리 사격(주둔 유지). → garrison.md · wall.md
+			# 주둔 NPC 부대는 이동·근접 개시는 안 함. 투석기 있으면 밴드 내 플레이어 방어 포격 우선, 그다음 사다리 밀기, 사거리 안 적 제자리 사격(주둔 유지). → garrison.md · wall.md · siege-engines.md
+			if not attacker.attacked_this_turn and attacker.has_siege() and await _npc_try_bombard(attacker):
+				continue   # 수비대 투석기 방어 포격
 			if not attacker.attacked_this_turn and _can_push_ladder(attacker):
 				attacker.mark_attacked()
 				_push_ladders(_building_garrisoned_by(attacker))   # NPC 자동 사다리 밀기(15%씩)
@@ -1676,6 +1721,8 @@ func _npc_attack_phase(epoch: int) -> void:
 			continue   # 사격·밀기 후에도 이동·근접 개시 없이 대기
 		if not attacker.can_attack():
 			continue
+		if attacker.has_siege() and await _npc_try_bombard(attacker):
+			continue   # 로빙 NPC 투석(밴드 내 플레이어 표적) — positioning 없어 실발동은 드묾
 		var target = _adjacent_enemy(attacker)
 		if target != null:
 			if not NpcAi.should_engage(NpcAi.party_power(attacker.members), NpcAi.party_power(target.members)):
