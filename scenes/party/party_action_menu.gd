@@ -14,7 +14,7 @@ var _list: VBoxContainer
 
 ## 부대 메뉴 버튼. 주둔 중이면 [사격]?[사다리 밀기]?[주둔 종료][장비]. 그 외: 이동 전 [사격][휴식][경계](+분할·주둔·사다리 설치),
 ## 이동 후 [사격][대기](+취소). 노드 비의존. → garrison.md · wall.md
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false, can_auto_follow := false, auto_follow_on := false) -> Array:
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false) -> Array:
 	if stationed:
 		# 주둔 부대는 대기 상태 — 사격 가능 적이 있으면 주둔 유지한 채 제자리 사격, [사다리 밀기]로 성벽 사다리 저지, 주둔 종료로 풀어야 이동·근접.
 		var held: Array = []
@@ -43,10 +43,15 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 		out.append({"id": "catapult", "label": "투석", "enabled": true})   # 투석기 실음 + 사거리 안 성벽 적 거점 → 투석 → siege-engines.md
 	if can_manage_lord:
 		out.append({"id": "lord", "label": "소속", "enabled": true})   # 일반부대 소속 영웅 설정/해제(인접 영웅) → party-lord.md
-	if can_auto_follow:
-		out.append({"id": "auto", "label": "추종 끄기" if auto_follow_on else "추종 켜기", "enabled": true})   # 영웅부대 하위부대 자동 추종 토글 → hero-follow.md
 	out.append({"id": "equip", "label": "장비", "enabled": true})   # 항상 맨 뒤. 턴 소비 없음(장비 관리 모달).
 	return out
+
+## 작전 메뉴 버튼(영웅 이동 직후 하위부대 일괄 통솔). 이번 슬라이스는 [추종][대기]. 교전·돌격은 후속. → squad-stance.md
+static func stance_actions() -> Array:
+	return [
+		{"id": "st_follow", "label": "추종", "enabled": true},   # 영웅 목적지 인접 빈 칸으로 집결
+		{"id": "st_hold", "label": "대기", "enabled": true},     # 제자리 유지(방어 버프 미구현)
+	]
 
 ## 적 클릭 팝업 버튼 [공격][사격]을 각 활성 조건으로(이동은 없음).
 static func enemy_actions(can_melee: bool, can_shoot: bool) -> Array:

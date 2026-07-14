@@ -38,29 +38,23 @@ func test_party_actions_rest_alert_wait_enabled() -> void:
 	assert_true(_by_id(PartyActionMenu.party_actions(false, false, false), "alert")["enabled"], "경계 활성")
 	assert_true(_by_id(PartyActionMenu.party_actions(true, false, false), "wait")["enabled"], "대기 활성")
 
-# --- 자동 추종 버튼 ([자동]) ---
+# --- 작전 메뉴 (stance_actions) ---
 
-func test_party_actions_auto_follow_off_label() -> void:
-	var a := PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, false, true, false)
-	assert_true("auto" in _ids(a), "자동 토글 가능하면 [자동] 포함")
-	assert_eq(_by_id(a, "auto")["label"], "추종 켜기", "꺼짐이면 '추종 켜기'")
+func test_stance_actions_buttons() -> void:
+	assert_eq(_ids(PartyActionMenu.stance_actions()), ["st_follow", "st_hold"], "작전 메뉴 [추종][대기]")
 
-func test_party_actions_auto_follow_on_label() -> void:
-	var a := PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, false, true, true)
-	assert_eq(_by_id(a, "auto")["label"], "추종 끄기", "켜짐이면 '추종 끄기'")
+func test_stance_actions_labels_and_enabled() -> void:
+	var a := PartyActionMenu.stance_actions()
+	assert_eq(_by_id(a, "st_follow")["label"], "추종", "추종 라벨")
+	assert_eq(_by_id(a, "st_hold")["label"], "대기", "대기 라벨")
+	assert_true(_by_id(a, "st_follow")["enabled"], "추종 활성")
+	assert_true(_by_id(a, "st_hold")["enabled"], "대기 활성")
 
-func test_party_actions_auto_before_equip() -> void:
-	var ids := _ids(PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, false, true, false))
-	assert_eq(ids[ids.size() - 2], "auto", "[자동]은 [장비] 바로 앞")
-	assert_eq(ids[ids.size() - 1], "equip", "[장비]는 맨 뒤")
-
-func test_party_actions_no_auto_when_disabled() -> void:
-	assert_false("auto" in _ids(PartyActionMenu.party_actions(false, true, false)), "can_auto_follow 없으면 [자동] 없음")
-
-func test_party_actions_no_auto_when_stationed() -> void:
-	# 주둔 중이면 can_auto_follow와 무관하게 [자동] 없음(주둔 목록만).
-	var a := PartyActionMenu.party_actions(false, false, false, false, false, true, false, false, false, false, true, false)
-	assert_false("auto" in _ids(a), "주둔 중이면 [자동] 없음")
+func test_stance_actions_excludes_combat_stances() -> void:
+	# 교전·돌격은 이번 슬라이스 메뉴에 없다(전투 개시 스탠스는 Slice 2).
+	var ids := _ids(PartyActionMenu.stance_actions())
+	assert_false("st_engage" in ids, "교전 미포함")
+	assert_false("st_charge" in ids, "돌격 미포함")
 
 # --- 적 팝업 (enemy_actions) ---
 

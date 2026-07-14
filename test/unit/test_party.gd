@@ -199,25 +199,6 @@ func test_set_and_clear_lord() -> void:
 	assert_null(troop.lord, "clear_lord로 독립")
 	assert_false(troop.has_lord(), "소속 없음")
 
-# --- 자동 추종(auto_follow) ---
-
-func test_auto_follow_false_by_default() -> void:
-	assert_false(_party().auto_follow, "생성 직후 자동 추종 꺼짐")
-
-func test_set_auto_follow() -> void:
-	var p := _party()
-	p.set_auto_follow(true)
-	assert_true(p.auto_follow, "set_auto_follow(true)로 켜짐")
-	p.set_auto_follow(false)
-	assert_false(p.auto_follow, "set_auto_follow(false)로 꺼짐")
-
-func test_toggle_auto_follow() -> void:
-	var p := _party()
-	p.toggle_auto_follow()
-	assert_true(p.auto_follow, "toggle로 false→true")
-	p.toggle_auto_follow()
-	assert_false(p.auto_follow, "toggle로 true→false")
-
 # --- 이동력(min) · 시야(max) 집계 ---
 
 func test_movement_is_min_of_members() -> void:

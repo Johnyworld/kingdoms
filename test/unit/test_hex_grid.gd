@@ -267,7 +267,7 @@ func test_path_blocked_dest_returns_empty() -> void:
 	var path := HexGrid.reconstruct_path(terrain, start, dest, 2, MAP, MAP, {dest: true})
 	assert_eq(path.size(), 0, "목적지가 점유 칸이면 도달 불가(빈 경로)")
 
-# --- follow_destination (하위부대 자동 추종 목적지) ---
+# --- follow_destination (하위부대 작전 추종 목적지) ---
 
 ## 영웅으로부터의 지형 거리 맵(산만 제외, 유닛 무관) — 후보 근접 비교용.
 func _hero_dist(hero: Vector2i) -> Dictionary:

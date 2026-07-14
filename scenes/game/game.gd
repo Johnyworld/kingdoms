@@ -20,7 +20,7 @@ const PARTY_SCENE := preload("res://scenes/party/party.tscn")
 # 부대 이동 애니메이션. 칸당 이동 시간(플레이어·NPC 공유) / 같은 세력 내 NPC 부대 시작 간격(스태거).
 const MOVE_STEP_TIME := 0.12
 const NPC_PARTY_STAGGER := 0.2
-const FOLLOW_STAGGER := 0.1   # 자동 추종 시 하위부대 출발 간격(초) → hero-follow.md
+const FOLLOW_STAGGER := 0.1   # 작전 추종 시 하위부대 출발 간격(초) → squad-stance.md
 
 # NPC가 자기 캠프를 방어하는 반경(헥스). 이 안에 적 부대가 들어오면 그 침입자를 요격 우선한다.
 const NPC_DEFEND_RADIUS := 5
@@ -122,9 +122,12 @@ var _player_moving := false
 var _player_tween: Tween = null
 var _player_move_target: Vector2i
 
-# 진행 중인 자동 추종(하위부대) 이동. 턴 종료 시 목적지로 스냅한다. → hero-follow.md
+# 진행 중인 하위부대 추종 이동. 턴 종료 시 목적지로 스냅한다. → squad-stance.md
 var _follow_tweens: Array = []           # 살아 있는 추종 Tween 목록.
 var _follow_targets: Dictionary = {}     # 하위부대 → 최종 목적지 칸(스냅용).
+
+# 작전 메뉴가 뜬 대상 영웅부대(없으면 null). 메뉴가 떠 있는 동안 맵 좌클릭을 잠근다. → squad-stance.md
+var _stance_hero = null
 
 # 전투 오버레이가 떠 있는 동안 월드맵 좌클릭·턴 종료를 잠근다.
 var _in_battle := false
@@ -635,12 +638,9 @@ func _handle_click(world_pos: Vector2) -> void:
 			_undo_party = party   # 되돌리기용: 이동 전 칸 기록(다른 부대 이동/행동 시 갱신·소멸)
 			_undo_cell = party_cell
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
-			var follow_hero = party if party.is_hero() and party.auto_follow else null   # 자동 추종 켠 영웅부대면 하위부대를 뒤따르게 한다.
 			_deselect()
 			_hide_party_info()
-			_move_player_to(party_cell, cell)
-			if follow_hero != null:
-				_follow_with_lord(follow_hero, cell)   # → hero-follow.md
+			_move_player_to(party_cell, cell)   # 이동 완료 후 _after_move가 영웅이면 작전 메뉴를 연다 → squad-stance.md
 		ClickRouter.CAMP_MENU:
 			if _selected:
 				_deselect()
@@ -1380,6 +1380,9 @@ func _trigger_game_over(title: String, subtitle: String) -> void:
 	_game_over = true
 	if _selected:
 		_deselect()
+	if _stance_hero != null:
+		_stance_hero = null          # 작전 메뉴가 떠 있었으면 정리(Slice 2의 전투 수반 스탠스 대비 방어). → squad-stance.md
+		party_action_menu.close()
 	_hide_party_info()
 	result_overlay.show_result(title, subtitle)
 
@@ -1486,7 +1489,7 @@ func _open_action_menu() -> void:
 		var can_undo: bool = _undo_party == party
 		var can_ladder: bool = not party.moved_this_turn and not _ladder_target_for(party).is_empty()   # 성벽 적 거점 인접 + 미이동
 		var can_bombard: bool = party.has_siege() and party.can_attack() and not _bombard_cells.is_empty()   # 투석기 실음 + 사거리 안 표적(성벽/적 부대) → siege-engines.md
-		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), _on_own_center(), false, can_ladder, false, can_bombard, _can_manage_lord(party), party.is_hero(), party.auto_follow), _screen_pos(party.position))
+		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), _on_own_center(), false, can_ladder, false, can_bombard, _can_manage_lord(party)), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
 
@@ -1806,6 +1809,9 @@ func _screen_pos(world_pos: Vector2) -> Vector2:
 
 ## 메뉴 버튼 처리. 팝업(적 대상)이면 공격/사격, 중앙 메뉴면 사격 모드/휴식/경계.
 func _on_party_action(id: String) -> void:
+	if _stance_hero != null:
+		_resolve_stance(id)   # 작전 메뉴는 선택 해제 상태에서 뜨므로 _selected 가드보다 먼저 → squad-stance.md
+		return
 	if not _selected:
 		return
 	if _merge_target != null:
@@ -1882,9 +1888,6 @@ func _on_party_action(id: String) -> void:
 		"lord":
 			party_action_menu.close()
 			lord_menu.open(party, _adjacent_player_heroes(party))   # 소속 영웅 설정/해제(턴 소비 없음) → party-lord.md
-		"auto":
-			party.toggle_auto_follow()   # 영웅부대 자동 추종 on/off(턴 소비 없음) → hero-follow.md
-			_open_action_menu()          # 라벨 갱신(추종 켜기 ↔ 추종 끄기)
 		"undo":
 			_undo_last_move()
 
@@ -1903,7 +1906,10 @@ func _on_turn_ended() -> void:
 	if _in_battle or _game_over:
 		return   # 전투 관전 중·게임 오버에는 턴을 넘기지 않는다.
 	_finish_player_move()   # 이동 애니메이션 중이면 목적지로 스냅한 뒤 턴을 넘긴다.
-	_finish_pending_follow_moves()   # 자동 추종 이동 중이면 하위부대도 목적지로 스냅. → hero-follow.md
+	_finish_pending_follow_moves()   # 추종 이동 중이면 하위부대도 목적지로 스냅. → squad-stance.md
+	if _stance_hero != null:
+		_stance_hero = null          # 작전 메뉴 대기 중 턴 종료 → 명령 취소(대기 취급)하고 메뉴 닫기. → squad-stance.md
+		party_action_menu.close()
 	_undo_party = null   # 턴이 바뀌면 되돌리기 초기화
 	if _selected:
 		_deselect()
@@ -2153,6 +2159,10 @@ func _after_move(then_action) -> void:
 		else:
 			_begin_battle(then_action["enemy"], 1, then_action["occupy"])   # 이동 후 근접 전투(거리 1)
 		return
+	# 영웅부대이고 이번 턴 명령 가능한 하위부대가 있으면 작전 메뉴를 먼저 연다. → squad-stance.md
+	if party.is_hero() and _can_command_subordinates(party):
+		_open_stance_menu(party)
+		return
 	if not party.can_rest():
 		return
 	# 이동 후에도 선택을 유지해 행동 메뉴([사격]·[대기])와 빨강 적 타일을 갱신한다.
@@ -2169,7 +2179,7 @@ func _finish_player_move() -> void:
 	_player_tween = null
 	_update_fog()
 
-## hero에 소속된(lord == hero) 멤버 있는 하위부대 목록. 자동 추종 대상. → hero-follow.md
+## hero에 소속된(lord == hero) 멤버 있는 하위부대 목록. 작전(추종) 대상. → squad-stance.md
 func _subordinates_of(hero) -> Array:
 	var out: Array = []
 	for p in _units + _npc_parties:
@@ -2177,20 +2187,47 @@ func _subordinates_of(hero) -> Array:
 			out.append(p)
 	return out
 
-## 자동 추종: hero에 소속된 하위부대들을 hero의 목적지(hero_dest_cell) 주변 빈 칸으로 따라오게 한다. → hero-follow.md
+## hero에 이번 턴 명령 가능한(can_move) 하위부대가 하나라도 있는지 — 작전 메뉴 노출 조건. → squad-stance.md
+func _can_command_subordinates(hero) -> bool:
+	for f in _subordinates_of(hero):
+		if f.can_move():
+			return true
+	return false
+
+## 영웅 이동 직후 작전 메뉴를 연다(하위부대 일괄 통솔). _stance_hero를 세워 맵 클릭을 잠그고 버튼만 받는다. → squad-stance.md
+func _open_stance_menu(hero) -> void:
+	_stance_hero = hero
+	party_action_menu.open(PartyActionMenu.stance_actions(), _screen_pos(hero.position))
+
+## 고른 작전(스탠스)을 처리하고 영웅 자신의 이동 후 메뉴로 복귀한다. → squad-stance.md
+func _resolve_stance(id: String) -> void:
+	var hero = _stance_hero
+	_stance_hero = null
+	party_action_menu.close()
+	match id:
+		"st_follow":
+			_follow_with_lord(hero, terrain.local_to_map(hero.position))   # 하위부대가 영웅 주변으로 집결
+		"st_hold":
+			pass   # 대기 — 하위부대 제자리(방어 버프 미구현)
+	# 영웅이 아직 행동 가능하면(사격/대기) 자신의 메뉴로 복귀한다.
+	if hero.can_rest():
+		party = hero
+		_select()
+
+## 작전(추종): hero에 소속된 하위부대들을 hero 칸(hero_cell) 주변 빈 칸으로 따라오게 한다. → squad-stance.md
 ## 하나씩 순차 배정하며 목적지·영웅 칸을 예약해 서로 겹치지 않게 흩어진다. 이미 행동했거나 갇힌 부대는 건너뛴다.
-func _follow_with_lord(hero, hero_dest_cell: Vector2i) -> void:
+func _follow_with_lord(hero, hero_cell: Vector2i) -> void:
 	var followers := _subordinates_of(hero)
 	if followers.is_empty():
 		return
 	var blocked := _blocked_for(hero)   # 유닛 점유 + 성벽(hero 자신은 제외됨)
-	blocked[hero_dest_cell] = true       # 영웅 목적지 예약(하위부대가 밟지 않게)
+	blocked[hero_cell] = true            # 영웅 칸 예약(하위부대가 밟지 않게)
 	var delay := 0.0
 	for f in followers:
 		if not f.can_move():
 			continue   # 이미 이동/공격했거나 주둔 중 → 그 자리에 남음
 		var f_cell := terrain.local_to_map(f.position)
-		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_dest_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
 		if dest == f_cell:
 			continue   # 이미 최선 위치(인접) → 이동·턴 소비 없음
 		var path := HexGrid.reconstruct_path(terrain, f_cell, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
@@ -2212,7 +2249,7 @@ func _start_follow_animation(f, path: Array, delay: float) -> void:
 		_follow_targets.erase(f)
 		_follow_tweens.erase(tw))
 
-## 진행 중인 자동 추종 이동을 즉시 끝낸다(턴 종료 시): 트윈을 죽이고 각 하위부대를 목적지 칸으로 스냅.
+## 진행 중인 하위부대 추종 이동을 즉시 끝낸다(턴 종료 시): 트윈을 죽이고 각 하위부대를 목적지 칸으로 스냅. → squad-stance.md
 func _finish_pending_follow_moves() -> void:
 	for t in _follow_tweens.duplicate():
 		if is_instance_valid(t) and t.is_valid():
@@ -2478,8 +2515,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			# 이동 애니메이션(영웅·하위부대 추종)·전투·게임 오버 중에는 새 클릭(이동·선택·메뉴)을 무시한다. 줌은 위에서 이미 처리됨.
-			if not _player_moving and _follow_tweens.is_empty() and not _in_battle and not _game_over:
+			# 이동 애니메이션(영웅·하위부대 추종)·작전 메뉴 대기·전투·게임 오버 중에는 새 클릭(이동·선택·메뉴)을 무시한다. 줌은 위에서 이미 처리됨.
+			if not _player_moving and _follow_tweens.is_empty() and _stance_hero == null and not _in_battle and not _game_over:
 				_handle_click(get_global_mouse_position())
 	elif event is InputEventPanGesture:
 		# 두 손가락 스크롤: 위로(delta.y<0) = 확대, 아래로 = 축소.

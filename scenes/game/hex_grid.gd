@@ -113,7 +113,7 @@ static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vecto
 	path.reverse()
 	return path
 
-## 하위부대(follower_cell)가 영웅(hero_cell)을 따라갈 목적지 칸을 고른다(자동 추종). → docs/spec/features/hero-follow.md
+## 하위부대(follower_cell)가 영웅(hero_cell)을 따라갈 목적지 칸을 고른다(작전 추종). → docs/spec/features/squad-stance.md
 ## - 후보 = 제자리(follower_cell) + 이번 이동력으로 도달 가능한 칸(movement_ranges의 move). 산·blocked_cells는 제외.
 ## - 순위: 영웅으로부터의 지형 거리(산만 제외·유닛 무관)가 작은 칸 우선, 동률이면 하위부대에서 가까운 칸 우선.
 ## - hero_cell 자체는 절대 고르지 않는다(영웅이 설 칸). 인접 빈 칸이 도달 가능하면 그 칸(거리 1), 아니면 최대한 접근.
