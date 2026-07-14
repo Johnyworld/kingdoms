@@ -60,7 +60,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
 - [Combat Feedback (전투 연출)](features/combat-feedback.md) — 대미지 숫자·타격 반짝임·흔들림·돌진·상태이상 텍스트·사망 넉백
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
-- [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(벌목소·농장). 생산포인트(인원÷거리) 모델 · 인원 1-5 거점 인구 차출 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 신규 지형·자원·건물은 슬라이스 2 후속
+- [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(벌목소·농장·사냥터·낚시터·철/금/은광). 생산포인트(인원÷거리) 모델 · 인원 1-5 거점 인구 차출 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접)
+- [Secondary Production (2차 생산·가공)](features/processing.md) — 자원→자원 변환 건물(제재소·축사·제련소·제분소·제빵소). 작업포인트(인원 속도 0.8/1.5/2) · 건물별 레시피(제련소 선택) · 인원 1-3 · 거점 인접 배치. 작업 모드(N개 유지·N턴)는 2차-b 후속
 - [Camp Capture (캠프 점령)](features/camp-capture.md) — 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
 - [Garrison / 주둔 (거점 수비)](features/garrison.md) — 수비대=부대, 거점 중심 타일 주둔 부대가 방어(초기 4명), 주둔/주둔 종료·주둔 중 사격
 - [Wall / 성벽 (거점 방어 구조물)](features/wall.md) — 마을회관·성 성벽(`wall_level`) 적 접근 차단 + 사다리 공성(3턴·밀기 15%·통로 돌파) + 성문(`gate_hp` 120, 충차로 파괴 시 그 면 통로 개방·성벽 유지)

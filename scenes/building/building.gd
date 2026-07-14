@@ -36,8 +36,14 @@ var gate_hp := 0
 
 # 1차 생산 건물 상태. → docs/spec/features/production.md
 var production_points := 0   # 누적 생산포인트. 매 턴 += workers, ≥ 거리면 자원 산출·차감.
-var workers := 0             # 배치 인원(0-5). 배정 거점 영지 인구에서 차출. 생산력 = workers ÷ 거리.
-var assigned_center = null   # 인원 차출·자원 산출·거리 측정 대상 거점(Building). 건설 시 최근접 자동, 변경 가능.
+var workers := 0             # 배치 인원. 배정 거점 영지 인구에서 차출. 1차: 0-5, 2차: 0-3.
+var assigned_center = null   # 인원 차출·자원 입출력·거리 측정 대상 거점(Building). 건설 시 자동, 변경 가능.
+
+# 2차 생산(가공) 건물 상태. → docs/spec/features/processing.md
+var work_points := 0         # 누적 작업포인트. 매 턴 += work_speed(), 10당 레시피 1배치 변환.
+var active_recipe := 0       # 현재 레시피 인덱스(제련소 등 다중 레시피 선택).
+const WORK_SPEED := [0, 8, 15, 20]   # 배치 인원(0-3)별 작업 속도 포인트/턴(0.8/1.5/2.0 ×10).
+const WORK_PER_BATCH := 10           # 레시피 1배치에 필요한 작업포인트.
 
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
@@ -138,6 +144,37 @@ func tick_production(distance: int) -> int:
 ## 생산력 표시값 = workers / distance(턴당 자원, 소수). distance≤0이면 0.
 func production_rate(distance: int) -> float:
 	return 0.0 if distance <= 0 else float(workers) / float(distance)
+
+## 2차 생산(가공) 건물인지(카탈로그 secondary_production). → processing.md
+func is_secondary_production() -> bool:
+	return _spec.get("secondary_production", false)
+
+## 가공 레시피 목록 [{in, out}]. 대부분 1개, 제련소 3개.
+func recipes() -> Array:
+	return _spec.get("recipes", [])
+
+## 현재 레시피 입력/출력(자원→수). 인덱스 범위 밖이면 {}.
+func active_recipe_input() -> Dictionary:
+	var r := recipes()
+	return r[active_recipe].get("in", {}) if active_recipe >= 0 and active_recipe < r.size() else {}
+
+func active_recipe_output() -> Dictionary:
+	var r := recipes()
+	return r[active_recipe].get("out", {}) if active_recipe >= 0 and active_recipe < r.size() else {}
+
+## 배치 인원별 작업 속도 포인트/턴([0,8,15,20], 인원 3 초과는 클램프).
+func work_speed() -> int:
+	return WORK_SPEED[clampi(workers, 0, 3)]
+
+## 매 턴 작업포인트를 인원 속도만큼 올리고, max_batches(입력·모드 상한)까지 배치를 반환·차감한다.
+## 남는 포인트는 유지(입력 부족 시 일시정지). 가공 건물 아니면 0. → processing.md
+func advance_work(max_batches: int) -> int:
+	if not is_secondary_production():
+		return 0
+	work_points += work_speed()
+	var b: int = mini(work_points / WORK_PER_BATCH, maxi(max_batches, 0))
+	work_points -= b * WORK_PER_BATCH
+	return b
 
 ## 종류의 턴당 생산량(자원명→수량). 건설 중에는 빈 Dictionary(생산 없음).
 ## 1차 생산 건물은 flat production 키가 없어 {} — 생산포인트 경로만 쓴다. → production.md

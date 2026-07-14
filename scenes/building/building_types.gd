@@ -27,7 +27,7 @@ static func next_center(type_id: String) -> String:
 
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 거점(캠프·마을회관·성)은 제외 — 캠프=새 영지(미구현), 마을회관·성=업그레이드.
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
-const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "siege_workshop"]
+const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "sawmill", "mill", "bakery", "stable", "smelter", "siege_workshop"]
 
 # 거점 성벽 1단계 건설 비용(자재). 성벽은 카탈로그 건물이 아니라 거점에 붙는 값(Building.wall_level). → docs/spec/features/wall.md
 const WALL_COST := {"목재": 15, "석재": 10}
@@ -60,9 +60,12 @@ const CATALOG := {
 			"철": 10,
 			"철괴": 10,
 			"금": 0,   # 화폐. 판매로만 늘어난다(생산 없음).
-			"고기": 0,   # 사냥터 산출(1차 생산, 슬라이스 2)
+			"고기": 0,   # 사냥터·축사 산출
 			"생선": 0,   # 낚시터 산출
 			"은": 0,     # 은광 산출
+			"밀가루": 0, # 제분소 가공(2차 생산)
+			"은괴": 0,   # 제련소 가공
+			"금괴": 0,   # 제련소 가공
 		},
 		# 외형.
 		"fill_color": Color(0.52, 0.38, 0.24, 0.9),  # 부지(흙색)
@@ -245,6 +248,82 @@ const CATALOG := {
 		"primary_production": true,
 		"produces": "은",
 		"buildable_terrains": [Terrain.SILVER_VEIN],
+	},
+	# --- 2차 생산(가공) 건물: 자원→자원 변환. 작업포인트(인원 속도)·건물별 레시피·거점 인접. → docs/spec/features/processing.md ---
+	"sawmill": {
+		"label": "제재소",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.5, 0.42, 0.28, 0.9),
+		"edge_color": Color(0.32, 0.26, 0.16),
+		"tent_color": Color(0.72, 0.6, 0.4),
+		"build_turns": 4,
+		"build_cost": {"목재": 10, "철괴": 2},
+		"demolish_refund": {"목재": 2},
+		"secondary_production": true,
+		"recipes": [{"in": {"나무": 1}, "out": {"목재": 1}}],
+	},
+	"mill": {
+		"label": "제분소",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.72, 0.68, 0.5, 0.9),
+		"edge_color": Color(0.46, 0.42, 0.28),
+		"tent_color": Color(0.88, 0.84, 0.62),
+		"build_turns": 3,
+		"build_cost": {"목재": 8, "석재": 4},
+		"demolish_refund": {"목재": 1},
+		"secondary_production": true,
+		"recipes": [{"in": {"밀": 1}, "out": {"밀가루": 1}}],
+	},
+	"bakery": {
+		"label": "제빵소",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.7, 0.5, 0.3, 0.9),
+		"edge_color": Color(0.44, 0.3, 0.18),
+		"tent_color": Color(0.9, 0.72, 0.48),
+		"build_turns": 4,
+		"build_cost": {"목재": 10, "석재": 6},
+		"demolish_refund": {"목재": 1, "석재": 1},
+		"secondary_production": true,
+		"recipes": [{"in": {"밀가루": 1}, "out": {"빵": 1}}],
+	},
+	"stable": {
+		"label": "축사",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.55, 0.45, 0.3, 0.9),
+		"edge_color": Color(0.36, 0.28, 0.18),
+		"tent_color": Color(0.78, 0.66, 0.46),
+		"build_turns": 5,
+		"build_cost": {"목재": 15, "밀": 8},
+		"demolish_refund": {"목재": 2},
+		"secondary_production": true,
+		"recipes": [{"in": {"밀": 2}, "out": {"고기": 1}}],
+	},
+	"smelter": {
+		"label": "제련소",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.42, 0.4, 0.42, 0.9),
+		"edge_color": Color(0.26, 0.24, 0.26),
+		"tent_color": Color(0.7, 0.55, 0.4),
+		"build_turns": 5,
+		"build_cost": {"목재": 12, "석재": 10},
+		"demolish_refund": {"목재": 2, "석재": 2},
+		"secondary_production": true,
+		# 레시피 선택(active_recipe): 0=철→철괴, 1=은→은괴, 2=금→금괴.
+		"recipes": [
+			{"in": {"철": 1}, "out": {"철괴": 1}},
+			{"in": {"은": 1}, "out": {"은괴": 1}},
+			{"in": {"금": 1}, "out": {"금괴": 1}},
+		],
 	},
 	# --- 공성 작업장: 완성 시 그 영지 거점에서 투석기 생산 해금. 턴당 생산 없음. → docs/spec/features/siege-engines.md ---
 	"siege_workshop": {

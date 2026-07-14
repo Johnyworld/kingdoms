@@ -42,7 +42,9 @@
 | 성문 내구도 | `gate_hp` | `int` | `0` | 거점 [성문 내구도](../features/wall.md#성문-gate). 성벽 건설 시 `Siege.GATE_MAX_HP`(120)로 채우고, [충차·투석](../features/wall.md#성문-gate)으로 깎여 0이면 성문 면 통로 개방(성벽은 유지). 성벽 없으면 `0` |
 | 생산포인트 | `production_points` | `int` | `0` | [1차 생산 건물](../features/production.md)의 누적 생산포인트. 매 턴 `+= workers`, `≥ 거리`면 자원 산출·차감 |
 | 배치 인원 | `workers` | `int` | `0` | [1차 생산 건물](../features/production.md)에 배치한 인원(0-5). 배정 거점 영지 인구에서 차출. 생산력 = `workers ÷ 거리` |
-| 배정 거점 | `assigned_center` | `Building` | `null` | [1차 생산 건물](../features/production.md)이 인원 차출·자원 산출·거리 측정하는 대상 거점. 건설 시 최근접 자동, 변경 가능 |
+| 배정 거점 | `assigned_center` | `Building` | `null` | [1차](../features/production.md)/[2차 생산](../features/processing.md) 건물이 인원 차출·자원 입출력·거리 측정하는 대상 거점. 건설 시 자동, 변경 가능 |
+| 작업포인트 | `work_points` | `int` | `0` | [2차 생산(가공)](../features/processing.md) 건물의 누적 작업포인트. 매 턴 `+= work_speed()`, 10당 레시피 1배치 변환 |
+| 활성 레시피 | `active_recipe` | `int` | `0` | [2차 생산](../features/processing.md) 건물의 현재 레시피 인덱스(제련소 등 다중 레시피 선택) |
 
 > **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([Garrison / 주둔](../features/garrison.md)). 예전 `Building.garrison`(Human 배열)은 폐지됐다.
 
@@ -72,6 +74,9 @@
 - `buildable_terrains() -> Array` — 건설 가능 지형 source_id 리스트(카탈로그 `buildable_terrains`, 없으면 `[]`=제한 없음).
 - `tick_production(distance) -> int` — 매 턴 `production_points += workers` 후 `≥ distance`마다 자원 1 산출(PP 차감), 산출 수 반환. `workers≤0`·`distance≤0`·`produces()==""`면 0. → [생산포인트](../features/production.md#생산포인트-메커니즘)
 - `production_rate(distance) -> float` — 생산력 표시값 `workers/distance`(distance≤0이면 0).
+- `is_secondary_production() -> bool` — [2차 생산(가공)](../features/processing.md) 건물인지(카탈로그 `secondary_production`).
+- `recipes() -> Array` — 가공 레시피 목록(`[{in, out}]`). `active_recipe_input()`/`active_recipe_output() -> Dictionary` — 현재 레시피 입출력.
+- `work_speed() -> int` — 인원별 작업 속도 포인트/턴(`[0,8,15,20]`). `advance_work(max_batches) -> int` — `work_points += work_speed()` 후 `min(work_points/10, max_batches)` 배치 반환·차감. → [processing.md](../features/processing.md)
 - `advance_construction() -> bool` — 건설을 1턴 진행. 이미 완성이면 `false`(불변). 건설 중이면 `remaining_turns -= 1`, 0 이하가 되면 완성 처리하고 **이번에 완성됐으면 `true`**, 아직 진행 중이면 `false`.
 - `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). **건설 중에는 빈 Dictionary**. 완성 후에는 카탈로그의 `production`(없으면 빈 Dictionary, 캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
 - `planned_production() -> Dictionary` — 완성 시 생산량(카탈로그 `production`). **건설 여부와 무관**하게 항상 반환(`production()`과 달리 건설 중에도 값이 있음). [건물 정보 패널](../features/building-info.md)이 건설 중에도 완성 시 생산량을 보여줄 때 쓴다.

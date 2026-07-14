@@ -178,6 +178,7 @@ func _ready() -> void:
 	building_info.demolish_requested.connect(_on_demolish_requested)
 	building_info.workers_changed.connect(_on_workers_changed)
 	building_info.center_change_requested.connect(_on_center_change)
+	building_info.recipe_change_requested.connect(_on_recipe_change)
 	members_menu.open_requested.connect(_on_members_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
@@ -838,8 +839,8 @@ func _refund_text(b) -> String:
 func _do_demolish(b) -> void:
 	if not is_instance_valid(b):
 		return   # 다이얼로그가 열린 사이 다른 경로로 건물이 제거됐으면 무시
-	# 1차 생산 건물의 배치 인원은 required_pop이 아니라 workers라 demolish가 자동 반환하지 못한다 — 여기서 반환. → production.md
-	if b.is_primary_production() and b.workers > 0 and b.territory != null:
+	# 1·2차 생산 건물의 배치 인원은 required_pop이 아니라 workers라 demolish가 자동 반환하지 못한다 — 여기서 반환. → production.md · processing.md
+	if (b.is_primary_production() or b.is_secondary_production()) and b.workers > 0 and b.territory != null:
 		b.territory.resources["인구"] = b.territory.resources.get("인구", 0) + b.workers
 		b.workers = 0
 	if b.territory != null:
@@ -1840,6 +1841,7 @@ func _on_turn_ended() -> void:
 	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _units만 등록).
 	_turn.end_turn(_units + _npc_parties, _territories)
 	_tick_production()   # 1차 생산 건물 생산포인트 산출(인원÷거리) → production.md
+	_tick_processing()   # 2차 생산 건물 자원 변환(작업포인트) → processing.md
 	_advance_ladders()   # 사다리 카운트다운 −1(0이면 통로 열림) → wall.md
 	turn_hud.set_turn(_turn.number)
 	_npc_produce_siege()   # NPC 수비대 주기 투석기 보충 생산(5e) → siege-engines.md
@@ -2178,7 +2180,9 @@ func _build_vision() -> Dictionary:
 			vis[c] = true
 		return vis
 	if BuildingTypes.get_type(_build_type).get("primary_production", false):
-		return _player_build_vision()   # 건물∪부대 시야
+		return _player_build_vision()   # 1차 생산 = 건물∪부대 시야
+	if BuildingTypes.get_type(_build_type).get("secondary_production", false):
+		return BuildPlanner.center_adjacent_cells(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT, 0)   # 2차 생산 = 거점(모든 티어) 인접
 	return BuildPlanner.town_hall_adjacent_cells(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT)   # 기타 = 마을회관 인접
 
 ## 플레이어 건물 시야 ∪ 플레이어 부대 시야 합집합(1차 생산 건물 배치 범위). → production.md
@@ -2242,8 +2246,8 @@ func _try_place(cell: Vector2i) -> void:
 		var b := Building.new()
 		add_child(b)
 		b.setup(terrain, cell, _build_type, true)   # 건설 중으로 생성
-		if b.is_primary_production():
-			_assign_production_building(b)   # 최근접 거점 배정 + 인원 1 차출 → production.md
+		if b.is_primary_production() or b.is_secondary_production():
+			_assign_production_building(b)   # 최근접/인접 거점 배정 + 인원 1 차출 → production.md · processing.md
 		else:
 			_build_territory.add_building(b)
 		_buildings.append(b)
@@ -2286,10 +2290,11 @@ func _center_distance(b) -> int:
 
 ## [인원 ±] — 배치 인원을 0-5로 조정하며 배정 거점 영지 인구를 차출/반환한다(인구 부족분만큼만 증가). → production.md
 func _on_workers_changed(b, delta: int) -> void:
-	if not b.is_primary_production() or b.assigned_center == null or b.assigned_center.territory == null:
+	if not (b.is_primary_production() or b.is_secondary_production()) or b.assigned_center == null or b.assigned_center.territory == null:
 		return
 	var terr = b.assigned_center.territory
-	var target: int = clampi(b.workers + delta, 0, 5)
+	var max_workers: int = 3 if b.is_secondary_production() else 5   # 1차 0-5, 2차 0-3
+	var target: int = clampi(b.workers + delta, 0, max_workers)
 	var change: int = target - b.workers
 	if change > 0:
 		change = mini(change, terr.resources.get("인구", 0))   # 인구 있는 만큼만 증원
@@ -2319,6 +2324,14 @@ func _on_center_change(b) -> void:
 	next.territory.resources["인구"] = next.territory.resources.get("인구", 0) - b.workers
 	_refresh_building_info(b)
 
+## [레시피 변경] — 2차 생산 다중 레시피(제련소)를 다음 것으로 순환. 진행 중 작업포인트는 초기화. → processing.md
+func _on_recipe_change(b) -> void:
+	if not b.is_secondary_production() or b.recipes().size() <= 1:
+		return
+	b.active_recipe = (b.active_recipe + 1) % b.recipes().size()
+	b.work_points = 0   # 다른 자원으로 바뀌므로 진행 초기화
+	_refresh_building_info(b)
+
 ## 완성 플레이어 거점 목록(배정 대상). → production.md
 func _player_centers() -> Array:
 	var out: Array = []
@@ -2341,6 +2354,29 @@ func _tick_production() -> void:
 		if produced > 0 and b.assigned_center.territory != null:
 			var res: String = b.produces()
 			b.assigned_center.territory.resources[res] = b.assigned_center.territory.resources.get(res, 0) + produced
+
+## 턴 종료 시 완성 2차 생산(가공) 건물의 자원 변환. 계속 모드 = 입력 감당 배치만큼. → processing.md
+func _tick_processing() -> void:
+	for b in _buildings:
+		if not (b.is_complete() and b.is_secondary_production()) or b.assigned_center == null:
+			continue
+		var terr = b.assigned_center.territory
+		if terr == null:
+			continue
+		var inp: Dictionary = b.active_recipe_input()
+		var outp: Dictionary = b.active_recipe_output()
+		if inp.is_empty():
+			continue
+		var affordable: int = 1 << 30
+		for res in inp:
+			affordable = mini(affordable, terr.resources.get(res, 0) / int(inp[res]))
+		var batches: int = b.advance_work(affordable)
+		if batches <= 0:
+			continue
+		for res in inp:
+			terr.resources[res] = terr.resources.get(res, 0) - int(inp[res]) * batches
+		for res in outp:
+			terr.resources[res] = terr.resources.get(res, 0) + int(outp[res]) * batches
 
 ## 새 영지를 개척한다: 자원 0인 새 영지를 플레이어 세력에 편입하고, 건설 중 캠프를 그 자리에 세운다.
 ## 비용은 여는 영지가 이미 지불(build_pay). 새 영지는 인구·자원 0(전초기지), 수비대 없음(부대 편성으로 방어).

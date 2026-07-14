@@ -235,3 +235,12 @@ func test_town_hall_adjacent_empty_for_camp_only() -> void:
 	var camp := _building(_center(), "camp")   # tier 0 < 마을회관
 	var cells: Dictionary = BuildPlanner.town_hall_adjacent_cells(terrain, [camp], MAP, MAP)
 	assert_eq(cells.size(), 0, "캠프만 있으면 마을회관 인접 없음")
+
+# --- 거점 인접 셀 (2차 생산 배치) → docs/spec/features/processing.md ---
+
+func test_center_adjacent_includes_camp() -> void:
+	var camp := _building(_center(), "camp")   # tier 0
+	var all_tier: Dictionary = BuildPlanner.center_adjacent_cells(terrain, [camp], MAP, MAP, 0)
+	var th_tier: Dictionary = BuildPlanner.center_adjacent_cells(terrain, [camp], MAP, MAP, 1)
+	assert_gt(all_tier.size(), 0, "min_tier 0 → 캠프 인접 셀 포함(2차 생산)")
+	assert_eq(th_tier.size(), 0, "min_tier 1(마을회관) → 캠프는 제외")

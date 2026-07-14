@@ -8,6 +8,7 @@ signal demolish_requested(building)
 ## [인원 ±]/[거점 변경] — 1차 생산 건물. game.gd가 받아 인구 차출/반환·거점 이동을 처리한다. → production.md
 signal workers_changed(building, delta)
 signal center_change_requested(building)
+signal recipe_change_requested(building)   # 2차 생산 레시피 순환(제련소) → processing.md
 
 const MARGIN := 16
 
@@ -18,6 +19,7 @@ var _distance := 0             # 1차 생산 건물 ↔ 배정 거점 거리(생
 var _demolish_btn: Button  # 철거 버튼(내 소유·캠프 아님일 때만 표시)
 var _worker_box: HBoxContainer  # [인원 −][인원 +](1차 생산만)
 var _center_btn: Button    # [거점 변경](1차 생산만)
+var _recipe_btn: Button    # [레시피 변경](2차 생산 다중 레시피, 제련소)
 var _building = null        # 현재 표시 중인 건물(철거 대상)
 
 func _ready() -> void:
@@ -74,6 +76,12 @@ func _build() -> void:
 	_center_btn.hide()
 	vbox.add_child(_center_btn)
 
+	_recipe_btn = Button.new()
+	_recipe_btn.text = "레시피 변경"
+	_recipe_btn.pressed.connect(func() -> void: recipe_change_requested.emit(_building))
+	_recipe_btn.hide()
+	vbox.add_child(_recipe_btn)
+
 	# 철거 버튼(기본 숨김). open(.., can_demolish)가 표시 여부를 토글한다.
 	_demolish_btn = Button.new()
 	_demolish_btn.text = "철거"
@@ -82,12 +90,20 @@ func _build() -> void:
 	vbox.add_child(_demolish_btn)
 
 ## 건물 정보를 채우고 패널을 보인다. 정보 리스트는 비우고 다시 채운다(재오픈 대비).
+## 자원 Dictionary({자원:수})를 "밀 2, 고기 1" 형태 문자열로.
+func _res_text(d: Dictionary) -> String:
+	var parts: Array = []
+	for res in d:
+		parts.append("%s %d" % [res, d[res]])
+	return ", ".join(parts) if not parts.is_empty() else "—"
+
 func open(building, can_demolish := false, distance := 0) -> void:
 	_building = building
 	_distance = distance
 	_demolish_btn.visible = can_demolish
-	_worker_box.visible = building.is_primary_production()
+	_worker_box.visible = building.is_primary_production() or building.is_secondary_production()
 	_center_btn.visible = building.is_primary_production()
+	_recipe_btn.visible = building.is_secondary_production() and building.recipes().size() > 1
 	_title.text = building.label()
 	if building.is_complete():
 		_summary.text = "완성 · 시야 %d" % building.vision
@@ -129,6 +145,14 @@ func open(building, can_demolish := false, distance := 0) -> void:
 			var center_label := Label.new()
 			center_label.text = "배정 거점: %s" % building.assigned_center.territory.name
 			_info_list.add_child(center_label)
+
+	# 2차 생산(가공) 건물: 레시피·작업 속도·누적. → docs/spec/features/processing.md
+	if building.is_secondary_production():
+		var label := Label.new()
+		label.text = "%s → %s\n인원 %d · 속도 %.1f/턴 · 누적 %d/%d" % [
+			_res_text(building.active_recipe_input()), _res_text(building.active_recipe_output()),
+			building.workers, building.work_speed() / 10.0, building.work_points, building.WORK_PER_BATCH]
+		_info_list.add_child(label)
 
 	# 인구 상한 기여 줄(집 등, 있으면). 생산 줄처럼 건설 중에도 완성 시 기여분을 보여준다.
 	# 거점(캠프·마을회관·성)은 캠프 메뉴로 라우팅되어 이 패널에 오지 않으므로 제외.

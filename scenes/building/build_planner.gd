@@ -89,14 +89,14 @@ static func can_place(terrain: TileMapLayer, center: Vector2i, map_w: int, map_h
 			return false
 	return true
 
-## 완성 거점(티어 ≥ 마을회관 = 마을회관·성)의 footprint에 인접한 셀 집합 { cell: true }.
-## 비-생산 건물은 여기(마을회관 인접)에만 지을 수 있다. footprint 셀 자체와 맵 밖은 제외. → production.md 배치 규칙
-static func town_hall_adjacent_cells(terrain: TileMapLayer, buildings: Array, map_w: int, map_h: int) -> Dictionary:
+## 완성 거점(티어 ≥ min_tier)의 footprint에 인접한 셀 집합 { cell: true }. footprint 셀 자체·맵 밖 제외.
+## min_tier 0 = 캠프 이상 모든 거점(2차 생산 배치), town_hall 티어 = 마을회관·성(비-생산 건물). → production.md · processing.md
+static func center_adjacent_cells(terrain: TileMapLayer, buildings: Array, map_w: int, map_h: int, min_tier := 0) -> Dictionary:
 	var own := {}       # 거점 footprint 셀(인접 집합에서 제외)
 	var centers := []
 	for b in buildings:
 		if b.is_complete() and BuildingTypes.is_center(b.building_type) \
-				and BuildingTypes.center_tier(b.building_type) >= BuildingTypes.center_tier("town_hall"):
+				and BuildingTypes.center_tier(b.building_type) >= min_tier:
 			centers.append(b)
 			for c in b.cells:
 				own[c] = true
@@ -110,3 +110,7 @@ static func town_hall_adjacent_cells(terrain: TileMapLayer, buildings: Array, ma
 					continue
 				adj[n] = true
 	return adj
+
+## 마을회관 이상(tier ≥ town_hall) 거점 인접 셀 — 비-생산 건물 배치용. → production.md 배치 규칙
+static func town_hall_adjacent_cells(terrain: TileMapLayer, buildings: Array, map_w: int, map_h: int) -> Dictionary:
+	return center_adjacent_cells(terrain, buildings, map_w, map_h, BuildingTypes.center_tier("town_hall"))

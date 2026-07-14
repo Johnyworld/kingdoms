@@ -128,6 +128,57 @@ func test_non_production_building() -> void:
 	assert_eq(building.buildable_terrains(), [], "지형 제한 없음")
 	assert_eq(building.tick_production(5), 0, "생산 없음 → tick 0")
 
+# --- 2차 생산(가공) → docs/spec/features/processing.md ---
+
+func _sawmill() -> void:
+	building.setup(terrain, _center(), "sawmill")
+
+func test_work_speed_by_workers() -> void:
+	_sawmill()
+	building.workers = 0
+	assert_eq(building.work_speed(), 0, "인원 0 → 0")
+	building.workers = 1
+	assert_eq(building.work_speed(), 8, "인원 1 → 8(0.8)")
+	building.workers = 2
+	assert_eq(building.work_speed(), 15, "인원 2 → 15(1.5)")
+	building.workers = 3
+	assert_eq(building.work_speed(), 20, "인원 3 → 20(2.0)")
+	building.workers = 5
+	assert_eq(building.work_speed(), 20, "클램프 상한 3 → 20")
+
+func test_advance_work_batches() -> void:
+	_sawmill()
+	building.workers = 2   # 15/턴
+	assert_eq(building.advance_work(99), 1, "턴1: wp 15 → 1배치")
+	assert_eq(building.work_points, 5, "wp 15→5")
+	assert_eq(building.advance_work(99), 2, "턴2: wp 20 → 2배치")
+	assert_eq(building.work_points, 0, "wp 0")
+
+func test_advance_work_pauses_on_no_input() -> void:
+	_sawmill()
+	building.workers = 2
+	assert_eq(building.advance_work(0), 0, "입력 0 → 변환 0(일시정지)")
+	assert_eq(building.work_points, 15, "포인트는 쌓임(15)")
+	assert_eq(building.advance_work(99), 3, "입력 채워짐 → wp 30 → 3배치")
+
+func test_advance_work_non_secondary() -> void:
+	_camp()
+	assert_eq(building.advance_work(99), 0, "가공 건물 아니면 0")
+
+func test_recipe_input_output() -> void:
+	_sawmill()
+	assert_true(building.is_secondary_production(), "제재소는 2차 생산")
+	assert_eq(building.active_recipe_input(), {"나무": 1}, "입력 나무1")
+	assert_eq(building.active_recipe_output(), {"목재": 1}, "출력 목재1")
+
+func test_smelter_recipe_selection() -> void:
+	building.setup(terrain, _center(), "smelter")
+	assert_eq(building.recipes().size(), 3, "제련소 레시피 3개")
+	assert_eq(building.active_recipe_input(), {"철": 1}, "기본 레시피 철")
+	building.active_recipe = 1
+	assert_eq(building.active_recipe_input(), {"은": 1}, "레시피1 은")
+	assert_eq(building.active_recipe_output(), {"은괴": 1}, "은→은괴")
+
 # --- 점유 영역 ---
 
 func test_occupies_seven_hexes() -> void:
