@@ -113,6 +113,29 @@ static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vecto
 	path.reverse()
 	return path
 
+## 하위부대(follower_cell)가 영웅(hero_cell)을 따라갈 목적지 칸을 고른다(자동 추종). → docs/spec/features/hero-follow.md
+## - 후보 = 제자리(follower_cell) + 이번 이동력으로 도달 가능한 칸(movement_ranges의 move). 산·blocked_cells는 제외.
+## - 순위: 영웅으로부터의 지형 거리(산만 제외·유닛 무관)가 작은 칸 우선, 동률이면 하위부대에서 가까운 칸 우선.
+## - hero_cell 자체는 절대 고르지 않는다(영웅이 설 칸). 인접 빈 칸이 도달 가능하면 그 칸(거리 1), 아니면 최대한 접근.
+## - 더 가까워질 수 없으면(이미 인접·완전히 갇힘) follower_cell(제자리)을 반환한다.
+static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Vector2i:
+	var hero_dist := bfs_distances(terrain, hero_cell, map_w + map_h, map_w, map_h, Terrain.IMPASSABLE)
+	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells)
+	var self_dist: Dictionary = ranges["dist"]   # 하위부대로부터의 거리(제자리 0)
+	var candidates: Array = [follower_cell]
+	candidates.append_array(ranges["move"])
+	var big := map_w * map_h + 1
+	var best := follower_cell
+	var best_h: int = hero_dist.get(follower_cell, big)
+	for c in candidates:
+		if c == hero_cell:
+			continue   # 영웅이 설 칸은 목적지 아님
+		var h: int = hero_dist.get(c, big)
+		if h < best_h or (h == best_h and self_dist.get(c, big) < self_dist.get(best, big)):
+			best_h = h
+			best = c
+	return best
+
 static func _in_bounds(cell: Vector2i, map_w: int, map_h: int) -> bool:
 	return cell.x >= 0 and cell.x < map_w and cell.y >= 0 and cell.y < map_h
 

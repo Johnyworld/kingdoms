@@ -25,6 +25,10 @@ var kind := KIND_TROOP
 ## 소속돼도 부대는 독립 토큰으로 자유 이동한다(소속은 메타데이터 — 버프는 미구현). → Party.md 소속(Lord)
 var lord = null
 
+## 영웅부대의 자동 추종 on/off. 켜면 이 영웅을 이동시킬 때 소속 하위부대(lord == self)가 같은 턴에 따라온다.
+## 일반부대에도 필드는 있으나 추종 트리거는 영웅부대에서만 본다. → docs/spec/features/hero-follow.md
+var auto_follow := false
+
 # --- 멤버 ---
 var members: Array = []   # 이 부대에 속한 Human 목록.
 var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
@@ -95,6 +99,14 @@ func set_lord(hero) -> void:
 ## 소속을 해제한다(독립). → party-lord.md
 func clear_lord() -> void:
 	lord = null
+
+## 자동 추종 상태를 설정한다([자동] 버튼의 단일 출처). → hero-follow.md
+func set_auto_follow(v: bool) -> void:
+	auto_follow = v
+
+## 자동 추종 상태를 반전한다([자동] 버튼 토글). → hero-follow.md
+func toggle_auto_follow() -> void:
+	auto_follow = not auto_follow
 
 ## 이 부대 전 멤버가 장착한 장비 id 평탄 목록(각 멤버 weapons + armor + shield). 빈 방패("")는 제외, 중복 유지.
 ## 약탈 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).

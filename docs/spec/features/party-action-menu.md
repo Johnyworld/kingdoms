@@ -26,7 +26,7 @@
 
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
-- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false) -> Array` — **중앙 메뉴**.
+- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false, can_auto_follow := false, auto_follow_on := false) -> Array` — **중앙 메뉴**.
   - **주둔 중**(`stationed=true`): `[사격]?[사다리 밀기]?[주둔 종료][장비]`. 주둔 부대는 대기라 이동·근접을 못 하지만, **사격 가능 적이 있으면**(`can_shoot_any`) 맨 앞에 `{id="shoot"}`([주둔 중 사격](garrison.md#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)), **자기 거점 겨눈 사다리가 있으면**(`can_push_ladder`) `{id="push_ladder", label="사다리 밀기"}`([성벽 사다리](wall.md#사다리-밀기-방어)). `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·근접이 열린다.
   - **그 외**(`stationed=false`): `{id="shoot", label="사격", enabled=can_shoot_any}` 가 항상 첫 버튼.
     - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
@@ -36,6 +36,7 @@
     - **성벽 있는 적 거점에 인접**(`can_place_ladder=true`)이면 `{id="ladder", label="사다리 설치"}`가 추가된다([성벽 사다리](wall.md#설치-플레이어)).
     - **투석기를 실었고 사거리 안 성벽 적 거점이 있으면**(`can_bombard=true`)이면 `{id="catapult", label="투석"}`이 추가된다([투석 공성](siege-engines.md#투석-공성-성벽)).
     - **일반부대이고 소속 관리 가능**(`can_manage_lord=true` — 인접 아군 영웅부대 있음 또는 이미 소속 보유)이면 `{id="lord", label="소속"}`이 **장비 바로 앞**에 추가된다([소속 UI](party-lord.md)). 턴 소비 없음.
+    - **영웅부대이고 자동 추종 토글 가능**(`can_auto_follow=true` — `is_hero()`)이면 `{id="auto", label=auto_follow_on ? "추종 끄기" : "추종 켜기"}`가 **장비 바로 앞**에 추가된다([자동 추종](hero-follow.md)). 턴 소비 없음.
   - **양쪽 공통 — 맨 뒤에 `{id="equip", label="장비", enabled=true}`**: [장비 관리](equipment.md) 모달을 연다. **행동을 끝내지 않는다**(이동/공격 상태 불변) — 노획 장비 장착·탈착은 턴을 소비하지 않는다.
 - `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
@@ -75,6 +76,10 @@
 - [경계] `party_actions(false, true, false, false, false)` → `{id="station"}` 없음(거점 밖)
 - [정상] `party_actions(false, false, false, false, true, true)`(주둔 중·사격 대상 없음) → `[주둔 종료(unstation), 장비]`만
 - [정상] `party_actions(false, true, false, false, true, true)`(주둔 중·사격 대상 있음) → `[사격, 주둔 종료, 장비]`(사격이 맨 앞)
+- [정상] `party_actions(false, true, false, false, false, false, false, false, false, false, true, false)`(자동 토글 가능·꺼짐) → 목록에 `{id="auto", label="추종 켜기"}` 포함(`[장비]` 앞)
+- [정상] 위와 같되 `auto_follow_on=true` → `{id="auto", label="추종 끄기"}`
+- [경계] `can_auto_follow=false` → `[자동]` 없음
+- [경계] 주둔 중(`stationed=true`)이면 `can_auto_follow`와 무관하게 `[자동]` 없음
 - [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
 - [정상] `enemy_actions(false, true)` → `[공격(비활성), 사격(활성)]`
 

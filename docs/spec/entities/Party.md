@@ -31,6 +31,7 @@
 | 영웅부대 여부 | `is_hero()` | `bool` | — | `kind == KIND_HERO` |
 | 소속 지정 | `set_lord(hero)` | — | — | `lord = hero`. [소속 UI](../features/party-lord.md)의 소속(합류) 확정에 쓰는 단일 출처 |
 | 소속 해제 | `clear_lord()` | — | — | `lord = null`(독립). [소속 UI](../features/party-lord.md)의 [독립] |
+| 자동 추종 | `auto_follow` | `bool` | `false` | **영웅부대**의 자동 추종 on/off. 켜진 영웅부대를 이동시키면 소속 하위부대(`lord == 영웅`)가 같은 턴에 따라온다([Hero Follow](../features/hero-follow.md)). 일반부대에도 필드는 있으나 추종 트리거는 영웅부대에서만 본다. `set_auto_follow(v)`/`toggle_auto_follow()`로 변경 |
 
 ### 멤버 (Members)
 
@@ -92,6 +93,7 @@
 - `lord_name() -> String` — `lord`의 `commander_name()`. `lord`가 `null`이거나 그 지휘관이 없으면 `"—"`.
 - `set_lord(hero) -> void` — 소속 영웅부대를 지정한다(`lord = hero`). [소속 UI](../features/party-lord.md)가 소속(합류) 확정에 쓴다.
 - `clear_lord() -> void` — 소속을 해제한다(`lord = null`, 독립). [소속 UI](../features/party-lord.md)의 [독립].
+- `set_auto_follow(v: bool) -> void` / `toggle_auto_follow() -> void` — 영웅부대 자동 추종 상태(`auto_follow`)를 설정/반전한다([자동] 버튼의 단일 출처). → [Hero Follow](../features/hero-follow.md).
 - `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
 - `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
 - `transfer_loot_to(other, id) -> bool` — 이 부대 `loot_items`의 장비 `id` 하나를 `other.loot_items`로 옮긴다. 이 부대가 그 id를 안 가졌으면 `false`(no-op). 성공 시 이 부대에서 그 id 하나 빼고 `other`에 더해 `true`.
@@ -135,6 +137,7 @@
 - [정상] `lord`에 지휘관 있는 영웅부대를 지정하면 `has_lord() == true`, `lord_name()`이 그 영웅 이름
 - [경계] `lord`에 지휘관 없는(빈) 부대를 지정하면 `has_lord() == true`이나 `lord_name() == "—"`
 - [정상] `set_lord(hero)` 후 `lord == hero`, `has_lord()` 참; `clear_lord()` 후 `lord == null`, `has_lord()` 거짓
+- [정상] 생성 직후 `auto_follow == false`; `set_auto_follow(true)` 후 참; `toggle_auto_follow()` 로 값 반전([Hero Follow](../features/hero-follow.md))
 - [정상] 이동력 3·2 멤버 → `movement() == 2` (최소값, 가장 느린 멤버)
 - [경계] 멤버 없으면 `movement() == 0`
 - [정상] 시야 5·2 멤버 → `vision() == 5` (최대값)

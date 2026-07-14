@@ -38,6 +38,30 @@ func test_party_actions_rest_alert_wait_enabled() -> void:
 	assert_true(_by_id(PartyActionMenu.party_actions(false, false, false), "alert")["enabled"], "경계 활성")
 	assert_true(_by_id(PartyActionMenu.party_actions(true, false, false), "wait")["enabled"], "대기 활성")
 
+# --- 자동 추종 버튼 ([자동]) ---
+
+func test_party_actions_auto_follow_off_label() -> void:
+	var a := PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, false, true, false)
+	assert_true("auto" in _ids(a), "자동 토글 가능하면 [자동] 포함")
+	assert_eq(_by_id(a, "auto")["label"], "추종 켜기", "꺼짐이면 '추종 켜기'")
+
+func test_party_actions_auto_follow_on_label() -> void:
+	var a := PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, false, true, true)
+	assert_eq(_by_id(a, "auto")["label"], "추종 끄기", "켜짐이면 '추종 끄기'")
+
+func test_party_actions_auto_before_equip() -> void:
+	var ids := _ids(PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, false, true, false))
+	assert_eq(ids[ids.size() - 2], "auto", "[자동]은 [장비] 바로 앞")
+	assert_eq(ids[ids.size() - 1], "equip", "[장비]는 맨 뒤")
+
+func test_party_actions_no_auto_when_disabled() -> void:
+	assert_false("auto" in _ids(PartyActionMenu.party_actions(false, true, false)), "can_auto_follow 없으면 [자동] 없음")
+
+func test_party_actions_no_auto_when_stationed() -> void:
+	# 주둔 중이면 can_auto_follow와 무관하게 [자동] 없음(주둔 목록만).
+	var a := PartyActionMenu.party_actions(false, false, false, false, false, true, false, false, false, false, true, false)
+	assert_false("auto" in _ids(a), "주둔 중이면 [자동] 없음")
+
 # --- 적 팝업 (enemy_actions) ---
 
 func test_enemy_actions_buttons() -> void:
