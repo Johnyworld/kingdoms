@@ -25,18 +25,9 @@
 | 멤버 | `members` | `Array` | `[]` | 이 부대에 속한 [Human](Human.md) 목록 |
 | 지휘관 | `commander` | `Object` (Human) | `null` | 부대를 이끄는 [Human](Human.md). 멤버 중 하나를 가리킨다. 아직 편성 UI가 없어 생성 시 코드로 지정한다 |
 
-### 화물 (Cargo — 캐러반)
-
-거점에서 자원을 싣고 다른 거점으로 옮긴다([캠프 메뉴 보급](../features/camp-menu.md#보급-화물-적재하역)). 부대와 함께 이동하고, 전멸(부대 제거)하면 남은 화물은 소실되지만, **전투로 전멸당하면 승자가 노획한다**([약탈](../features/raid.md)). **병합** 시 화물은 합쳐진다(`merge_from`, 소실 방지). **분할**([부대 편성](../features/party-composition.md)) 시 화물·[노획 장비](#노획-장비-loot-items)를 **분할 패널에서 원 부대 ↔ 새 부대로 나눠 실을 수 있다**(`transfer_cargo_to`/`transfer_loot_to`). 기본값은 원 부대에 남는다.
-
-| 속성 | 변수 | 타입 | 초기값 | 설명 |
-| --- | --- | --- | --- | --- |
-| 화물 | `cargo` | `Dictionary` | `{}` | 운반 중인 자원(자원명→수량). `인구`는 운반하지 않는다(노동력) |
-| 적재 상한 | `CARGO_CAPACITY` | `int`(const) | `50` | 모든 자원 수량 합의 상한 |
-
 ### 노획 장비 (Loot Items)
 
-전투로 전멸시킨 패자 전사자의 장비를 [약탈](../features/raid.md)해 보관한다. 장착되지 않은 채 목록으로만 들고 있으며, **활용(장착·판매·전용 표시 UI)은 `미구현`**.
+전투로 전멸시킨 패자 전사자의 장비를 [약탈](../features/raid.md)해 보관한다. 장착되지 않은 채 목록으로만 들고 있다. **분할**([부대 편성](../features/party-composition.md)) 시 분할 패널에서 원 부대 ↔ 새 부대로 나눌 수 있다(`transfer_loot_to`). **병합** 시 노획 장비는 함께 합쳐진다(소실 방지).
 
 | 속성 | 변수 | 타입 | 초기값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -59,8 +50,7 @@
 
 | 속성 | 메서드 | 규칙 | 설명 |
 | --- | --- | --- | --- |
-| 이동력 | `movement()` | `max(0, 기본 − overload_penalty())`, **공성 유닛 실으면** 견인 규칙 적용 | 기본 = 멤버 `movement`의 **최소값**(가장 느린 멤버). **과적 페널티**를 뺀 값(아래). 멤버 없으면 `0`. **공성 유닛 보유 시**([Siege Engines](../features/siege-engines.md)): 사람 `< SiegeTypes.CREW_MIN`(4)이면 `0`(견인 불가), 아니면 `min(위 값, 견인 이동력 2)` |
-| 과적 페널티 | `overload_penalty()` | `floor(초과량 ÷ (CARGO_CAPACITY ÷ 기본))` | 화물이 [용량](#화물-cargo--캐러반)(50)을 넘으면 감소. 초과량=`cargo_total()−50`. step=`50÷기본이동력`(예 50÷3≈16.7)마다 −1. **2배 용량(100)에서 이동력 0**. 화물 용량 이하·멤버 없으면 `0` |
+| 이동력 | `movement()` | 멤버 `movement`의 **최소값**, **공성 유닛 실으면** 견인 규칙 적용 | 기본 = 멤버 `movement`의 **최소값**(가장 느린 멤버). 멤버 없으면 `0`. **공성 유닛 보유 시**([Siege Engines](../features/siege-engines.md)): 사람 `< SiegeTypes.CREW_MIN`(4)이면 `0`(견인 불가), 아니면 `min(위 값, 견인 이동력 2)`. (화물 제거로 과적 페널티는 폐지) |
 | 시야 | `vision()` | 멤버 `vision`의 **최대값** | 가장 멀리 보는 멤버를 따라간다. 멤버 없으면 `0` |
 | 공격거리 | `attack_range()` | 멤버별 무기 공격거리([ItemTypes](../data/items.md) `max_range(멤버.weapons)`)의 **최대값** | 가장 사거리 긴 멤버·무기 기준. 검+활 소지자는 활(3)로 계산. 월드맵 공격 개시 거리. 멤버 없으면 `0` |
 
@@ -83,27 +73,19 @@
 - `add_member(human) -> void` — 멤버를 `members`에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다. **지휘관이 없으면**(빈 부대의 첫 멤버) 그 멤버를 지휘관으로 삼는다. 다시 그린다.
 - `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. [부대 분할](../features/party-composition.md)·전투 사상자 반영에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
-- `cargo_total() -> int` — 화물 총량(모든 자원 수량 합).
-- `cargo_space() -> int` — 화물 여유 공간(`CARGO_CAPACITY - cargo_total()`).
-- `add_cargo(res_name, n) -> int` — 화물에 자원을 싣는다. 여유 공간까지만(`min(n, space)`), 음수 n은 0. **실제 실은 양**을 반환.
-- `remove_cargo(res_name, n) -> int` — 화물에서 자원을 내린다. 보유분까지만(`min(n, 보유)`), 0이 되면 키 삭제. **실제 내린 양**을 반환.
-- `take_loot(source, res_name, n) -> int` — 다른 부대(`source`)의 화물에서 자원을 약탈해 이 부대로 옮긴다([약탈](../features/raid.md)). `min(n, source 보유)`까지, 승자 용량은 무시(**초과 허용**). 음수 n은 0. **실제 옮긴 양**을 반환하고, `source` 보유가 0이 되면 키를 삭제한다.
-- `take_all_loot(source) -> void` — `source`의 모든 화물을 전량 이 부대로 옮긴다(NPC/자동 약탈). `source` 화물은 빈 Dictionary가 된다.
 - `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
 - `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
-- `transfer_cargo_to(other, res_name, n) -> int` — 이 부대 화물의 자원을 `other` 부대로 옮긴다([부대 분할 분배](../features/party-composition.md)). `min(n, 이 부대 보유)`만큼 — **받는 부대 `CARGO_CAPACITY` 초과 허용**(병합·약탈과 동일). 음수 n은 0. 옮긴 만큼 이 부대에서 빼고 `other`에 싣는다. **실제 옮긴 양** 반환. *(적재량이 용량을 넘으면 [이동력이 감소](#유도-능력치-derived)한다 — `overload_penalty`.)*
 - `transfer_loot_to(other, id) -> bool` — 이 부대 `loot_items`의 장비 `id` 하나를 `other.loot_items`로 옮긴다. 이 부대가 그 id를 안 가졌으면 `false`(no-op). 성공 시 이 부대에서 그 id 하나 빼고 `other`에 더해 `true`.
 - `can_equip_from_loot(member, id) -> bool` — `member`가 `id`를 장착할 수 있는지 판정(dry-run, 변경 없음). id가 `loot_items`에 있고 슬롯 종류가 명확하며 그 슬롯에 여유가 있으면 `true`. **장착 성공 조건의 단일 출처** — `equip_from_loot`와 [장비 관리 UI](../features/equipment.md)의 `[장착]` 버튼 활성이 모두 이 함수를 쓴다.
 - `equip_from_loot(member, id) -> bool` — 인벤토리(`loot_items`)의 장비 `id`를 `member`에게 장착한다([장비 관리](../features/equipment.md)). `can_equip_from_loot`이 `false`면 no-op으로 `false`. 슬롯은 [`ItemTypes.item_slot`](../data/items.md)로 판별: 무기는 `weapons`(상한 [`MAX_WEAPONS`](Human.md)), 방어구는 `armor`(상한 [`MAX_ARMOR`](Human.md)), 방패는 `shield`(비어 있을 때만). **id가 인벤토리에 없거나 / 슬롯 종류 불명 / 슬롯이 꽉 차면 `false`**(no-op). 성공 시 멤버 슬롯에 넣고 `loot_items`에서 그 id 하나를 빼고 `true`.
 - `unequip_to_loot(member, id) -> bool` — `member`가 장착한 장비 `id`를 빼서 인벤토리(`loot_items`)로 되돌린다. 무기·방어구는 목록에서 그 id 하나 제거(주무기[0]를 빼면 다음 무기가 주무기), 방패는 일치할 때 `""`로. **멤버가 그 장비를 안 갖고 있으면 `false`**(no-op). 성공 시 `loot_items`에 더하고 `true`.
-- `base_movement() -> int` — 멤버 `movement`의 최소값(가장 느린 멤버, 멤버 없으면 0). 과적 반영 전 기본 이동력. `movement()`·`overload_penalty()`가 공유한다.
-- `movement() -> int` — **`base_movement()` − `overload_penalty()`**, `max(0, …)`으로 하한 0(멤버 없으면 0). **공성 유닛을 실었으면**([Siege Engines](../features/siege-engines.md)) 견인 규칙을 마저 적용: 사람(`members`) 수가 `SiegeTypes.CREW_MIN`(4) 미만이면 `0`(견인 인력 부족), 아니면 공성 유닛 견인 이동력(가장 느린 것, 투석기 2)으로 `min` 상한. 이동 범위 계산에 사용 — 과적이면 감소된 값이 그대로 [이동 범위](../features/selection-and-movement.md)·NPC 경로에 반영.
+- `base_movement() -> int` — 멤버 `movement`의 최소값(가장 느린 멤버, 멤버 없으면 0). `movement()`가 공유한다.
+- `movement() -> int` — 기본 = `base_movement()`(멤버 없으면 0). **공성 유닛을 실었으면**([Siege Engines](../features/siege-engines.md)) 견인 규칙 적용: 사람(`members`) 수가 `SiegeTypes.CREW_MIN`(4) 미만이면 `0`(견인 인력 부족), 아니면 공성 유닛 견인 이동력(가장 느린 것, 투석기 2)으로 `min` 상한. 이동 범위·NPC 경로에 반영. (화물 제거로 과적 페널티 없음.)
 - `has_siege() -> bool` — `siege_units`가 비지 않았는지. 견인 이동 규칙(`movement`)·[정보 패널](../features/party-info.md) 표시에 쓴다.
 - `add_siege_unit(unit) -> void` — 공성 유닛([SiegeUnit](../features/siege-engines.md))을 `siege_units`에 추가한다([공성 작업장 생산](../features/siege-engines.md)). 인구·멤버에는 영향 없다.
 - `siege_fire_range() -> int` / `siege_min_range() -> int` — 실은 공성 유닛의 **최대/최소 투석 사거리**(없으면 0). [투석](../features/siege-engines.md#투석-공성-성벽) 대상은 이 **밴드**(예: 4~5) 안 거리여야 한다.
 - `siege_attack() -> int` — 실은 공성 유닛의 **최대 공격력**(없으면 0). 투석 데미지 기준값([`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege)).
 - `prune_destroyed_siege() -> int` — `hit_points <= 0`인 [공성 유닛](../features/siege-engines.md#투석기-피격파괴-방어-카운터플레이)을 `siege_units`에서 제거하고 제거 수를 반환한다([투석 결투](../features/siege-engines.md)에서 파괴된 투석기 정리). 없으면 0.
-- `overload_penalty() -> int` — 화물 과적으로 인한 이동력 감소량. 화물 `cargo_total()`이 `CARGO_CAPACITY`(50) 이하이거나 기본 이동력이 0이면 `0`. 초과 시 개념상 `floor(초과량 ÷ (50 ÷ 기본))` — step `50÷기본`(예 16.7)마다 −1. **구현은 정수식 `(초과량 × 기본) ÷ CARGO_CAPACITY`**(정수 나눗셈, 부동소수점 오차 없음, 동일 결과). 화물이 용량의 2배면 페널티 = 기본 이동력(→ movement 0, 정지).
 - `vision() -> int` — 멤버 `vision`의 최대값(멤버 없으면 0). 전장의 안개 계산에 사용.
 - `attack_range() -> int` — 멤버별 `ItemTypes.max_range(멤버.weapons)`의 최대값(멤버 없으면 0). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
@@ -130,11 +112,7 @@
 - [정상] 생성 직후 `commander`는 `null`, `commander_name() == "—"`
 - [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
 - [정상] 이동력 3·2 멤버 → `movement() == 2` (최소값, 가장 느린 멤버)
-- [정상] 화물이 용량(50) 이하면 `overload_penalty() == 0`, `movement()`는 기본과 같음
-- [정상] 과적: 기본 이동력 3·화물 67(초과 17, step 16.7) → `overload_penalty() == 1`, `movement() == 2`
-- [경계] 과적: 기본 3·화물 100(용량 2배, 초과 50) → `overload_penalty() == 3`, `movement() == 0`(정지)
-- [정상] 빠른 부대는 초과에 더 오래 버틴다 — 기본 5·화물 60(초과 10, step 10) → 페널티 1, `movement() == 4`
-- [경계] 멤버 없으면 `overload_penalty() == 0`, `movement() == 0`
+- [경계] 멤버 없으면 `movement() == 0`
 - [정상] 시야 5·2 멤버 → `vision() == 5` (최대값)
 - [정상] 무기 공격거리 1·3 멤버 → `attack_range() == 3` (최대값), 멤버 없으면 0
 - [정상] 생성 직후 `moved_this_turn`·`attacked_this_turn` 거짓, `can_move()`·`can_attack()` 참
@@ -143,17 +121,6 @@
 - [정상] `mark_rested()` 후 `rested_this_turn` 참, `attacked_this_turn` 참(행동 종료), `can_rest()` 거짓
 - [정상] `mark_moved()` 후 `undo_move()` → `moved_this_turn` 거짓, `can_move()` 다시 참
 - [정상] `can_rest()`는 행동 전 참, `mark_attacked()`/`mark_rested()` 후 거짓
-- [정상] 생성 직후 `cargo` 빈 Dictionary, `cargo_total() == 0`, `cargo_space() == 50`
-- [정상] `add_cargo("목재", 10)` → 10 반환, `cargo["목재"] == 10`, `cargo_total() == 10`
-- [경계] `add_cargo`는 여유 공간까지만 — 화물 45 실린 상태서 `add_cargo("밀", 10)` → 5만 실림(반환 5, 상한 50)
-- [경계] `add_cargo` 음수 n → 0(변화 없음)
-- [정상] `remove_cargo("목재", 4)` → 4 반환, 남은 6; 보유보다 크게 요청하면 보유분만 내리고 0이 되면 키 삭제
-- [정상] `take_loot`: source 목재 20에서 `take_loot(source, "목재", 5)` → 5 반환, self `["목재"]==5` / source `["목재"]==15`
-- [경계] `take_loot`는 source 보유분까지만 — 목재 3에서 10 요청 → 3만 옮기고 반환 3, source `"목재"` 키 삭제
-- [경계] `take_loot` 용량 초과 허용 — self 화물 48 실린 상태서 `take_loot`로 10 → 전량 실림, `cargo_total() == 58`(>50)
-- [경계] `take_loot` 음수/0 → 0(양쪽 변화 없음); source에 없는 자원 요청 → 0
-- [정상] `take_all_loot`: source 목재10·식량5 → self로 전량 이전, `source.cargo`는 빈 Dictionary
-- [경계] `take_all_loot` 빈 source → self 변화 없음
 - [정상] `equipment_ids`: 멤버(무기 `["sword","bow"]`·방어구 `["leather_armor"]`·방패 `"buckler"`) → `["sword","bow","leather_armor","buckler"]`(평탄, 순서 유지)
 - [경계] `equipment_ids`는 빈 방패(`shield==""`)를 제외하고, 같은 id 중복은 유지(두 멤버가 `sword`면 두 개); 멤버 없으면 `[]`
 - [정상] `take_all_equipment`: source 멤버 장비 전부가 self `loot_items`에 더해짐(중복 유지), `source`는 불변
@@ -166,10 +133,6 @@
 - [정상] `unequip_to_loot`: 멤버 무기 `["sword","bow"]`에서 `"sword"` 탈착 → `true`, 멤버 `["bow"]`, `loot_items`에 `"sword"`
 - [정상] `unequip_to_loot` 방패: 멤버 방패 `"buckler"` 탈착 → `member.shield==""`, `loot_items`에 `"buckler"`
 - [경계] `unequip_to_loot` 멤버가 안 가진 장비 → `false`, 변화 없음
-- [정상] `transfer_cargo_to`: A 목재 20 → `transfer_cargo_to(B, "목재", 5)` = 5, A `["목재"]==15` / B `["목재"]==5`
-- [경계] `transfer_cargo_to`는 보유분까지만 — A 목재 3에서 10 요청 → 3만 이동
-- [경계] `transfer_cargo_to` 용량 초과 허용 — B가 이미 48이어도 5 더 받아 `cargo_total()==53`(>50)
-- [경계] `transfer_cargo_to` 음수/0/미보유 → 0, 변화 없음
 - [정상] `transfer_loot_to`: A `loot_items`에 `"sword"` → `transfer_loot_to(B, "sword")` = `true`, A에서 빠지고 B에 `"sword"`
 - [경계] `transfer_loot_to` A가 안 가진 id → `false`, 양쪽 변화 없음(중복이면 첫 개만 이동)
 - [정상] 생성 직후 `stationed == false`; 설정 가능
@@ -181,7 +144,7 @@
 - [정상] `add_siege_unit(SiegeUnit.new())` 후 `siege_units` 크기 1, `has_siege() == true`
 - [정상] 사람 4명(이동력 4) + 투석기 1대 → `movement() == 2`(견인 속도 상한)
 - [경계] 사람 3명 + 투석기 → `movement() == 0`(견인 인력 부족)
-- [경계] 사람 4명 + 투석기 + 과적으로 사람 기준 이동력 1 → `movement() == 1`(min)
+- [경계] 사람 4명(이동력 1) + 투석기 → `movement() == 1`(사람이 더 느리면 min)
 - [정상] 투석기 추가는 `vision()`·`attack_range()`·`members`에 영향 없음(인구 비소모)
 
 ## 관련

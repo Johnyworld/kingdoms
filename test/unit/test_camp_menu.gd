@@ -212,41 +212,6 @@ func test_found_camp_button_emits_signal() -> void:
 	menu._found_camp_btn.pressed.emit()
 	assert_signal_emitted_with_parameters(menu, "found_camp_requested", [t])
 
-# --- 보급(화물) 적재/하역 ---
-
-func test_cargo_panel_shown_with_party() -> void:
-	menu.open(_center("town_hall"), _party_with(1))
-	assert_true(menu._cargo_panel.visible, "부대 + 거점이면 보급 패널 표시")
-
-func test_cargo_panel_hidden_without_party() -> void:
-	menu.open(_center("town_hall"))
-	assert_false(menu._cargo_panel.visible, "부대 없으면 보급 패널 숨김")
-
-func test_load_cargo_moves_resource_to_party() -> void:
-	var c := _center("town_hall")  # RES: 목재 40
-	var p := _party_with(1)
-	menu.open(c, p)
-	menu._load_cargo("목재")
-	assert_eq(c.territory.resources["목재"], 35, "영지 목재 40 → 35(-5)")
-	assert_eq(p.cargo.get("목재", 0), 5, "부대 화물 목재 +5")
-
-func test_unload_cargo_moves_resource_to_territory() -> void:
-	var c := _center("town_hall", {"목재": 0})
-	var p := _party_with(1)
-	p.add_cargo("목재", 10)
-	menu.open(c, p)
-	menu._unload_cargo("목재")
-	assert_eq(p.cargo.get("목재", 0), 5, "부대 화물 10 → 5(-5)")
-	assert_eq(c.territory.resources.get("목재", 0), 5, "영지 목재 +5")
-
-func test_cargo_panel_excludes_population() -> void:
-	menu.open(_center("town_hall"), _party_with(1))  # RES에 인구 포함
-	var has_pop := false
-	for row in menu._cargo_list.get_children():
-		if (row.get_child(0) as Label).text.begins_with("인구"):
-			has_pop = true
-	assert_false(has_pop, "보급 패널에 인구 행 없음(노동력)")
-
 # --- 캠프 철거 버튼 ---
 
 func test_demolish_button_shown_when_can() -> void:

@@ -100,7 +100,7 @@ var _siege_overlay: Node2D                # 사다리 시각화(코드 생성, _
 var _undo_party = null                     # 되돌릴 수 있는 마지막 이동의 부대(없으면 null)
 var _undo_cell: Vector2i                   # 그 부대의 이동 전 칸
 var party_action_menu: PartyActionMenu    # 부대 행동 메뉴(코드 생성, _ready에서 추가)
-var loot_menu: LootMenu                    # 약탈 패널(코드 생성, _ready에서 추가). 플레이어 승자 화물 노획.
+var loot_menu: LootMenu                    # 약탈 패널(코드 생성, _ready에서 추가). 플레이어 승자 전사자 장비 노획.
 var equip_menu: EquipMenu                   # 장비 관리 모달(코드 생성, _ready에서 추가). 노획 장비 장착·탈착.
 
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
@@ -723,8 +723,7 @@ func _on_split_changed() -> void:
 func _on_split_closed() -> void:
 	if _split_new != null:
 		if _split_new.members.is_empty():
-			# 취소 — 새 부대로 옮겨둔 화물·노획 장비를 원 부대로 회수(소실 방지) 후 제거.
-			party.take_all_loot(_split_new)   # 화물 회수(초과 허용 — 원래 원 부대 것)
+			# 취소 — 새 부대로 옮겨둔 노획 장비를 원 부대로 회수(소실 방지) 후 제거.
 			party.loot_items.append_array(_split_new.loot_items)
 			_units.erase(_split_new)
 			_split_new.queue_free()
@@ -1230,7 +1229,7 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	overlay.start(attacker, defender, distance, include_siege)
 	var result: Array = await overlay.finished   # [a_survivors, b_survivors]
 	overlay.queue_free()
-	await _resolve_loot(attacker, defender, result[0], result[1])   # 전멸한 패자 화물 노획(플레이어 승자면 패널)
+	await _resolve_loot(attacker, defender, result[0], result[1])   # 전멸한 패자 전사자 장비 노획(플레이어 승자면 패널)
 	_apply_survivors(attacker, result[0])
 	_apply_survivors(defender, result[1])
 	if include_siege:   # 투석 결투로 파괴된 투석기 제거(hp≤0). → siege-engines.md
@@ -1340,8 +1339,8 @@ func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
 	_apply_survivors(attacker, result["a"])
 	_apply_survivors(defender, result["b"])
 
-## 전투 결과(생존자)로 한쪽만 전멸했으면 승자가 패자 화물을 노획한다([약탈](../../docs/spec/features/raid.md)).
-## _apply_survivors(패자 queue_free)보다 먼저 호출해야 패자 화물을 읽을 수 있다.
+## 전투 결과(생존자)로 한쪽만 전멸했으면 승자가 패자 전사자 장비를 노획한다([약탈](../../docs/spec/features/raid.md)).
+## _apply_survivors(패자 queue_free)보다 먼저 호출해야 패자 멤버 장비를 읽을 수 있다.
 ## 승자가 NPC면 전량 자동, 플레이어 부대면 약탈 패널을 띄우고 닫힐 때까지 await한다.
 func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -> void:
 	var a_alive := not a_survivors.is_empty()
@@ -1351,15 +1350,14 @@ func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -
 	var winner = attacker if a_alive else defender
 	var loser = defender if a_alive else attacker
 	var dropped: Array = loser.equipment_ids()   # 전사자 장비 스냅샷(_apply_survivors 전이라 멤버 살아있음)
-	if loser.cargo_total() <= 0 and dropped.is_empty():
-		return   # 노획할 화물·장비 없음
-	# 승자 부대가 노획물을 보유한다(주둔 부대도 지속 부대라 동일 — 영지 귀속 없음). → raid.md
-	# 플레이어 세력이면 선택 패널(화물+장비), NPC 세력이면 전량 자동.
+	if dropped.is_empty():
+		return   # 노획할 장비 없음
+	# 승자 부대가 노획 장비를 보유한다(주둔 부대도 지속 부대라 동일 — 영지 귀속 없음). → raid.md
+	# 플레이어 세력이면 선택 패널, NPC 세력이면 전량 자동.
 	if winner.faction_name == _player_faction.name:
 		loot_menu.open(winner, loser, dropped)
 		await loot_menu.closed
 	else:
-		winner.take_all_loot(loser)
 		winner.take_all_equipment(loser)
 
 ## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, 전멸(생존자 0)한 부대는 NPC·플레이어 모두 맵에서 제거.

@@ -35,13 +35,7 @@ var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
 var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
 
 var _building: Building            # 현재 열려 있는 거점
-var _party = null                  # 그 거점 주둔 부대(없으면 보급 패널 숨김) → garrison.md
-
-# 보급(화물) 패널(부대 있을 때만). 영지 자원 ↔ 부대 화물 적재/하역.
-# (상거래(판매·구매·병사) 패널은 제거됨. 화물운반은 자원 세력 통합 시(Slice 2) 함께 제거 예정.)
-var _cargo_panel: PanelContainer
-var _cargo_list: VBoxContainer     # 자원별 적재/하역 행
-const CARGO_STEP := 5              # 적재/하역 버튼 한 번당 이동량
+var _party = null                  # 그 거점 주둔 부대(투석기 생산 대상 판정) → garrison.md · siege-engines.md
 
 func _ready() -> void:
 	layer = 64
@@ -73,7 +67,6 @@ func _build() -> void:
 
 	hbox.add_child(_build_resource_panel())
 	hbox.add_child(_build_menu_panel())
-	hbox.add_child(_build_cargo_panel())
 
 ## 좌측: 자원 정보 패널.
 func _build_resource_panel() -> Control:
@@ -173,30 +166,8 @@ func _build_menu_panel() -> Control:
 
 	return panel
 
-## 우측: 보급(화물) 패널(부대 있을 때만 표시). 영지 자원 ↔ 부대 화물 적재/하역.
-func _build_cargo_panel() -> Control:
-	_cargo_panel = PanelContainer.new()
-	_cargo_panel.custom_minimum_size = Vector2(260, 260)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	_cargo_panel.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "보급 (화물)"
-	title.add_theme_font_size_override("font_size", 20)
-	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
-
-	_cargo_list = VBoxContainer.new()
-	_cargo_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_cargo_list)
-
-	_cargo_panel.hide()
-	return _cargo_panel
-
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
-## party(그 거점 주둔 부대)가 주어지고 건물이 거점이면 보급 패널도 띄운다. → garrison.md
+## party(그 거점 주둔 부대)는 투석기 생산 대상 판정에 쓴다. → garrison.md · siege-engines.md
 func open(building: Building, party = null, can_demolish := false) -> void:
 	_building = building
 	_party = party
@@ -225,16 +196,9 @@ func open(building: Building, party = null, can_demolish := false) -> void:
 
 	# 좌측 패널: 영지 자원 그리드.
 	_fill_resource_grid()
-
-	# 보급(화물) 패널: 주둔 부대가 있고 거점일 때만.
-	if _party != null and BuildingTypes.is_center(building.building_type):
-		_refresh_cargo_lists()
-		_cargo_panel.show()
-	else:
-		_cargo_panel.hide()
 	show()
 
-## 좌측 자원 그리드를 비우고 영지 자원으로 다시 채운다(인구는 "현재/상한"). 적재/하역 뒤에도 갱신.
+## 좌측 자원 그리드를 비우고 영지 자원으로 다시 채운다(인구는 "현재/상한").
 func _fill_resource_grid() -> void:
 	var resources := _territory.resources if _territory != null else {}
 	for child in _res_grid.get_children():
@@ -253,56 +217,6 @@ func _fill_resource_grid() -> void:
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_res_grid.add_child(value_label)
-
-## 보급(화물) 목록을 비우고 다시 채운다. 자원별 행: "이름 영지량/화물량" + [적재][하역] 버튼.
-## 인구는 노동력이라 운반 대상에서 제외한다.
-func _refresh_cargo_lists() -> void:
-	for c in _cargo_list.get_children():
-		c.free()
-	if _territory == null or _party == null:
-		return
-	var names: Array = []
-	for r in _territory.resources:
-		if r != "인구" and r != "금" and not (r in names):
-			names.append(r)
-	for r in _party.cargo:
-		if r != "인구" and r != "금" and not (r in names):
-			names.append(r)
-	for res_name in names:
-		var row := HBoxContainer.new()
-		var lbl := Label.new()
-		lbl.text = "%s  %d / %d" % [res_name, _territory.resources.get(res_name, 0), _party.cargo.get(res_name, 0)]
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(lbl)
-		var load_btn := Button.new()
-		load_btn.text = "적재"
-		load_btn.pressed.connect(_load_cargo.bind(res_name))
-		row.add_child(load_btn)
-		var unload_btn := Button.new()
-		unload_btn.text = "하역"
-		unload_btn.pressed.connect(_unload_cargo.bind(res_name))
-		row.add_child(unload_btn)
-		_cargo_list.add_child(row)
-
-## 영지 자원을 부대 화물로 CARGO_STEP만큼 적재(영지 재고·화물 용량으로 상한).
-func _load_cargo(res_name) -> void:
-	var want: int = mini(CARGO_STEP, _territory.resources.get(res_name, 0))
-	var moved: int = _party.add_cargo(res_name, want)   # 용량 초과분은 add_cargo가 잘라냄
-	if moved > 0:
-		_territory.resources[res_name] = _territory.resources.get(res_name, 0) - moved
-	_after_cargo_change()
-
-## 부대 화물을 영지 자원으로 CARGO_STEP만큼 하역(화물 보유분으로 상한).
-func _unload_cargo(res_name) -> void:
-	var moved: int = _party.remove_cargo(res_name, CARGO_STEP)
-	if moved > 0:
-		_territory.resources[res_name] = _territory.resources.get(res_name, 0) + moved
-	_after_cargo_change()
-
-## 적재/하역 뒤 목록·자원 그리드 갱신. 버튼 pressed 처리 중이라 지연 호출(그 버튼 free 시 locked 방지).
-func _after_cargo_change() -> void:
-	_refresh_cargo_lists.call_deferred()
-	_fill_resource_grid.call_deferred()
 
 func close_menu() -> void:
 	hide()

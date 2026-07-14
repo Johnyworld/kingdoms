@@ -129,19 +129,17 @@ func test_merge_from_empty_noop() -> void:
 	a.merge_from(_party())   # 빈 부대 병합
 	assert_eq(a.members.size(), 1, "빈 부대 병합은 변화 없음")
 
-func test_merge_from_combines_cargo() -> void:
-	# 병합 시 화물도 합쳐져 소실되지 않는다(합산이라 용량 초과 허용).
+func test_merge_from_combines_loot() -> void:
+	# 병합 시 노획 장비도 합쳐져 소실되지 않는다.
 	var a := _party()
 	a.add_member(_human())
-	a.add_cargo("목재", 30)
+	a.loot_items = ["sword"]
 	var b := _party()
 	b.add_member(_human())
-	b.add_cargo("목재", 30)
-	b.add_cargo("철", 10)
+	b.loot_items = ["bow", "buckler"]
 	a.merge_from(b)
-	assert_eq(a.cargo["목재"], 60, "목재 30+30 합산(용량 50 초과 허용)")
-	assert_eq(a.cargo["철"], 10, "철도 합쳐짐")
-	assert_true(b.cargo.is_empty(), "b 화물은 비워짐(소실 아님, 이관)")
+	assert_eq(a.loot_items, ["sword", "bow", "buckler"], "노획 장비 합쳐짐")
+	assert_true(b.loot_items.is_empty(), "b 노획 장비는 비워짐(이관)")
 
 # --- 지휘관(commander) ---
 
@@ -165,42 +163,8 @@ func test_movement_is_min_of_members() -> void:
 	p.add_member(_human(2, 5))
 	assert_eq(p.movement(), 2, "이동력은 멤버 중 최소값(가장 느린 멤버)")
 
-# --- 과적 이동력 감소 (overload_penalty) ---
-
-func test_no_overload_when_within_capacity() -> void:
+func test_movement_zero_without_members() -> void:
 	var p := _party()
-	p.add_member(_human(3, 5))
-	p.add_cargo("목재", 50)   # 용량 딱 채움
-	assert_eq(p.overload_penalty(), 0, "용량 이하면 페널티 0")
-	assert_eq(p.movement(), 3, "이동력 기본과 같음")
-
-func test_overload_reduces_movement() -> void:
-	# 기본 3, 화물 67(초과 17, step 50/3≈16.7) → 페널티 1. 과적은 병합/약탈로 용량 초과된 상태(직접 세팅).
-	var p := _party()
-	p.add_member(_human(3, 5))
-	p.cargo["목재"] = 67
-	assert_eq(p.overload_penalty(), 1, "초과 17 → 페널티 1")
-	assert_eq(p.movement(), 2, "3 − 1 = 2")
-
-func test_overload_stops_at_double_capacity() -> void:
-	# 기본 3, 화물 100(용량 2배, 초과 50) → 페널티 3 → 이동력 0(정지).
-	var p := _party()
-	p.add_member(_human(3, 5))
-	p.cargo["목재"] = 100
-	assert_eq(p.overload_penalty(), 3, "초과 50 → 페널티 3")
-	assert_eq(p.movement(), 0, "2배 용량이면 정지")
-
-func test_faster_party_tolerates_more_overload() -> void:
-	# 기본 5, 화물 60(초과 10, step 50/5=10) → 페널티 1 → 이동력 4.
-	var p := _party()
-	p.add_member(_human(5, 5))
-	p.cargo["목재"] = 60
-	assert_eq(p.overload_penalty(), 1, "초과 10 · step 10 → 페널티 1")
-	assert_eq(p.movement(), 4, "5 − 1 = 4")
-
-func test_overload_penalty_zero_without_members() -> void:
-	var p := _party()
-	assert_eq(p.overload_penalty(), 0, "멤버 없으면 페널티 0")
 	assert_eq(p.movement(), 0, "멤버 없으면 이동력 0")
 
 func test_vision_is_max_of_members() -> void:
@@ -335,95 +299,6 @@ func test_end_turn_resets_party() -> void:
 	tm.end_turn([p], [])
 	assert_false(p.moved_this_turn, "턴 종료 시 부대 이동 상태 리셋")
 
-# --- 화물 (캐러반) ---
-
-func test_cargo_empty_at_start() -> void:
-	var p := _party()
-	assert_eq(p.cargo.size(), 0, "생성 직후 화물 비어 있음")
-	assert_eq(p.cargo_total(), 0, "총량 0")
-	assert_eq(p.cargo_space(), 50, "여유 = 용량 50")
-
-func test_add_cargo() -> void:
-	var p := _party()
-	assert_eq(p.add_cargo("목재", 10), 10, "실은 양 10 반환")
-	assert_eq(p.cargo["목재"], 10, "화물에 목재 10")
-	assert_eq(p.cargo_total(), 10, "총량 10")
-
-func test_add_cargo_capped_by_capacity() -> void:
-	var p := _party()
-	p.add_cargo("목재", 45)
-	assert_eq(p.add_cargo("밀", 10), 5, "여유 5만 실림")
-	assert_eq(p.cargo_total(), 50, "총량 상한 50")
-
-func test_add_cargo_negative_is_noop() -> void:
-	var p := _party()
-	assert_eq(p.add_cargo("목재", -5), 0, "음수는 0")
-	assert_eq(p.cargo_total(), 0, "변화 없음")
-
-func test_remove_cargo() -> void:
-	var p := _party()
-	p.add_cargo("목재", 10)
-	assert_eq(p.remove_cargo("목재", 4), 4, "내린 양 4 반환")
-	assert_eq(p.cargo["목재"], 6, "남은 6")
-
-func test_remove_cargo_clamps_and_erases() -> void:
-	var p := _party()
-	p.add_cargo("목재", 3)
-	assert_eq(p.remove_cargo("목재", 10), 3, "보유분(3)만 내림")
-	assert_false(p.cargo.has("목재"), "0이 되면 키 삭제")
-
-# --- 약탈 (take_loot / take_all_loot) ---
-
-func test_take_loot_moves_between_parties() -> void:
-	# 승자가 패자 화물에서 자원을 옮긴다.
-	var winner := _party()
-	var loser := _party()
-	loser.add_cargo("목재", 20)
-	assert_eq(winner.take_loot(loser, "목재", 5), 5, "옮긴 양 5 반환")
-	assert_eq(winner.cargo["목재"], 5, "승자에 목재 5")
-	assert_eq(loser.cargo["목재"], 15, "패자 목재 15로 감소")
-
-func test_take_loot_clamps_to_source_and_erases() -> void:
-	var winner := _party()
-	var loser := _party()
-	loser.add_cargo("목재", 3)
-	assert_eq(winner.take_loot(loser, "목재", 10), 3, "패자 보유분(3)까지만")
-	assert_false(loser.cargo.has("목재"), "패자 화물 0이면 키 삭제")
-
-func test_take_loot_allows_overflow() -> void:
-	# 약탈은 승자 용량(50)을 넘겨도 다 실린다(병합과 동일).
-	var winner := _party()
-	winner.add_cargo("목재", 48)
-	var loser := _party()
-	loser.add_cargo("철", 10)
-	assert_eq(winner.take_loot(loser, "철", 10), 10, "전량 이전")
-	assert_eq(winner.cargo_total(), 58, "용량 초과 허용(58 > 50)")
-
-func test_take_loot_negative_or_missing_is_noop() -> void:
-	var winner := _party()
-	var loser := _party()
-	loser.add_cargo("목재", 5)
-	assert_eq(winner.take_loot(loser, "목재", -3), 0, "음수는 0")
-	assert_eq(winner.take_loot(loser, "철", 5), 0, "없는 자원은 0")
-	assert_eq(loser.cargo["목재"], 5, "패자 화물 변화 없음")
-	assert_true(winner.cargo.is_empty(), "승자 화물 변화 없음")
-
-func test_take_all_loot_moves_everything() -> void:
-	var winner := _party()
-	var loser := _party()
-	loser.add_cargo("목재", 10)
-	loser.add_cargo("식량", 5)
-	winner.take_all_loot(loser)
-	assert_eq(winner.cargo["목재"], 10, "목재 전량 이전")
-	assert_eq(winner.cargo["식량"], 5, "식량 전량 이전")
-	assert_true(loser.cargo.is_empty(), "패자 화물 비워짐")
-
-func test_take_all_loot_empty_source_noop() -> void:
-	var winner := _party()
-	winner.add_cargo("목재", 5)
-	winner.take_all_loot(_party())   # 빈 부대 약탈
-	assert_eq(winner.cargo_total(), 5, "빈 source 약탈은 변화 없음")
-
 # --- 노획 장비 (equipment_ids / take_all_equipment) ---
 
 func _equipped_human(weapons: Array, armor: Array, shield := "") -> Object:
@@ -547,41 +422,7 @@ func test_unequip_fails_when_not_equipped() -> void:
 	assert_false(p.unequip_to_loot(m, "bow"), "멤버가 안 가진 장비 탈착 실패")
 	assert_eq(p.loot_items, [], "인벤토리 변화 없음")
 
-# --- 부대 분할 분배 (transfer_cargo_to / transfer_loot_to) ---
-
-func test_transfer_cargo_to() -> void:
-	var a := _party()
-	var b := _party()
-	a.add_cargo("목재", 20)
-	assert_eq(a.transfer_cargo_to(b, "목재", 5), 5, "옮긴 양 5")
-	assert_eq(a.cargo["목재"], 15, "A 15로 감소")
-	assert_eq(b.cargo["목재"], 5, "B 5로 증가")
-
-func test_transfer_cargo_to_clamps_to_holding() -> void:
-	var a := _party()
-	var b := _party()
-	a.add_cargo("목재", 3)
-	assert_eq(a.transfer_cargo_to(b, "목재", 10), 3, "보유분(3)까지만")
-	assert_false(a.cargo.has("목재"), "A 0이면 키 삭제")
-	assert_eq(b.cargo["목재"], 3, "B에 3")
-
-func test_transfer_cargo_to_allows_overflow() -> void:
-	# 초과 허용(병합·약탈과 동일) — 받는 부대 용량 무시.
-	var a := _party()
-	var b := _party()
-	a.add_cargo("목재", 5)
-	b.add_cargo("철", 48)
-	assert_eq(a.transfer_cargo_to(b, "목재", 5), 5, "전량 이동")
-	assert_eq(b.cargo_total(), 53, "받는 부대 용량 초과 허용(53 > 50)")
-
-func test_transfer_cargo_to_negative_or_missing() -> void:
-	var a := _party()
-	var b := _party()
-	a.add_cargo("목재", 5)
-	assert_eq(a.transfer_cargo_to(b, "목재", -3), 0, "음수는 0")
-	assert_eq(a.transfer_cargo_to(b, "철", 5), 0, "미보유 자원은 0")
-	assert_eq(a.cargo["목재"], 5, "A 변화 없음")
-	assert_true(b.cargo.is_empty(), "B 변화 없음")
+# --- 부대 분할 분배 (transfer_loot_to) ---
 
 func test_transfer_loot_to() -> void:
 	var a := _party()
@@ -631,12 +472,10 @@ func test_siege_crew_gate_blocks_move() -> void:
 	p.add_siege_unit(SiegeUnit.new())
 	assert_eq(p.movement(), 0, "견인 인력 부족 → 이동 불가")
 
-func test_siege_haul_takes_min_with_overload() -> void:
-	var p := _party_of(4, 4)
+func test_siege_haul_takes_min_when_crew_slower() -> void:
+	# 사람 기준 이동력이 견인 속도(2)보다 느리면 그 낮은 값이 유지된다.
+	var p := _party_of(4, 1)   # 사람 4명, 이동력 1
 	p.add_siege_unit(SiegeUnit.new())
-	# 과적으로 사람 기준 이동력을 1로 떨어뜨린다(용량 50, 초과분으로 페널티 3 → base 4−3=1).
-	p.cargo = {"목재": 88}   # 초과 38, (38×4)/50 = 3
-	assert_eq(p.overload_penalty(), 3, "과적 페널티 3")
 	assert_eq(p.movement(), 1, "min(사람 기준 1, 견인 2) = 1")
 
 func test_siege_does_not_affect_vision_range_members() -> void:

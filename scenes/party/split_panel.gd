@@ -6,13 +6,10 @@ extends CanvasLayer
 signal changed   ## 멤버가 이동할 때 방출. game이 부대 일람·안개를 갱신한다.
 signal closed    ## 패널을 닫을 때 방출. game이 빈 새 부대를 취소(제거)할지 판단한다.
 
-const CARGO_STEP := 5   # 화물 [→]/[←] 한 번당 이동량(camp_menu 보급과 동일).
-
 var _orig      # 원 부대
 var _new       # 새(분할) 부대
 var _orig_list: VBoxContainer
 var _new_list: VBoxContainer
-var _cargo_list: VBoxContainer   # 화물 분배 행(자원별)
 var _loot_list: VBoxContainer    # 노획 장비 분배 행(아이템별)
 
 func _ready() -> void:
@@ -73,16 +70,8 @@ func _build() -> void:
 	new_col.add_child(_new_list)
 	cols.add_child(new_col)
 
-	# 화물 분배 섹션.
-	vbox.add_child(HSeparator.new())
-	var cargo_title := Label.new()
-	cargo_title.text = "화물"
-	vbox.add_child(cargo_title)
-	_cargo_list = VBoxContainer.new()
-	_cargo_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_cargo_list)
-
 	# 노획 장비 분배 섹션.
+	vbox.add_child(HSeparator.new())
 	var loot_title := Label.new()
 	loot_title.text = "노획 장비"
 	vbox.add_child(loot_title)
@@ -103,7 +92,7 @@ func open(orig, new) -> void:
 	_refresh()
 	show()
 
-## 멤버·화물·장비 목록을 비우고 다시 채운다.
+## 멤버·노획 장비 목록을 비우고 다시 채운다.
 func _refresh() -> void:
 	for c in _orig_list.get_children():
 		c.free()
@@ -119,19 +108,7 @@ func _refresh() -> void:
 		b.text = "← %s" % h.human_name
 		b.pressed.connect(_to_orig.bind(h))
 		_new_list.add_child(b)
-	_refresh_cargo()
 	_refresh_loot()
-
-## 화물 행: 자원별 "자원 원N [→][←] 새M". 인구는 제외(노동력). 보유 0인 방향 비활성.
-func _refresh_cargo() -> void:
-	for c in _cargo_list.get_children():
-		c.free()
-	for res_name in _union_keys(_orig.cargo, _new.cargo):
-		if res_name == "인구" or res_name == "금":
-			continue   # 노동력·화폐는 부대 화물이 아니다(영지 전용)
-		var on: int = _orig.cargo.get(res_name, 0)
-		var nn: int = _new.cargo.get(res_name, 0)
-		_cargo_list.add_child(_transfer_row(res_name, on, nn, _cargo_to_new.bind(res_name), _cargo_to_orig.bind(res_name)))
 
 ## 장비 행: 아이템별 "이름 원N [→][←] 새M". 이름은 ItemTypes.item_name.
 func _refresh_loot() -> void:
@@ -184,16 +161,6 @@ func _counts(ids: Array) -> Dictionary:
 	for id in ids:
 		out[id] = out.get(id, 0) + 1
 	return out
-
-func _cargo_to_new(res_name: String) -> void:
-	_orig.transfer_cargo_to(_new, res_name, CARGO_STEP)
-	_refresh.call_deferred()
-	changed.emit()
-
-func _cargo_to_orig(res_name: String) -> void:
-	_new.transfer_cargo_to(_orig, res_name, CARGO_STEP)
-	_refresh.call_deferred()
-	changed.emit()
 
 func _loot_to_new(id: String) -> void:
 	_orig.transfer_loot_to(_new, id)

@@ -21,11 +21,6 @@ var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성
 ## 거점 주둔 부대([Garrison](../../docs/spec/features/garrison.md))가 가리키는 방어 영지(그 외 부대는 null).
 var home_territory = null
 
-# --- 화물(캐러반) ---
-## 부대가 운반하는 자원(자원명→수량). 거점에서 적재/하역한다. 부대와 함께 이동하고, 전멸하면 소실된다.
-var cargo: Dictionary = {}
-const CARGO_CAPACITY := 50   # 총 적재 상한(모든 자원 수량 합).
-
 # --- 노획 장비 ---
 ## 전투로 전멸시킨 패자 전사자의 장비 아이템 id 목록(무기·방어구·방패). 장착 안 된 채 보관한다.
 ## 중복 허용(같은 id 여러 개), 용량 제한 없음. 멤버에게 장착·탈착(장비 관리)하거나 캠프에서 금으로 판매할 수 있다.
@@ -70,51 +65,6 @@ func remove_member(human) -> void:
 func commander_name() -> String:
 	return commander.human_name if commander else "—"
 
-## 현재 적재 화물 총량(모든 자원 수량 합).
-func cargo_total() -> int:
-	var t := 0
-	for res_name in cargo:
-		t += cargo[res_name]
-	return t
-
-## 화물 여유 공간(CARGO_CAPACITY - 현재 총량).
-func cargo_space() -> int:
-	return CARGO_CAPACITY - cargo_total()
-
-## 화물에 자원 n만큼 싣는다(0 이하·용량 초과분은 무시하지 않고 호출부가 상한을 지킨다). 실제 실은 양을 반환.
-## 용량을 넘지 않도록 min(n, 여유)만 싣는다. 음수 n은 0으로 취급.
-func add_cargo(res_name: String, n: int) -> int:
-	var amount := mini(maxi(n, 0), cargo_space())
-	if amount > 0:
-		cargo[res_name] = cargo.get(res_name, 0) + amount
-	return amount
-
-## 화물에서 자원 n만큼 내린다(보유분까지만). 실제 내린 양을 반환. 0이 되면 키를 지운다.
-func remove_cargo(res_name: String, n: int) -> int:
-	var amount := mini(maxi(n, 0), cargo.get(res_name, 0))
-	if amount > 0:
-		cargo[res_name] -= amount
-		if cargo[res_name] <= 0:
-			cargo.erase(res_name)
-	return amount
-
-## 다른 부대(source)의 화물에서 자원 n만큼을 약탈해 이 부대로 옮긴다(전투 승자가 전멸한 패자 화물 노획).
-## source 보유분까지만(min(n, 보유)), 음수 n은 0. 승자 용량(CARGO_CAPACITY)은 무시 — 초과 허용(병합과 동일).
-## 실제 옮긴 양을 반환. source 보유가 0이 되면 키를 지운다.
-func take_loot(source, res_name: String, n: int) -> int:
-	var amount := mini(maxi(n, 0), source.cargo.get(res_name, 0))
-	if amount > 0:
-		cargo[res_name] = cargo.get(res_name, 0) + amount
-		source.cargo[res_name] -= amount
-		if source.cargo[res_name] <= 0:
-			source.cargo.erase(res_name)
-	return amount
-
-## source의 모든 화물을 전량 이 부대로 약탈한다(NPC/자동 약탈). source 화물은 빈 Dictionary가 된다.
-func take_all_loot(source) -> void:
-	for res_name in source.cargo.keys():
-		take_loot(source, res_name, source.cargo[res_name])
-
 ## 이 부대 전 멤버가 장착한 장비 id 평탄 목록(각 멤버 weapons + armor + shield). 빈 방패("")는 제외, 중복 유지.
 ## 약탈 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
 func equipment_ids() -> Array:
@@ -129,15 +79,6 @@ func equipment_ids() -> Array:
 ## source의 장비(equipment_ids)를 전부 이 부대 loot_items에 더한다(NPC/자동 장비 약탈). source는 바뀌지 않는다.
 func take_all_equipment(source) -> void:
 	loot_items.append_array(source.equipment_ids())
-
-## 이 부대 화물의 자원 res_name을 other 부대로 n만큼 옮긴다(부대 분할 분배). min(n, 보유)만큼, 음수 n은 0.
-## 받는 부대 CARGO_CAPACITY 초과 허용(병합·약탈과 동일 — 다음 적재만 막힘). 실제 옮긴 양 반환.
-func transfer_cargo_to(other, res_name: String, n: int) -> int:
-	var amount := mini(maxi(n, 0), cargo.get(res_name, 0))
-	if amount > 0:
-		remove_cargo(res_name, amount)
-		other.cargo[res_name] = other.cargo.get(res_name, 0) + amount
-	return amount
 
 ## 이 부대 loot_items의 장비 id 하나를 other.loot_items로 옮긴다(부대 분할 분배). 미보유면 false(no-op).
 func transfer_loot_to(other, id: String) -> bool:
@@ -199,21 +140,20 @@ func unequip_to_loot(member, id: String) -> bool:
 	loot_items.append(id)
 	return true
 
-## 다른 부대(other)의 멤버를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
+## 다른 부대(other)의 멤버·노획 장비를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
 ## 이 부대 지휘관은 유지된다(없으면 add_member가 첫 합류 멤버로 지정). 빈 other면 변화 없음.
-## other의 화물도 합친다(소실 방지) — 병합은 합산이라 CARGO_CAPACITY를 넘길 수 있다(다음 적재만 막힘).
+## other의 노획 장비(loot_items)도 합친다(소실 방지).
 func merge_from(other) -> void:
 	for h in other.members.duplicate():
 		add_member(h)
-	for res_name in other.cargo:
-		cargo[res_name] = cargo.get(res_name, 0) + other.cargo[res_name]
-	other.cargo = {}
+	loot_items.append_array(other.loot_items)
+	other.loot_items = []
 	other.members = []
 	other.commander = null
 	other.queue_redraw()
 	queue_redraw()
 
-## 기본 이동력 = 멤버 이동력의 최소값(가장 느린 멤버). 멤버 없으면 0. 과적 반영 전 값.
+## 기본 이동력 = 멤버 이동력의 최소값(가장 느린 멤버). 멤버 없으면 0.
 func base_movement() -> int:
 	if members.is_empty():
 		return 0
@@ -222,23 +162,11 @@ func base_movement() -> int:
 		m = mini(m, h.movement)
 	return m
 
-## 화물 과적 이동력 감소량. 화물이 용량(CARGO_CAPACITY) 초과 시 step(=용량÷기본이동력)마다 −1.
-## 정수식 (초과량 × 기본) ÷ 용량 (= floor(초과 ÷ (용량÷기본)), 부동소수점 오차 없음). 용량 이하·멤버 없으면 0.
-## 화물이 용량의 2배면 페널티 = 기본 이동력(→ movement 0, 정지).
-func overload_penalty() -> int:
-	var base := base_movement()
-	if base <= 0:
-		return 0
-	var excess := cargo_total() - CARGO_CAPACITY
-	if excess <= 0:
-		return 0
-	return excess * base / CARGO_CAPACITY   # 정수 나눗셈(내림)
-
-## 부대 이동력 = 기본 이동력 − 과적 페널티(하한 0). 이동 범위·NPC 경로·정보 패널에 쓰인다.
+## 부대 이동력 = 기본 이동력(멤버 최소). 이동 범위·NPC 경로·정보 패널에 쓰인다.
 ## 공성 유닛을 실었으면 견인 규칙을 마저 적용: 사람 < CREW_MIN이면 0(견인 인력 부족),
 ## 아니면 견인 이동력(가장 느린 공성 유닛)으로 상한. → docs/spec/features/siege-engines.md
 func movement() -> int:
-	var m := maxi(0, base_movement() - overload_penalty())
+	var m := base_movement()
 	if has_siege():
 		if members.size() < SiegeTypes.CREW_MIN:
 			return 0   # 끌 인력 부족 → 정지
