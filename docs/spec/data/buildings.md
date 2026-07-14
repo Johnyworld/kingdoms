@@ -28,7 +28,7 @@
 
 ### 건설 · 경제
 
-`production`은 [턴](../features/turn.md) 종료 시 영지 수입으로 **사용된다**(`Building.production` → `Territory.collect_income`).
+(flat `production` 열은 **폐지** — 모든 생산이 [1차 생산](../features/production.md)·[2차 생산](../features/processing.md)로 이관. 아래 표의 생산 열은 참고용이며 대부분 "(없음)"/"(변환)".)
 `build_cost`(자원 차감)와 `build_turns`(건설 소요 턴) 소비 로직은 [건축](../features/building.md) 슬라이스 1에서 **구현됨**(단 게임 플로우 배선은 슬라이스 2). `demolish_refund`(철거 시 자재 회수)는 [건물 정보 패널의 철거](../features/building-info.md#철거)에서 **구현됨**(캠프 제외).
 
 `required_pop`(필요인원)은 건물이 고용하는 **노동력**(인구 수). 건설 시 영지 인구에서 그만큼 소비하고, 철거 시 되돌려준다(자재 `demolish_refund`와 별개). → [노동력](#필요인원-required_pop)
@@ -43,7 +43,7 @@
 | `farm` | 3 | 목재 5 / 밀 5 | 목재 1 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 밀`, `buildable_terrains [초원]`, footprint 1. 생산포인트(인원÷거리) |
 | `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 0 | 2 | (없음) | **인구 상한 `pop_cap +2`**(생산 아님) |
 | `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 나무`, `buildable_terrains [숲]`, footprint 1. 생산포인트 |
-| `quarry` | 4 | 목재 10 | 목재 2 | 1 | — | 석재 2 (턴당) | 채석꾼 1명(노동력). **flat 유지**(1차 생산 전환은 가공 건물 슬라이스와 함께 보류) |
+| `quarry` | 4 | 목재 10 | 목재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 석재`, `buildable_terrains [돌]`. 생산포인트(flat→전환됨) |
 | `hunting_ground` | 3 | 목재 10 | 목재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 고기`, `buildable_terrains [동물]` |
 | `fishing_spot` | 3 | 목재 10 | 목재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 생선`, `[물가]` |
 | `iron_mine` | 5 | 목재 15 / 석재 10 | 목재 2 / 석재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 철`, `[철맥]` |
@@ -63,7 +63,7 @@
 - 외형 색상 필드: `fill_color`(부지) · `edge_color`(테두리) · `tent_color`(중심 표식).
   - 농장 전용 렌더링(작물 표현 등)은 배치가 생기는 **Phase 2**에서 다듬는다.
 - `build_cost`·`demolish_refund`·`production`은 자원명→수량 Dictionary. `build_turns`는 건설 소요 턴.
-- **턴당 생산(`production`)은 [턴](../features/turn.md) 종료 시 영지 수입으로 동작한다.** **캠프 건설 → 새 영지 생성**은 [캠프 건설](../features/building.md#캠프-건설-새-영지-확장)에서 구현됨(활성 부대 시야에 배치, 새 영지 자원 0).
+- **캠프 건설 → 새 영지 생성**은 [캠프 건설](../features/building.md#캠프-건설-새-영지-확장)에서 구현됨(활성 부대 시야에 배치, 새 영지 자원 0). (flat 턴당 생산은 폐지 — 생산은 1·2차 생산 참조.)
 - **`footprint`은 [배치 유효성](../features/building.md#배치-유효성-buildplanner)에 반영된다** — `BuildPlanner.footprint`/`can_place`가 종류별 헥스 수로 판정하고, `Building.setup`이 그만큼 점유 셀을 잡는다.
 - **인구 상한(`pop_cap`)**: 종류가 영지 [인구 상한](../entities/Territory.md#인구-상한population_cap)에 더하는 값(없으면 0). **거점 티어에서 나온다** — 캠프 `0`, 마을회관 `10`, 성 `20`(집 `+2`로 보조). 완성 건물만 상한에 기여한다(`Building.pop_cap()`은 건설 중이면 0). 매 턴 종료 시 영지 인구가 상한까지 +1씩 [자연 증가](turn.md)한다. **캠프 티어는 인구 상한 0** — 마을회관으로 업그레이드해야 인구가 생긴다.
 - **소형 건물·성벽·업그레이드는 석재를 요구**한다. 영지 초기 자원에 **석재 30**이 있어(위 캠프 `resources`) 시작부터 [성벽](../features/wall.md)·마을회관 업그레이드·일부 건물을 지을 수 있고, 이후 채석장으로 석재를 보충한다.
@@ -130,7 +130,7 @@
 - [정상] `get_type("farm").label == "농장"`, `vision == 4`, `footprint == 1`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
 - [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {목재5, 밀5}`, `demolish_refund == {목재1}`, `required_pop == 0`, `production == {}`(flat 없음 — [1차 생산](../features/production.md))
 - [정상] 1차 생산 — `farm`: `primary_production==true`, `produces=="밀"`, `buildable_terrains==[초원]`; `lumberjack`: `primary_production==true`, `produces=="나무"`, `buildable_terrains==[숲]`, `production=={}`
-- [정상] 필요인원 — `farm.required_pop == 0`, `lumberjack.required_pop == 0`(1차 생산은 가변 배치), `quarry.required_pop == 1`(flat 유지), `house`·`camp`·`town_hall`·`castle`는 0
+- [정상] 필요인원 — 1·2차 생산(농장·벌목소·채석장 등) `required_pop == 0`(가변 배치), 공성 작업장만 2(고정 노동력), `house`·`camp`·`town_hall`·`castle`는 0
 - [경계] 비-생산 건물 — `house`·`quarry`·`camp`: `primary_production` false/미정의, `produces==""`, `buildable_terrains==[]`
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
 - [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 석재4}`, `pop_cap == 2`, `production` 없음(생산 아님), 외형 색상 키 존재

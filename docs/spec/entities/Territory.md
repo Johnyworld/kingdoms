@@ -26,7 +26,7 @@
 - `add_building(building) -> void` — 건물을 `buildings`에 추가하고 **동시에** `building.territory = self`로 설정한다(양방향). 이미 포함된 건물은 중복 추가하지 않는다.
 - `remove_building(building) -> void` — 건물을 `buildings`에서 제거하고, `building.territory`가 이 영지면 `null`로 되돌린다(양방향 해제). 없으면 no-op. [캠프 점령](../features/camp-capture.md) 파괴 시 영지에서 캠프를 떼어낼 때 쓴다.
 - `demolish(building) -> void` — [철거](../features/building-info.md#철거). 보유한 건물이면 `remove_building`으로 떼어낸 뒤 ① 그 건물의 `refund_on_demolish()`([Building](Building.md) — 완성은 salvage, **건설 중은 `build_cost` 진행도 비례**)를 자원에 더하고 ② **`required_pop()`만큼 `인구`를 되돌려준다**(고용 해제, 건설 중이어도 전액). `resources[자원] += 수량`, 없던 키는 새로 생성. 보유하지 않은 건물이면 no-op(환급·인구 반환 없음).
-- `collect_income() -> void` — [턴](../features/turn.md) 종료 시 호출. 소속 건물들의 `production()`(자원명→수량)을 순회하며 `resources[자원] += 수량`. 영지에 없던 자원 키는 새로 만들어 더한다. 생산이 없는 건물(캠프 등)이나 **건설 중 건물**(생산 0)은 자원을 바꾸지 않는다.
+- (`collect_income()`은 **폐지** — flat 생산 대신 모든 생산이 [1차 생산포인트](../features/production.md)·[2차 작업포인트](../features/processing.md)로 이관, `game.gd`가 턴 종료 시 처리.)
 - `can_afford(cost: Dictionary) -> bool` — `cost`의 모든 자원에 대해 `resources.get(자원, 0) >= 수량`이면 참. 빈 `cost`는 항상 참. 건설 비용([`build_cost`](../data/buildings.md)) 지불 가능 여부 확인용.
 - `spend(cost: Dictionary) -> void` — `cost`의 각 자원을 `resources`에서 뺀다. 음수 방지는 하지 않으므로 호출 전 `can_afford`로 확인한다. [건축](../features/building.md) 시 자원 차감.
 - `build_pay(type_id: String) -> void` — 그 종류를 지을 때의 비용을 한 번에 지불한다: `build_cost` 자재 차감(`spend`) + **[필요인원](../data/buildings.md#필요인원-required_pop)만큼 `인구` 차감**(고용). 호출 전 [`BuildPlanner.can_build`](../features/building.md#필요인원-게이트)로 지불 가능 여부를 확인한다(음수 방지 안 함).
@@ -47,8 +47,7 @@
 - [경계] 같은 건물을 두 번 `add_building` 해도 `buildings` 크기는 1 (중복 방지)
 - [정상] `remove_building(b)` 후 `buildings`에서 빠지고 `b.territory == null`
 - [경계] 보유하지 않은 건물을 `remove_building` → no-op
-- [정상] 농장 건물을 편입한 영지의 `collect_income()` 후 `resources["밀"]`가 생산량(1)만큼 증가 (`test/unit/test_turn.gd`)
-- [정상] 캠프만 가진 영지의 `collect_income()`은 자원 변화 없음 (`test/unit/test_turn.gd`)
+- (자원 생산 검증은 [1차 tick_production](../features/production.md)·[2차 advance_work](../features/processing.md)로 이관 — flat `collect_income` 폐지)
 - [정상] `can_afford({목재:5})` — 충분하면 참, 부족하면 거짓
 - [경계] `can_afford({})`는 항상 참; 보유 없는 자원을 요구하면 거짓
 - [정상] `spend({목재:5, 밀:5})` 후 해당 자원이 정확히 그만큼 감소

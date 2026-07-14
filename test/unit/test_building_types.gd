@@ -80,7 +80,11 @@ func test_quarry_spec() -> void:
 	assert_eq(spec["footprint"], 1, "채석장 footprint 1헥스")
 	assert_eq(spec["build_turns"], 4, "채석장 필요 턴 4")
 	assert_eq(spec["build_cost"], {"목재": 10}, "채석장 필요 자원(목재만)")
-	assert_eq(spec["production"], {"석재": 2}, "채석장 턴당 석재 2")
+	assert_true(spec.get("primary_production", false), "채석장은 1차 생산으로 전환")
+	assert_eq(spec.get("produces", ""), "석재", "채석장 산출 석재")
+	assert_eq(spec.get("buildable_terrains", []), [Terrain.STONE], "채석장은 돌에만")
+	assert_eq(spec.get("production", {}).size(), 0, "flat production 없음")
+	assert_eq(spec.get("required_pop", 0), 0, "채석장 required_pop 0(1차 생산 가변 배치)")
 	assert_eq(spec["prerequisite"], "camp", "채석장 선행 = 캠프(부트스트랩)")
 
 func test_town_hall_spec() -> void:
@@ -127,11 +131,10 @@ func test_farm_economy() -> void:
 	assert_eq(spec.get("buildable_terrains", []), [Terrain.GRASS], "농장은 초원에만")
 
 func test_required_pop_fields() -> void:
-	assert_eq(types.get_type("farm").get("required_pop", 0), 0, "농장 필요인원 0(1차 생산)")
-	assert_eq(types.get_type("lumberjack").get("required_pop", 0), 0, "벌목소 필요인원 0(1차 생산)")
-	assert_eq(types.get_type("quarry")["required_pop"], 1, "채석장 필요인원 1(flat 유지)")
-	for id in ["camp", "town_hall", "castle", "house"]:
-		assert_eq(types.get_type(id).get("required_pop", 0), 0, "%s 필요인원 0" % id)
+	# 1·2차 생산은 가변 배치(required_pop 0). 고정 노동력은 공성 작업장(2)만 남음.
+	assert_eq(types.get_type("siege_workshop")["required_pop"], 2, "공성 작업장 필요인원 2")
+	for id in ["farm", "lumberjack", "quarry", "sawmill", "smelter", "camp", "town_hall", "castle", "house"]:
+		assert_eq(types.get_type(id).get("required_pop", 0), 0, "%s 필요인원 0(가변 배치 또는 노동력 없음)" % id)
 
 func test_camp_economy() -> void:
 	var spec: Dictionary = types.get_type("camp")

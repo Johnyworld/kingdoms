@@ -260,16 +260,14 @@ func test_farm_under_construction() -> void:
 	building.setup(terrain, _center(), "farm", true)
 	assert_false(building.is_complete(), "건설 중 상태")
 	assert_eq(building.remaining_turns, 3, "농장 build_turns = 3")
-	assert_eq(building.production(), {}, "건설 중엔 생산 없음")
 
 func test_advance_construction_completes_on_last_turn() -> void:
-	building.setup(terrain, _center(), "quarry", true)   # flat 생산 건물(채석장, build_turns 4)로 완성-생산 검증
+	building.setup(terrain, _center(), "quarry", true)   # build_turns 4
 	assert_false(building.advance_construction(), "1턴: 아직 미완성")
 	assert_false(building.advance_construction(), "2턴: 아직 미완성")
 	assert_false(building.advance_construction(), "3턴: 아직 미완성")
 	assert_true(building.advance_construction(), "4턴: 완성되는 호출만 true")
 	assert_true(building.is_complete(), "완성됨")
-	assert_eq(building.production(), {"석재": 2}, "완성 후 생산 시작")
 
 func test_refund_on_demolish_complete_uses_salvage() -> void:
 	building.setup(terrain, _center(), "farm")   # 완성
@@ -289,24 +287,14 @@ func test_advance_construction_on_complete_is_noop() -> void:
 	assert_false(building.advance_construction(), "완성 건물은 no-op false")
 	assert_true(building.is_complete(), "상태 불변")
 
-# --- 완성 시 생산량 (planned_production) — 건설 여부와 무관 ---
+# flat 생산(production/planned_production/collect_income)은 폐지됨 — 채석장도 1차 생산(생산포인트)으로 전환.
+# 모든 생산은 tick_production(1차)·advance_work(2차)로 검증한다. → production.md · processing.md
 
-func test_planned_production_quarry_complete() -> void:
+func test_quarry_is_primary_production() -> void:
 	building.setup(terrain, _center(), "quarry")
-	assert_eq(building.planned_production(), {"석재": 2}, "완성 채석장 생산 = 석재 2")
-
-func test_primary_production_has_no_flat_production() -> void:
-	building.setup(terrain, _center(), "farm")
-	assert_eq(building.planned_production(), {}, "1차 생산(농장)은 flat production 없음")
-
-func test_planned_production_camp_empty() -> void:
-	_camp()
-	assert_eq(building.planned_production(), {}, "캠프는 생산 없음")
-
-func test_planned_production_ignores_construction() -> void:
-	building.setup(terrain, _center(), "quarry", true)
-	assert_eq(building.production(), {}, "건설 중 production은 빈 Dictionary")
-	assert_eq(building.planned_production(), {"석재": 2}, "건설 중에도 완성 시 생산은 석재 2")
+	assert_true(building.is_primary_production(), "채석장은 1차 생산으로 전환")
+	assert_eq(building.produces(), "석재", "산출 석재")
+	assert_eq(building.buildable_terrains(), [Terrain.STONE], "돌에만")
 
 # --- 인구 상한 기여 (pop_cap) ---
 
@@ -363,12 +351,12 @@ func test_demolish_refund_same_under_construction() -> void:
 # --- 필요인원 (required_pop) ---
 
 func test_required_pop_by_type() -> void:
-	building.setup(terrain, _center(), "quarry")
-	assert_eq(building.required_pop(), 1, "채석장 필요인원 1(flat 유지)")
+	building.setup(terrain, _center(), "siege_workshop")
+	assert_eq(building.required_pop(), 2, "공성 작업장 필요인원 2(고정 노동력)")
 	var lumber = load("res://scenes/building/building.gd").new()
 	add_child_autofree(lumber)
-	lumber.setup(terrain, Vector2i(30, 30), "lumberjack")
-	assert_eq(lumber.required_pop(), 0, "벌목소 필요인원 0(1차 생산 가변 배치)")
+	lumber.setup(terrain, Vector2i(30, 30), "quarry")
+	assert_eq(lumber.required_pop(), 0, "채석장 필요인원 0(1차 생산 전환)")
 	var house = load("res://scenes/building/building.gd").new()
 	add_child_autofree(house)
 	house.setup(terrain, Vector2i(10, 10), "house")

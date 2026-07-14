@@ -22,8 +22,9 @@
   - **정보 리스트**(VBox) — 아래 줄들을 순서대로 채운다. 없는 항목은 줄을 만들지 않는다.
     - **영지·세력** — `building.map_label_lines()`의 각 줄(`{text, color}`): 영지명(흰색), 세력명(세력색). 영지가 없으면 없음.
     - **수비** — 거점이면 `"수비대 N명"`(N = 그 거점 중심 타일 위 [주둔 부대](garrison.md) 인원, `building.defender_count`). 거점이 아닌 건물(농장 등)은 없음.
-    - **생산량** — `building.planned_production()`의 각 자원: `"%s +%d / 턴"` (예: `"밀 +1 / 턴"`). 생산이 없으면(캠프 등) 없음.
-      - 건설 중이어도 **완성 시 생산량**을 보여준다(`planned_production()`은 건설 여부와 무관, `production()`과 다름).
+    - **1차 생산** — [1차 생산 건물](production.md)이면 산출 자원·생산력(인원÷거리)·누적·배정 거점. `[인원 ±]`·`[거점 변경]`.
+    - **2차 생산(가공)** — [2차 생산 건물](processing.md)이면 레시피(입력→출력)·작업 속도·누적. `[인원 ±]`·`[레시피 변경]`·`[모드]`·`[값 ±]`.
+      - (flat `planned_production` 표시 줄은 폐지 — flat 생산 경로 제거로 모든 생산이 1·2차 모델.)
     - **인구 상한 기여** — 종류의 [`pop_cap`](../data/buildings.md)이 0보다 크면 `"인구 상한 +N"`(예: 집 `"인구 상한 +2"`). 생산 줄처럼 건설 중에도 완성 시 기여분(카탈로그 값)을 보여준다. **캠프는 제외**(기본 상한 10을 이 패널에 노출하지 않음 — 캠프 정보는 [캠프 메뉴](camp-menu.md)가 담당).
 
 ## 클릭 라우팅
@@ -112,6 +113,6 @@
 
 ## 관련
 
-- 표시 데이터는 [Building](../entities/Building.md) — `label()`, `vision`, `is_complete()`/`remaining_turns`, `map_label_lines()`, `planned_production()`.
+- 표시 데이터는 [Building](../entities/Building.md) — `label()`, `vision`, `is_complete()`/`remaining_turns`, `map_label_lines()`, [1차](production.md)·[2차 생산](processing.md) 상태(workers·recipe·work_points 등).
 - 종류별 생산·시야 값은 [data/buildings.md](../data/buildings.md).
 - 캠프 클릭 시 열리는 [Camp Menu](camp-menu.md)와 우측 상단을 쓰는 [Party Info](party-info.md)와 대응.

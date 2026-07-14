@@ -161,13 +161,6 @@ func open(building, can_demolish := false, distance := 0) -> void:
 		g.text = "수비대 %d명" % building.defender_count
 		_info_list.add_child(g)
 
-	# 생산 줄(있으면). 건설 중에도 완성 시 생산량을 보여준다.
-	var production: Dictionary = building.planned_production()
-	for res_name in production:
-		var label := Label.new()
-		label.text = "%s +%d / 턴" % [res_name, production[res_name]]
-		_info_list.add_child(label)
-
 	# 1차 생산 건물: 산출 자원·생산력(인원÷거리)·누적·배정 거점. → docs/spec/features/production.md
 	if building.is_primary_production():
 		var label := Label.new()

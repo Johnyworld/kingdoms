@@ -74,43 +74,7 @@ func test_end_turn_resets_units() -> void:
 	tm.end_turn([p], [])
 	assert_false(p.moved_this_turn, "턴 종료 시 부대 이동 상태 리셋")
 
-# --- 건물 생산량 ---
-
-func test_camp_production_empty() -> void:
-	assert_eq(_building("camp").production(), {}, "캠프는 생산 없음(빈 Dictionary)")
-
-func test_quarry_production_stone() -> void:
-	# 농장·벌목소는 1차 생산(생산포인트)로 전환돼 flat production 없음. flat 수입은 채석장이 대표. → production.md
-	assert_eq(_building("quarry").production(), {"석재": 2}, "채석장은 석재 2 생산(flat)")
-	assert_eq(_building("farm").production(), {}, "농장은 flat 생산 없음(1차 생산)")
-
-# --- 영지 자원 수입 ---
-
-func test_collect_income_adds_quarry_production() -> void:
-	var t := _territory({"석재": 50})
-	t.add_building(_building("quarry"))
-	t.collect_income()
-	assert_eq(t.resources["석재"], 52, "채석장 생산으로 석재 +2")
-
-func test_collect_income_camp_only_no_change() -> void:
-	var t := _territory({"밀": 50, "목재": 20})
-	t.add_building(_building("camp"))
-	t.collect_income()
-	assert_eq(t.resources["밀"], 50, "캠프만 있으면 자원 변화 없음")
-	assert_eq(t.resources["목재"], 20, "캠프만 있으면 자원 변화 없음")
-
-func test_collect_income_creates_missing_key() -> void:
-	var t := _territory({})  # 석재 키 없음
-	t.add_building(_building("quarry"))
-	t.collect_income()
-	assert_eq(t.resources.get("석재"), 2, "없던 자원 키도 생산되면 새로 생겨 더해짐")
-
-func test_end_turn_collects_income() -> void:
-	var tm := _turn_manager()
-	var t := _territory({"석재": 50})
-	t.add_building(_building("quarry"))
-	tm.end_turn([], [t])
-	assert_eq(t.resources["석재"], 52, "턴 종료 시 영지 수입 적용")
+# flat 생산(collect_income/production)은 폐지됨 — 모든 생산이 game.gd의 1차 생산포인트·2차 작업포인트로 이관. → production.md · processing.md
 
 # --- 건설 진행 (건축) ---
 
@@ -121,19 +85,15 @@ func test_end_turn_advances_construction() -> void:
 	t.add_building(quarry)
 	tm.end_turn([], [t])
 	assert_eq(quarry.remaining_turns, 3, "턴 종료 시 건설 1턴 진행")
-	assert_eq(t.resources["석재"], 50, "완성 전엔 석재 수입 없음")
 
-func test_construction_completes_then_produces_next_turn() -> void:
+func test_construction_completes_on_schedule() -> void:
 	var tm := _turn_manager()
 	var t := _territory({"석재": 50})
 	var quarry := _building_uc("quarry")  # build_turns 4
 	t.add_building(quarry)
 	for i in 4:
-		tm.end_turn([], [t])  # 4→3→2→1→0 완성(수입 정산이 먼저라 완성 턴엔 미생산)
+		tm.end_turn([], [t])
 	assert_true(quarry.is_complete(), "4턴 후 완성")
-	assert_eq(t.resources["석재"], 50, "완성되는 턴엔 아직 생산 안 함")
-	tm.end_turn([], [t])  # 완성 상태 → 생산
-	assert_eq(t.resources["석재"], 52, "다음 턴부터 석재 수입 발생")
 
 # --- 인구 자연 증가 ---
 

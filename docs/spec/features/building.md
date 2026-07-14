@@ -83,10 +83,10 @@
 
 ## 턴 진행 (`TurnManager` · `Territory`)
 
-턴 종료 시 건설을 진행한다. **수입 정산 뒤에 건설을 진행**하므로, 이번 턴에 완성된 건물은 **다음 턴부터** 생산한다.
+턴 종료 시 건설을 진행한다. 이번 턴에 완성된 건물은 **다음 턴부터** 생산한다(자원 생산은 `end_turn` 밖 `game.gd`가 처리 — [1차](production.md)·[2차 생산](processing.md)).
 
 - `Territory.advance_construction() -> void` — 소속 건물들의 `advance_construction()`을 호출한다.
-- `TurnManager.end_turn(units, territories)` 순서: ① `number += 1` → ② 유닛 `reset_turn` → ③ 영지 `collect_income` → ④ 영지 `advance_construction`.
+- `TurnManager.end_turn(units, territories)` 순서: ① `number += 1` → ② 유닛 `reset_turn` → ③ 영지 `grow_population` → ④ 영지 `advance_construction`. (flat `collect_income`은 폐지.)
 
 ## 배치 유효성 (`BuildPlanner`)
 

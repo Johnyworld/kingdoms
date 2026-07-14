@@ -27,13 +27,7 @@ func remove_building(building) -> void:
 	if building.territory == self:
 		building.territory = null
 
-## 턴 종료 시 호출. 소속 건물들의 생산량(production)을 자원에 합산한다.
-## 영지에 없던 자원 키는 새로 만들어 더한다. 생산이 없는 건물(캠프 등)·건설 중 건물(생산 0)은 자원을 바꾸지 않는다.
-func collect_income() -> void:
-	for building in buildings:
-		var prod: Dictionary = building.production()
-		for res_name in prod:
-			resources[res_name] = resources.get(res_name, 0) + prod[res_name]
+# flat 생산(collect_income)은 폐지됨 — 모든 생산이 [1차 생산포인트](../../docs/spec/features/production.md)·[2차 작업포인트](../../docs/spec/features/processing.md)로 이관. game.gd가 턴 종료 시 처리한다.
 
 ## 이 비용을 지불할 자원이 충분한지. cost의 모든 자원에 대해 보유량 >= 요구량이면 참. 빈 비용은 참.
 func can_afford(cost: Dictionary) -> bool:

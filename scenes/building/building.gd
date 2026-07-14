@@ -192,19 +192,6 @@ func mode_batch_cap(current_output: int) -> int:
 		_:
 			return 1 << 30   # 계속 — 입력만 제한
 
-## 종류의 턴당 생산량(자원명→수량). 건설 중에는 빈 Dictionary(생산 없음).
-## 1차 생산 건물은 flat production 키가 없어 {} — 생산포인트 경로만 쓴다. → production.md
-## 완성 후 없으면 빈 Dictionary(캠프 등). 턴 종료 시 영지 수입(Territory.collect_income)에 쓰인다.
-func production() -> Dictionary:
-	if under_construction:
-		return {}
-	return _spec.get("production", {})
-
-## 완성 시 생산량(자원명→수량). production()과 달리 건설 여부와 무관하게 항상 카탈로그값을 반환한다.
-## 건물 정보 패널이 건설 중에도 "완성하면 이만큼 생산"을 보여줄 때 쓴다.
-func planned_production() -> Dictionary:
-	return _spec.get("production", {})
-
 ## 영지 인구 상한에 더하는 값. 건설 중에는 0(완성 건물만 기여). 완성 후 카탈로그 pop_cap(없으면 0).
 ## 티어별: 캠프 0 · 마을회관 10 · 성 20, 집 +2. production()과 같은 건설-게이트 패턴. Territory.population_cap()이 합산한다.
 func pop_cap() -> int:

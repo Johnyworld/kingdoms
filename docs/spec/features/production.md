@@ -66,8 +66,7 @@
 | 농장(`farm`) | `"밀"` | `[초원]` | 1 | 캠프 | 목재5·밀5 | **제거** |
 
 - 새 스펙 필드: `primary_production: true`, `produces: "<자원>"`, `buildable_terrains: [<terrain source_id>]`. `required_pop` 제거(가변 배치가 대체). 농장 footprint 7→1.
-- **채석장(`quarry`)**은 돌 타일(슬라이스 2)이라 **이번 슬라이스에선 기존 flat 유지**, 슬라이스 2에서 전환.
-- flat 생산 경로(`Building.production()`·`Territory.collect_income`)는 채석장 등 남은 flat 건물을 위해 유지하되, `primary_production` 건물은 `production()`이 빈 Dictionary(생산포인트 경로만 씀).
+- **채석장(`quarry`)**도 이후 1차 생산으로 전환됨(돌→석재, 슬라이스 2 지형). **flat 생산 경로(`Building.production()`·`Territory.collect_income`)는 폐지** — 모든 건물 생산이 생산포인트(1차)·작업포인트(2차)로 이관됐다.
 
 ## 테스트 시나리오
 
@@ -81,7 +80,7 @@
 ### 카탈로그 — `test/unit/test_building_types.gd`
 - [정상] 벌목소: `primary_production==true`, `produces=="나무"`, `buildable_terrains==[숲]`, footprint 1, 선행 camp, `production=={}`(flat 없음)
 - [정상] 농장: `primary_production==true`, `produces=="밀"`, `buildable_terrains==[초원]`, footprint 1
-- [정상] 채석장: `primary_production` 없음(false), 기존 flat `production=={석재:2}` 유지
+- [정상] 채석장: `primary_production==true`, `produces=="석재"`, `buildable_terrains==[돌]`(1차 생산 전환됨)
 - [경계] 캠프·집 등: `primary_production` false, `produces==""`, `buildable_terrains==[]`
 
 ### 배치 판정 — `test/unit/test_build_planner.gd`
@@ -106,7 +105,7 @@
 | 금광(`gold_mine`) | 금 | 금맥 |
 | 은광(`silver_mine`) | 은 | 은맥 |
 
-- **채석장 전환 보류**: 채석장까지 생산포인트로 바꾸면 flat 생산(`production()`/`collect_income`)을 쓰는 건물이 0이 돼 미사용 경로가 된다. flat 경로는 향후 **가공 건물**(제분소·제련소 등 턴당 자원 변환, 인원/거리 무관)이 다시 쓸 인프라라, 채석장은 그 대표로 **flat 유지**하고 전환은 가공 건물 슬라이스와 함께 재검토한다.
+- **채석장 전환 완료**(후속 커밋): 채석장도 1차 생산(돌→석재)으로 전환. 이로써 flat 생산(`Building.production`/`Territory.collect_income`)을 쓰는 건물이 0이 되어 **flat 경로는 폐지**됐다(모든 생산 = 1차 생산포인트 / 2차 작업포인트).
 
 ## 관련
 

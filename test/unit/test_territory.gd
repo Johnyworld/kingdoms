@@ -169,11 +169,17 @@ func test_build_pay_farm_deducts_cost_and_labor() -> void:
 	assert_eq(t.resources["밀"], 45, "밀 5 차감")
 	assert_eq(t.resources["인구"], 10, "농장(1차 생산)은 required_pop 0 — 인구 차감 없음")
 
-func test_build_pay_quarry_employs_one() -> void:
+func test_build_pay_siege_workshop_employs_two() -> void:
+	# 채석장은 1차 생산 전환으로 required_pop 0. 고정 노동력 고용은 공성 작업장(2)만 남음.
+	var t := _territory("파리", {"인구": 10, "목재": 30, "석재": 30})
+	t.build_pay("siege_workshop")
+	assert_eq(t.resources["인구"], 8, "공성 작업장 필요인원 2 고용")
+
+func test_build_pay_quarry_no_labor() -> void:
 	var t := _territory("파리", {"인구": 10, "목재": 20})
 	t.build_pay("quarry")
 	assert_eq(t.resources["목재"], 10, "목재 10 차감")
-	assert_eq(t.resources["인구"], 9, "채석장 필요인원 1 고용")
+	assert_eq(t.resources["인구"], 10, "채석장(1차 생산)은 고정 노동력 없음")
 
 # --- 완성 건물 판정 (공성 작업장 생산 게이트) → docs/spec/features/siege-engines.md ---
 

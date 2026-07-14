@@ -78,9 +78,8 @@
 - `recipes() -> Array` — 가공 레시피 목록(`[{in, out}]`). `active_recipe_input()`/`active_recipe_output() -> Dictionary` — 현재 레시피 입출력.
 - `work_speed() -> int` — 인원별 작업 속도 포인트/턴(`[0,8,15,20]`). `advance_work(max_batches) -> int` — `work_points += work_speed()` 후 `min(work_points/10, max_batches)` 배치 반환·차감. → [processing.md](../features/processing.md)
 - `advance_construction() -> bool` — 건설을 1턴 진행. 이미 완성이면 `false`(불변). 건설 중이면 `remaining_turns -= 1`, 0 이하가 되면 완성 처리하고 **이번에 완성됐으면 `true`**, 아직 진행 중이면 `false`.
-- `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). **건설 중에는 빈 Dictionary**. 완성 후에는 카탈로그의 `production`(없으면 빈 Dictionary, 캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
-- `planned_production() -> Dictionary` — 완성 시 생산량(카탈로그 `production`). **건설 여부와 무관**하게 항상 반환(`production()`과 달리 건설 중에도 값이 있음). [건물 정보 패널](../features/building-info.md)이 건설 중에도 완성 시 생산량을 보여줄 때 쓴다.
-- `pop_cap() -> int` — 이 건물이 영지 [인구 상한](Territory.md#인구-상한population_cap)에 더하는 값. **건설 중에는 0**(완성 건물만 기여), 완성 후 카탈로그 `pop_cap`(없으면 0). 거점 티어별: 캠프 0 · 마을회관 10 · 성 20, 집 +2. `production()`과 같은 건설-게이트 패턴.
+- (flat `production()`/`planned_production()`은 **폐지** — 모든 생산이 [1차 생산포인트](../features/production.md)·[2차 작업포인트](../features/processing.md)로 이관. 채석장도 1차 생산으로 전환됨.)
+- `pop_cap() -> int` — 이 건물이 영지 [인구 상한](Territory.md#인구-상한population_cap)에 더하는 값. **건설 중에는 0**(완성 건물만 기여), 완성 후 카탈로그 `pop_cap`(없으면 0). 거점 티어별: 캠프 0 · 마을회관 10 · 성 20, 집 +2.
 - `demolish_refund() -> Dictionary` — **완성 건물** 철거 시 돌려받는 salvage 자재(자원명→수량). 카탈로그 `demolish_refund`(없으면 빈 Dictionary). 순수 카탈로그값(건설 여부 무관).
 - `refund_on_demolish() -> Dictionary` — [철거](../features/building-info.md#철거) 시 **실제 환급** 자재. **완성**이면 `demolish_refund()`. **건설 중**이면 낸 `build_cost`를 진행도 비례로 — `floor(build_cost[자원] × remaining_turns ÷ build_turns)`(안 쓴 자재 회수, 0인 자원은 생략). `build_turns ≤ 0`이면 `build_cost` 전액(방어). `Territory.demolish`와 철거 미리보기가 이걸 쓴다.
 - `required_pop() -> int` — 이 건물이 고용하는 [노동력](../data/buildings.md#필요인원-required_pop)(인구 수). 카탈로그 `required_pop`(없으면 0). 건설 시 영지 인구에서 소비, 철거 시 반환. 건설 여부와 무관(카탈로그 값).
@@ -106,8 +105,6 @@
 - [정상] `contains_cell`이 중심·이웃 6칸에 대해 참, 먼 셀에 대해 거짓
 - [정상] `"camp"`로 setup 시 `building_type == "camp"`, `vision == 5`, `label() == "캠프"`
 - [경계] 알 수 없는 `type_id`로 setup 시 `vision == 0`, `label() == ""`
-- [경계] `production()` — 캠프는 빈 Dictionary, 농장은 `{밀:1}` (`test/unit/test_turn.gd`)
-- [정상] 완성 농장 `planned_production() == {밀:1}`, 캠프 `planned_production() == {}`
 - [정상] `pop_cap()` — 완성 캠프 0, 마을회관 10, 성 20, 집 2, 농장 0; **건설 중** 집은 0(완성 후 2)
 - [정상] 생성 직후 `wall_level == 0`·`is_walled()` 거짓·`wall_hp == 0`; `wall_level = 1` → `is_walled()` 참; `wall_hp` 설정 가능
 - [정상] `upgrade_to("town_hall")` — 캠프를 마을회관으로: `building_type == "town_hall"`, `vision == 6`, `pop_cap() == 10`, `is_complete()`, 점유 셀 7 유지, `wall_level`·`wall_hp` 유지
@@ -115,11 +112,12 @@
 - [정상] `refund_on_demolish()` **완성** = `demolish_refund()`(카탈로그 salvage)
 - [정상] `refund_on_demolish()` **건설 중 진행도 비례** — 농장(build_turns 3, build_cost 목재5·밀5): 갓 시작(remaining 3) → `{목재5,밀5}`(전액); 1턴 진행(remaining 2) → `{목재3,밀3}`(floor 5×2/3)
 - [경계] `refund_on_demolish()` 건설 중 진행이 많아 어떤 자원의 몫이 0이면 그 자원은 결과에서 생략
-- [정상] `required_pop()` — 농장 2, 벌목소 1, 채석장 1, 집·캠프 0
-- [정상] **건설 중** 농장도 `planned_production() == {밀:1}` (반면 `production() == {}`)
-- [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`, `production() == {}`
-- [정상] `advance_construction()`를 build_turns회 → 완성(`is_complete()`), 완성되는 호출만 `true`; 완성 후 `production() == {밀:1}`
+- [정상] `required_pop()` — 공성 작업장 2(고정 노동력), 1·2차 생산(농장·벌목소·채석장·제재소 등)·집·캠프 0
+- [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`
+- [정상] `advance_construction()`를 build_turns회 → 완성(`is_complete()`), 완성되는 호출만 `true`
 - [경계] 완성된 건물에 `advance_construction()` → `false`, 상태 불변
+- [정상] 1차 생산: 채석장 `is_primary_production()`·`produces()=="석재"`·`buildable_terrains()==[Terrain.STONE]`
+- (생산 산출은 `tick_production`(1차)·`advance_work`(2차)로 검증 — [production.md](../features/production.md)·[processing.md](../features/processing.md))
 - [정상] 기본 `territory == null`
 - [정상] 영지(이름·세력 포함)에 편입되면 `map_label_lines()` = [영지명(흰색), 세력명(세력색)] 2줄
 - [경계] `territory == null`이면 `map_label_lines()`는 빈 배열

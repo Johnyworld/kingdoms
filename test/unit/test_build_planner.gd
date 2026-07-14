@@ -164,9 +164,10 @@ func test_can_build_true_when_all_met() -> void:
 	assert_true(BuildPlanner.can_build(t, "quarry"), "선행 camp·목재10·인원1 모두 충족")
 
 func test_can_build_false_short_population() -> void:
-	var camp := _building(_center(), "camp")
-	var t := _territory_with_res(camp, {"인구": 0, "목재": 20})  # 인구 0 < 1
-	assert_false(BuildPlanner.can_build(t, "quarry"), "인구가 필요인원 미만이면 거짓")
+	# 채석장은 1차 생산 전환으로 required_pop 0 → 고정 노동력 게이트는 공성 작업장(2)으로 검증.
+	var th := _building(_center(), "town_hall")
+	var t := _territory_with_res(th, {"인구": 0, "목재": 30, "석재": 30})  # 인구 0 < 2
+	assert_false(BuildPlanner.can_build(t, "siege_workshop"), "인구가 필요인원(2) 미만이면 거짓")
 
 func test_can_build_false_short_materials() -> void:
 	var camp := _building(_center(), "camp")

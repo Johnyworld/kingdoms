@@ -170,8 +170,10 @@ const CATALOG := {
 		"build_turns": 4,
 		"build_cost": {"목재": 10},
 		"demolish_refund": {"목재": 2},
-		"required_pop": 1,   # 채석꾼 1명(노동력).
-		"production": {"석재": 2},   # flat 유지(1차 생산 전환은 가공 건물 슬라이스와 함께 보류). → production.md
+		# 1차 생산: 돌 위에 지어 생산포인트(인원÷거리)로 석재를 캔다. → production.md
+		"primary_production": true,
+		"produces": "석재",
+		"buildable_terrains": [Terrain.STONE],
 	},
 	# --- 1차 생산 건물(슬라이스 2). 생산포인트(인원÷거리)·지형 제한·캠프 선행. → docs/spec/features/production.md ---
 	"hunting_ground": {

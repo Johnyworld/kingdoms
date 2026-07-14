@@ -95,12 +95,12 @@ func test_item_text_has_label_and_cost() -> void:
 	var text := _item(0).text  # 채석장
 	assert_string_contains(text, "채석장", "항목에 라벨 포함")
 	assert_string_contains(text, "목재", "항목에 비용(목재) 포함")
-	assert_string_contains(text, "인원 1", "항목에 필요인원 표시")
 
 func test_item_disabled_when_low_population() -> void:
-	menu.open(_center("camp", {"인구": 0, "목재": 20}))  # 선행·자재 OK, 인구 0 < 1
+	# 채석장은 1차 생산 전환으로 인구 게이트 없음 → 고정 노동력(2) 게이트는 공성 작업장(_item 마지막)으로 검증.
+	menu.open(_center("town_hall", {"인구": 0, "목재": 20, "석재": 20}))  # 선행·자재 OK, 인구 0 < 2
 	menu._on_build_pressed()
-	assert_true(_item(0).disabled, "인구 부족(0 < 1)이면 채석장 비활성")
+	assert_true(_item(14).disabled, "인구 부족(0 < 2)이면 공성 작업장 비활성")
 
 func test_primary_active_house_locked_at_camp_tier() -> void:
 	menu.open(_center("camp"))  # 캠프 티어(마을회관 미만)
