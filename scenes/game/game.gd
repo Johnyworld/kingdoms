@@ -179,6 +179,8 @@ func _ready() -> void:
 	building_info.workers_changed.connect(_on_workers_changed)
 	building_info.center_change_requested.connect(_on_center_change)
 	building_info.recipe_change_requested.connect(_on_recipe_change)
+	building_info.work_mode_changed.connect(_on_work_mode_change)
+	building_info.work_target_changed.connect(_on_work_target_change)
 	members_menu.open_requested.connect(_on_members_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
@@ -2332,6 +2334,24 @@ func _on_recipe_change(b) -> void:
 	b.work_points = 0   # 다른 자원으로 바뀌므로 진행 초기화
 	_refresh_building_info(b)
 
+## [모드] — 2차 생산 작업 모드 순환(계속→N유지→N턴). 진입 시 기본 목표(N유지 10·N턴 5). → processing.md 2차-b
+func _on_work_mode_change(b) -> void:
+	if not b.is_secondary_production():
+		return
+	b.work_mode = (b.work_mode + 1) % 3
+	if b.work_mode == b.WORK_KEEP:
+		b.work_target = 10
+	elif b.work_mode == b.WORK_TURNS:
+		b.work_target = 5
+	_refresh_building_info(b)
+
+## [값 ±] — N유지·N턴 목표값 조정(하한 0).
+func _on_work_target_change(b, delta: int) -> void:
+	if not b.is_secondary_production():
+		return
+	b.work_target = maxi(0, b.work_target + delta)
+	_refresh_building_info(b)
+
 ## 완성 플레이어 거점 목록(배정 대상). → production.md
 func _player_centers() -> Array:
 	var out: Array = []
@@ -2370,13 +2390,18 @@ func _tick_processing() -> void:
 		var affordable: int = 1 << 30
 		for res in inp:
 			affordable = mini(affordable, terr.resources.get(res, 0) / int(inp[res]))
-		var batches: int = b.advance_work(affordable)
+		# 작업 모드 상한(N유지=목표까지, N턴=진행 중일 때만). 출력 자원량 기준. → processing.md
+		var out_res: String = outp.keys()[0] if not outp.is_empty() else ""
+		var mode_cap: int = b.mode_batch_cap(terr.resources.get(out_res, 0))
+		var batches: int = b.advance_work(mini(affordable, mode_cap))
 		if batches <= 0:
 			continue
 		for res in inp:
 			terr.resources[res] = terr.resources.get(res, 0) - int(inp[res]) * batches
 		for res in outp:
 			terr.resources[res] = terr.resources.get(res, 0) + int(outp[res]) * batches
+		if b.work_mode == b.WORK_TURNS:
+			b.work_target = maxi(0, b.work_target - 1)   # 변환한 턴만 카운트다운
 
 ## 새 영지를 개척한다: 자원 0인 새 영지를 플레이어 세력에 편입하고, 건설 중 캠프를 그 자리에 세운다.
 ## 비용은 여는 영지가 이미 지불(build_pay). 새 영지는 인구·자원 0(전초기지), 수비대 없음(부대 편성으로 방어).

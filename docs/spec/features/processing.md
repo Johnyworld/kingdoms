@@ -83,10 +83,32 @@
 
 > 거점 자동 배정·인원 차출/반환·턴 변환 누적·레시피 변경·패널은 `game.gd`·UI 의존이라 **실제 실행/헤드리스로 확인**한다.
 
-## 슬라이스 2차-b (후속 · 미구현)
+## 작업 모드 (2차-b)
 
-- 작업 모드 **N개 유지**(출력이 N 이하일 때만 변환)·**N턴 작업**(N턴만 작업, 자원 부족 시 일시정지·재개) + 설정 UI.
-- (부산물 다중 산출·가축 다양화·아이템 제작 건물·채석장 전환은 더 후속.)
+가공 건물은 **얼마나 작업할지**를 3모드로 제어한다. `Building.work_mode`(0 계속·1 N유지·2 N턴), `Building.work_target`(N유지=목표 출력량, N턴=남은 작업 턴; 계속은 무시).
+
+- **계속(`WORK_CONTINUOUS`=0)**: 입력이 있는 한 계속 변환(기본, 2차-a). 배치 상한 = 입력만.
+- **N개 유지(`WORK_KEEP`=1)**: 배정 거점 영지의 **출력 자원량이 `work_target` 이상이면 정지**, 미만이면 그 값까지만 변환. 모드 배치 상한 = `max(0, work_target − 현재 출력량)`.
+- **N턴 작업(`WORK_TURNS`=2)**: `work_target`이 남은 작업 턴. `work_target > 0`이면 입력 상한까지 변환하고, **실제로 변환한 턴에만 `work_target −= 1`**(입력 부족으로 변환 못 한 턴은 유지 = 일시정지). `work_target == 0`이면 정지.
+
+- **순수 로직**(`Building`):
+  - `mode_batch_cap(current_output: int) -> int` — 모드별 이번 턴 배치 상한. 계속·N턴(target>0)=매우 큼, N유지=`max(0, work_target−current_output)`, N턴(target≤0)=0.
+- **턴 변환**(`game._tick_processing`): `batches = advance_work(min(affordable, mode_batch_cap(출력량)))`. 변환 후 **N턴 모드면 `batches>0`일 때 `work_target −= 1`**.
+
+- **표시·설정**(`building_info`): `[모드]` 버튼(계속→N유지→N턴 순환, 전환 시 기본 target — N유지 10·N턴 5). N유지·N턴이면 `[값 −][값 +]`로 `work_target` 조정. 현재 모드·목표 표시.
+
+## 이후 후속 (미구현)
+
+- 부산물 다중 산출(가죽·천)·가축 다양화(양계장·목장·마구간)·아이템 제작 건물(대장간 등)·채석장 1차 전환은 더 후속.
+
+## 테스트 시나리오 (2차-b 추가)
+
+### 모드 배치 상한(순수) — `test/unit/test_building.gd`
+- [정상] 계속(mode 0) → `mode_batch_cap(현재출력)` 매우 큼(입력만 제한)
+- [정상] N유지(mode 1, target 10) → 출력 3이면 cap 7; 출력 10이면 cap 0(정지); 출력 12이면 0
+- [정상] N턴(mode 2) → target 3이면 매우 큼, target 0이면 cap 0
+
+> 모드 전환·값 조정·N턴 카운트다운·N유지 정지·패널 버튼은 `game.gd`·UI 의존이라 실제 실행/헤드리스로 확인.
 
 ## 관련
 

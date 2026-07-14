@@ -44,6 +44,12 @@ var work_points := 0         # 누적 작업포인트. 매 턴 += work_speed(), 
 var active_recipe := 0       # 현재 레시피 인덱스(제련소 등 다중 레시피 선택).
 const WORK_SPEED := [0, 8, 15, 20]   # 배치 인원(0-3)별 작업 속도 포인트/턴(0.8/1.5/2.0 ×10).
 const WORK_PER_BATCH := 10           # 레시피 1배치에 필요한 작업포인트.
+# 작업 모드(2차-b). → docs/spec/features/processing.md
+const WORK_CONTINUOUS := 0   # 계속: 입력 있는 한 변환.
+const WORK_KEEP := 1         # N유지: 출력 자원이 work_target 미만일 때만 그 값까지.
+const WORK_TURNS := 2        # N턴: work_target 턴만큼 작업(변환한 턴만 카운트다운).
+var work_mode := WORK_CONTINUOUS
+var work_target := 0         # N유지=목표 출력량, N턴=남은 작업 턴(계속은 무시).
 
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
@@ -175,6 +181,16 @@ func advance_work(max_batches: int) -> int:
 	var b: int = mini(work_points / WORK_PER_BATCH, maxi(max_batches, 0))
 	work_points -= b * WORK_PER_BATCH
 	return b
+
+## 작업 모드별 이번 턴 배치 상한. current_output = 배정 거점 영지의 현재 출력 자원량(N유지 판정용). → processing.md
+func mode_batch_cap(current_output: int) -> int:
+	match work_mode:
+		WORK_KEEP:
+			return maxi(0, work_target - current_output)
+		WORK_TURNS:
+			return (1 << 30) if work_target > 0 else 0
+		_:
+			return 1 << 30   # 계속 — 입력만 제한
 
 ## 종류의 턴당 생산량(자원명→수량). 건설 중에는 빈 Dictionary(생산 없음).
 ## 1차 생산 건물은 flat production 키가 없어 {} — 생산포인트 경로만 쓴다. → production.md

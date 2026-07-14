@@ -179,6 +179,21 @@ func test_smelter_recipe_selection() -> void:
 	assert_eq(building.active_recipe_input(), {"은": 1}, "레시피1 은")
 	assert_eq(building.active_recipe_output(), {"은괴": 1}, "은→은괴")
 
+func test_mode_batch_cap() -> void:
+	_sawmill()
+	building.work_mode = building.WORK_CONTINUOUS
+	assert_gt(building.mode_batch_cap(999), 1000000, "계속 모드 상한 매우 큼(입력만 제한)")
+	building.work_mode = building.WORK_KEEP
+	building.work_target = 10
+	assert_eq(building.mode_batch_cap(3), 7, "N유지: 목표10·출력3 → 7배치")
+	assert_eq(building.mode_batch_cap(10), 0, "출력이 목표면 정지")
+	assert_eq(building.mode_batch_cap(12), 0, "출력이 목표 초과여도 0(하한)")
+	building.work_mode = building.WORK_TURNS
+	building.work_target = 3
+	assert_gt(building.mode_batch_cap(0), 1000000, "N턴(target>0) 상한 큼")
+	building.work_target = 0
+	assert_eq(building.mode_batch_cap(0), 0, "N턴(target 0) 정지")
+
 # --- 점유 영역 ---
 
 func test_occupies_seven_hexes() -> void:
