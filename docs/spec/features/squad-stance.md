@@ -14,10 +14,10 @@
 | --- | --- | --- | --- |
 | `st_follow` | 추종 | 하위부대가 영웅 목적지 인접 빈 칸으로 따라온다(아래 [추종](#추종-st_follow)). | **구현** |
 | `st_hold` | 대기 | 하위부대는 제자리에 머문다(이동·턴 소비 없음). 방어 버프는 `미구현`. | **구현** |
-| `st_engage` | 교전 | 가까운 적에게 자동 접근·교전. | `미구현`(Slice 2) |
-| `st_charge` | 돌격 | 공통 목표 1지점을 찍으면 그 방향으로 어택무브(경로 상 적 교전, 스타 "어택땅"). | `미구현`(Slice 2) |
+| `st_engage` | 교전 | 보이는 적 중 최근접으로 접근해, 사거리 안이면 교전(근접은 붙어서, 원거리는 제자리 사격). 불리하면(`should_engage`) 접근만. | **구현**(Slice 2a) |
+| `st_charge` | 돌격 | 공통 목표 1지점을 찍으면 그 방향으로 어택무브(경로 상 적 교전, 스타 "어택땅"). | `미구현`(Slice 2b) |
 
-이번 슬라이스(이동계열)는 **추종·대기**만 메뉴에 넣는다. 교전·돌격은 전투 개시를 수반해 별도 슬라이스에서 추가한다([스탠스 계획](#미구현) 메모).
+메뉴 순서: `[추종][대기][교전]`. 돌격은 목표 지정 모드(맵 클릭)·어택무브 정지 로직을 수반해 다음 슬라이스(2b)에서 추가한다.
 
 ## 발동 흐름 (`game.gd`)
 
@@ -28,7 +28,8 @@
 3. 플레이어가 스탠스를 고르면 `_on_party_action`이 `_stance_hero != null`을 먼저 보고 `_resolve_stance(id)`로 처리한다.
    - **추종(`st_follow`)** → `_follow_with_lord(hero, 영웅 현재 칸)`.
    - **대기(`st_hold`)** → 아무것도 안 한다(하위부대 제자리).
-   - 처리 후 `_stance_hero = null`, 작전 메뉴를 닫고, 영웅이 아직 행동 가능하면(`can_rest()`) `_select()`로 **영웅 자신의 이동 후 메뉴**([사격]·[대기])로 복귀한다.
+   - **교전(`st_engage`)** → `await _engage_with_lord(hero)`(아래 [교전](#교전-st_engage)). 여러 부대가 순차로 접근·전투하는 비동기 시퀀스.
+   - 처리 후 `_stance_hero = null`, 작전 메뉴를 닫고, 영웅이 아직 행동 가능하면(`can_rest()`) `_select()`로 **영웅 자신의 이동 후 메뉴**([사격]·[대기])로 복귀한다(교전은 시퀀스가 끝난 뒤).
 4. **클릭 잠금**: 작전 메뉴가 떠 있는 동안(`_stance_hero != null`)은 새 좌클릭(맵 이동·선택)을 무시한다 — 명령을 고르기 전 맵 조작으로 문맥이 깨지지 않게. 카메라·줌은 가능.
 5. **작전 메뉴 대기 중 턴 종료**: 스탠스를 고르기 전에 턴을 넘기면(`_on_turn_ended`) 명령을 취소(대기 취급)하고 `_stance_hero`를 비우며 메뉴를 닫는다 — 다음 턴에 클릭이 잠긴 채 남지 않게. 게임 오버(`_trigger_game_over`)에도 같은 정리를 한다(순수 이동 직후엔 도달 불가지만, 전투 수반 스탠스(Slice 2) 대비 방어).
 
@@ -43,6 +44,20 @@
 - **턴 소비**: 따라 움직인 부대는 `mark_moved()`. 이미 최선 위치(인접)면 이동·소모 없이 남는다.
 - **연출**: [이동 애니메이션](selection-and-movement.md#이동-애니메이션-gamegd-_animate_path)(`_animate_path`, 칸당 `MOVE_STEP_TIME`)으로 걸어가며 도착 칸마다 `_update_fog()`. 여러 부대는 `FOLLOW_STAGGER` 간격 순차 출발. **추종 트윈(`_follow_tweens`)이 사는 동안 좌클릭 잠금**(영웅 이동 `_player_moving`과 동일).
 - **턴 종료 스냅**: 추종 중 턴이 끝나면(`_on_turn_ended`) `_finish_pending_follow_moves()`가 트윈을 죽이고 각 부대를 목적지로 스냅.
+
+### 교전 (`st_engage`)
+
+`_engage_with_lord(hero)`(async) — 하위부대들을 **하나씩 순차로** 가까운 적에게 접근시키고, 사거리 안이면 전투를 벌인다. 전투 오버레이가 모달(`_run_battle`의 `_in_battle`)이라 한 부대씩 `await`한다. 기존 NPC 공격 페이즈(`_npc_attack_phase`)와 같은 원리·같은 전투 경로를 재사용한다.
+
+각 하위부대(`can_move()`)에 대해:
+1. **대상**: 보이는 적 부대 칸(`_visible_enemy_cells(hero.faction_name)` — 세력 다르고 멤버 있고 `visible`, 적 세력 성벽 안 수비대 제외).
+2. **접근**: `NpcAi.choose_destination(...)`로 가장 가까운 적 방향의 도달 칸을 골라 이동(더 가까워질 수 없으면 제자리). 이동하면 `mark_moved()` + `await _move_party_await(f, path)`(칸당 애니메이션 + 시야 개방).
+3. **교전 판정**: 이동/제자리 후 `_adjacent_enemy(f)`(사거리 `max(attack_range,1)` 내 적)가 있고 `NpcAi.should_engage(내 전력, 적 전력)`(전력 ≥ 0.7배)이면 전투. 불리하면 접근만(전투 없음).
+4. **전투**: `f.mark_attacked()` 후 `await _run_battle(f, target, dist, occupy)`. `dist = _engagement_distance(f, target)` — **1(근접)이면 승리 시 적 칸 점령(`occupy = 적 칸`), 2+(원거리 사격)이면 점령 없음(`(-1,-1)`)**. 원거리 무기 부대는 사거리 안이면 붙지 않고 제자리 사격이 된다.
+
+- **입력 잠금**: 교전 시퀀스 동안 `_stance_busy = true` — 턴 종료(`_on_turn_ended`)와 맵 좌클릭을 막는다(전투 사이 이동 구간 포함). 전투 중은 `_in_battle`이 함께 막는다. 시퀀스가 끝나면 `false`. 카메라·줌은 가능.
+- **중단**: 시퀀스 도중 `_game_over`가 되면 루프를 멈춘다.
+- **턴 소비**: 접근한 부대는 `mark_moved`, 전투한 부대는 `mark_attacked`. 접근도 전투도 없던 부대(더 못 가까워지고 인접 적도 없음)는 턴을 그대로 둔다(수동 조작 가능).
 
 ### 적용 대상
 
@@ -63,18 +78,21 @@ static func follow_destination(terrain, hero_cell, follower_cell, move_range, ma
 
 ## API
 
-`PartyActionMenu.stance_actions() -> Array` — 작전 메뉴 버튼(순수, 노드 비의존). 이번 슬라이스는 `[{id="st_follow", label="추종", enabled=true}, {id="st_hold", label="대기", enabled=true}]`. 교전·돌격은 Slice 2에서 추가.
+`PartyActionMenu.stance_actions() -> Array` — 작전 메뉴 버튼(순수, 노드 비의존). 현재 `[추종(st_follow), 대기(st_hold), 교전(st_engage)]`(모두 활성). 돌격(`st_charge`)은 Slice 2b에서 추가.
 
 `game.gd`:
 - `_subordinates_of(hero) -> Array` — `lord == hero`이고 멤버 있는 하위부대 목록.
 - `_can_command_subordinates(hero) -> bool` — 위 목록 중 `can_move()`인 부대가 하나라도 있는지(작전 메뉴 노출 조건).
 - `_open_stance_menu(hero) -> void` — `_stance_hero`를 세우고 작전 메뉴를 연다.
-- `_resolve_stance(id) -> void` — 고른 스탠스를 처리하고 영웅 행동 메뉴로 복귀.
+- `_resolve_stance(id) -> void`(async) — 고른 스탠스를 처리하고(교전은 시퀀스 await) 영웅 행동 메뉴로 복귀.
 - `_follow_with_lord(hero, hero_cell) -> void` / `_start_follow_animation(f, path, delay)` / `_finish_pending_follow_moves()` — 추종 이동·애니메이션·턴 종료 스냅.
+- `_engage_with_lord(hero) -> void`(async) — 교전 시퀀스(접근→사거리 내 전투, 부대별 순차 await).
+- `_visible_enemy_cells(faction) -> Array` — 보이는 적 부대 칸 목록(성벽 안 수비대 제외). 교전 접근 대상.
+- `_move_party_await(p, path) -> void`(async) — 한 부대를 경로 따라 이동하고 완료까지 await(교전 접근용).
 
 ## 미구현
 
-- **교전(`st_engage`)·돌격(`st_charge`)** — 전투 개시를 수반하는 스탠스(Slice 2). 돌격은 공통 목표 1지점 어택무브.
+- **돌격(`st_charge`)** — 공통 목표 1지점 어택무브(경로 상 적 교전). Slice 2b. 목표 지정 모드·어택무브 정지 로직 필요.
 - **대기의 방어 버프** — 지금 대기는 제자리 유지만. 방어 자세 보정은 후속.
 - **NPC 작전 발동** — 현재 플레이어 이동 경로 전용.
 - **소속 부대 지휘 버프**(영웅 근처) — [Party Lord](party-lord.md)와 별개 후속. → [army-overhaul 메모]
@@ -83,8 +101,8 @@ static func follow_destination(terrain, hero_cell, follower_cell, move_range, ma
 
 ### 작전 메뉴 버튼 — `test/unit/test_party_action_menu.gd`
 
-- [정상] `stance_actions()` → `[추종(st_follow), 대기(st_hold)]`(둘 다 활성)
-- [경계] 교전·돌격은 이번 슬라이스 메뉴에 없다(id `st_engage`·`st_charge` 미포함)
+- [정상] `stance_actions()` → `[추종(st_follow), 대기(st_hold), 교전(st_engage)]`(모두 활성)
+- [경계] 돌격(`st_charge`)은 아직 메뉴에 없다(Slice 2b)
 
 ### 추종 목적지 판정 — `test/unit/test_hex_grid.gd` (실제 헥스 TileMapLayer)
 
@@ -100,11 +118,13 @@ static func follow_destination(terrain, hero_cell, follower_cell, move_range, ma
 
 작전 메뉴 노출·`_resolve_stance`·하위부대 순회·예약·애니메이션·턴 종료 스냅·클릭 잠금은 씬 트리·터레인 의존이라 실제 실행으로 확인한다.
 
-- 하위부대 있는 영웅부대 이동 → 작전 메뉴 [추종][대기].
+- 하위부대 있는 영웅부대 이동 → 작전 메뉴 [추종][대기][교전].
 - [추종] → 하위부대들이 영웅 주변 빈 칸으로 흩어져 따라오고 흐리게(이동 완료) 표시. 이미 행동/주둔한 부대는 안 따라옴. 이동력 부족하면 최대 접근.
 - [대기] → 하위부대 제자리, 영웅 행동 메뉴([사격]/[대기])로 복귀.
+- [교전] → 하위부대들이 하나씩 가까운 적으로 접근, 사거리 안이면 근접/사격 전투(불리하면 접근만). 시퀀스 동안 맵 클릭·턴 종료 잠김, 끝나면 영웅 메뉴로 복귀.
 - 추종 도중 턴 종료 → 하위부대들이 목적지 칸으로 스냅.
 - 하위부대 없는(또는 전부 행동 완료) 영웅부대 이동 → 작전 메뉴 없이 바로 영웅 행동 메뉴.
+- 교전 시퀀스는 씬·전투 오버레이·NPC AI 의존이라 순수 단위 테스트가 아닌 실행으로 확인한다(재사용하는 `NpcAi.should_engage`·`choose_destination`·`HexGrid`는 기존 단위 테스트가 커버).
 
 ## 관련
 

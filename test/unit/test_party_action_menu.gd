@@ -41,20 +41,20 @@ func test_party_actions_rest_alert_wait_enabled() -> void:
 # --- 작전 메뉴 (stance_actions) ---
 
 func test_stance_actions_buttons() -> void:
-	assert_eq(_ids(PartyActionMenu.stance_actions()), ["st_follow", "st_hold"], "작전 메뉴 [추종][대기]")
+	assert_eq(_ids(PartyActionMenu.stance_actions()), ["st_follow", "st_hold", "st_engage"], "작전 메뉴 [추종][대기][교전]")
 
 func test_stance_actions_labels_and_enabled() -> void:
 	var a := PartyActionMenu.stance_actions()
 	assert_eq(_by_id(a, "st_follow")["label"], "추종", "추종 라벨")
 	assert_eq(_by_id(a, "st_hold")["label"], "대기", "대기 라벨")
+	assert_eq(_by_id(a, "st_engage")["label"], "교전", "교전 라벨")
 	assert_true(_by_id(a, "st_follow")["enabled"], "추종 활성")
 	assert_true(_by_id(a, "st_hold")["enabled"], "대기 활성")
+	assert_true(_by_id(a, "st_engage")["enabled"], "교전 활성")
 
-func test_stance_actions_excludes_combat_stances() -> void:
-	# 교전·돌격은 이번 슬라이스 메뉴에 없다(전투 개시 스탠스는 Slice 2).
-	var ids := _ids(PartyActionMenu.stance_actions())
-	assert_false("st_engage" in ids, "교전 미포함")
-	assert_false("st_charge" in ids, "돌격 미포함")
+func test_stance_actions_excludes_charge() -> void:
+	# 돌격은 아직 메뉴에 없다(어택무브 스탠스는 Slice 2b).
+	assert_false("st_charge" in _ids(PartyActionMenu.stance_actions()), "돌격 미포함")
 
 # --- 적 팝업 (enemy_actions) ---
 

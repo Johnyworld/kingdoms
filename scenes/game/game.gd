@@ -128,6 +128,8 @@ var _follow_targets: Dictionary = {}     # 하위부대 → 최종 목적지 칸
 
 # 작전 메뉴가 뜬 대상 영웅부대(없으면 null). 메뉴가 떠 있는 동안 맵 좌클릭을 잠근다. → squad-stance.md
 var _stance_hero = null
+# 교전 스탠스 시퀀스(하위부대 순차 접근·전투)가 도는 동안 참. 맵 클릭·턴 종료를 잠근다. → squad-stance.md
+var _stance_busy := false
 
 # 전투 오버레이가 떠 있는 동안 월드맵 좌클릭·턴 종료를 잠근다.
 var _in_battle := false
@@ -1903,8 +1905,8 @@ func _undo_last_move() -> void:
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
-	if _in_battle or _game_over:
-		return   # 전투 관전 중·게임 오버에는 턴을 넘기지 않는다.
+	if _in_battle or _game_over or _stance_busy:
+		return   # 전투 관전 중·게임 오버·교전 시퀀스 진행 중에는 턴을 넘기지 않는다. → squad-stance.md
 	_finish_player_move()   # 이동 애니메이션 중이면 목적지로 스냅한 뒤 턴을 넘긴다.
 	_finish_pending_follow_moves()   # 추종 이동 중이면 하위부대도 목적지로 스냅. → squad-stance.md
 	if _stance_hero != null:
@@ -2199,7 +2201,7 @@ func _open_stance_menu(hero) -> void:
 	_stance_hero = hero
 	party_action_menu.open(PartyActionMenu.stance_actions(), _screen_pos(hero.position))
 
-## 고른 작전(스탠스)을 처리하고 영웅 자신의 이동 후 메뉴로 복귀한다. → squad-stance.md
+## 고른 작전(스탠스)을 처리하고 영웅 자신의 이동 후 메뉴로 복귀한다. 교전은 시퀀스가 끝난 뒤 복귀. → squad-stance.md
 func _resolve_stance(id: String) -> void:
 	var hero = _stance_hero
 	_stance_hero = null
@@ -2209,10 +2211,63 @@ func _resolve_stance(id: String) -> void:
 			_follow_with_lord(hero, terrain.local_to_map(hero.position))   # 하위부대가 영웅 주변으로 집결
 		"st_hold":
 			pass   # 대기 — 하위부대 제자리(방어 버프 미구현)
-	# 영웅이 아직 행동 가능하면(사격/대기) 자신의 메뉴로 복귀한다.
+		"st_engage":
+			await _engage_with_lord(hero)   # 하위부대 순차 접근·전투(비동기)
+	if _game_over:
+		return   # 교전 중 승패 확정 → 결과 오버레이 위에 메뉴·범위를 다시 띄우지 않는다.
+	# 전역 활성 부대를 영웅으로 복원하고(전투가 party를 재할당했을 수 있음), 아직 행동 가능하면(사격/대기) 메뉴 복귀.
+	party = hero
 	if hero.can_rest():
-		party = hero
 		_select()
+
+## 교전 스탠스: hero의 하위부대들을 하나씩 가까운 적으로 접근시키고, 사거리 안이면 전투를 벌인다(신중 판정). → squad-stance.md
+## 전투 오버레이가 모달이라 한 부대씩 await한다. NPC 공격 페이즈(_npc_attack_phase)와 같은 전투 경로를 재사용.
+func _engage_with_lord(hero) -> void:
+	_stance_busy = true   # 시퀀스 동안 맵 클릭·턴 종료 잠금(전투 중은 _in_battle 병행)
+	for f in _subordinates_of(hero):
+		if _game_over:
+			break
+		if not f.can_move():
+			continue
+		var start := terrain.local_to_map(f.position)
+		var targets := _visible_enemy_cells(f.faction_name)
+		# 1) 보이는 적 중 최근접으로 접근(더 가까워질 수 없으면 제자리).
+		if not targets.is_empty():
+			var blocked := _blocked_for(f)
+			var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, targets)
+			if dest != start:
+				var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+				if path.size() >= 2:
+					f.mark_moved()
+					await _move_party_await(f, path)
+		# 2) 사거리 내 적이 있고 전력이 신중 기준 이상이면 전투(근접=붙어서, 원거리=제자리 사격).
+		var target = _adjacent_enemy(f)
+		if target != null and NpcAi.should_engage(NpcAi.party_power(f.members), NpcAi.party_power(target.members)):
+			f.mark_attacked()
+			var dist := _engagement_distance(f, target)
+			var occ := terrain.local_to_map(target.position) if dist == 1 else Vector2i(-1, -1)   # 근접 승리 시만 점령
+			await _run_battle(f, target, dist, occ)
+	_stance_busy = false
+
+## 보이는 적 부대(세력 다르고 멤버 있음)의 칸 목록. 적 세력 성벽 안 수비대는 제외. 교전 접근 대상. → squad-stance.md
+func _visible_enemy_cells(faction: String) -> Array:
+	var walls := _wall_blocked_cells(faction)
+	var out: Array = []
+	for p in _units + _npc_parties:
+		if p.faction_name == faction or p.members.is_empty() or not p.visible:
+			continue
+		var c: Vector2i = terrain.local_to_map(p.position)
+		if walls.has(c):
+			continue
+		out.append(c)
+	return out
+
+## 한 부대를 경로 따라 이동시키고 애니메이션이 끝날 때까지 await한다(교전 접근용). 도착 칸마다 시야 개방.
+func _move_party_await(p, path: Array) -> void:
+	var tw := _animate_path(p, path, 0.0, func(_cell: Vector2i) -> void: _update_fog())
+	if tw == null:
+		return
+	await tw.finished
 
 ## 작전(추종): hero에 소속된 하위부대들을 hero 칸(hero_cell) 주변 빈 칸으로 따라오게 한다. → squad-stance.md
 ## 하나씩 순차 배정하며 목적지·영웅 칸을 예약해 서로 겹치지 않게 흩어진다. 이미 행동했거나 갇힌 부대는 건너뛴다.
@@ -2516,7 +2571,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			# 이동 애니메이션(영웅·하위부대 추종)·작전 메뉴 대기·전투·게임 오버 중에는 새 클릭(이동·선택·메뉴)을 무시한다. 줌은 위에서 이미 처리됨.
-			if not _player_moving and _follow_tweens.is_empty() and _stance_hero == null and not _in_battle and not _game_over:
+			if not _player_moving and _follow_tweens.is_empty() and _stance_hero == null and not _stance_busy and not _in_battle and not _game_over:
 				_handle_click(get_global_mouse_position())
 	elif event is InputEventPanGesture:
 		# 두 손가락 스크롤: 위로(delta.y<0) = 확대, 아래로 = 축소.
