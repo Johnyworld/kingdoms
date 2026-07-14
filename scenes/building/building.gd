@@ -31,6 +31,9 @@ var wall_level := 0
 # 성벽 내구도. 성벽 건설 시 Siege.WALL_MAX_HP로 채우고, 투석으로 깎여 0이면 붕괴(game.gd가 wall_level→0). → docs/spec/features/wall.md
 var wall_hp := 0
 
+# 성문 내구도. 성벽 건설 시 Siege.GATE_MAX_HP로 채우고, 충차·투석으로 깎여 0이면 그 면 통로 개방(성벽 유지). → docs/spec/features/wall.md 성문
+var gate_hp := 0
+
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
 const FALLBACK_EDGE := Color(0.3, 0.3, 0.3)
@@ -83,6 +86,21 @@ func center_cell() -> Vector2i:
 ## 거점에 성벽이 있는지(적 접근 차단 판정). → docs/spec/features/wall.md
 func is_walled() -> bool:
 	return wall_level > 0
+
+## 성문이 놓인 ring 한 면(footprint 이웃 6칸 중 결정론적 한 칸 — 좌표순 첫 칸). 위치 고정. → wall.md 성문
+func gate_cell() -> Vector2i:
+	var ring: Array[Vector2i] = []
+	for c in cells:
+		if c != _center_cell:
+			ring.append(c)
+	if ring.is_empty():
+		return _center_cell   # footprint 1(성벽 불가 — 실사용 없음)
+	ring.sort_custom(func(a, b): return a.x < b.x if a.x != b.x else a.y < b.y)
+	return ring[0]
+
+## 성문이 부서져 그 면 통로가 열렸는지(성벽 있고 성문 내구도 0). → wall.md 성문
+func gate_broken() -> bool:
+	return is_walled() and gate_hp <= 0
 
 ## 종류 라벨(예: "캠프").
 func label() -> String:
@@ -198,6 +216,7 @@ func _draw() -> void:
 
 	if is_walled():
 		_draw_wall_ring(center)
+		_draw_gate(center)
 
 	_draw_labels(center - Vector2(0, hh * 0.6))
 
@@ -206,6 +225,17 @@ func _draw() -> void:
 		_draw_construction_badge(center + Vector2(0, hh * 0.7))
 	elif BuildingTypes.is_center(building_type) and defender_count > 0:
 		_draw_garrison_badge(center + Vector2(0, hh * 0.7), defender_count)
+
+## 성문 표시 — gate_cell 방향에 마커. 온전(갈색)→손상(붉게), 부서지면(gate_broken) 열린 색(초록). → docs/spec/features/wall.md 성문
+func _draw_gate(center: Vector2) -> void:
+	var pos := _terrain.map_to_local(gate_cell())
+	var color: Color
+	if gate_broken():
+		color = Color(0.35, 0.75, 0.4)   # 열림(통로)
+	else:
+		var ratio := clampf(float(gate_hp) / float(Siege.GATE_MAX_HP), 0.0, 1.0)
+		color = Color(0.85, 0.25, 0.2).lerp(Color(0.55, 0.4, 0.2), ratio)   # 손상→온전(갈색 문)
+	draw_circle((center + pos) * 0.5, 5.0, color)
 
 ## 성벽 링을 그린다 — 중심을 두른 이웃 6칸의 중심을 잇는 육각 테두리(회색 두꺼운 선). → docs/spec/features/wall.md
 func _draw_wall_ring(center: Vector2) -> void:

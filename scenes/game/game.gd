@@ -155,6 +155,7 @@ func _ready() -> void:
 	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), "town_hall")
 	building.wall_level = 1   # 시작 성벽(공성 시험용) → siege-engines.md
 	building.wall_hp = Siege.WALL_MAX_HP
+	building.gate_hp = Siege.GATE_MAX_HP
 	_buildings = [building]
 	_setup_factions()
 	_setup_parties()
@@ -263,6 +264,7 @@ func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
 	camp.setup(terrain, base_cell, BuildingTypes.CAMP)   # 완성 상태(건설 중 아님)
 	camp.wall_level = 1   # 시작 성벽(공성 시험용 — 정상 규칙상 캠프는 성벽 불가지만 테스트로 강제) → siege-engines.md
 	camp.wall_hp = Siege.WALL_MAX_HP
+	camp.gate_hp = Siege.GATE_MAX_HP
 	territory.add_building(camp)
 	return camp
 
@@ -342,22 +344,29 @@ func _compute_bombard_targets(start: Vector2i) -> void:
 	if rng <= 0:
 		return
 	var dists: Dictionary = HexGrid.bfs_distances(terrain, start, rng, MAP_WIDTH, MAP_HEIGHT)
-	if party.siege_can_bombard_units():   # 충차만 실은 부대는 성벽 전용 — 적 부대 표적 제외 → siege-engines.md
+	if party.siege_can_bombard("unit"):   # 유닛 표적(충차만 실은 부대는 제외) → siege-engines.md
 		for p in _npc_parties:   # 적 부대(유닛 투석)
 			if not p.visible or p.members.is_empty():
 				continue
 			var ec: Vector2i = terrain.local_to_map(p.position)
 			if dists.has(ec) and int(dists[ec]) >= min_r:
 				_bombard_cells[ec] = {"kind": "party", "ref": p, "dist": int(dists[ec])}
-	for b in _buildings + _npc_buildings:   # 성벽 적 거점(성벽 투석) — 부대 셀을 덮어써 성벽 우선
+	for b in _buildings + _npc_buildings:   # 성벽 적 거점 — 성벽 셀(wall) + 성문 셀(gate). 부대 셀보다 우선
 		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
 			continue
 		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
 		if bf == party.faction_name:
 			continue   # 아군 성벽 제외
-		for c in b.cells:
-			if dists.has(c) and int(dists[c]) >= min_r:
-				_bombard_cells[c] = {"kind": "wall", "ref": b, "dist": int(dists[c])}
+		var gate: Vector2i = b.gate_cell()
+		if party.siege_can_bombard("wall"):   # 투석기: 성문 셀 제외한 footprint = 성벽
+			for c in b.cells:
+				if c == gate:
+					continue   # 성문 셀은 gate 표적으로 별도
+				if dists.has(c) and int(dists[c]) >= min_r:
+					_bombard_cells[c] = {"kind": "wall", "ref": b, "dist": int(dists[c])}
+		if party.siege_can_bombard("gate") and b.gate_hp > 0:   # 충차·투석기: 성문 셀(온전할 때만)
+			if dists.has(gate) and int(dists[gate]) >= min_r:
+				_bombard_cells[gate] = {"kind": "gate", "ref": b, "dist": int(dists[gate])}
 	_bombard_area_cells.assign(_bombard_cells.keys())   # 빨강 오버레이용 표적 셀(타입 배열로 복사)
 
 ## 보이는 각 NPC를 공격 가능 여부로 분류한다. 근접=(현재∪이동칸 중 인접칸 존재), 사격=(원거리 무기·현재 위치 사거리 내).
@@ -506,6 +515,8 @@ func _handle_click(world_pos: Vector2) -> void:
 			var t: Dictionary = _bombard_cells[cell]
 			if t["kind"] == "wall":
 				_bombard_wall(t["ref"], int(t["dist"]))   # 성벽 → battle.gd 통합 전투(구조물 전투원)
+			elif t["kind"] == "gate":
+				_bombard_gate(t["ref"], int(t["dist"]))   # 성문 → battle.gd 통합 전투(gate_hp) + 충차 반격 → wall.md 성문
 			else:
 				# 적 부대 → battle.gd 통합 전투(투석기 전투원 포함, 밴드 거리). → siege-engines.md
 				_begin_battle(t["ref"], int(t["dist"]), Vector2i(-1, -1), true)
@@ -781,6 +792,7 @@ func _on_wall_requested(b) -> void:
 	b.territory.spend(BuildingTypes.WALL_COST)   # 자재 차감
 	b.wall_level = 1
 	b.wall_hp = Siege.WALL_MAX_HP   # 성벽 내구도 만피 — 투석으로 깎이면 붕괴 → siege-engines.md
+	b.gate_hp = Siege.GATE_MAX_HP   # 성문 내구도 — 충차로 깎이면 그 면 통로 개방 → wall.md 성문
 	b.queue_redraw()   # 성벽 링 그리기
 	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
 
@@ -877,6 +889,9 @@ func _wall_blocked_cells(faction_name: String) -> Dictionary:
 		if bf == faction_name:
 			continue   # 같은 세력 성벽은 통행·표적 자유
 		var open_cells := _ladder_corridor(b, faction_name)   # 준비된 사다리가 연 통로 셀
+		if b.gate_broken():   # 부서진 성문은 모든 적 세력에 그 면 통로 개방 → wall.md 성문
+			open_cells[b.gate_cell()] = true
+			open_cells[b.center_cell()] = true
 		for c in b.cells:
 			if open_cells.has(c):
 				continue
@@ -892,9 +907,9 @@ func _ladder_corridor(b, faction_name: String) -> Dictionary:
 			open_cells[b.center_cell()] = true
 	return open_cells
 
-## faction_name이 거점 b를 사다리로 돌파했는지(준비된 사다리 있음). 점령·공격 대상 판정에 쓴다.
+## faction_name이 거점 b를 돌파했는지 — 부서진 성문(모든 세력) 또는 그 세력의 준비된 사다리. 점령·공격 대상 판정. → wall.md
 func _breached_by(b, faction_name: String) -> bool:
-	return not _ladder_corridor(b, faction_name).is_empty()
+	return b.gate_broken() or not _ladder_corridor(b, faction_name).is_empty()
 
 ## party의 이동 장애물 = 다른 부대 점유 칸 + 적 세력 성벽 거점 footprint. 이동 범위·경로에 넘긴다. → wall.md
 func _blocked_for(party) -> Dictionary:
@@ -1480,6 +1495,34 @@ func _bombard_wall_by(attacker, building, distance: int) -> void:
 	else:
 		toast.show_message("성벽 −%d (%d/%d)" % [from_hp - building.wall_hp, building.wall_hp, Siege.WALL_MAX_HP])
 	building.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
+	party_roster.set_parties(_units)
+
+## [투석]→성문(플레이어): 활성 부대가 성문을 타격. 부대 행동 종료 후 통합 전투 + 충차 반격. → wall.md 성문
+func _bombard_gate(building, distance: int) -> void:
+	if building == null:
+		return
+	party.mark_attacked()   # 타격 = 부대 행동 종료 → 자연히 1턴 1발
+	_undo_party = null
+	_deselect()
+	_hide_party_info()
+	await _bombard_gate_by(party, building, distance)
+
+## 성문을 구조물 전투원으로 battle.gd 통합 전투(target_gate → gate_hp 차감). 0이면 그 면 통로 개방(성벽 유지). → wall.md 성문
+func _bombard_gate_by(attacker, building, distance: int) -> void:
+	var from_hp: int = building.gate_hp
+	_in_battle = true
+	var overlay := BATTLE_SCENE.new()
+	add_child(overlay)
+	overlay.start(attacker, null, distance, true, building, true)   # target_gate = true → gate_hp 대상
+	await overlay.finished
+	overlay.queue_free()
+	_in_battle = false
+	if building.gate_broken():   # battle.gd가 building.gate_hp를 반영
+		var tname: String = building.territory.name if building.territory != null else "성문"
+		toast.show_message("%s 성문 돌파!" % tname)
+	else:
+		toast.show_message("성문 −%d (%d/%d)" % [from_hp - building.gate_hp, building.gate_hp, Siege.GATE_MAX_HP])
+	building.queue_redraw()   # 성문 표시 갱신
 	_apply_ram_counter(attacker, building)   # 충차(근접)면 수비 반격으로 내구도 차감·파괴 → siege-engines.md
 	party_roster.set_parties(_units)
 
@@ -1489,7 +1532,7 @@ func _apply_ram_counter(attacker, building) -> void:
 		return   # 무방비 거점 — 반격 없음
 	var countered := false
 	for u in attacker.siege_units:
-		if u.wall_only():   # 충차만 근접 반격 대상(투석기는 원거리라 무관)
+		if u.min_range() <= 1:   # 근접(밴드 1) 공성 유닛 = 충차만 반격 대상(투석기 4~5는 안전)
 			u.hit_points -= Siege.ram_counter_damage(_rng.randf())
 			countered = true
 	if countered and attacker.prune_destroyed_siege() > 0:
@@ -1568,6 +1611,8 @@ func _siege_target_for(attacker) -> Dictionary:
 			best = {"kind": "party", "ref": p, "dist": best_d}
 	for b in _enemy_walled_centers(attacker.faction_name):   # 적 세력 성벽 거점(플레이어·다른 NPC 불문 — 5g)
 		for c in b.cells:
+			if c == b.gate_cell():
+				continue   # 성문 셀은 NPC 표적 제외 — NPC는 성벽만 공격(성문 공격 AI는 후속) → siege-engines.md
 			if dists.has(c) and int(dists[c]) >= min_r and int(dists[c]) < best_d:
 				best_d = int(dists[c])
 				best = {"kind": "wall", "ref": b, "dist": best_d}

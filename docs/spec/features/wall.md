@@ -44,9 +44,21 @@
 - **붕괴**: 투석으로 `wall_hp`가 0이 되면(`wall_broken`) 그 거점을 **성벽 없음**(`wall_level = 0`·`wall_hp = 0`)으로 되돌리고 그 거점의 [사다리를 모두 제거](#통로-돌파-breach)(`_clear_ladders`)한다. 이후 `is_walled() == false`라 [이동 차단](#이동-차단-gamegd)·[공격·점령 차단](#공격점령-차단-gamegd)이 자동으로 풀려 **기존 점령·공격 흐름이 열린다**(추가 배선 없음).
 - **맵 표시**(`building.gd`): 성벽 링을 `wall_hp / WALL_MAX_HP` 비율로 색 보간해 그린다 — 온전(회색) → 손상(붉게). 붕괴하면 성벽 없음이라 링을 그리지 않는다.
 
+## 성문 (Gate)
+
+성벽에는 **성문**이 하나 있다 — 성벽의 지정된 약점/입구. 성벽 전체를 무너뜨리는 대신, 성문만 부수면 **그 면으로 진입**할 수 있다. [충차](siege-engines.md#충차-근접-성문-파쇄)가 성문 전담 파쇄 병기다.
+
+- `Building.gate_cell() -> Vector2i` — 성문이 놓인 면. footprint 이웃 6칸(ring) 중 **결정론적으로 한 칸**(각도순 정렬 첫 칸). 위치 고정(성벽 유무·내구도와 무관하게 같은 칸).
+- `Building.gate_hp: int` — 기본 `0`. 성벽 건설 시(`wall_level = 1`) `Siege.GATE_MAX_HP`(120)로 채운다(`wall_hp`와 함께). [충차·투석](siege-engines.md#충차-근접-성문-파쇄)으로 깎인다.
+- `Building.gate_broken() -> bool` — `is_walled() and gate_hp <= 0`. 성문이 부서져 통로가 열렸는지.
+- **상수**(`Siege`): `GATE_MAX_HP = 120`(성벽 180보다 약함 — 성문은 약점). 성문 피해는 성벽과 같은 `rolled_damage(attack, roll)` → 충차(90)로 **평균 2발**, 투석기(50)로 ~3발.
+- **타격**: [BOMBARD](siege-engines.md#충차-근접-성문-파쇄)에서 `gate_cell`을 표적으로 친다. 충차는 **성문만**(근접·`targets=["gate"]`), 투석기는 **성벽·성문 둘 다**(`["unit","wall","gate"]`). 성문 타격은 성벽과 같은 [battle.gd 구조물 전투원](siege-engines.md#battlegd-통합-전투--투석기구조물-전투원) 전투를 쓰되 `gate_hp`를 깎는다(`target_gate`).
+- **돌파**: `gate_hp`가 0이 되면(`gate_broken`) **성벽은 그대로 두고** `gate_cell` + 중심만 통로로 연다([통로 돌파](#통로-돌파-breach)). 진입·점령은 사다리 통로와 동일 흐름. 성벽 전체 붕괴(투석기 vs `wall_hp`)와 달리 성벽 링은 남는다.
+
 ## 맵 표시 (`building.gd` `_draw`)
 
 - 성벽 있는 거점은 중심 둘레(footprint 경계)에 **성벽 링**을 그린다(간단한 선/색). 캠프·성벽 없는 거점은 그리지 않는다.
+- **성문**: `gate_cell` 방향 링 구간을 다른 색(내구도 비율)으로 강조한다. `gate_broken`이면 열린 표시.
 
 ## 사다리 공성 (`Siege` · `game.gd`)
 
@@ -82,6 +94,9 @@
 
 ### 통로 돌파 (breach)
 
+돌파 경로는 두 가지다: **사다리**(준비 완료된 면) 또는 **성문 파괴**(`gate_broken`). 둘 다 `_wall_blocked_cells`가 해당 통로 칸의 차단을 풀고, `_breached_by`가 참이 되어 [공격·점령](camp-capture.md)이 열린다.
+
+- **성문 통로**: `gate_broken`이면 **모든 적 세력**에게 `gate_cell` + 중심의 차단을 해제한다(성문은 물리적으로 열린 것 — 세력 무관). `_breached_by(b, faction)`는 사다리 통로 **또는** `b.gate_broken()`이면 참.
 - **준비 완료(`countdown == 0`)** 사다리는 그 `faction`에게 **`target_cell`(ring) + 거점 `center_cell()`**의 성벽 차단을 해제한다(`_wall_blocked_cells`가 그 두 칸을 그 세력엔 막지 않음). 나머지 footprint는 여전히 차단 = **방향 제한**(사다리 통로로만 진입).
 - 이후 그 세력은 통로로 진입해 중심 [주둔 수비대와 전투](battle.md)·[점령](camp-capture.md)한다 — **기존 이동·전투·점령 재사용**. 준비된 사다리가 있으면 walled 거점도 공격·점령 대상 판정에서 그 세력에겐 열린다:
   - 플레이어: `_compute_camp_targets`가 `_breached_by`면 점령 대상에 포함.
@@ -90,7 +105,8 @@
 
 ## 이번 슬라이스 제외 (미구현)
 
-- **오르기 애니메이션**·다단계 벽·성문·성벽/사다리 내구도·NPC의 성벽 건설·NPC의 고리 사다리 사용.
+- **오르기 애니메이션**·다단계 벽·NPC의 성벽 건설·NPC의 고리 사다리 사용.
+- **NPC의 성문 공격 AI**(NPC가 충차로 플레이어 성문을 부수는 흐름) — 후속. NPC 수비대의 성문 방어(플레이어 충차 반격)는 [충차 반격](siege-engines.md#충차-근접-성문-파쇄)으로 처리됨.
 
 ## 테스트 시나리오
 
@@ -98,6 +114,13 @@
 - [정상] 생성 직후 `wall_level == 0`, `is_walled() == false`, `wall_hp == 0`
 - [정상] `wall_level = 1` → `is_walled() == true`; 설정 가능
 - [정상] `wall_hp` 설정 가능(예: 180); [정상] `upgrade_to`(티어 교체) 후에도 `wall_level`·`wall_hp` 유지
+
+**성문 상태** — `test/unit/test_building.gd`:
+- [정상] `gate_cell()`은 footprint ring 6칸 중 하나(중심 아님), 반복 호출에 **동일**(결정론적)
+- [정상] 생성 직후 `gate_hp == 0`, `gate_broken() == false`
+- [정상] `wall_level = 1` + `gate_hp = 0` → `gate_broken() == true`(성벽 있고 성문 0)
+- [경계] `wall_level = 0` + `gate_hp = 0` → `gate_broken() == false`(성벽 없으면 성문 무의미)
+- [정상] `wall_level = 1` + `gate_hp = 120` → `gate_broken() == false`
 
 **성벽 건설 가능 판정** — `test/unit/test_building_types.gd`:
 - [정상] `WALL_COST == {목재15, 석재10}`(자재 Dictionary)
@@ -121,7 +144,7 @@
 - [경계] `advance_ladder_countdown(0, true) == 0`·`advance_ladder_countdown(0, false) == 0`(하한 0, 준비 완료 유지)
 
 **성벽 내구도 판정(순수)** — `test/unit/test_siege.gd`:
-- [정상] `Siege.WALL_MAX_HP == 180`, `Siege.DAMAGE_VARIANCE == 0.4`
+- [정상] `Siege.WALL_MAX_HP == 180`, `Siege.GATE_MAX_HP == 120`, `Siege.DAMAGE_VARIANCE == 0.4`
 - [정상] `rolled_damage(50, 0.0) == 30`, `rolled_damage(50, 1.0) == 70`, `rolled_damage(50, 0.5) == 50`(랜덤 데미지 하한·상한·중앙)
 - [정상] `wall_after_hit(180, 50) == 130`; [경계] `wall_after_hit(30, 50) == 0`(하한 0)
 - [정상] `wall_broken(0) == true`, `wall_broken(1) == false`; [경계] `wall_broken(-5) == true`

@@ -6,6 +6,7 @@ const LADDER_PUSH_CHANCE := 0.15   # [사다리 밀기] 1회당 사다리 파괴
 const HOOKED_PUSH_REDUCTION := 0.05   # 「고리 사다리」로 세운 사다리(hooked)의 밀기 성공 확률 감소분 → items.md
 
 const WALL_MAX_HP := 180          # 성벽 건설 시 내구도(만피). 투석기 공격력 50 기준 평균 3~6발에 붕괴. → siege-engines.md
+const GATE_MAX_HP := 120          # 성문 건설 시 내구도. 성벽 180보다 약함(약점). 충차 90 기준 평균 2발 파괴. → wall.md 성문
 const DAMAGE_VARIANCE := 0.4      # 투석 데미지 랜덤폭 ±40%(고정값 아님, 다른 공격처럼 랜덤성) → 50 기준 30~70
 
 const MAX_BOMBARD_TARGETS := 5    # 유닛 투석 1발이 노리는 최대 유닛 수(초과 부대는 랜덤 5명) → siege-engines.md

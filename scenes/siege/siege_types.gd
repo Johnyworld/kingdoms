@@ -9,7 +9,7 @@ const CREW_MIN := 4   # 공성 유닛을 실은 부대가 이동하려면 필요
 
 # 종류 id → 스펙. name=이름, movement=견인 이동력(부대 이동력 상한), min_range·fire_range=투석/타격 사거리 밴드,
 # attack=공격력(무기보다 큰 공성 화력, 데미지 기준값), hit_points=내구도, produce_*=생산 비용(인구 비소모),
-# wall_only=성벽 전용 여부(생략 시 false — true면 유닛 표적 없이 성벽만 타격). → docs/spec/data/siege-units.md
+# targets=타격 가능 표적 종류 리스트("unit"/"wall"/"gate"). → docs/spec/data/siege-units.md
 const CATALOG := {
 	"catapult": {
 		"name": "투석기",
@@ -20,17 +20,18 @@ const CATALOG := {
 		"hit_points": 60,
 		"produce_gold": 40,
 		"produce_cost": {"목재": 30, "석재": 20},
+		"targets": ["unit", "wall", "gate"],   # 성벽·성문·유닛 겸용
 	},
 	"battering_ram": {
 		"name": "충차",
 		"movement": 1,        # 무거워 느림
-		"min_range": 1,       # 근접(성벽에 붙어야 타격)
+		"min_range": 1,       # 근접(성문에 붙어야 타격)
 		"fire_range": 1,
-		"attack": 90,         # 성벽 특화 고화력(180 성벽 ≈2발 붕괴)
+		"attack": 90,         # 성문 특화 고화력(성문 120 ≈2발 파괴)
 		"hit_points": 40,     # 근접 노출 — 취약
 		"produce_gold": 50,
 		"produce_cost": {"목재": 40, "석재": 10},
-		"wall_only": true,    # 성벽만 타격(유닛 표적 안 함)
+		"targets": ["gate"],  # 성문만 타격(성벽·유닛 안 침)
 	},
 }
 
@@ -62,9 +63,13 @@ static func attack(id: String) -> int:
 static func max_hp(id: String) -> int:
 	return CATALOG.get(id, {}).get("hit_points", 0)
 
-## 성벽 전용 여부(카탈로그 wall_only, 생략·없는 id면 false). true면 성벽만 타격, 유닛 표적 안 함.
-static func wall_only(id: String) -> bool:
-	return CATALOG.get(id, {}).get("wall_only", false)
+## 타격 가능 표적 종류 리스트(카탈로그 targets, 없는 id면 []). "unit"/"wall"/"gate".
+static func targets(id: String) -> Array:
+	return CATALOG.get(id, {}).get("targets", [])
+
+## 그 종류(kind)를 타격할 수 있는지(targets에 포함 여부).
+static func can_target(id: String, kind: String) -> bool:
+	return kind in targets(id)
 
 ## 생산 금 비용(없는 id면 0).
 static func produce_gold(id: String) -> int:

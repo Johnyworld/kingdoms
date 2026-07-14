@@ -39,6 +39,7 @@
 | 남은 턴 | `remaining_turns` | `int` | `0` | 완성까지 남은 턴. `setup`에서 `build_turns`로 채워짐. 완성 시 0 |
 | 성벽 단계 | `wall_level` | `int` | `0` | 거점 [성벽](../features/wall.md) 단계. `0`=없음, `≥1`=성벽(적 접근 차단). 마을회관·성만 [성벽 건설](../features/wall.md)로 올린다. `is_walled()`로 조회 |
 | 성벽 내구도 | `wall_hp` | `int` | `0` | 거점 [성벽 내구도](../features/wall.md#성벽-내구도-buildingwall_hp--siege). 성벽 건설 시 `Siege.WALL_MAX_HP`(180)로 채우고, [투석](../features/siege-engines.md#투석-공성-성벽)으로 깎여 0이면 붕괴(`wall_level`→0). `is_walled()`는 이 값과 무관(붕괴는 `wall_level`로 처리) |
+| 성문 내구도 | `gate_hp` | `int` | `0` | 거점 [성문 내구도](../features/wall.md#성문-gate). 성벽 건설 시 `Siege.GATE_MAX_HP`(120)로 채우고, [충차·투석](../features/wall.md#성문-gate)으로 깎여 0이면 성문 면 통로 개방(성벽은 유지). 성벽 없으면 `0` |
 
 > **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([Garrison / 주둔](../features/garrison.md)). 예전 `Building.garrison`(Human 배열)은 폐지됐다.
 
@@ -61,6 +62,8 @@
 - `label() -> String` — 종류 라벨(예: "캠프"). 카탈로그의 `label`.
 - `is_complete() -> bool` — 건설이 끝났으면(건설 중이 아니면) 참.
 - `is_walled() -> bool` — `wall_level > 0`. 거점에 [성벽](../features/wall.md)이 있는지(적 접근 차단 판정). 내구도(`wall_hp`)와 무관 — [투석 붕괴](../features/wall.md#성벽-내구도-buildingwall_hp--siege)는 `wall_level`을 0으로 내려 처리한다.
+- `gate_cell() -> Vector2i` — 성문이 놓인 ring 한 면(footprint 이웃 6칸 중 결정론적으로 한 칸 — 각도순 정렬 첫 칸). [성문](../features/wall.md#성문-gate) 표적·통로 셀. 성벽 유무와 무관하게 계산(위치 고정).
+- `gate_broken() -> bool` — `is_walled() and gate_hp <= 0`. 성문이 부서져 그 면 통로가 열렸는지([성문 돌파](../features/wall.md#성문-gate)).
 - `advance_construction() -> bool` — 건설을 1턴 진행. 이미 완성이면 `false`(불변). 건설 중이면 `remaining_turns -= 1`, 0 이하가 되면 완성 처리하고 **이번에 완성됐으면 `true`**, 아직 진행 중이면 `false`.
 - `production() -> Dictionary` — 종류의 턴당 생산량(자원명→수량). **건설 중에는 빈 Dictionary**. 완성 후에는 카탈로그의 `production`(없으면 빈 Dictionary, 캠프 등). [턴](../features/turn.md) 종료 시 영지 수입(`Territory.collect_income`)에 쓰인다.
 - `planned_production() -> Dictionary` — 완성 시 생산량(카탈로그 `production`). **건설 여부와 무관**하게 항상 반환(`production()`과 달리 건설 중에도 값이 있음). [건물 정보 패널](../features/building-info.md)이 건설 중에도 완성 시 생산량을 보여줄 때 쓴다.

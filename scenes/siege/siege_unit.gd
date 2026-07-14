@@ -33,6 +33,6 @@ func attack() -> int:
 func max_hp() -> int:
 	return SiegeTypes.max_hp(type_id)
 
-## 성벽 전용 여부(충차 true, 투석기 false). true면 성벽만 타격.
-func wall_only() -> bool:
-	return SiegeTypes.wall_only(type_id)
+## 그 종류(kind: "unit"/"wall"/"gate")를 타격할 수 있는지. 충차=gate만, 투석기=셋 다.
+func can_target(kind: String) -> bool:
+	return SiegeTypes.can_target(type_id, kind)

@@ -690,22 +690,32 @@ func test_ram_ranges_and_attack() -> void:
 	assert_eq(p.siege_min_range(), 1, "충차 최소 사거리 1")
 	assert_eq(p.siege_attack(), 90, "충차 공격력 90")
 
-func test_siege_can_bombard_units() -> void:
+func test_siege_can_bombard_none() -> void:
 	var p := _party_of(4, 4)
-	assert_false(p.siege_can_bombard_units(), "공성 유닛 없으면 false")
-	p.add_siege_unit(SiegeUnit.new())   # 투석기
-	assert_true(p.siege_can_bombard_units(), "투석기는 유닛 폭격 가능")
+	assert_false(p.siege_can_bombard("unit"), "공성 유닛 없으면 unit false")
+	assert_false(p.siege_can_bombard("wall"), "wall false")
+	assert_false(p.siege_can_bombard("gate"), "gate false")
 
-func test_ram_only_cannot_bombard_units() -> void:
+func test_siege_can_bombard_catapult() -> void:
+	var p := _party_of(4, 4)
+	p.add_siege_unit(SiegeUnit.new())   # 투석기
+	assert_true(p.siege_can_bombard("unit"), "투석기 unit")
+	assert_true(p.siege_can_bombard("wall"), "투석기 wall")
+	assert_true(p.siege_can_bombard("gate"), "투석기 gate")
+
+func test_siege_can_bombard_ram_only() -> void:
 	var p := _party_of(4, 4)
 	p.add_siege_unit(SiegeUnit.new("battering_ram"))
-	assert_false(p.siege_can_bombard_units(), "충차만이면 성벽 전용(유닛 표적 제외)")
+	assert_true(p.siege_can_bombard("gate"), "충차 gate")
+	assert_false(p.siege_can_bombard("wall"), "충차는 성벽 못 침")
+	assert_false(p.siege_can_bombard("unit"), "충차는 유닛 못 침")
 
-func test_mixed_siege_can_bombard_units() -> void:
+func test_siege_can_bombard_mixed() -> void:
 	var p := _party_of(4, 4)
 	p.add_siege_unit(SiegeUnit.new("battering_ram"))
 	p.add_siege_unit(SiegeUnit.new())   # 투석기 혼합
-	assert_true(p.siege_can_bombard_units(), "투석기가 섞이면 유닛 폭격 가능")
+	assert_true(p.siege_can_bombard("unit"), "혼합 unit")
+	assert_true(p.siege_can_bombard("gate"), "혼합 gate")
 
 # --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
 

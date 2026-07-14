@@ -55,6 +55,31 @@ func test_wall_hp_settable() -> void:
 	building.wall_hp = 180
 	assert_eq(building.wall_hp, 180, "성벽 내구도 설정 가능")
 
+# --- 성문 (gate_cell / gate_hp / gate_broken) ---
+
+func test_gate_cell_is_ring_cell_and_stable() -> void:
+	_camp()   # footprint 7 (중심 + ring 6)
+	var gc: Vector2i = building.gate_cell()
+	assert_ne(gc, building.center_cell(), "성문은 중심이 아닌 ring 셀")
+	assert_true(gc in building.cells, "성문 셀은 footprint 안")
+	assert_eq(building.gate_cell(), gc, "반복 호출에 동일(결정론적)")
+
+func test_gate_hp_default_and_not_broken() -> void:
+	_camp()
+	assert_eq(building.gate_hp, 0, "생성 직후 성문 내구도 0")
+	assert_false(building.gate_broken(), "성벽 없으면 성문 파괴 아님")
+
+func test_gate_broken_requires_wall_and_zero_hp() -> void:
+	_camp()
+	building.wall_level = 1
+	building.gate_hp = 0
+	assert_true(building.gate_broken(), "성벽 있고 성문 0 → 파괴(통로 개방)")
+	building.gate_hp = 120
+	assert_false(building.gate_broken(), "성문 내구도 남으면 파괴 아님")
+	building.wall_level = 0
+	building.gate_hp = 0
+	assert_false(building.gate_broken(), "성벽 없으면 성문 무의미")
+
 # --- 점유 영역 ---
 
 func test_occupies_seven_hexes() -> void:

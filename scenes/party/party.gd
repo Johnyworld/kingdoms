@@ -279,11 +279,11 @@ func siege_attack() -> int:
 		a = maxi(a, u.attack())
 	return a
 
-## 실은 공성 유닛으로 적 부대(유닛)를 폭격할 수 있는지 — 하나라도 성벽 전용(wall_only)이 아니면 true.
-## 충차만 실은 부대는 false(성벽만 타격). 투석기·혼합은 true. → siege-engines.md
-func siege_can_bombard_units() -> bool:
+## 실은 공성 유닛 중 하나라도 그 종류(kind: "unit"/"wall"/"gate")를 타격할 수 있으면 true.
+## 충차만 실은 부대는 gate만 참(성벽·유닛 못 침), 투석기·혼합은 셋 다 참. → siege-engines.md
+func siege_can_bombard(kind: String) -> bool:
 	for u in siege_units:
-		if not u.wall_only():
+		if u.can_target(kind):
 			return true
 	return false
 

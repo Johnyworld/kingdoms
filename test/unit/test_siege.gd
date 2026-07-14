@@ -108,6 +108,9 @@ func test_total_bombard_damage_edges() -> void:
 
 # --- 충차 반격 피해(5h, 근접 대성벽 공성) → docs/spec/features/siege-engines.md ---
 
+func test_gate_max_hp() -> void:
+	assert_eq(siege.GATE_MAX_HP, 120, "성문 내구도 120")
+
 func test_ram_counter_base() -> void:
 	assert_eq(siege.RAM_COUNTER_BASE, 15, "충차 반격 기준 피해 15")
 
