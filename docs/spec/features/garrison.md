@@ -1,6 +1,6 @@
 # Feature: Garrison / 주둔 (거점 수비)
 
-> 스크립트: `scenes/game/game.gd` (`_seed_garrison_party`, `_stationed_party_on`, `_compute_camp_targets`, `_open_camp_menu`) · `scenes/party/party.gd` (`stationed`) · `scenes/party/party_action_menu.gd` (`party_actions`의 `[주둔]`/`[주둔 종료]`) · `scenes/party/unit_types.gd` (`make_garrison`) · `scenes/building/building.gd` (수비 배지) · `scenes/building/building_info.gd`
+> 스크립트: `scenes/game/game.gd` (`_place_army`, `_stationed_party_on`, `_compute_camp_targets`, `_open_camp_menu`) · `scenes/party/party.gd` (`stationed`) · `scenes/party/party_action_menu.gd` (`party_actions`의 `[주둔]`/`[주둔 종료]`) · `scenes/party/unit_types.gd` (`make_troop`) · `scenes/building/building.gd` (수비 배지) · `scenes/building/building_info.gd`
 
 거점을 지키는 **수비대는 별도 개념이 아니라 그냥 [부대](../entities/Party.md)**다. 부대가 거점 안(중심 타일)에 있으면 수비군이고, 밖으로 나가면 정찰·공격 부대다. 거점 안의 부대가 **[주둔]**을 선택하면 명령을 내리기 전까지 대기한다.
 
@@ -12,18 +12,19 @@
 - 주둔은 그 부대의 이번 턴 행동을 끝낸 것으로 본다(`stationed`이면 `can_move()`·`can_attack()` 거짓 — 이동·근접 개시 불가). 공격받으면 일반 부대로 방어한다(자동).
 - 단 **원거리 무기가 있으면 주둔을 유지한 채 제자리 사격**은 가능하다(턴당 1회) → [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase).
 
-## 초기 주둔 부대 (`game.gd` `_seed_garrison_party`)
+## 초기 주둔 부대 (`game.gd` `_place_army` — [시작 편제](parties.md))
 
-- 게임 시작 시 각 거점(캠프·마을회관·성 — [center](../data/buildings.md#동작))의 **중심 타일**에 **주둔 부대 1개**를 배치한다.
-  - 멤버: `UnitTypes.make_garrison(4)`([소집병](../entities/Human.md) 4명). 위치: `building.center_cell()`. `stationed = true`.
-  - **플레이어 거점** → `_units`에 등록(플레이어 소속·금색). **NPC 거점** → `_npc_parties`에 등록(세력 색). `home_territory` = 그 영지.
-  - **NPC 거점 수비대**는 시작 [투석기](siege-engines.md#npc-공성-ai-5c--_npc_attack_phase) 1대를 실어 접근하는 플레이어를 방어 포격한다(5c·시험용 스캐폴딩). 플레이어 수비대는 제외.
+- 게임 시작 시 각 세력의 **거점 중심 타일**에 **경보병 일반부대 1개**를 `stationed = true`로 세운다([시작 편제](parties.md)에서 배치).
+  - 멤버: [`make_troop("light_infantry")`](../data/units.md)([경보병](../data/units.md) 10명). 위치: `building.center_cell()`. `home_territory` = 그 영지.
+  - **플레이어(azel) 세력** → `_units`에 등록(선택·이동 대상). **NPC 세력** → `_npc_parties`에 등록(세력 색).
+  - 이 주둔 경보병은 소속 영웅(`lord`)을 갖되 거점을 지킨다(수비대 역할). 소집병(`make_garrison`)·시작 투석기 배치는 **폐지**됐다([Parties](parties.md#시작-투석기-폐지)).
 - 거점당 **여러 부대 주둔 허용** — 한 중심 타일엔 한 부대만 서지만, 인접 편성·[병합](party-composition.md)으로 병력을 늘린다.
 
-## 소집병 (`UnitTypes.make_garrison`)
+## 수비대 병종 ([`UnitTypes.make_troop`](../data/units.md))
 
-- `make_garrison(count := 4) -> Array` — 소집병 `count`명을 [Human](../entities/Human.md)으로 생성한다(초기 주둔 부대 편성에서 사용. 병력 충원 시스템은 후속).
-  - 소집병: **활 주무기 + 검 보조**(`GARRISON_WEAPONS = ["bow", "sword"]`) + 가죽 방어구. 활 주무기라 [방어 전투](battle.md)에서 접근하는 적을 **사격했다가 근접 전환**하고(원거리 방어 반격), 월드맵 [공격거리](../entities/Party.md#유도-능력치-derived)는 3(활). 이동력·시야 인간 기본값, 생성 시 풀피(`hit_points = max_hp()`)·풀 스태미나.
+- 거점 수비대는 이제 **경보병 일반부대**(10명 동일 능력치)다. 예전의 소집병(`make_garrison`·`GARRISON_*`)은 **폐지**되고 [병종 아키타입](../data/units.md#병종-아키타입-troops-세력-공용) `light_infantry`로 대체됐다.
+  - 경보병: **장창(근접·리치 2)** + 가죽 방어구 + 라운드 실드. 근접 방어대라 접근하는 적을 요격한다. 이동력·시야 인간 기본값, 생성 시 풀피·풀 스태미나. → [Units](../data/units.md).
+  - *(경보병은 근접이라 활 주무기였던 소집병과 달리 [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)은 안 한다. 원거리 수비가 필요하면 경궁병 부대를 주둔시킨다.)*
 
 ## 주둔 / 주둔 종료 (`party_action_menu` + `game.gd`)
 
@@ -87,9 +88,8 @@
 - [정상] 주둔 중 + 사격 가능 적 있음(can_shoot_any) → `[사격]`이 `[주둔 종료]` 앞에 포함
 - [경계] 주둔 중 + 사격 가능 적 없음 → `[사격]` 없음(`[주둔 종료][장비]`만)
 
-**소집병 병력** — `test/unit/test_unit_types.gd`:
-- [정상] `make_garrison(4)` → 4명, 모두 Human, `hit_points == max_hp()`
-- [정상] 소집병 무장 = `["bow", "sword"]`(활 주무기 + 검 보조); [경계] `make_garrison(0)` → 빈 배열
+**수비대 병종(경보병)** — `test/unit/test_unit_types.gd`:
+- [정상] `make_troop("light_infantry")` → 10명, 모두 Human, `hit_points == max_hp()`, 무장 `["spear"]` + 라운드 실드 ([Units](../data/units.md) 시나리오)
 
 **병사 구매(주둔 부대 편입)** — `test/unit/test_camp_menu.gd`:
 - [정상] 거점 주둔 부대 있음 + 금·인구 충분 → [구매] → 그 부대 members +1, 금·인구 차감

@@ -94,18 +94,18 @@
 
 ## NPC 공성 AI (5c·5e·5f · `_npc_attack_phase`·`_on_turn_ended`·`_npc_targets`)
 
-NPC도 투석기를 **운용·생산**한다 — **NPC 거점 주둔 수비대**가 시작 투석기 1대를 갖고 접근하는 **플레이어**를 방어 포격하고, 주기적으로 투석기를 **보충 생산**하며(5c·5e), **로빙 NPC 부대**는 투석기를 끌고 와 플레이어 성벽 거점의 사거리 밴드에 자리잡고 능동 포격한다(5f). (NPC 건설 AI·NPC↔NPC 투석은 후속.)
+NPC도 투석기를 **운용·생산**한다 — **NPC 거점 주둔 수비대**가 주기적으로 투석기를 **보충 생산**해(5e) 접근하는 적을 방어 포격한다(5c). *(로빙 공세 공성 5f는 현재 **휴면** — [부대 이분화 개편](parties.md)으로 시작 투석기가 폐지됐고 5e 생산은 **주둔 수비대 한정**이라, 로빙 NPC 부대는 투석기를 얻지 못한다. NPC 건설 AI로 로빙 공성을 되살리는 것은 후속.)*
 
-- **NPC 시작 투석기**: 게임 시작 시 각 **NPC 거점 주둔 부대**(`_seed_garrison_party`, NPC만)에 투석기 1대를 실어 준다(스캐폴딩·시험용). 플레이어 수비대는 제외.
+- **NPC 시작 투석기 폐지**: 이전엔 각 NPC 주둔 부대에 시작 투석기 1대를 실어 줬으나([부대 이분화 개편](parties.md#시작-투석기-폐지)), 시작 투석기 자동 지급은 **폐지**됐다. NPC 투석기는 아래 **주기 생산(5e)**으로만 얻는다.
 - **주기 생산(5e, `_on_turn_ended`)**: NPC 경제는 미사용이라([npc-movement](npc-movement.md)) 자원 소진이 아니라 **주기 생산**한다. 매 턴 종료 시 각 NPC 수비대에 대해 `NpcAi.should_produce_siege(turn, siege_count)`(= `turn > 0 and turn % NPC_SIEGE_INTERVAL(5) == 0 and siege_count < NPC_SIEGE_CAP(2)`)가 참이면 투석기 1대를 편입한다. **작업장 건물·자원 불요**(추상 생산 — NPC 건설 AI는 후속). 대포병 결투로 파괴된 투석기가 시간이 지나 교체·소량 증강되어 방어가 지속된다.
 - **운용**(`_npc_attack_phase`): 투석기를 실은 NPC 부대가 **사거리 밴드 4~5 안에 플레이어 표적**(플레이어 성벽 거점 또는 플레이어 부대)이 있으면 **[투석]**한다(`_siege_target_for(attacker)` — 밴드 내 최근접). 성벽이면 성벽 구조물 전투, 부대면 `include_siege` 통합 전투. **부대 행동 종료**. 주둔 수비대는 사격보다 투석을 우선(사거리가 더 김).
 - **표적 범위**(5c·5f 초기엔 플레이어만, **5g에서 NPC↔NPC 추가**): NPC 투석은 이제 **적 세력 성벽 거점·부대**면 플레이어·다른 NPC 불문 겨냥한다(아래 [5g](#npcnpc-투석-5g)). 성벽은 5g-A, 부대 투석 결투는 5g-B(헤드리스 [BattleSim 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수)).
 
-### 로빙 positioning 공격형 공성 (5f · `_setup_parties`·`_npc_targets`)
+### 로빙 positioning 공격형 공성 (5f · `_npc_targets` — 현재 휴면)
 
 수비대(5c)는 고정 위치라, 접근한 플레이어를 반격만 한다. **5f는 로빙 NPC 부대가 투석기를 끌고 와 능동적으로 성벽을 공성**하게 한다 — 새 이동 모드 없이 기존 접근 AI(`NpcAi._approach`)의 **이동 타깃을 밴드 셀로 바꿔** 사거리 밴드(4~5)에 자리잡게 유도한다.
 
-- **로빙 NPC 시작 투석기**: 게임 시작 시 3개 로빙 NPC 부대([UnitTypes.NPC_IDS](../data/units.md) — 카심·발타자르·바트르)에 투석기 1대씩 실어 준다(`_setup_parties`, 플레이어 부대와 대칭·스캐폴딩). 각 부대 사람 4명이라 [견인 인력 게이트](#견인-이동-규칙-partymovement)(`CREW_MIN` 4)를 충족해 견인 이동(속도 2)이 가능하다.
+> **현재 휴면**: [부대 이분화 개편](parties.md#시작-투석기-폐지)으로 로빙 NPC 시작 투석기가 폐지됐고, 주기 생산(5e)은 **주둔 수비대**만 대상이라 로빙 NPC는 투석기를 얻지 못한다. 아래 밴드 타깃팅 로직(`_npc_targets`·`has_siege()` 게이트)은 그대로 남아 있어 로빙 부대가 다시 투석기를 얻으면 즉시 발동한다.
 - **밴드 유지 타깃팅(`_npc_targets`)**: 투석기를 실은(`has_siege()`) 로빙 NPC는 이동 타깃 우선순위에 **밴드 티어**를 끼운다 — `NpcAi.prioritize([undefended, weak, band, rest])`. 즉 **기존 우선순위(무방비 캠프 > 약한 부대)는 그대로** 두고, 그 위 티어가 비어 손쉬운 표적이 없을 때 `rest`(전체 적 셀) **대신 밴드 셀**을 탄다. 투석기 없는 NPC·밴드 없음이면 기존대로 `rest`.
   - **밴드 셀(`_siege_band_cells`)**: NPC에서 **가장 가까운 적 세력 성벽 거점**(플레이어·다른 NPC 불문, 자기 세력 제외 — 5g에서 NPC 거점까지 확장) 하나를 골라, 그 거점 셀에서 헥스 거리가 **`[siege_min_range` ~ `siege_fire_range]`(4~5) 밴드 안**(`Siege.in_fire_band`)인 도달 가능 셀 목록. 성벽 거점이 없으면 빈 배열(→ 밴드 티어 스킵). `_approach`가 그중 최근접 밴드 셀로 접근하고, 밴드 셀에 서면 거리 0이라 **그 자리를 유지**(오버슛·이탈 없음).
 - **발동**: 밴드에 자리잡으면 이미 있는 로빙 NPC 투석 경로(`_npc_attack_phase`의 `_npc_try_bombard`, 근접·사다리보다 우선)가 밴드 내 성벽을 [투석](#battlegd-통합-전투--투석기구조물-전투원)한다 → 성벽 붕괴 → `is_walled()==false`가 되면 기존 흡수/점령 AI가 무방비 거점을 점령(창발 흐름). **배선은 5c에서 이미 존재**, 밴드에 서게 하는 것만이 5f의 실질 변경이다.
@@ -179,9 +179,9 @@ NPC도 투석기를 **운용·생산**한다 — **NPC 거점 주둔 수비대**
   - **5d-2 투석기 전투원화 + 상호 반격** — (이 문서) `[투석]` 유닛 대상을 battle.gd 통합 전투로, 투석기를 전투원(사거리 4~5·1발·광역 최대 5)으로 스폰, 양쪽 투석기 상호 반격. 투석기는 아직 피격 안 됨. ✅
   - **5d-3a 투석기 피격·파괴** — (이 문서) 투석기가 표적이 되어(적 투석기 우선 대포병) 적 투석에 hp 소진 시 파괴·`siege_units`에서 제거. 방어 카운터플레이. ✅
   - **5d-3b 성벽 구조물 전투원화** — (이 문서) 성벽을 HP 구조물 전투원으로 battle.gd에 흡수(`_bombard_wall`이 통합 전투 개시·`siege_bombard.gd` 제거) → 충차·공성탑 등 구조물 공격 병기가 한 경로 공유. ✅ **5d 전투 완전 통합 완료.**
-- **5c NPC 공성 AI** — (이 문서) NPC 수비대 시작 투석기 + 접근하는 플레이어 방어 포격(밴드 4~5). ✅
+- **5c NPC 공성 AI** — (이 문서) NPC 주둔 수비대가 주기 생산(5e)한 투석기로 접근하는 적 방어 포격(밴드 4~5). ✅ *(시작 투석기 지급은 폐지 — [부대 이분화 개편](parties.md#시작-투석기-폐지).)*
 - **5e NPC 투석기 생산** — (이 문서) NPC 수비대가 주기(5턴)마다 투석기 상한(2) 미만이면 1대 보충 생산(`NpcAi.should_produce_siege`, 추상·자원 무관). ✅
-- **5f 로빙 positioning 공격형 공성** — (이 문서) 로빙 NPC 부대에 시작 투석기 지급 + `_npc_targets`에 밴드 티어(`prioritize([undefended, weak, band, rest])`)를 끼워 가장 가까운 플레이어 성벽 거점의 사거리 밴드(4~5)에 자리잡고 능동 포격(`Siege.in_fire_band`). ✅
+- **5f 로빙 positioning 공격형 공성** — (이 문서) `_npc_targets`에 밴드 티어(`prioritize([undefended, weak, band, rest])`)를 끼워 가장 가까운 적 성벽 거점의 사거리 밴드(4~5)에 자리잡고 능동 포격. ⏸️ **현재 휴면** — 로빙 NPC 시작 투석기 폐지 + 5e 생산은 주둔 한정이라 로빙 부대가 투석기를 못 얻음(로직은 잔존, 후속 NPC 건설 AI로 재활성). → [부대 이분화 개편](parties.md#시작-투석기-폐지)
 - **5g-A NPC↔NPC 성벽 공성** — (이 문서) 투석 성벽 표적을 적 세력 전체(`_enemy_walled_centers`)로 확장 + NPC 소유 성벽은 헤드리스 정산(`_npc_bombard_wall_headless`·`Siege.total_bombard_damage`)으로 `wall_hp` 감소·붕괴. ✅
 - **5g-B NPC↔NPC 부대 투석 결투** — (이 문서) 투석 부대 표적을 적 세력 전체(`_units + _npc_parties`, 자기 세력·자기 부대 제외)로 확장 + NPC 부대는 헤드리스([BattleSim 투석 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수)·`bombard_pick`)로 상호 포격·투석기 피격·파괴 이월. ✅
 - **5h 충차(근접 성문 파쇄)** — (이 문서 [충차](#충차-근접-성문-파쇄)) 성문 전용·근접(밴드 1)·고화력(90)·저내구(40) 공성 유닛. 초기엔 성벽을 직접 쳤으나 **성문 시스템 도입으로 성문 타격으로 재타깃**(역할 정리: 충차→성문, 투석기→성벽·성문·유닛). 표적 리스트(`targets`·`siege_can_bombard`), [성문](wall.md#성문-gate) 파괴 시 그 면 통로 개방(성벽 유지), 방어 거점 타격 시 수비 반격(`Siege.ram_counter_damage`)으로 취약. 플레이어만. ✅
@@ -273,7 +273,7 @@ NPC도 투석기를 **운용·생산**한다 — **NPC 거점 주둔 수비대**
 **성벽 내구도 상태** — `test/unit/test_building.gd`: → [Wall 테스트 시나리오](wall.md#테스트-시나리오)
 - [정상] 생성 직후 `wall_hp == 0`; 설정 가능; `upgrade_to` 후 `wall_hp` 유지
 
-`game.gd`의 `_on_siege_produced`, 투석 선택 모드(`MODE_BOMBARD`)·`_bombard_targets`(밴드 4~5 내 성벽 거점+적 부대), **성벽/적 부대 모두** → `_bombard_wall`/`_begin_battle`(battle.gd 통합 전투, `include_siege`·성벽은 구조물 전투원), `battle.gd`의 투석기·성벽 구조물 전투원 스폰·발사(광역·flat 피해·적 투석기 우선·성벽 항상 명중)·**투석기 피격·파괴**(hp 소진 시 `_kill`)·hp/wall_hp 이월 반영·붕괴, 전투 후 `prune_destroyed_siege`·정보 갱신, `[투석]` 행동 노출, 성벽 링 내구도 색, 작업장 건축, 정보 패널 표시, **충차·성문(5h — `_on_siege_produced`가 종류 id로 지불·편입, `_compute_bombard_targets`가 `siege_can_bombard(kind)`로 표적 필터(충차=성문 셀만), 성문 표적 클릭→`_bombard_gate`가 battle.gd `target_gate` 전투로 `gate_hp` 차감·0이면 통로 개방, 방어 거점 타격 시 `_apply_ram_counter`로 충차 반격·`prune_destroyed_siege`, `_breached_by`/`_wall_blocked_cells`가 `gate_broken()` 통로 반영, 성벽 건설 시 `gate_hp=GATE_MAX_HP`)**, **NPC 시작 투석기(`_seed_garrison_party`)·NPC 투석 운용 AI(`_npc_attack_phase`·`_siege_target_for`)·NPC 주기 생산(`_on_turn_ended`이 `NpcAi.should_produce_siege`로 수비대에 편입)·로빙 NPC 시작 투석기(`_setup_parties`)·밴드 유지 타깃팅(`_npc_targets`의 band 티어·`_siege_band_cells`)·**NPC↔NPC 투석(5g — `_siege_target_for`·`_siege_band_cells`의 적 세력 성벽·부대 확장, NPC 성벽은 `_npc_bombard_wall_headless`로 헤드리스 정산·붕괴, NPC 부대는 `_resolve_battle_headless`가 양측 `siege_units`를 BattleSim 볼리에 넘겨 상호 포격·`prune_destroyed_siege`)**은 실제 실행으로 확인한다(`game.gd`·오버레이·NPC AI 통합 테스트는 기존 관례상 두지 않음). *(순수 판정은 `should_produce_siege`·`in_fire_band`·`total_bombard_damage`·`bombard_pick` + BattleSim 볼리 시드 테스트로 커버.)*
+`game.gd`의 `_on_siege_produced`, 투석 선택 모드(`MODE_BOMBARD`)·`_bombard_targets`(밴드 4~5 내 성벽 거점+적 부대), **성벽/적 부대 모두** → `_bombard_wall`/`_begin_battle`(battle.gd 통합 전투, `include_siege`·성벽은 구조물 전투원), `battle.gd`의 투석기·성벽 구조물 전투원 스폰·발사(광역·flat 피해·적 투석기 우선·성벽 항상 명중)·**투석기 피격·파괴**(hp 소진 시 `_kill`)·hp/wall_hp 이월 반영·붕괴, 전투 후 `prune_destroyed_siege`·정보 갱신, `[투석]` 행동 노출, 성벽 링 내구도 색, 작업장 건축, 정보 패널 표시, **충차·성문(5h — `_on_siege_produced`가 종류 id로 지불·편입, `_compute_bombard_targets`가 `siege_can_bombard(kind)`로 표적 필터(충차=성문 셀만), 성문 표적 클릭→`_bombard_gate`가 battle.gd `target_gate` 전투로 `gate_hp` 차감·0이면 통로 개방, 방어 거점 타격 시 `_apply_ram_counter`로 충차 반격·`prune_destroyed_siege`, `_breached_by`/`_wall_blocked_cells`가 `gate_broken()` 통로 반영, 성벽 건설 시 `gate_hp=GATE_MAX_HP`)**, **NPC 투석 운용 AI(`_npc_attack_phase`·`_siege_target_for`)·NPC 주기 생산(`_on_turn_ended`→`_npc_produce_siege`가 `NpcAi.should_produce_siege`로 주둔 수비대에 편입 — 시작 투석기는 폐지)·밴드 유지 타깃팅(`_npc_targets`의 band 티어·`_siege_band_cells` — 로빙 투석기 휴면이라 현재 미발동)·**NPC↔NPC 투석(5g — `_siege_target_for`·`_siege_band_cells`의 적 세력 성벽·부대 확장, NPC 성벽은 `_npc_bombard_wall_headless`로 헤드리스 정산·붕괴, NPC 부대는 `_resolve_battle_headless`가 양측 `siege_units`를 BattleSim 볼리에 넘겨 상호 포격·`prune_destroyed_siege`)**은 실제 실행으로 확인한다(`game.gd`·오버레이·NPC AI 통합 테스트는 기존 관례상 두지 않음). *(순수 판정은 `should_produce_siege`·`in_fire_band`·`total_bombard_damage`·`bombard_pick` + BattleSim 볼리 시드 테스트로 커버.)*
 
 ## 관련
 

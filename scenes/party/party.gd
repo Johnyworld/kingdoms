@@ -14,6 +14,17 @@ class_name Party extends Node2D
 ## 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다.
 @export var token_color := Color(0.92, 0.78, 0.35)
 
+# --- 종류(랑그릿사식 이분화) ---
+## 부대 종류. "hero"=영웅부대(지휘관 1명 단독), "troop"=일반부대(동일 능력치 병사 다수, 기본 10명).
+## 멤버 수로 파생하지 않고 명시 저장한다(사상으로 인원이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → docs/spec/data/units.md
+const KIND_HERO := "hero"
+const KIND_TROOP := "troop"
+var kind := KIND_TROOP
+
+## 이 일반부대가 소속된 영웅부대(Party) 참조. 독립 부대·영웅부대 자신은 null.
+## 소속돼도 부대는 독립 토큰으로 자유 이동한다(소속은 메타데이터 — 버프는 미구현). → Party.md 소속(Lord)
+var lord = null
+
 # --- 멤버 ---
 var members: Array = []   # 이 부대에 속한 Human 목록.
 var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
@@ -64,6 +75,26 @@ func remove_member(human) -> void:
 ## 지휘관 이름. 지휘관이 없으면(null) "—". 부대 일람(party_roster.gd) 표시에 사용.
 func commander_name() -> String:
 	return commander.human_name if commander else "—"
+
+## 영웅부대인지(kind == KIND_HERO). 일반부대는 거짓.
+func is_hero() -> bool:
+	return kind == KIND_HERO
+
+## 소속 영웅부대가 있는지(lord != null).
+func has_lord() -> bool:
+	return lord != null
+
+## 소속 영웅부대의 지휘관 이름. lord가 없거나 그 지휘관이 없으면 "—". → Party.md 소속(Lord)
+func lord_name() -> String:
+	return lord.commander_name() if lord != null else "—"
+
+## 소속 영웅부대를 지정한다(소속 UI의 소속 확정 단일 출처). → party-lord.md
+func set_lord(hero) -> void:
+	lord = hero
+
+## 소속을 해제한다(독립). → party-lord.md
+func clear_lord() -> void:
+	lord = null
 
 ## 이 부대 전 멤버가 장착한 장비 id 평탄 목록(각 멤버 weapons + armor + shield). 빈 방패("")는 제외, 중복 유지.
 ## 약탈 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).

@@ -134,3 +134,19 @@ func test_party_actions_equip_always_last() -> void:
 	assert_true(before[-1]["enabled"], "장비 항상 활성")
 	var after := PartyActionMenu.party_actions(true, true, false)
 	assert_eq(after[-1]["id"], "equip", "이동 후 마지막은 장비")
+
+# --- 소속([소속]) — party-lord.md ---
+
+func test_party_actions_lord_when_can_manage() -> void:
+	# 일반부대 + 소속 관리 가능 → [소속]이 장비 바로 앞.
+	var out := PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, true)
+	assert_eq(_ids(out), ["shoot", "rest", "alert", "lord", "equip"], "소속 버튼이 장비 앞에 추가")
+
+func test_party_actions_no_lord_when_cannot() -> void:
+	var out := PartyActionMenu.party_actions(false, true, false, false, false, false, false, false, false, false)
+	assert_false("lord" in _ids(out), "소속 관리 불가 시 [소속] 없음")
+
+func test_party_actions_no_lord_when_stationed() -> void:
+	# 주둔 중이면 can_manage_lord와 무관하게 [소속] 없음(주둔 목록만).
+	var out := PartyActionMenu.party_actions(false, false, false, false, false, true, false, false, false, true)
+	assert_false("lord" in _ids(out), "주둔 중 [소속] 없음")

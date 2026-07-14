@@ -17,6 +17,20 @@
 | 이름 | `party_name` | `""` | 부대의 이름. 엔진 내장 `name`(노드 이름)과 충돌하므로 별도 변수로 둔다 |
 | 소속 세력 | `faction_name` | `""` | 부대가 속한 [세력](Faction.md) 이름. 정보 패널에 표시해 아군/적을 구분한다. 카탈로그 생성 시 설정 |
 | 토큰 색 | `token_color` | `Color(0.92, 0.78, 0.35)` (금색) | 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다 |
+| 종류 | `kind` | `"troop"` | 부대 종류(랑그릿사식 이분화). `KIND_HERO`(`"hero"`, 영웅부대 — 지휘관 1명 단독) / `KIND_TROOP`(`"troop"`, 일반부대 — 동일 능력치 병사 다수, 기본 [10명](../data/units.md)). **멤버 수로 파생하지 않고 명시 저장**(전투 사상으로 인원이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → [Units](../data/units.md) |
+
+### 소속 (Lord)
+
+**일반부대**([Units](../data/units.md) `kind==KIND_TROOP`)는 하나의 **영웅부대**에 소속될 수 있다(랑그릿사식). 소속돼도 부대는 **독립 토큰으로 자유 이동**하며, 소속은 지금은 **메타데이터**다(향후 영웅 근처 소속 부대에 세력·영웅별 버프를 줄 근거 — `미구현`). 설정/해제는 [소속 UI](../features/party-lord.md)([소속] 버튼 → 모달).
+
+| 속성 | 변수/메서드 | 타입 | 초기값 | 설명 |
+| --- | --- | --- | --- | --- |
+| 소속 영웅 | `lord` | `Object`(Party) | `null` | 이 일반부대가 소속된 **영웅부대**([Party](Party.md)) 참조. 독립 부대·영웅부대 자신은 `null`. [시작 편제](../features/parties.md)에서 부하부대의 `lord`를 소속 영웅부대로 설정하고, 이후 [소속 UI](../features/party-lord.md)로 변경한다 |
+| 소속 보유 | `has_lord()` | `bool` | — | `lord != null` |
+| 소속 영웅 이름 | `lord_name()` | `String` | — | `lord`의 [`commander_name()`](#동작). `lord`가 없거나 지휘관이 없으면 `"—"` |
+| 영웅부대 여부 | `is_hero()` | `bool` | — | `kind == KIND_HERO` |
+| 소속 지정 | `set_lord(hero)` | — | — | `lord = hero`. [소속 UI](../features/party-lord.md)의 소속(합류) 확정에 쓰는 단일 출처 |
+| 소속 해제 | `clear_lord()` | — | — | `lord = null`(독립). [소속 UI](../features/party-lord.md)의 [독립] |
 
 ### 멤버 (Members)
 
@@ -73,6 +87,11 @@
 - `add_member(human) -> void` — 멤버를 `members`에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다. **지휘관이 없으면**(빈 부대의 첫 멤버) 그 멤버를 지휘관으로 삼는다. 다시 그린다.
 - `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. [부대 분할](../features/party-composition.md)·전투 사상자 반영에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
+- `is_hero() -> bool` — 영웅부대인지(`kind == KIND_HERO`). 일반부대는 거짓.
+- `has_lord() -> bool` — 소속 영웅부대가 있는지(`lord != null`).
+- `lord_name() -> String` — `lord`의 `commander_name()`. `lord`가 `null`이거나 그 지휘관이 없으면 `"—"`.
+- `set_lord(hero) -> void` — 소속 영웅부대를 지정한다(`lord = hero`). [소속 UI](../features/party-lord.md)가 소속(합류) 확정에 쓴다.
+- `clear_lord() -> void` — 소속을 해제한다(`lord = null`, 독립). [소속 UI](../features/party-lord.md)의 [독립].
 - `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
 - `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
 - `transfer_loot_to(other, id) -> bool` — 이 부대 `loot_items`의 장비 `id` 하나를 `other.loot_items`로 옮긴다. 이 부대가 그 id를 안 가졌으면 `false`(no-op). 성공 시 이 부대에서 그 id 하나 빼고 `other`에 더해 `true`.
@@ -111,6 +130,11 @@
 - [경계] 같은 멤버를 두 번 `add_member` 해도 크기는 1 (중복 방지)
 - [정상] 생성 직후 `commander`는 `null`, `commander_name() == "—"`
 - [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
+- [정상] 생성 직후 `kind == "troop"`(=`KIND_TROOP`), `is_hero() == false`; `kind = KIND_HERO`로 두면 `is_hero() == true`
+- [정상] 생성 직후 `lord == null`, `has_lord() == false`, `lord_name() == "—"`
+- [정상] `lord`에 지휘관 있는 영웅부대를 지정하면 `has_lord() == true`, `lord_name()`이 그 영웅 이름
+- [경계] `lord`에 지휘관 없는(빈) 부대를 지정하면 `has_lord() == true`이나 `lord_name() == "—"`
+- [정상] `set_lord(hero)` 후 `lord == hero`, `has_lord()` 참; `clear_lord()` 후 `lord == null`, `has_lord()` 거짓
 - [정상] 이동력 3·2 멤버 → `movement() == 2` (최소값, 가장 느린 멤버)
 - [경계] 멤버 없으면 `movement() == 0`
 - [정상] 시야 5·2 멤버 → `vision() == 5` (최대값)

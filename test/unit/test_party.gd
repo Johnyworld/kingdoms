@@ -155,6 +155,50 @@ func test_commander_name_from_member() -> void:
 	p.commander = leader
 	assert_eq(p.commander_name(), "테스트맨", "지휘관 이름 = 지정한 멤버의 human_name")
 
+# --- 종류(kind) · 소속(lord) ---
+
+func test_kind_defaults_troop() -> void:
+	var p := _party()
+	assert_eq(p.kind, p.KIND_TROOP, "생성 직후 kind = 일반부대(troop)")
+	assert_false(p.is_hero(), "기본은 영웅부대 아님")
+
+func test_kind_hero_settable() -> void:
+	var p := _party()
+	p.kind = p.KIND_HERO
+	assert_true(p.is_hero(), "kind=hero면 is_hero() 참")
+
+func test_lord_null_by_default() -> void:
+	var p := _party()
+	assert_null(p.lord, "생성 직후 소속 없음(null)")
+	assert_false(p.has_lord(), "has_lord() 거짓")
+	assert_eq(p.lord_name(), "—", "소속 없으면 대시")
+
+func test_lord_name_from_hero() -> void:
+	var troop := _party()
+	var hero := _party()
+	hero.kind = hero.KIND_HERO
+	hero.add_member(_named_human("아젤"))
+	troop.lord = hero
+	assert_true(troop.has_lord(), "소속 지정 시 has_lord() 참")
+	assert_eq(troop.lord_name(), "아젤", "소속 영웅 이름")
+
+func test_lord_name_empty_hero_is_dash() -> void:
+	var troop := _party()
+	var hero := _party()   # 지휘관 없는 빈 부대
+	troop.lord = hero
+	assert_true(troop.has_lord(), "참조는 있음")
+	assert_eq(troop.lord_name(), "—", "지휘관 없는 소속 → 대시")
+
+func test_set_and_clear_lord() -> void:
+	var troop := _party()
+	var hero := _party()
+	troop.set_lord(hero)
+	assert_eq(troop.lord, hero, "set_lord로 소속 지정")
+	assert_true(troop.has_lord(), "소속 보유")
+	troop.clear_lord()
+	assert_null(troop.lord, "clear_lord로 독립")
+	assert_false(troop.has_lord(), "소속 없음")
+
 # --- 이동력(min) · 시야(max) 집계 ---
 
 func test_movement_is_min_of_members() -> void:

@@ -6,76 +6,101 @@
 [BuildingTypes](buildings.md)·[Terrain](terrain.md)와 동일한 "GDScript 카탈로그" 패턴이다.
 게임 시작 시 [game.gd](../features/parties.md)가 여기서 부대를 생성해 맵에 배치한다.
 
-멤버 능력치는 기획 원본 `docs/table/세력/유닛.md`에서 옮긴 값이다.
+**랑그릿사식 부대 이분화** — 부대는 두 종류다([Party](../entities/Party.md) `kind`):
+
+- **영웅부대**(`KIND_HERO`) — 지휘관 **1명**이 단독으로 싸운다. 세력마다 영웅 **4명**을 보유하며, 각 영웅이 하나의 영웅부대가 된다. 능력치는 기획 원본 `docs/table/세력/유닛.md`에서 옮긴 값이다.
+- **일반부대**(`KIND_TROOP`) — **동일 능력치 병사 [TROOP_SIZE](#상수)(10)명**으로 구성된다. 병종 아키타입(경보병·경궁병)으로 정의되며 **세력 공용**이다(색만 세력별). 각 부대의 병사는 모두 같은 능력치·장비를 가진다.
 
 ## 상수
 
 | 상수 | 값 | 설명 |
 | --- | --- | --- |
-| `PLAYER_ID` | `"azel"` | 플레이어 부대 id |
-| `NPC_IDS` | `["qasim", "balthazar", "batur"]` | NPC 부대 id 목록 (표시 순서) |
+| `PLAYER_ID` | `"azel"` | 플레이어 **세력** id |
+| `NPC_IDS` | `["qasim", "balthazar", "batur"]` | NPC 세력 id 목록 (표시 순서) |
+| `FACTION_IDS` | `["azel", "qasim", "balthazar", "batur"]` | 전 세력 id (플레이어 + NPC) |
+| `TROOP_SIZE` | `10` | 일반부대 1개의 병사 수 |
+| `HEROES_PER_FACTION` | `4` | 세력당 영웅 수 |
 
-## 카탈로그 (`CATALOG`)
+각 영웅은 [시작 편제](../features/parties.md)에서 **경보병 2 + 경궁병 1**(부하 3부대)을 거느린다 → 세력당 영웅 4 + 부하 12 = **16부대**.
 
-부대 id → 스펙. 스펙 키: `party_name`, `faction`, `color`, `territory`, `commander`, `members`.
+## 세력 카탈로그 (`CATALOG`)
 
-| id | 소속 | 세력(`faction`) | 색(`color`) | 영지(`territory`) | 부대(`party_name`) | 지휘관(`commander`) |
-| --- | --- | --- | --- | --- | --- | --- |
-| `azel` | 플레이어 | 푸른 왕국 | `(0.2, 0.3, 0.8)` 청 | 창천성 | 아젤 하르윈 부대 | 아젤 하르윈 |
-| `qasim` | NPC | 사막 술탄국 | `(0.78, 0.28, 0.22)` 적 | — | 카심 이븐 라시드 부대 | 카심 이븐 라시드 |
-| `balthazar` | NPC | 암흑 제국 | `(0.5, 0.24, 0.6)` 자 | — | 발타자르 부대 | 발타자르 |
-| `batur` | NPC | 초원 칸국 | `(0.27, 0.55, 0.32)` 녹 | — | 바트르 칸 부대 | 바트르 칸 |
+세력 id → 세력 스펙. 스펙 키: `faction`(세력명)·`color`(토큰 색)·`territory`(수도 영지)·기본 장비(`weapons`·`armor`·`shield`)·`heroes`(영웅 4명 dict 배열).
 
-### 멤버 (`members`)
+| id | 소속 | 세력(`faction`) | 색(`color`) | 영지(`territory`) | 기본 장비 |
+| --- | --- | --- | --- | --- | --- |
+| `azel` | 플레이어 | 푸른 왕국 | `(0.2, 0.3, 0.8)` 청 | 창천성 | 장검+가죽세트+라운드실드 |
+| `qasim` | NPC | 사막 술탄국 | `(0.78, 0.28, 0.22)` 적 | 알사바흐 | 곡도+가죽+버클러 |
+| `balthazar` | NPC | 암흑 제국 | `(0.5, 0.24, 0.6)` 자 | 흑요요새 | 완드(마법)+천(방패 없음) |
+| `batur` | NPC | 초원 칸국 | `(0.27, 0.55, 0.32)` 녹 | 텡그리 언덕 | 전투도끼+사슬+타워실드 |
 
-각 부대 멤버는 이름 + 능력치를 가진다. 능력치 키는 [Human](../entities/Human.md) 필드명과 동일하다.
+### 영웅 (`heroes`, 세력당 4명)
 
-| 부대 | 멤버 (첫 번째 = 지휘관) |
+각 영웅 dict는 이름 + 능력치(+ 개별 장비 override)를 가진다. 능력치 키는 [Human](../entities/Human.md) 필드명과 동일하다.
+
+| 세력 | 영웅 4명 (첫 번째 = 세력 지휘관) |
 | --- | --- |
-| `azel` | 아젤 하르윈 · 로엔 카스터 · 미라 벨포드 · 가레스 던 · 엘윈 사수 |
+| `azel` | 아젤 하르윈 · 로엔 카스터 · 미라 벨포드 · 가레스 던 |
 | `qasim` | 카심 이븐 라시드 · 자밀라 · 하산 알와히드 · 유수프 |
 | `balthazar` | 발타자르 · 모르가나 · 드레이븐 · 카산드라 |
 | `batur` | 바트르 칸 · 테무르 · 알탄 · 초로스 |
 
-- 능력치 매핑: `strength`(힘) `wisdom`(지혜) `agility`(민첩) `charm`(매력) `luck`(행운) `leadership`(지휘력) `diligence`(성실함) `sensitivity`(예민함) `stamina`(스태미나) `morale`(사기). 생명점은 데이터에 두지 않고 `max_hp()`로 계산해 채운다.
-- **이동력·시야**: 유닛.md에 개별값이 없어 종족(인간) 기본값 `movement = 4`, `vision = 7`을 모든 멤버에 적용한다.
-- **장비**: 부대 스펙의 `weapons`([ItemTypes](items.md) 무기 id **목록**, 첫 원소=주무기)·`armor`(방어구 id 목록)·`shield`(방패 id)를 그 부대의 멤버에 적용한다. 세력마다 다른 세트로 상성 다양성을 준다 — 푸른왕국 장검+가죽+라운드실드, 사막술탄국 곡도+가죽+버클러, 암흑제국 완드(마법)+천(방패 없음), 초원칸국 전투도끼+사슬+타워실드.
-- **멤버별 장비 override**: 멤버 dict에 `weapons`/`armor`/`shield`가 있으면 그 값이 부대 기본값을 **덮어쓴다**. 예: 푸른왕국의 궁수 멤버는 `weapons: ["bow"]`(공격거리 3)·방패 없음을 개별 지정한다 → 부대 [공격거리](../entities/Party.md)가 3으로 늘어난다.
-- **다중 무기 예시**: 지휘관 아젤 하르윈은 `weapons: ["longsword", "bow"]` — 검+방패를 들고도 보조로 활을 가진다. 근접 전투에선 장검(주무기), 원거리 전투에선 활로 반격한다.
-- **투척 무기 예시**: 사막 술탄국의 자밀라는 `weapons: ["scimitar", "javelin"]` — 월드맵 공격거리는 1(투창은 근접)이지만, 전투씬에선 접근 중 투창을 던지고 접촉하면 곡도로 싸운다.
+- **엘윈 사수 제거**: 이전 아젤 부대의 궁수 멤버 "엘윈 사수"는 **경궁병 병종**으로 대체되어 영웅 목록에서 빠졌다(세력당 영웅 4명 균일).
+- 각 영웅부대: `party_name = "{이름} 부대"`, `kind = KIND_HERO`, 멤버 **1명**(그 영웅).
+- 능력치 매핑: `strength`(힘) `wisdom`(지혜) `agility`(민첩) `charm`(매력) `luck`(행운) `leadership`(지휘력) `diligence`(성실함) `sensitivity`(예민함) `stamina`(스태미나) `morale`(사기). 생명점은 `max_hp()`로 계산해 채운다.
+- **이동력·시야**: 유닛.md에 개별값이 없어 종족(인간) 기본값 `movement = 4`, `vision = 7`을 모든 유닛에 적용한다.
+- **멤버별 장비 override**: 영웅 dict에 `weapons`/`armor`/`shield`가 있으면 세력 기본값을 **덮어쓴다**. 예: 아젤 하르윈은 `weapons: ["longsword", "bow"]`(검+보조 활 — 근접은 장검, 원거리는 활 반격), 자밀라는 `weapons: ["scimitar", "javelin"]`(곡도+투창).
 - 예시 앵커값 — 아젤 하르윈: `strength = 78`, `leadership = 88`, `morale = 90`.
+
+## 병종 아키타입 (`TROOPS`, 세력 공용)
+
+일반부대 병종. id → 스펙(`name`·`weapons`·`armor`·`shield`·능력치). 한 부대는 이 아키타입으로 **10명 동일** 생성된다.
+
+| 병종 | id | 무기 | 방어구 | 방패 | 주요 능력치 |
+| --- | --- | --- | --- | --- | --- |
+| 경보병 | `light_infantry` | `["spear"]`(장창·근접·리치 2) | `[leather_helm, leather_armor]` | `round_shield` | str 62 · agi 55 · luck 48 · morale 58 |
+| 경궁병 | `light_archer` | `["bow"]`(활·공격거리 3) | `[leather_helm, leather_armor]` | `""`(없음) | str 55 · agi 62 · luck 52 · morale 55 |
+
+- 공통 능력치: `wisdom 40` · `charm 40` · `leadership 20` · `diligence 55` · `sensitivity 40` · `stamina 40`, `movement 4` · `vision 7`. 영웅보다 약한 보통 병사 수준(기존 소집병 대체).
+- 경보병은 근접(장창 리치 2로 선제 유리), 경궁병은 원거리(활 사거리 3 → 부대 [공격거리](../entities/Party.md) 3).
 
 ## API
 
 | 함수 | 반환 | 설명 |
 | --- | --- | --- |
-| `get_party(id) -> Dictionary` | 부대 스펙 | 없는 id면 빈 Dictionary |
-| `make_members(id) -> Array` | [Human] 배열 | 스펙의 멤버들을 Human 객체로 생성(능력치 반영). 없는 id면 빈 배열. 생성 시 `hit_points = max_hp()`로 채운다(시작 풀피 — [Human](../entities/Human.md)) |
-| `commander_name(id) -> String` | String | 스펙의 `commander` 이름 |
+| `get_faction(id) -> Dictionary` | 세력 스펙 | 없는 id면 빈 Dictionary |
+| `make_hero(faction, index) -> Human` | Human | 세력의 `index`번째 영웅을 Human으로 생성(능력치·장비 반영). 범위 밖이면 `null` |
+| `make_heroes(faction) -> Array` | [Human] | 세력 영웅 4명 전부 Human 배열. 없는 세력이면 빈 배열 |
+| `hero_party_name(faction, index) -> String` | String | `"{영웅 이름} 부대"`. 범위 밖이면 빈 문자열 |
+| `make_troop(archetype) -> Array` | [Human] | 병종 아키타입으로 `TROOP_SIZE`(10)명 **동일** Human 생성. 없는 병종이면 빈 배열 |
+| `troop_name(archetype) -> String` | String | 병종 표시 이름(경보병/경궁병). 없으면 빈 문자열 |
 
-`make_members`는 [Human](../entities/Human.md)(RefCounted)만 생성하므로 씬 트리 없이 동작한다. [부대](../entities/Party.md)(Node2D) 인스턴스화·배치는 [game.gd](../features/parties.md)가 한다.
+생성되는 모든 Human은 `hit_points = max_hp()`(시작 풀피)·`max_stamina = stamina`(풀 스태미나)로 채운다.
+`make_*`는 [Human](../entities/Human.md)(RefCounted)만 생성하므로 씬 트리 없이 동작한다. [부대](../entities/Party.md)(Node2D) 인스턴스화·배치·`kind`/`lord` 설정은 [game.gd](../features/parties.md)가 한다.
 
 ## 테스트 시나리오
 
 `test/unit/test_unit_types.gd`.
 
-- [정상] `PLAYER_ID == "azel"`, `NPC_IDS`는 3개(`qasim`·`balthazar`·`batur`)
-- [정상] 모든 부대 스펙에 키 존재: `party_name`·`faction`·`color`·`commander`·`members`
-- [정상] `azel` 스펙 — 세력 "푸른 왕국", 부대명 "아젤 하르윈 부대", 지휘관 "아젤 하르윈"
-- [정상] `make_members("azel")`의 크기 5(궁수 포함), 첫 멤버 이름 "아젤 하르윈"
-- [정상] `make_members("azel")` 첫 멤버의 `strength == 78`, `leadership == 88`, `morale == 90` (유닛.md 매핑 확인)
-- [정상] 모든 멤버 `movement == 4`, `vision == 7` (인간 기본값)
-- [정상] 모든 멤버 `hit_points == max_hp()`(생성 시 시작 풀피), 값 = `40 + floor(힘/10)`(level 1)
-- [정상] `make_members("balthazar")` 멤버의 `weapons == ["wand"]`, `armor`에 방어구 id 포함(세력 장비 적용)
-- [정상] `make_members("azel")` 첫 멤버 `shield == "round_shield"`(세력 방패 적용), 궁수 멤버는 `weapons == ["bow"]`·`shield == ""`(개별 override)
-- [정상] `make_members("azel")` 첫 멤버(아젤)는 `weapons == ["longsword", "bow"]`(검+보조 활 — 다중 무기)
-- [정상] `make_members("qasim")`에 투척 무기(`javelin`)를 든 멤버(자밀라 `["scimitar","javelin"]`)가 있다
-- [정상] `make_members("azel")`의 `attack_range` 관점: 궁수(bow 3)로 부대 공격거리 3 — Party.attack_range 테스트에서 확인
-- [정상] `commander_name("qasim") == "카심 이븐 라시드"`
-- [경계] 없는 id → `get_party` 빈 Dictionary, `make_members` 빈 배열
-- [정상] 네 부대 모두 멤버 수 4
+- [정상] `PLAYER_ID == "azel"`, `NPC_IDS`는 3개, `FACTION_IDS`는 4개, `TROOP_SIZE == 10`, `HEROES_PER_FACTION == 4`
+- [정상] 모든 세력 스펙에 키 존재: `faction`·`color`·`territory`·`heroes`
+- [정상] `get_faction("azel")` — 세력 "푸른 왕국", 영지 "창천성"
+- [정상] `make_heroes("azel")` 크기 4, 이름 순서 아젤 하르윈·로엔 카스터·미라 벨포드·가레스 던 (**엘윈 사수 없음**)
+- [정상] `make_heroes` 각 세력 크기 4, 첫 명이 그 세력 지휘관(`get_faction`의 첫 영웅)
+- [정상] `make_hero("azel", 0)`의 `strength == 78`, `leadership == 88`, `morale == 90` (유닛.md 매핑 확인)
+- [정상] `make_hero("azel", 0)` `weapons == ["longsword", "bow"]`(검+보조 활), `shield == "round_shield"`
+- [정상] `make_hero("balthazar", 0)` `weapons == ["wand"]`(마법), 방어구에 세력 방어구 포함
+- [정상] `make_hero("qasim", 1)`(자밀라) `weapons == ["scimitar", "javelin"]`(투척 무기 보유)
+- [정상] `hero_party_name("azel", 0) == "아젤 하르윈 부대"`
+- [정상] 모든 영웅·병사 `movement == 4`, `vision == 7`, `hit_points == max_hp()`
+- [경계] 없는 세력 id → `get_faction` 빈 Dictionary, `make_heroes` 빈 배열; 범위 밖 index → `make_hero == null`, `hero_party_name == ""`
+- [정상] `make_troop("light_infantry")` 크기 10, 전원 동일 능력치(str 62)·장비(`weapons==["spear"]`·`shield=="round_shield"`)
+- [정상] `make_troop("light_archer")` 크기 10, 전원 `weapons==["bow"]`·`shield==""`·`vision==7`
+- [경계] `make_troop("light_archer")` 각 멤버가 **독립 배열**(한 명의 `weapons`를 바꿔도 다른 멤버 불변 — `.duplicate()`)
+- [경계] 없는 병종 id → `make_troop` 빈 배열, `troop_name` 빈 문자열
+- [정상] `troop_name("light_infantry") == "경보병"`, `troop_name("light_archer") == "경궁병"`
 
 ## 관련
 
 - [Party (부대)](../entities/Party.md) · [Human (사람)](../entities/Human.md) · [Faction (세력)](../entities/Faction.md)
-- 맵 배치·표시는 [Parties (부대 배치)](../features/parties.md).
+- 맵 배치·표시·`kind`/`lord` 설정은 [Parties (부대 배치)](../features/parties.md).

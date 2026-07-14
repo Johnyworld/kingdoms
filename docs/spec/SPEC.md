@@ -24,7 +24,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 ### 엔티티 (`entities/`)
 게임 내 데이터 모델. 각 문서에 속성(properties) 목록을 정리한다.
 
-- [Party](entities/Party.md) — 부대 (맵에서 움직이는 유닛 · 멤버 Human 보유 · 이동력=min·시야=max · 토큰 색)
+- [Party](entities/Party.md) — 부대 (맵에서 움직이는 유닛 · 멤버 Human 보유 · 이동력=min·시야=max · 토큰 색 · **종류 kind(영웅/일반)** · **소속 영웅 lord**)
 - [Human](entities/Human.md) — 사람 (능력치 · 자원, 순수 데이터). 주인공은 부대의 멤버
 - [Building](entities/Building.md) — 맵에 배치된 건물 (7헥스 · 종류 · 시야 · 소속 영지)
 - [Territory](entities/Territory.md) — 영지 (이름 · 모든 자원 보유 · 소속 건물)
@@ -37,7 +37,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Splash (스플래시)](features/splash.md)
 - [Title (타이틀 메뉴)](features/title.md)
 - [Map & Camera (맵과 카메라)](features/map-and-camera.md)
-- [Parties (부대 배치)](features/parties.md) — 유닛 카탈로그에서 플레이어 부대 + NPC 부대 3개 생성·배치
+- [Parties (부대 배치)](features/parties.md) — 랑그릿사식 편제: 세력마다 영웅부대 4 + 부하부대 12(경보병2·경궁병1/영웅) = 16부대, 4세력 맵 64부대. 거점 중심에 경보병 1부대 주둔
 - [NPC Bases (NPC 세력 거점)](features/npc-bases.md) — NPC 세력별 수도 영지·캠프 배치, 안개(발견 후 상시 표시)·클릭 정보
 - [NPC Movement (NPC 이동 AI)](features/npc-movement.md) — 턴 종료 시 NPC가 도달 가능한 가장 먼 칸으로 무작위 이동
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
@@ -53,7 +53,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(첫 소비자: 구성원 메뉴)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Combat (전투 판정)](features/combat.md) — 능력치 기반 1회 공방·3회 교대 교전 순수 로직
-- [Battle (전투씬·개시·복귀)](features/battle.md) — 인접 적 클릭 개시 → 실시간 관전 오버레이 → 사상자 반영·복귀
+- [Battle (전투씬·개시·복귀)](features/battle.md) — 인접 적 클릭 개시 → 실시간 관전 오버레이(**부대 단위 시각 집약** — 팀당 스쿼드 토큰 1개, 멤버 시뮬은 개별) → 사상자 반영·복귀
 - [Raid (약탈)](features/raid.md) — 전투로 전멸한 적 부대의 전사자 장비를 승자가 노획(플레이어=선택 패널 / NPC=자동 전량)
 - [Equipment (장비 관리)](features/equipment.md) — 노획 장비를 멤버에게 장착·탈착(무기3·방어구4·방패1 슬롯, 스왑 없음). 행동 메뉴 [장비]로 여는 모달
 - [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
@@ -61,10 +61,11 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 - [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(농장·식량 / 벌목소·목재 / 철광·철 / 금광·금). 생산포인트(1÷거리, 거리 기반) 모델 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 자원 4종 체제
 - [Camp Capture (캠프 점령)](features/camp-capture.md) — 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
-- [Garrison / 주둔 (거점 수비)](features/garrison.md) — 수비대=부대, 거점 중심 타일 주둔 부대가 방어(초기 4명), 주둔/주둔 종료·주둔 중 사격
+- [Garrison / 주둔 (거점 수비)](features/garrison.md) — 수비대=부대, 거점 중심 타일 주둔 부대가 방어(시작=경보병 10인 1부대), 주둔/주둔 종료·주둔 중 사격
 - [Wall / 성벽 (거점 방어 구조물)](features/wall.md) — 마을회관·성 성벽(`wall_level`) 적 접근 차단 + 사다리 공성(3턴·밀기 15%·통로 돌파) + 성문(`gate_hp` 120, 충차로 파괴 시 그 면 통로 개방·성벽 유지)
 - [Siege Engines / 공성병기 (부대 소속 공성 유닛)](features/siege-engines.md) — 투석기(공격 50·HP 60) 등 인구 비소모 재사용 유닛. 공성 작업장 생산·견인 이동(2·사람 4명+)·[투석](사거리 4~5·선택 모드)으로 성벽(내구도 180)을 랜덤 피해(30~70)로 깎아 평균 3~6발에 붕괴하거나, 성벽·적 부대를 battle.gd 통합 전투에서 폭격(최대 5명·유닛별 명중 0.1·양쪽 투석기 상호 반격·적 투석기 우선 대포병 결투로 투석기 피격·파괴, 성벽=구조물 전투원). NPC 수비대도 투석기로 방어 포격·주기 보충 생산(5c·5e). 충차(5h: 근접·**성문 전용**·고화력 90·저내구 40, 성문(120) ~2발 파괴→그 면 통로 개방(성벽 유지), 수비 반격에 취약, 플레이어만). 공성탑·NPC 충차/건설 AI는 후속
 - [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 분할·병합으로 재조직
+- [Party Lord (소속 영웅)](features/party-lord.md) — 일반부대의 소속 영웅부대 설정/해제 UI([소속] 버튼 → 모달, 소속=인접 영웅 필요·해제 자유·턴 무소비)
 - [Victory & Defeat (승패)](features/victory.md) — 세력 소멸(10턴 유예)로만 승패 · 정복 승리 · 결과 오버레이 · 타이틀 복귀
 
 ### 데이터 (`data/`)
@@ -72,7 +73,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 
 - [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
 - [Stats (능력치 정의)](data/stats.md)
-- [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 부대·멤버(이름·능력치·색) 데이터. game.gd가 여기서 부대 생성
+- [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성
 - [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그 + 상성표. 전투 AT·DF·상성에 사용
 - [Buildings (건물 종류)](data/buildings.md)
 - [Siege Units (공성 유닛 카탈로그)](data/siege-units.md) — 투석기 등 공성 유닛(`SiegeTypes`). 이름·견인 이동력·생산 비용

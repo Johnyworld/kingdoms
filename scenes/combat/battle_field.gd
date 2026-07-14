@@ -53,6 +53,23 @@ static func survivors(units: Array, team: String) -> Array:
 static func archer_should_charge(unit_range: int, dist: float, threshold: float) -> bool:
 	return unit_range >= 2 and dist <= threshold
 
+## 그 team 멤버(사람) 유닛의 집계 {alive, total, hp, max_hp}. 부대 시각 집약 스쿼드 라벨·HP 바에 쓴다. → battle.md
+## 공성 전투원(siege)·구조물(structure)은 human이 없어 제외. total=멤버 수(생사 무관), hp=생존 hp 합, max_hp=전 멤버 max_hp 합.
+static func squad_summary(units: Array, team: String) -> Dictionary:
+	var alive := 0
+	var total := 0
+	var hp := 0
+	var max_hp := 0
+	for u in units:
+		if u.get("human") == null or u["team"] != team:
+			continue
+		total += 1
+		max_hp += u["human"].max_hp()
+		if u["alive"]:
+			alive += 1
+			hp += maxi(0, int(u["hp"]))
+	return {"alive": alive, "total": total, "hp": hp, "max_hp": max_hp}
+
 ## 그 team의 살아있는 공성 전투원(siege) 중 밴드(min_range ≤ distance ≤ range) 안 유닛 목록.
 ## 오버레이 투석 순차 연출이 한 진영의 발사 대상·반격 가능 여부(빈 배열이면 반격 없음)에 쓴다.
 ## 구조물(structure)·일반 유닛은 제외. → docs/spec/features/battle.md 투석 순차 연출
