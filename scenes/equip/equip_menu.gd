@@ -1,54 +1,32 @@
 class_name EquipMenu
-extends CanvasLayer
+extends Node
 ## 장비 관리 모달. 부대 노획 장비(loot_items)를 멤버에게 장착·탈착한다([Equipment](../../docs/spec/features/equipment.md)).
-## 화면 중앙 좌우 2열: 왼쪽 「멤버」(선택 + 장착 장비 [탈착]) / 오른쪽 「인벤토리」(loot_items [장착]) + 하단 [닫기].
-## 슬롯 여유 있을 때만 장착(스왑 없음). UI는 코드로 구성한다(loot_menu·camp_menu 패턴, 별도 .tscn 없음).
+## 오버레이 chrome(배경·제목·우측 상단 X·ESC·지도 입력 차단)은 공용 Modal에 위임하고, 콘텐츠(2열)만 주입한다.
+## 좌우 2열: 왼쪽 「멤버」(선택 + 장착 장비 [탈착]) / 오른쪽 「인벤토리」(loot_items [장착]).
+## 슬롯 여유 있을 때만 장착(스왑 없음). 목록 로직은 코드로 구성한다(별도 .tscn 없음).
 
-var _root: Control
+const ModalScript = preload("res://scenes/modal/modal.gd")
+
+var _modal: Modal
 var _member_list: VBoxContainer   # 멤버 선택 버튼
 var _equipped_list: VBoxContainer # 선택 멤버의 장착 장비(슬롯별 [탈착])
 var _inv_list: VBoxContainer      # 부대 인벤토리(loot_items, [장착])
-var _title: Label
 var _party = null
 var _selected = null              # 선택된 멤버(Human). 기본은 첫 멤버.
 
 func _ready() -> void:
-	layer = 70   # loot_menu와 같은 층(동시에 열리지 않는다). 행동 메뉴(50)보다 위.
 	_build()
-	hide()
 
-## UI 트리를 코드로 구성한다.
+## 오버레이 = 공용 Modal + 2열 콘텐츠(멤버 / 인벤토리).
 func _build() -> void:
-	_root = Control.new()
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_root)
-
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.45)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.gui_input.connect(_on_background_input)
-	_root.add_child(bg)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(500, 0)
-	center.add_child(panel)
-
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
-
-	_title = Label.new()
-	_title.text = "장비"
-	box.add_child(_title)
+	_modal = ModalScript.new()
+	_modal.title = "장비"
+	_modal.closed.connect(_on_modal_closed)
+	add_child(_modal)
 
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 24)
-	box.add_child(cols)
+	cols.custom_minimum_size = Vector2(500, 0)
 
 	# --- 왼쪽 「멤버」 ---
 	var member_col := VBoxContainer.new()
@@ -79,20 +57,27 @@ func _build() -> void:
 	_inv_list.add_theme_constant_override("separation", 4)
 	inv_col.add_child(_inv_list)
 
-	var buttons := HBoxContainer.new()
-	box.add_child(buttons)
-	var close_btn := Button.new()
-	close_btn.text = "닫기"
-	close_btn.pressed.connect(_close)
-	buttons.add_child(close_btn)
+	_modal.set_content(cols)
 
 ## 부대의 장비 관리를 연다. 첫 멤버를 기본 선택한다.
 func open(party) -> void:
 	_party = party
 	_selected = party.members[0] if not party.members.is_empty() else null
-	_title.text = "장비 — %s" % (party.party_name if party.party_name != "" else "부대")
-	show()
+	_modal.title = "장비 — %s" % (party.party_name if party.party_name != "" else "부대")
+	_modal.open()
 	_refresh()
+
+## 오버레이를 닫는다(Modal 경유 → closed 시 정리).
+func close() -> void:
+	_modal.close()
+
+## 오버레이가 열려 있는지.
+func is_open() -> bool:
+	return _modal.is_open()
+
+func _on_modal_closed() -> void:
+	_party = null
+	_selected = null
 
 ## 멤버·장착 장비·인벤토리 목록을 다시 그린다.
 func _refresh() -> void:
@@ -189,14 +174,3 @@ func _make_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
 	return label
-
-func _on_background_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_close()
-
-func _close() -> void:
-	if not visible:
-		return
-	hide()
-	_party = null
-	_selected = null
