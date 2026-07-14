@@ -16,8 +16,8 @@ func test_camp_spec_values() -> void:
 	assert_eq(spec["vision"], 5, "시야 5")
 	assert_eq(spec["footprint"], 7, "캠프 footprint 7헥스")
 	# 캠프 resources = 생성 영지 초기 자원(인구·금·석재 + 고기·생선·은 + 밀가루·은괴·금괴 = 15종).
-	var expected := {"인구": 10, "밀": 50, "빵": 20, "나무": 20, "목재": 40, "석재": 30, "철": 10, "철괴": 10, "금": 0, "고기": 0, "생선": 0, "은": 0, "밀가루": 0, "은괴": 0, "금괴": 0}
-	assert_eq(spec["resources"].size(), expected.size(), "자원 15종")
+	var expected := {"인구": 10, "밀": 50, "빵": 20, "나무": 20, "목재": 40, "석재": 30, "철": 10, "철괴": 10, "금": 0, "고기": 0, "생선": 0, "은": 0, "밀가루": 0, "은괴": 0, "금괴": 0, "가죽": 0, "천": 0}
+	assert_eq(spec["resources"].size(), expected.size(), "자원 17종")
 	for key in expected:
 		assert_eq(spec["resources"].get(key), expected[key], "%s 초기값" % key)
 
@@ -159,7 +159,7 @@ func test_is_center() -> void:
 		assert_false(types.is_center(id), "%s는 거점 아님" % id)
 
 func test_buildable_ids() -> void:
-	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "sawmill", "mill", "bakery", "stable", "smelter", "siege_workshop"], "건축 가능 목록(거점 제외)")
+	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "sawmill", "mill", "bakery", "stable", "ranch", "smelter", "siege_workshop"], "건축 가능 목록(거점 제외)")
 
 func test_secondary_production_buildings() -> void:
 	# 5개 가공 건물(2차 생산) — 레시피·모델. → processing.md
@@ -168,6 +168,7 @@ func test_secondary_production_buildings() -> void:
 		"mill": {"밀": 1},
 		"bakery": {"밀가루": 1},
 		"stable": {"밀": 2},
+		"ranch": {"밀": 2},
 	}
 	for id in cases:
 		var spec: Dictionary = types.get_type(id)
@@ -175,6 +176,9 @@ func test_secondary_production_buildings() -> void:
 		assert_eq(spec.get("prerequisite"), "camp", "%s 선행 캠프" % id)
 		assert_eq(spec.get("footprint"), 1, "%s footprint 1" % id)
 		assert_eq(spec["recipes"][0]["in"], cases[id], "%s 레시피 입력" % id)
+	# 부산물(다중 산출): 축사 고기+가죽, 목장 고기+천.
+	assert_eq(types.get_type("stable")["recipes"][0]["out"], {"고기": 1, "가죽": 1}, "축사 부산물 가죽")
+	assert_eq(types.get_type("ranch")["recipes"][0]["out"], {"고기": 1, "천": 1}, "목장 부산물 천")
 	# 제련소: 레시피 3개(철괴/은괴/금괴)
 	var smelter: Dictionary = types.get_type("smelter")
 	assert_eq(smelter["recipes"].size(), 3, "제련소 레시피 3개")

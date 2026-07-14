@@ -21,6 +21,8 @@
 | 밀가루 | 0 | 2 | [제분소](../features/processing.md) 가공(밀→밀가루), [제빵소](../features/processing.md) 입력 |
 | 은괴 | 0 | 20 | [제련소](../features/processing.md) 가공(은→은괴) |
 | 금괴 | 0 | 30 | [제련소](../features/processing.md) 가공(금→금괴) |
+| 가죽 | 0 | 4 | [축사](../features/processing.md) 부산물(고기와 함께 산출) |
+| 천 | 0 | 4 | [목장](../features/processing.md) 부산물(양털 가공) |
 
 ## 자원 가치 카탈로그 (`ResourceTypes`)
 
@@ -36,6 +38,7 @@
 - [정상] `ResourceTypes.value("철괴") == 12`, `value("밀") == 1`, `value("목재") == 2`
 - [정상] `value("고기") == 2`, `value("생선") == 2`, `value("은") == 8`(슬라이스 2 신규)
 - [정상] `value("밀가루") == 2`, `value("은괴") == 20`, `value("금괴") == 30`(2차 생산 신규)
+- [정상] `value("가죽") == 4`, `value("천") == 4`(부산물)
 - [예외] `value("인구") == 0`, `value("금") == 0`(판매 불가), 없는 자원 → `0`
 
 ## 관련

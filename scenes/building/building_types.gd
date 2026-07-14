@@ -27,7 +27,7 @@ static func next_center(type_id: String) -> String:
 
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 거점(캠프·마을회관·성)은 제외 — 캠프=새 영지(미구현), 마을회관·성=업그레이드.
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
-const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "sawmill", "mill", "bakery", "stable", "smelter", "siege_workshop"]
+const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "sawmill", "mill", "bakery", "stable", "ranch", "smelter", "siege_workshop"]
 
 # 거점 성벽 1단계 건설 비용(자재). 성벽은 카탈로그 건물이 아니라 거점에 붙는 값(Building.wall_level). → docs/spec/features/wall.md
 const WALL_COST := {"목재": 15, "석재": 10}
@@ -66,6 +66,8 @@ const CATALOG := {
 			"밀가루": 0, # 제분소 가공(2차 생산)
 			"은괴": 0,   # 제련소 가공
 			"금괴": 0,   # 제련소 가공
+			"가죽": 0,   # 축사 부산물
+			"천": 0,     # 목장 부산물
 		},
 		# 외형.
 		"fill_color": Color(0.52, 0.38, 0.24, 0.9),  # 부지(흙색)
@@ -306,7 +308,21 @@ const CATALOG := {
 		"build_cost": {"목재": 15, "밀": 8},
 		"demolish_refund": {"목재": 2},
 		"secondary_production": true,
-		"recipes": [{"in": {"밀": 2}, "out": {"고기": 1}}],
+		"recipes": [{"in": {"밀": 2}, "out": {"고기": 1, "가죽": 1}}],   # 부산물: 가죽 → processing.md
+	},
+	"ranch": {
+		"label": "목장",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.5, 0.58, 0.36, 0.9),
+		"edge_color": Color(0.32, 0.38, 0.22),
+		"tent_color": Color(0.82, 0.82, 0.72),
+		"build_turns": 4,
+		"build_cost": {"목재": 12, "밀": 5},
+		"demolish_refund": {"목재": 2},
+		"secondary_production": true,
+		"recipes": [{"in": {"밀": 2}, "out": {"고기": 1, "천": 1}}],   # 부산물: 천(양털)
 	},
 	"smelter": {
 		"label": "제련소",

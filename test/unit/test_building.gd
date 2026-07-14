@@ -171,6 +171,16 @@ func test_recipe_input_output() -> void:
 	assert_eq(building.active_recipe_input(), {"나무": 1}, "입력 나무1")
 	assert_eq(building.active_recipe_output(), {"목재": 1}, "출력 목재1")
 
+func test_byproduct_multi_output() -> void:
+	building.setup(terrain, _center(), "stable")
+	assert_eq(building.active_recipe_input(), {"밀": 2}, "축사 입력 밀2")
+	assert_eq(building.active_recipe_output(), {"고기": 1, "가죽": 1}, "축사 산출 고기1+가죽1(부산물)")
+	var ranch = load("res://scenes/building/building.gd").new()
+	add_child_autofree(ranch)
+	ranch.setup(terrain, Vector2i(10, 10), "ranch")
+	assert_true(ranch.is_secondary_production(), "목장은 2차 생산")
+	assert_eq(ranch.active_recipe_output(), {"고기": 1, "천": 1}, "목장 산출 고기1+천1(부산물)")
+
 func test_smelter_recipe_selection() -> void:
 	building.setup(terrain, _center(), "smelter")
 	assert_eq(building.recipes().size(), 3, "제련소 레시피 3개")

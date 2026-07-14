@@ -86,7 +86,7 @@ func test_build_list_five_items_quarry_active() -> void:
 	menu.open(_center("camp"))  # 캠프 티어
 	menu._on_build_pressed()
 	assert_true(menu._build_list.visible, "건축 후 리스트 표시")
-	assert_eq(menu._build_list.get_child_count(), 15, "건축 가능 15종(1차 5 + 2차 가공 5 포함, 거점 제외)")
+	assert_eq(menu._build_list.get_child_count(), 16, "건축 가능 16종(1차 5 + 2차 가공 6[목장 포함], 거점 제외)")
 	assert_false(_item(0).disabled, "채석장(선행 camp)은 캠프 티어부터 활성")
 
 func test_item_text_has_label_and_cost() -> void:
@@ -100,7 +100,7 @@ func test_item_disabled_when_low_population() -> void:
 	# 채석장은 1차 생산 전환으로 인구 게이트 없음 → 고정 노동력(2) 게이트는 공성 작업장(_item 마지막)으로 검증.
 	menu.open(_center("town_hall", {"인구": 0, "목재": 20, "석재": 20}))  # 선행·자재 OK, 인구 0 < 2
 	menu._on_build_pressed()
-	assert_true(_item(14).disabled, "인구 부족(0 < 2)이면 공성 작업장 비활성")
+	assert_true(_item(15).disabled, "인구 부족(0 < 2)이면 공성 작업장 비활성")
 
 func test_primary_active_house_locked_at_camp_tier() -> void:
 	menu.open(_center("camp"))  # 캠프 티어(마을회관 미만)

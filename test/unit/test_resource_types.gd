@@ -17,6 +17,10 @@ func test_value_processing_resources() -> void:
 	assert_eq(ResourceTypes.value("은괴"), 20, "은괴 판매가 20(제련소)")
 	assert_eq(ResourceTypes.value("금괴"), 30, "금괴 판매가 30(제련소)")
 
+func test_value_byproduct_resources() -> void:
+	assert_eq(ResourceTypes.value("가죽"), 4, "가죽 판매가 4(축사 부산물)")
+	assert_eq(ResourceTypes.value("천"), 4, "천 판매가 4(목장 부산물)")
+
 func test_value_non_sellable() -> void:
 	assert_eq(ResourceTypes.value("인구"), 0, "인구는 판매 불가(0)")
 	assert_eq(ResourceTypes.value("금"), 0, "금은 화폐, 판매 불가(0)")
