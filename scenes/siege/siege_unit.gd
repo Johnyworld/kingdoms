@@ -29,6 +29,10 @@ func fire_range() -> int:
 func attack() -> int:
 	return SiegeTypes.attack(type_id)
 
-## 최대 내구도(투석기 60).
+## 최대 내구도(투석기 60, 충차 40).
 func max_hp() -> int:
 	return SiegeTypes.max_hp(type_id)
+
+## 성벽 전용 여부(충차 true, 투석기 false). true면 성벽만 타격.
+func wall_only() -> bool:
+	return SiegeTypes.wall_only(type_id)

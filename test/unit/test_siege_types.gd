@@ -20,6 +20,21 @@ func test_catapult_values() -> void:
 func test_produce_full_cost() -> void:
 	assert_eq(types.produce_full_cost("catapult"), {"금": 40, "목재": 30, "석재": 20}, "생산 총비용(금+자재)")
 
+func test_battering_ram_values() -> void:
+	assert_eq(types.BATTERING_RAM, "battering_ram", "충차 id")
+	assert_eq(types.type_name("battering_ram"), "충차", "이름")
+	assert_eq(types.movement("battering_ram"), 1, "견인 이동력 1")
+	assert_eq(types.min_range("battering_ram"), 1, "최소 사거리 1(근접)")
+	assert_eq(types.fire_range("battering_ram"), 1, "최대 사거리 1(근접)")
+	assert_eq(types.attack("battering_ram"), 90, "공격력 90")
+	assert_eq(types.max_hp("battering_ram"), 40, "내구도 40")
+	assert_eq(types.produce_full_cost("battering_ram"), {"금": 50, "목재": 40, "석재": 10}, "생산 총비용")
+
+func test_wall_only() -> void:
+	assert_true(types.wall_only("battering_ram"), "충차는 성벽 전용")
+	assert_false(types.wall_only("catapult"), "투석기는 성벽 전용 아님")
+	assert_false(types.wall_only("nope"), "없는 id는 false")
+
 func test_missing_id_defaults() -> void:
 	assert_eq(types.type_name("nope"), "", "없는 id 이름 빈 문자열")
 	assert_eq(types.movement("nope"), 0, "없는 id 이동력 0")

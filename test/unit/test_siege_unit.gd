@@ -22,3 +22,13 @@ func test_explicit_type_id() -> void:
 	var u = SiegeUnit.new("catapult")
 	assert_eq(u.type_id, "catapult", "명시한 종류 유지")
 	assert_eq(u.unit_name(), "투석기", "이름")
+
+func test_battering_ram_instance() -> void:
+	var u = SiegeUnit.new("battering_ram")
+	assert_eq(u.unit_name(), "충차", "이름")
+	assert_eq(u.movement(), 1, "견인 이동력 1")
+	assert_eq(u.min_range(), 1, "최소 사거리 1")
+	assert_eq(u.fire_range(), 1, "최대 사거리 1")
+	assert_eq(u.attack(), 90, "공격력 90")
+	assert_eq(u.max_hp(), 40, "최대 내구도 40")
+	assert_eq(u.hit_points, 40, "생성 직후 풀 내구도 40")

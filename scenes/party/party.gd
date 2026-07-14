@@ -279,6 +279,14 @@ func siege_attack() -> int:
 		a = maxi(a, u.attack())
 	return a
 
+## 실은 공성 유닛으로 적 부대(유닛)를 폭격할 수 있는지 — 하나라도 성벽 전용(wall_only)이 아니면 true.
+## 충차만 실은 부대는 false(성벽만 타격). 투석기·혼합은 true. → siege-engines.md
+func siege_can_bombard_units() -> bool:
+	for u in siege_units:
+		if not u.wall_only():
+			return true
+	return false
+
 ## 공성 유닛(SiegeUnit)을 부대에 싣는다(공성 작업장 생산). 인구·멤버에는 영향 없다.
 func add_siege_unit(unit) -> void:
 	siege_units.append(unit)

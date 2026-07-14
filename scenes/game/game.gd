@@ -342,12 +342,13 @@ func _compute_bombard_targets(start: Vector2i) -> void:
 	if rng <= 0:
 		return
 	var dists: Dictionary = HexGrid.bfs_distances(terrain, start, rng, MAP_WIDTH, MAP_HEIGHT)
-	for p in _npc_parties:   # 적 부대(유닛 투석)
-		if not p.visible or p.members.is_empty():
-			continue
-		var ec: Vector2i = terrain.local_to_map(p.position)
-		if dists.has(ec) and int(dists[ec]) >= min_r:
-			_bombard_cells[ec] = {"kind": "party", "ref": p, "dist": int(dists[ec])}
+	if party.siege_can_bombard_units():   # 충차만 실은 부대는 성벽 전용 — 적 부대 표적 제외 → siege-engines.md
+		for p in _npc_parties:   # 적 부대(유닛 투석)
+			if not p.visible or p.members.is_empty():
+				continue
+			var ec: Vector2i = terrain.local_to_map(p.position)
+			if dists.has(ec) and int(dists[ec]) >= min_r:
+				_bombard_cells[ec] = {"kind": "party", "ref": p, "dist": int(dists[ec])}
 	for b in _buildings + _npc_buildings:   # 성벽 적 거점(성벽 투석) — 부대 셀을 덮어써 성벽 우선
 		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
 			continue
@@ -783,16 +784,16 @@ func _on_wall_requested(b) -> void:
 	b.queue_redraw()   # 성벽 링 그리기
 	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
 
-## 투석기 생산 버튼 → 금·자재 지불 + 주둔 부대에 투석기 편입. 완성 작업장·주둔 부대·자원 충분일 때만. → siege-engines.md
-func _on_siege_produced(b) -> void:
+## 공성 유닛 생산 버튼 → 금·자재 지불 + 주둔 부대에 편입(투석기/충차). 완성 작업장·주둔 부대·자원 충분일 때만. → siege-engines.md
+func _on_siege_produced(b, type_id: String) -> void:
 	var party = _party_at_camp(b)
 	if party == null or b.territory == null or not b.territory.has_completed_building("siege_workshop"):
 		return
-	var cost := SiegeTypes.produce_full_cost(SiegeTypes.CATAPULT)
-	if not b.territory.can_afford(cost):
+	var cost := SiegeTypes.produce_full_cost(type_id)
+	if cost.is_empty() or not b.territory.can_afford(cost):
 		return
 	b.territory.spend(cost)   # 금·자재 차감(인구 비소모)
-	party.add_siege_unit(SiegeUnit.new(SiegeTypes.CATAPULT))
+	party.add_siege_unit(SiegeUnit.new(type_id))
 	party_roster.set_parties(_units)   # 일람·정보 갱신
 	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보로 재오픈
 
@@ -1479,8 +1480,20 @@ func _bombard_wall_by(attacker, building, distance: int) -> void:
 	else:
 		toast.show_message("성벽 −%d (%d/%d)" % [from_hp - building.wall_hp, building.wall_hp, Siege.WALL_MAX_HP])
 	building.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
-	attacker.prune_destroyed_siege()   # 반격 없어 보통 no-op(대칭성)
+	_apply_ram_counter(attacker, building)   # 충차(근접)면 수비 반격으로 내구도 차감·파괴 → siege-engines.md
 	party_roster.set_parties(_units)
+
+## 충차(근접)로 방어 거점을 타격하면 수비대가 반격해 충차 내구도를 깎는다(HP≤0이면 파괴). 무방비 거점이면 반격 없음. → siege-engines.md
+func _apply_ram_counter(attacker, building) -> void:
+	if _camp_defender(building) == null:
+		return   # 무방비 거점 — 반격 없음
+	var countered := false
+	for u in attacker.siege_units:
+		if u.wall_only():   # 충차만 근접 반격 대상(투석기는 원거리라 무관)
+			u.hit_points -= Siege.ram_counter_damage(_rng.randf())
+			countered = true
+	if countered and attacker.prune_destroyed_siege() > 0:
+		toast.show_message("충차 파괴")
 
 ## 성벽 붕괴 처리(내구도 0 이하) — wall_level·wall_hp 0, 사다리 정리. 붕괴됐으면 true. 오버레이·헤드리스(5g) 공용. → wall.md
 func _collapse_wall(building) -> bool:

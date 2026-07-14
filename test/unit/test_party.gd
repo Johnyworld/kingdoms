@@ -671,6 +671,42 @@ func test_prune_destroyed_siege() -> void:
 	assert_true(alive in p.siege_units, "hp>0 투석기 유지")
 	assert_eq(p.prune_destroyed_siege(), 0, "파괴 없으면 0·불변")
 
+# --- 충차(5h, 근접 대성벽 공성) → docs/spec/features/siege-engines.md ---
+
+func test_ram_haul_caps_movement() -> void:
+	var p := _party_of(4, 4)
+	p.add_siege_unit(SiegeUnit.new("battering_ram"))
+	assert_eq(p.movement(), 1, "충차 견인 속도 1로 상한")
+
+func test_ram_crew_gate_blocks_move() -> void:
+	var p := _party_of(3, 4)   # 사람 3명 < CREW_MIN 4
+	p.add_siege_unit(SiegeUnit.new("battering_ram"))
+	assert_eq(p.movement(), 0, "견인 인력 부족 → 이동 불가")
+
+func test_ram_ranges_and_attack() -> void:
+	var p := _party_of(4, 4)
+	p.add_siege_unit(SiegeUnit.new("battering_ram"))
+	assert_eq(p.siege_fire_range(), 1, "충차 최대 사거리 1")
+	assert_eq(p.siege_min_range(), 1, "충차 최소 사거리 1")
+	assert_eq(p.siege_attack(), 90, "충차 공격력 90")
+
+func test_siege_can_bombard_units() -> void:
+	var p := _party_of(4, 4)
+	assert_false(p.siege_can_bombard_units(), "공성 유닛 없으면 false")
+	p.add_siege_unit(SiegeUnit.new())   # 투석기
+	assert_true(p.siege_can_bombard_units(), "투석기는 유닛 폭격 가능")
+
+func test_ram_only_cannot_bombard_units() -> void:
+	var p := _party_of(4, 4)
+	p.add_siege_unit(SiegeUnit.new("battering_ram"))
+	assert_false(p.siege_can_bombard_units(), "충차만이면 성벽 전용(유닛 표적 제외)")
+
+func test_mixed_siege_can_bombard_units() -> void:
+	var p := _party_of(4, 4)
+	p.add_siege_unit(SiegeUnit.new("battering_ram"))
+	p.add_siege_unit(SiegeUnit.new())   # 투석기 혼합
+	assert_true(p.siege_can_bombard_units(), "투석기가 섞이면 유닛 폭격 가능")
+
 # --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
 
 func test_melee_power_sums_best_melee() -> void:

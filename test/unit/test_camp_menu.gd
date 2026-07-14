@@ -468,4 +468,29 @@ func test_siege_button_emits_signal() -> void:
 	menu.open(c, _party_with(4))
 	watch_signals(menu)
 	menu._siege_btn.pressed.emit()
-	assert_signal_emitted_with_parameters(menu, "siege_produced", [c], "투석기 생산 버튼 → siege_produced(building)")
+	assert_signal_emitted_with_parameters(menu, "siege_produced", [c, "catapult"], "투석기 버튼 → siege_produced(building, \"catapult\")")
+
+func test_ram_button_shown_when_workshop_and_party() -> void:
+	var c := _center_with_workshop({"금": 100, "목재": 50, "석재": 50, "인구": 5})
+	menu.open(c, _party_with(4))
+	assert_true(menu._ram_btn.visible, "완성 작업장 + 주둔 부대 + 자원 충분 → 표시")
+	assert_string_contains(menu._ram_btn.text, "충차", "충차 생산 텍스트")
+	assert_false(menu._ram_btn.disabled, "자원 충분 → 활성")
+
+func test_ram_button_hidden_without_workshop() -> void:
+	var c := _center("town_hall", {"금": 100, "목재": 50, "석재": 50})
+	menu.open(c, _party_with(4))
+	assert_false(menu._ram_btn.visible, "작업장 없으면 숨김")
+
+func test_ram_button_disabled_when_poor() -> void:
+	var c := _center_with_workshop({"금": 10})   # 자원 부족
+	menu.open(c, _party_with(4))
+	assert_true(menu._ram_btn.visible, "작업장 + 부대라 표시")
+	assert_true(menu._ram_btn.disabled, "자원 부족 → 비활성")
+
+func test_ram_button_emits_signal() -> void:
+	var c := _center_with_workshop({"금": 100, "목재": 50, "석재": 50})
+	menu.open(c, _party_with(4))
+	watch_signals(menu)
+	menu._ram_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(menu, "siege_produced", [c, "battering_ram"], "충차 버튼 → siege_produced(building, \"battering_ram\")")

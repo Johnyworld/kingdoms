@@ -105,3 +105,13 @@ func test_total_bombard_damage_single() -> void:
 func test_total_bombard_damage_edges() -> void:
 	assert_eq(siege.total_bombard_damage([], []), 0, "공성 유닛 없음 → 0")
 	assert_eq(siege.total_bombard_damage([50, 50], [1.0]), 70, "둘 중 짧은 길이(1발)만큼 — 70")
+
+# --- 충차 반격 피해(5h, 근접 대성벽 공성) → docs/spec/features/siege-engines.md ---
+
+func test_ram_counter_base() -> void:
+	assert_eq(siege.RAM_COUNTER_BASE, 15, "충차 반격 기준 피해 15")
+
+func test_ram_counter_damage_bounds() -> void:
+	assert_eq(siege.ram_counter_damage(0.0), 9, "15×0.6 하한")
+	assert_eq(siege.ram_counter_damage(1.0), 21, "15×1.4 상한")
+	assert_eq(siege.ram_counter_damage(0.5), 15, "기준값")
