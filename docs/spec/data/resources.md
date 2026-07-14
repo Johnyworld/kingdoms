@@ -1,47 +1,39 @@
 # Data: Resources (자원)
 
-게임에 존재하는 자원 목록. **[영지](../entities/Territory.md)가 모든 자원(인구·금 포함)을 보유**한다
+게임에 존재하는 자원 목록. **[영지](../entities/Territory.md)가 모든 자원(인구 포함)을 보유**한다
 (영지 초기값은 캠프 종류의 [카탈로그](buildings.md) `resources`에서 복사됨).
 
+> 자원은 **4종(금·목재·식량·철) + 인구**로 단순화됐다. 각 자원은 대응하는 1차 생산 건물이 지형 위에서 캔다.
 > **삽입 순서 = 캠프 메뉴 표시 순서** (`territory.resources` Dictionary).
 
-| 자원 | 영지 초기 보유량 | 판매가(금) | 비고 |
+| 자원 | 영지 초기 보유량 | 생산 건물 (지형) | 비고 |
 | --- | --- | --- | --- |
-| 인구 | 10 | — | 건물 건설/철거 시 소비·환산 (소비 로직은 Phase 2). **노동력** — 운반·판매 대상 아님 |
-| 밀 | 50 | 1 | |
-| 빵 | 20 | 3 | |
-| 나무 | 20 | 1 | |
-| 목재 | 20 | 2 | |
-| 철 | 10 | 5 | |
-| 철괴 | 10 | 12 | |
-| 금 | 0 | — | **화폐**. [상거래](../features/trade.md)(판매)로만 획득(생산 없음). 영지 금고 — 부대 화물로 운반 안 함, 판매 대상도 아님 |
-| 고기 | 0 | 2 | [사냥터](../features/production.md)·[축사](../features/processing.md) 산출 |
-| 생선 | 0 | 2 | [낚시터](../features/production.md) 산출 |
-| 은 | 0 | 8 | [은광](../features/production.md) 산출(희소) |
-| 밀가루 | 0 | 2 | [제분소](../features/processing.md) 가공(밀→밀가루), [제빵소](../features/processing.md) 입력 |
-| 은괴 | 0 | 20 | [제련소](../features/processing.md) 가공(은→은괴) |
-| 금괴 | 0 | 30 | [제련소](../features/processing.md) 가공(금→금괴) |
-| 가죽 | 0 | 4 | [축사](../features/processing.md) 부산물(고기와 함께 산출) |
-| 천 | 0 | 4 | [목장](../features/processing.md) 부산물(양털 가공) |
+| 목재 | 40 | [벌목소](production.md) (숲) | |
+| 식량 | 50 | [농장](production.md) (초원) | |
+| 철 | 10 | [철광](production.md) (철맥) | |
+| 금 | 0 | [금광](production.md) (금맥) | 생산 자원(과거 화폐 역할 폐지 — 상거래 제거) |
+| 인구 | 10 | (생산 없음) | **노동력→병력 예약**. 생산 건물이 쓰지 않는다. 상한·자연 증가만 있고 소비처(병력 충원)는 **후속**. 운반·판매 대상 아님 |
 
-## 자원 가치 카탈로그 (`ResourceTypes`)
+## 4종으로 축소된 배경
 
-> 스크립트: `scenes/resource/resource_types.gd` (`class_name ResourceTypes`). `ItemTypes`·`BuildingTypes`와 같은 GDScript 카탈로그 패턴.
+기존 17종(밀·빵·나무·목재·석재·철·철괴·금·고기·생선·은·밀가루·은괴·금괴·가죽·천·인구)에서 **금·목재·식량·철 + 인구**만 남겼다.
 
-- `VALUES: Dictionary` — 자원명 → **판매가(금 단위)**. 위 표의 판매가. `인구`·`금`은 미수록(판매 불가).
-- `value(res_name) -> int` — 그 자원 1개의 판매가. 카탈로그에 없으면(인구·금·미등록) `0`.
+- 2차 가공 산출물(빵·목재←나무·철괴·밀가루·은괴·금괴·가죽·천)은 **2차 생산(가공) 제거**와 함께 삭제됐다. 이제 **벌목소가 목재를, 농장이 식량을 직접** 생산한다(가공 단계 없음).
+- 잉여 1차 자원(석재·고기·생선·은)은 대응 건물(채석장·사냥터·낚시터·은광)과 함께 삭제됐다.
+- `금`은 상거래 화폐가 아니라 **금광에서 캐는 자원**이 됐다(**상거래 제거**).
+
+## 인구 (병력 예약)
+
+`인구`는 자원 Dictionary에 함께 담기지만 **경제 자원이 아니다** — 생산 건물이 인원으로 쓰지 않고(1차 생산은 [거리 기반](production.md)), 건설비로도 쓰지 않는다(`required_pop` 폐지). 오직 **병력 충원**을 위해 예약돼 있으며, 상한(`population_cap`)까지 매 턴 +1 [자연 증가](../features/turn.md)한다. 병력 충원(소비) 시스템은 **미구현(후속 슬라이스)**.
 
 ## 테스트 시나리오
 
-`test/unit/test_resource_types.gd`.
+`test/unit/test_building_types.gd`(캠프 초기 자원) · `test/unit/test_territory.gd`(보유·차감).
 
-- [정상] `ResourceTypes.value("철괴") == 12`, `value("밀") == 1`, `value("목재") == 2`
-- [정상] `value("고기") == 2`, `value("생선") == 2`, `value("은") == 8`(슬라이스 2 신규)
-- [정상] `value("밀가루") == 2`, `value("은괴") == 20`, `value("금괴") == 30`(2차 생산 신규)
-- [정상] `value("가죽") == 4`, `value("천") == 4`(부산물)
-- [예외] `value("인구") == 0`, `value("금") == 0`(판매 불가), 없는 자원 → `0`
+- [정상] 캠프 초기 자원 = `{목재:40, 식량:50, 철:10, 금:0, 인구:10}` (5종, 그 외 키 없음)
+- [정상] 제거된 자원 키 없음: `밀`·`석재`·`철괴`·`나무`·`빵`·`고기` 등은 캠프 초기 자원에 **없다**
 
 ## 관련
 
-- 표시: [Camp Menu](../features/camp-menu.md). 판매·구매: [Trade](../features/trade.md).
-- 소비 로직(건축 등)은 Phase 2 미구현.
+- 표시: [Camp Menu](../features/camp-menu.md). 생산: [1차 생산](production.md). 저장: [Territory](../entities/Territory.md).
+- (판매가 카탈로그 `ResourceTypes`·상거래(`features/trade.md`)·2차 가공(`features/processing.md`)은 **삭제**됐다.)

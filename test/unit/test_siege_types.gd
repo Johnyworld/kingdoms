@@ -15,10 +15,10 @@ func test_catapult_values() -> void:
 	assert_eq(types.attack("catapult"), 50, "공격력 50")
 	assert_eq(types.max_hp("catapult"), 60, "내구도 60")
 	assert_eq(types.produce_gold("catapult"), 40, "생산 금 40")
-	assert_eq(types.produce_cost("catapult"), {"목재": 30, "석재": 20}, "생산 자재")
+	assert_eq(types.produce_cost("catapult"), {"목재": 30, "철": 20}, "생산 자재")
 
 func test_produce_full_cost() -> void:
-	assert_eq(types.produce_full_cost("catapult"), {"금": 40, "목재": 30, "석재": 20}, "생산 총비용(금+자재)")
+	assert_eq(types.produce_full_cost("catapult"), {"금": 40, "목재": 30, "철": 20}, "생산 총비용(금+자재)")
 
 func test_battering_ram_values() -> void:
 	assert_eq(types.BATTERING_RAM, "battering_ram", "충차 id")
@@ -28,7 +28,7 @@ func test_battering_ram_values() -> void:
 	assert_eq(types.fire_range("battering_ram"), 1, "최대 사거리 1(근접)")
 	assert_eq(types.attack("battering_ram"), 90, "공격력 90")
 	assert_eq(types.max_hp("battering_ram"), 40, "내구도 40")
-	assert_eq(types.produce_full_cost("battering_ram"), {"금": 50, "목재": 40, "석재": 10}, "생산 총비용")
+	assert_eq(types.produce_full_cost("battering_ram"), {"금": 50, "목재": 40, "철": 10}, "생산 총비용")
 
 func test_targets() -> void:
 	assert_eq(types.targets("catapult"), ["unit", "wall", "gate"], "투석기 표적 전부")

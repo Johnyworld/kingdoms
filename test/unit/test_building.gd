@@ -88,37 +88,33 @@ func _lumberjack() -> void:
 func test_production_defaults() -> void:
 	_lumberjack()
 	assert_eq(building.production_points, 0, "PP 기본 0")
-	assert_eq(building.workers, 0, "인원 기본 0")
 	assert_true(building.is_primary_production(), "벌목소는 1차 생산")
-	assert_eq(building.produces(), "나무", "산출 나무")
+	assert_eq(building.produces(), "목재", "산출 목재")
 	assert_eq(building.buildable_terrains(), [Terrain.FOREST], "숲에만")
 
-func test_tick_production_accrues() -> void:
+func test_tick_production_accrues_by_distance() -> void:
+	# 거리 기반: 매 턴 PP += 1, PP ≥ 거리면 자원 1 산출.
 	_lumberjack()
-	building.workers = 3
 	var out: Array = []
-	for i in 5:
-		out.append(building.tick_production(5))
-	assert_eq(out, [0, 1, 0, 1, 1], "3명·거리5 5턴 산출 [0,1,0,1,1]")
-	assert_eq(building.production_points, 0, "5턴 후 PP 0")
+	for i in 6:
+		out.append(building.tick_production(3))
+	assert_eq(out, [0, 0, 1, 0, 0, 1], "거리3 → 3턴마다 자원 1")
+	assert_eq(building.production_points, 0, "6턴 후 PP 0")
 
-func test_tick_production_multi_per_turn() -> void:
+func test_tick_production_distance_one() -> void:
 	_lumberjack()
-	building.workers = 5
-	assert_eq(building.tick_production(2), 2, "5명·거리2 → 한 턴 2 산출")
-	assert_eq(building.production_points, 1, "PP 5→1")
+	assert_eq(building.tick_production(1), 1, "거리1 → 매 턴 1 산출")
+	assert_eq(building.production_points, 0, "PP 항상 0")
 
 func test_tick_production_guards() -> void:
 	_lumberjack()
-	assert_eq(building.tick_production(5), 0, "인원 0 → 산출 0")
-	assert_eq(building.production_points, 0, "PP 불변")
-	building.workers = 3
 	assert_eq(building.tick_production(0), 0, "거리 0 → 0(방어)")
+	assert_eq(building.production_points, 0, "PP 불변")
 
 func test_production_rate() -> void:
 	_lumberjack()
-	building.workers = 3
-	assert_almost_eq(building.production_rate(5), 0.6, 0.001, "인원3÷거리5 = 0.6")
+	assert_almost_eq(building.production_rate(3), 0.333, 0.001, "1÷거리3 ≈ 0.333")
+	assert_eq(building.production_rate(1), 1.0, "거리1 → 1.0")
 	assert_eq(building.production_rate(0), 0.0, "거리 0 → 0")
 
 func test_non_production_building() -> void:
@@ -126,83 +122,7 @@ func test_non_production_building() -> void:
 	assert_false(building.is_primary_production(), "캠프는 1차 생산 아님")
 	assert_eq(building.produces(), "", "산출 없음")
 	assert_eq(building.buildable_terrains(), [], "지형 제한 없음")
-	assert_eq(building.tick_production(5), 0, "생산 없음 → tick 0")
-
-# --- 2차 생산(가공) → docs/spec/features/processing.md ---
-
-func _sawmill() -> void:
-	building.setup(terrain, _center(), "sawmill")
-
-func test_work_speed_by_workers() -> void:
-	_sawmill()
-	building.workers = 0
-	assert_eq(building.work_speed(), 0, "인원 0 → 0")
-	building.workers = 1
-	assert_eq(building.work_speed(), 8, "인원 1 → 8(0.8)")
-	building.workers = 2
-	assert_eq(building.work_speed(), 15, "인원 2 → 15(1.5)")
-	building.workers = 3
-	assert_eq(building.work_speed(), 20, "인원 3 → 20(2.0)")
-	building.workers = 5
-	assert_eq(building.work_speed(), 20, "클램프 상한 3 → 20")
-
-func test_advance_work_batches() -> void:
-	_sawmill()
-	building.workers = 2   # 15/턴
-	assert_eq(building.advance_work(99), 1, "턴1: wp 15 → 1배치")
-	assert_eq(building.work_points, 5, "wp 15→5")
-	assert_eq(building.advance_work(99), 2, "턴2: wp 20 → 2배치")
-	assert_eq(building.work_points, 0, "wp 0")
-
-func test_advance_work_pauses_on_no_input() -> void:
-	_sawmill()
-	building.workers = 2
-	assert_eq(building.advance_work(0), 0, "입력 0 → 변환 0(일시정지)")
-	assert_eq(building.work_points, 15, "포인트는 쌓임(15)")
-	assert_eq(building.advance_work(99), 3, "입력 채워짐 → wp 30 → 3배치")
-
-func test_advance_work_non_secondary() -> void:
-	_camp()
-	assert_eq(building.advance_work(99), 0, "가공 건물 아니면 0")
-
-func test_recipe_input_output() -> void:
-	_sawmill()
-	assert_true(building.is_secondary_production(), "제재소는 2차 생산")
-	assert_eq(building.active_recipe_input(), {"나무": 1}, "입력 나무1")
-	assert_eq(building.active_recipe_output(), {"목재": 1}, "출력 목재1")
-
-func test_byproduct_multi_output() -> void:
-	building.setup(terrain, _center(), "stable")
-	assert_eq(building.active_recipe_input(), {"밀": 2}, "축사 입력 밀2")
-	assert_eq(building.active_recipe_output(), {"고기": 1, "가죽": 1}, "축사 산출 고기1+가죽1(부산물)")
-	var ranch = load("res://scenes/building/building.gd").new()
-	add_child_autofree(ranch)
-	ranch.setup(terrain, Vector2i(10, 10), "ranch")
-	assert_true(ranch.is_secondary_production(), "목장은 2차 생산")
-	assert_eq(ranch.active_recipe_output(), {"고기": 1, "천": 1}, "목장 산출 고기1+천1(부산물)")
-
-func test_smelter_recipe_selection() -> void:
-	building.setup(terrain, _center(), "smelter")
-	assert_eq(building.recipes().size(), 3, "제련소 레시피 3개")
-	assert_eq(building.active_recipe_input(), {"철": 1}, "기본 레시피 철")
-	building.active_recipe = 1
-	assert_eq(building.active_recipe_input(), {"은": 1}, "레시피1 은")
-	assert_eq(building.active_recipe_output(), {"은괴": 1}, "은→은괴")
-
-func test_mode_batch_cap() -> void:
-	_sawmill()
-	building.work_mode = building.WORK_CONTINUOUS
-	assert_gt(building.mode_batch_cap(999), 1000000, "계속 모드 상한 매우 큼(입력만 제한)")
-	building.work_mode = building.WORK_KEEP
-	building.work_target = 10
-	assert_eq(building.mode_batch_cap(3), 7, "N유지: 목표10·출력3 → 7배치")
-	assert_eq(building.mode_batch_cap(10), 0, "출력이 목표면 정지")
-	assert_eq(building.mode_batch_cap(12), 0, "출력이 목표 초과여도 0(하한)")
-	building.work_mode = building.WORK_TURNS
-	building.work_target = 3
-	assert_gt(building.mode_batch_cap(0), 1000000, "N턴(target>0) 상한 큼")
-	building.work_target = 0
-	assert_eq(building.mode_batch_cap(0), 0, "N턴(target 0) 정지")
+	assert_eq(building.tick_production(5), 0, "생산 없음(produces \"\") → tick 0")
 
 # --- 점유 영역 ---
 
@@ -272,11 +192,10 @@ func test_farm_under_construction() -> void:
 	assert_eq(building.remaining_turns, 3, "농장 build_turns = 3")
 
 func test_advance_construction_completes_on_last_turn() -> void:
-	building.setup(terrain, _center(), "quarry", true)   # build_turns 4
-	assert_false(building.advance_construction(), "1턴: 아직 미완성")
-	assert_false(building.advance_construction(), "2턴: 아직 미완성")
-	assert_false(building.advance_construction(), "3턴: 아직 미완성")
-	assert_true(building.advance_construction(), "4턴: 완성되는 호출만 true")
+	building.setup(terrain, _center(), "iron_mine", true)   # build_turns 5
+	for i in 4:
+		assert_false(building.advance_construction(), "%d턴: 아직 미완성" % (i + 1))
+	assert_true(building.advance_construction(), "5턴: 완성되는 호출만 true")
 	assert_true(building.is_complete(), "완성됨")
 
 func test_refund_on_demolish_complete_uses_salvage() -> void:
@@ -284,27 +203,21 @@ func test_refund_on_demolish_complete_uses_salvage() -> void:
 	assert_eq(building.refund_on_demolish(), building.demolish_refund(), "완성은 demolish_refund(카탈로그 salvage)")
 
 func test_refund_on_demolish_under_construction_full_at_start() -> void:
-	building.setup(terrain, _center(), "farm", true)   # remaining 3 / build_turns 3
-	assert_eq(building.refund_on_demolish(), {"목재": 5, "밀": 5}, "갓 시작(진행 0) → build_cost 전액")
+	building.setup(terrain, _center(), "iron_mine", true)   # remaining 5 / build_turns 5, build_cost 목재15
+	assert_eq(building.refund_on_demolish(), {"목재": 15}, "갓 시작(진행 0) → build_cost 전액")
 
 func test_refund_on_demolish_under_construction_partial() -> void:
-	building.setup(terrain, _center(), "farm", true)
-	building.advance_construction()   # remaining 2 / 3
-	assert_eq(building.refund_on_demolish(), {"목재": 3, "밀": 3}, "1턴 진행 → floor(5×2/3)=3씩")
+	building.setup(terrain, _center(), "iron_mine", true)
+	building.advance_construction()   # remaining 4 / 5
+	building.advance_construction()   # remaining 3 / 5
+	assert_eq(building.refund_on_demolish(), {"목재": 9}, "2턴 진행 → floor(15×3/5)=9")
 
 func test_advance_construction_on_complete_is_noop() -> void:
 	_camp()
 	assert_false(building.advance_construction(), "완성 건물은 no-op false")
 	assert_true(building.is_complete(), "상태 불변")
 
-# flat 생산(production/planned_production/collect_income)은 폐지됨 — 채석장도 1차 생산(생산포인트)으로 전환.
-# 모든 생산은 tick_production(1차)·advance_work(2차)로 검증한다. → production.md · processing.md
-
-func test_quarry_is_primary_production() -> void:
-	building.setup(terrain, _center(), "quarry")
-	assert_true(building.is_primary_production(), "채석장은 1차 생산으로 전환")
-	assert_eq(building.produces(), "석재", "산출 석재")
-	assert_eq(building.buildable_terrains(), [Terrain.STONE], "돌에만")
+# flat 생산·2차 가공은 폐지됨 — 모든 생산은 tick_production(1차, 거리 기반)로 검증한다. → production.md
 
 # --- 인구 상한 기여 (pop_cap) ---
 
@@ -358,16 +271,11 @@ func test_demolish_refund_same_under_construction() -> void:
 	building.setup(terrain, _center(), "farm", true)  # 건설 중
 	assert_eq(building.demolish_refund(), {"목재": 1}, "건설 중에도 같은 환급")
 
-# --- 필요인원 (required_pop) ---
+# --- 필요인원 (required_pop) — 폐지, 모든 건물 0 ---
 
-func test_required_pop_by_type() -> void:
-	building.setup(terrain, _center(), "siege_workshop")
-	assert_eq(building.required_pop(), 2, "공성 작업장 필요인원 2(고정 노동력)")
-	var lumber = load("res://scenes/building/building.gd").new()
-	add_child_autofree(lumber)
-	lumber.setup(terrain, Vector2i(30, 30), "quarry")
-	assert_eq(lumber.required_pop(), 0, "채석장 필요인원 0(1차 생산 전환)")
-	var house = load("res://scenes/building/building.gd").new()
-	add_child_autofree(house)
-	house.setup(terrain, Vector2i(10, 10), "house")
-	assert_eq(house.required_pop(), 0, "집 필요인원 0")
+func test_required_pop_abolished() -> void:
+	for id in ["siege_workshop", "lumberjack", "iron_mine", "farm", "house", "camp"]:
+		var b: Node2D = load("res://scenes/building/building.gd").new()
+		add_child_autofree(b)
+		b.setup(terrain, Vector2i(30, 30), id)
+		assert_eq(b.required_pop(), 0, "%s 필요인원 0(폐지)" % id)

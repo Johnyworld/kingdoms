@@ -22,7 +22,7 @@
 
 ## 소집병 (`UnitTypes.make_garrison`)
 
-- `make_garrison(count := 4) -> Array` — 소집병 `count`명을 [Human](../entities/Human.md)으로 생성한다(초기 주둔 부대·[병사 구매](trade.md#병사-구매)에서 사용).
+- `make_garrison(count := 4) -> Array` — 소집병 `count`명을 [Human](../entities/Human.md)으로 생성한다(초기 주둔 부대 편성에서 사용. 병력 충원 시스템은 후속).
   - 소집병: **활 주무기 + 검 보조**(`GARRISON_WEAPONS = ["bow", "sword"]`) + 가죽 방어구. 활 주무기라 [방어 전투](battle.md)에서 접근하는 적을 **사격했다가 근접 전환**하고(원거리 방어 반격), 월드맵 [공격거리](../entities/Party.md#유도-능력치-derived)는 3(활). 이동력·시야 인간 기본값, 생성 시 풀피(`hit_points = max_hp()`)·풀 스태미나.
 
 ## 주둔 / 주둔 종료 (`party_action_menu` + `game.gd`)
@@ -57,10 +57,10 @@
 - [거점 정보 패널](building-info.md): 거점이면 `"수비대 N명"`(중심 타일 부대 인원, 없으면 0 또는 줄 생략).
 - **[부대 일람](party-roster.md)**: 주둔 부대도 일반 부대라 일람에 표시된다(주둔 여부와 무관, 멤버 0이면 제외).
 
-## 병력 편입 ([병사 구매](trade.md#병사-구매))
+## 병력 편입
 
 - 예전의 **수비대 편성 패널**(부대↔수비대 병사 이동)은 **폐지**됐다 — 부대가 곧 수비대라 이동 개념이 없다. 병력 조정은 부대 [병합·분할](party-composition.md)로 한다.
-- [캠프 메뉴](camp-menu.md)의 **병사 구매**는 그 거점 **중심 타일 주둔 부대**에 소집병을 편입한다. 주둔 부대가 없으면 [구매] 비활성.
+- **병사 구매(금·인구 소비 → 소집병 편입)도 [상거래 제거](camp-menu.md)와 함께 삭제**됐다. `인구`를 소비하는 병력 충원 시스템은 **후속 슬라이스에서 재설계**한다.
 
 ## NPC의 주둔 (`game.gd`)
 
@@ -101,5 +101,5 @@
 ## 관련
 
 - [Camp Capture (캠프 점령)](camp-capture.md) — 중심 타일 진입 점령. [Battle (전투)](battle.md) — 거점 위 부대와의 전투 재사용. [NPC Movement](npc-movement.md) — NPC 주둔 제외.
-- [Party](../entities/Party.md) — `stationed` 필드. [Party Action Menu](party-action-menu.md) — [주둔]/[주둔 종료]. [Trade](trade.md) — 병사 구매(주둔 부대 편입). [Building Info](building-info.md) — 수비 인원 표시.
+- [Party](../entities/Party.md) — `stationed` 필드. [Party Action Menu](party-action-menu.md) — [주둔]/[주둔 종료]. [Building Info](building-info.md) — 수비 인원 표시.
 - 기획: [건물](../../table/세력/건물.md) · [영지](../../table/세력/영지.md)

@@ -54,7 +54,7 @@ func test_info_list_has_territory_faction_and_production() -> void:
 	var text := _info_text()
 	assert_string_contains(text, "파리", "영지명 포함")
 	assert_string_contains(text, "프랑스", "세력명 포함")
-	assert_string_contains(text, "밀", "생산 자원(밀) 포함")
+	assert_string_contains(text, "식량", "생산 자원(식량) 포함")
 
 func test_summary_under_construction_shows_remaining_turns() -> void:
 	panel.open(_building("farm", true))
@@ -64,7 +64,7 @@ func test_production_shown_even_under_construction() -> void:
 	var b := _building("farm", true)
 	_join_territory(b)
 	panel.open(b)
-	assert_string_contains(_info_text(), "밀", "건설 중에도 완성 시 생산량 표시")
+	assert_string_contains(_info_text(), "식량", "건설 중에도 완성 시 생산 자원 표시")
 
 func test_no_territory_hides_territory_lines() -> void:
 	panel.open(_building("farm"))

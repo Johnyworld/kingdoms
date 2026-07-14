@@ -27,10 +27,10 @@ static func next_center(type_id: String) -> String:
 
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 거점(캠프·마을회관·성)은 제외 — 캠프=새 영지(미구현), 마을회관·성=업그레이드.
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
-const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "sawmill", "mill", "bakery", "stable", "ranch", "smelter", "siege_workshop"]
+const BUILDABLE_IDS := ["farm", "lumberjack", "iron_mine", "gold_mine", "house", "siege_workshop"]
 
 # 거점 성벽 1단계 건설 비용(자재). 성벽은 카탈로그 건물이 아니라 거점에 붙는 값(Building.wall_level). → docs/spec/features/wall.md
-const WALL_COST := {"목재": 15, "석재": 10}
+const WALL_COST := {"목재": 15, "철": 5}
 
 ## 그 거점에 성벽을 지을 수 있는지 — 마을회관·성(tier ≥ 1) + 성벽 없음 + 영지가 WALL_COST 감당. → docs/spec/features/wall.md
 static func can_build_wall(territory, building) -> bool:
@@ -50,24 +50,13 @@ const CATALOG := {
 		"prerequisite": "",   # 선행 건물 종류 id(없으면 ""). 그 영지에 선행 완성 건물이 있어야 건축 가능.
 		"pop_cap": 0,   # 캠프 티어는 인구 상한 0 — 마을회관으로 업그레이드해야 인구가 생긴다.
 		# 초기 자원 = 건설 시 생성되는 영지의 초기 자원. 삽입 순서 = 메뉴 표시 순서.
+		# 자원 4종(목재·식량·철·금) + 인구. → docs/spec/data/resources.md
 		"resources": {
-			"인구": 10,
-			"밀": 50,
-			"빵": 20,
-			"나무": 20,
 			"목재": 40,
-			"석재": 30,   # 성벽·업그레이드 자재(채석장 생산). 초기 보유로 성벽 건설 가능.
+			"식량": 50,
 			"철": 10,
-			"철괴": 10,
-			"금": 0,   # 화폐. 판매로만 늘어난다(생산 없음).
-			"고기": 0,   # 사냥터·축사 산출
-			"생선": 0,   # 낚시터 산출
-			"은": 0,     # 은광 산출
-			"밀가루": 0, # 제분소 가공(2차 생산)
-			"은괴": 0,   # 제련소 가공
-			"금괴": 0,   # 제련소 가공
-			"가죽": 0,   # 축사 부산물
-			"천": 0,     # 목장 부산물
+			"금": 0,      # 금광에서 캐는 생산 자원(과거 화폐 역할 폐지)
+			"인구": 10,   # 병력 전용 예약(생산·건설비에 안 씀)
 		},
 		# 외형.
 		"fill_color": Color(0.52, 0.38, 0.24, 0.9),  # 부지(흙색)
@@ -75,7 +64,7 @@ const CATALOG := {
 		"tent_color": Color(0.85, 0.8, 0.68),         # 텐트
 		# 건설 · 경제 (Phase 2에서 사용). 캠프 건설 완료 시 새 영지 생성.
 		"build_turns": 8,
-		"build_cost": {"목재": 10, "밀": 10},
+		"build_cost": {"목재": 10, "식량": 10},
 		"demolish_refund": {"목재": 2},
 	},
 	# --- 마을회관: 대부분 소형 건물의 선행. 값은 테이블에서 조정(플레이성/부트스트랩, docs 참고). ---
@@ -89,8 +78,8 @@ const CATALOG := {
 		"edge_color": Color(0.36, 0.26, 0.16),
 		"tent_color": Color(0.8, 0.4, 0.3),   # 붉은 기와 지붕 느낌
 		"build_turns": 8,
-		"build_cost": {"목재": 10, "석재": 10, "밀": 20},
-		"demolish_refund": {"목재": 2, "석재": 2},
+		"build_cost": {"목재": 20, "식량": 20},
+		"demolish_refund": {"목재": 2},
 		"pop_cap": 10,   # 거점 tier 1 — 인구 상한 10.
 		# 상인 방문 등 특수효과는 미구현. production 없음.
 	},
@@ -105,8 +94,8 @@ const CATALOG := {
 		"edge_color": Color(0.28, 0.32, 0.4),
 		"tent_color": Color(0.72, 0.76, 0.82),
 		"build_turns": 12,
-		"build_cost": {"석재": 50, "밀": 30},
-		"demolish_refund": {"석재": 10},
+		"build_cost": {"목재": 40, "식량": 30, "철": 20},
+		"demolish_refund": {"목재": 4, "철": 2},
 		"pop_cap": 20,   # 거점 tier 2 — 인구 상한 20.
 		# 고급 건물 해금(마법사의 탑·성벽 등)은 미구현. production 없음.
 	},
@@ -120,11 +109,11 @@ const CATALOG := {
 		"edge_color": Color(0.28, 0.4, 0.16),
 		"tent_color": Color(0.85, 0.78, 0.5),
 		"build_turns": 3,
-		"build_cost": {"목재": 5, "밀": 5},
+		"build_cost": {"목재": 5},
 		"demolish_refund": {"목재": 1},
-		# 1차 생산: 초원 위에 지어 생산포인트(인원÷거리)로 밀을 캔다. flat production·required_pop 없음. → production.md
+		# 1차 생산: 초원 위에 지어 생산포인트(1÷거리)로 식량을 캔다. flat production·required_pop 없음. → production.md
 		"primary_production": true,
-		"produces": "밀",
+		"produces": "식량",
 		"buildable_terrains": [Terrain.GRASS],
 	},
 	# --- 소형 생산 건물(footprint 1). 필요직업/인원은 미구현(다음 슬라이스). ---
@@ -138,7 +127,7 @@ const CATALOG := {
 		"edge_color": Color(0.4, 0.3, 0.2),
 		"tent_color": Color(0.85, 0.7, 0.5),
 		"build_turns": 4,
-		"build_cost": {"목재": 8, "석재": 4},
+		"build_cost": {"목재": 8, "식량": 4},
 		"demolish_refund": {"목재": 2},
 		# "거주 인구 +2" = 영지 인구 상한 +2(생산이 아님). 완성 시 상한을 올리고, 인구는 턴당 상한까지 자연 증가.
 		"pop_cap": 2,
@@ -153,61 +142,14 @@ const CATALOG := {
 		"edge_color": Color(0.24, 0.3, 0.15),
 		"tent_color": Color(0.7, 0.55, 0.35),
 		"build_turns": 3,
-		"build_cost": {"목재": 5, "석재": 5},
+		"build_cost": {"목재": 5},
 		"demolish_refund": {"목재": 1},
-		# 1차 생산: 숲 위에 지어 생산포인트(인원÷거리)로 나무를 캔다. → production.md
+		# 1차 생산: 숲 위에 지어 생산포인트(1÷거리)로 목재를 캔다. → production.md
 		"primary_production": true,
-		"produces": "나무",
+		"produces": "목재",
 		"buildable_terrains": [Terrain.FOREST],
 	},
-	"quarry": {
-		"label": "채석장",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",   # 테이블(마을회관)과 다름 — 석재 부트스트랩용.
-		# 외형(회색 석재 계열).
-		"fill_color": Color(0.55, 0.55, 0.58, 0.9),
-		"edge_color": Color(0.32, 0.32, 0.35),
-		"tent_color": Color(0.75, 0.75, 0.78),
-		"build_turns": 4,
-		"build_cost": {"목재": 10},
-		"demolish_refund": {"목재": 2},
-		# 1차 생산: 돌 위에 지어 생산포인트(인원÷거리)로 석재를 캔다. → production.md
-		"primary_production": true,
-		"produces": "석재",
-		"buildable_terrains": [Terrain.STONE],
-	},
-	# --- 1차 생산 건물(슬라이스 2). 생산포인트(인원÷거리)·지형 제한·캠프 선행. → docs/spec/features/production.md ---
-	"hunting_ground": {
-		"label": "사냥터",
-		"vision": 4,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.5, 0.55, 0.32, 0.9),
-		"edge_color": Color(0.3, 0.34, 0.18),
-		"tent_color": Color(0.72, 0.6, 0.4),
-		"build_turns": 3,
-		"build_cost": {"목재": 10},
-		"demolish_refund": {"목재": 2},
-		"primary_production": true,
-		"produces": "고기",
-		"buildable_terrains": [Terrain.ANIMAL],
-	},
-	"fishing_spot": {
-		"label": "낚시터",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.32, 0.5, 0.62, 0.9),
-		"edge_color": Color(0.2, 0.34, 0.44),
-		"tent_color": Color(0.7, 0.62, 0.45),
-		"build_turns": 3,
-		"build_cost": {"목재": 10},
-		"demolish_refund": {"목재": 2},
-		"primary_production": true,
-		"produces": "생선",
-		"buildable_terrains": [Terrain.WATER],
-	},
+	# --- 1차 생산 광산: 생산포인트(1÷거리)·지형 제한·캠프 선행. → docs/spec/features/production.md ---
 	"iron_mine": {
 		"label": "철광",
 		"vision": 3,
@@ -217,8 +159,8 @@ const CATALOG := {
 		"edge_color": Color(0.28, 0.29, 0.33),
 		"tent_color": Color(0.66, 0.68, 0.72),
 		"build_turns": 5,
-		"build_cost": {"목재": 15, "석재": 10},
-		"demolish_refund": {"목재": 2, "석재": 2},
+		"build_cost": {"목재": 15},
+		"demolish_refund": {"목재": 2},
 		"primary_production": true,
 		"produces": "철",
 		"buildable_terrains": [Terrain.IRON_VEIN],
@@ -232,116 +174,11 @@ const CATALOG := {
 		"edge_color": Color(0.4, 0.34, 0.16),
 		"tent_color": Color(0.9, 0.8, 0.4),
 		"build_turns": 6,
-		"build_cost": {"목재": 15, "석재": 15},
-		"demolish_refund": {"목재": 2, "석재": 3},
+		"build_cost": {"목재": 15, "철": 5},
+		"demolish_refund": {"목재": 2, "철": 1},
 		"primary_production": true,
 		"produces": "금",
 		"buildable_terrains": [Terrain.GOLD_VEIN],
-	},
-	"silver_mine": {
-		"label": "은광",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.55, 0.57, 0.6, 0.9),
-		"edge_color": Color(0.36, 0.37, 0.4),
-		"tent_color": Color(0.82, 0.85, 0.9),
-		"build_turns": 5,
-		"build_cost": {"목재": 15, "석재": 12},
-		"demolish_refund": {"목재": 2, "석재": 2},
-		"primary_production": true,
-		"produces": "은",
-		"buildable_terrains": [Terrain.SILVER_VEIN],
-	},
-	# --- 2차 생산(가공) 건물: 자원→자원 변환. 작업포인트(인원 속도)·건물별 레시피·거점 인접. → docs/spec/features/processing.md ---
-	"sawmill": {
-		"label": "제재소",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.5, 0.42, 0.28, 0.9),
-		"edge_color": Color(0.32, 0.26, 0.16),
-		"tent_color": Color(0.72, 0.6, 0.4),
-		"build_turns": 4,
-		"build_cost": {"목재": 10, "철괴": 2},
-		"demolish_refund": {"목재": 2},
-		"secondary_production": true,
-		"recipes": [{"in": {"나무": 1}, "out": {"목재": 1}}],
-	},
-	"mill": {
-		"label": "제분소",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.72, 0.68, 0.5, 0.9),
-		"edge_color": Color(0.46, 0.42, 0.28),
-		"tent_color": Color(0.88, 0.84, 0.62),
-		"build_turns": 3,
-		"build_cost": {"목재": 8, "석재": 4},
-		"demolish_refund": {"목재": 1},
-		"secondary_production": true,
-		"recipes": [{"in": {"밀": 1}, "out": {"밀가루": 1}}],
-	},
-	"bakery": {
-		"label": "제빵소",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.7, 0.5, 0.3, 0.9),
-		"edge_color": Color(0.44, 0.3, 0.18),
-		"tent_color": Color(0.9, 0.72, 0.48),
-		"build_turns": 4,
-		"build_cost": {"목재": 10, "석재": 6},
-		"demolish_refund": {"목재": 1, "석재": 1},
-		"secondary_production": true,
-		"recipes": [{"in": {"밀가루": 1}, "out": {"빵": 1}}],
-	},
-	"stable": {
-		"label": "축사",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.55, 0.45, 0.3, 0.9),
-		"edge_color": Color(0.36, 0.28, 0.18),
-		"tent_color": Color(0.78, 0.66, 0.46),
-		"build_turns": 5,
-		"build_cost": {"목재": 15, "밀": 8},
-		"demolish_refund": {"목재": 2},
-		"secondary_production": true,
-		"recipes": [{"in": {"밀": 2}, "out": {"고기": 1, "가죽": 1}}],   # 부산물: 가죽 → processing.md
-	},
-	"ranch": {
-		"label": "목장",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.5, 0.58, 0.36, 0.9),
-		"edge_color": Color(0.32, 0.38, 0.22),
-		"tent_color": Color(0.82, 0.82, 0.72),
-		"build_turns": 4,
-		"build_cost": {"목재": 12, "밀": 5},
-		"demolish_refund": {"목재": 2},
-		"secondary_production": true,
-		"recipes": [{"in": {"밀": 2}, "out": {"고기": 1, "천": 1}}],   # 부산물: 천(양털)
-	},
-	"smelter": {
-		"label": "제련소",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "camp",
-		"fill_color": Color(0.42, 0.4, 0.42, 0.9),
-		"edge_color": Color(0.26, 0.24, 0.26),
-		"tent_color": Color(0.7, 0.55, 0.4),
-		"build_turns": 5,
-		"build_cost": {"목재": 12, "석재": 10},
-		"demolish_refund": {"목재": 2, "석재": 2},
-		"secondary_production": true,
-		# 레시피 선택(active_recipe): 0=철→철괴, 1=은→은괴, 2=금→금괴.
-		"recipes": [
-			{"in": {"철": 1}, "out": {"철괴": 1}},
-			{"in": {"은": 1}, "out": {"은괴": 1}},
-			{"in": {"금": 1}, "out": {"금괴": 1}},
-		],
 	},
 	# --- 공성 작업장: 완성 시 그 영지 거점에서 투석기 생산 해금. 턴당 생산 없음. → docs/spec/features/siege-engines.md ---
 	"siege_workshop": {
@@ -354,9 +191,8 @@ const CATALOG := {
 		"edge_color": Color(0.24, 0.2, 0.16),
 		"tent_color": Color(0.6, 0.5, 0.4),
 		"build_turns": 6,
-		"build_cost": {"목재": 20, "석재": 20},
-		"demolish_refund": {"목재": 4, "석재": 4},
-		"required_pop": 2,   # 장인 2명(노동력).
+		"build_cost": {"목재": 20, "철": 10},
+		"demolish_refund": {"목재": 4, "철": 2},
 	},
 }
 

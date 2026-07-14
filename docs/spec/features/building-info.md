@@ -22,9 +22,8 @@
   - **정보 리스트**(VBox) — 아래 줄들을 순서대로 채운다. 없는 항목은 줄을 만들지 않는다.
     - **영지·세력** — `building.map_label_lines()`의 각 줄(`{text, color}`): 영지명(흰색), 세력명(세력색). 영지가 없으면 없음.
     - **수비** — 거점이면 `"수비대 N명"`(N = 그 거점 중심 타일 위 [주둔 부대](garrison.md) 인원, `building.defender_count`). 거점이 아닌 건물(농장 등)은 없음.
-    - **1차 생산** — [1차 생산 건물](production.md)이면 산출 자원·생산력(인원÷거리)·누적·배정 거점. `[인원 ±]`·`[거점 변경]`.
-    - **2차 생산(가공)** — [2차 생산 건물](processing.md)이면 레시피(입력→출력)·작업 속도·누적. `[인원 ±]`·`[레시피 변경]`·`[모드]`·`[값 ±]`.
-      - (flat `planned_production` 표시 줄은 폐지 — flat 생산 경로 제거로 모든 생산이 1·2차 모델.)
+    - **1차 생산** — [1차 생산 건물](production.md)이면 산출 자원·생산력(1÷거리)·누적·배정 거점. `[거점 변경]`. (**`[인원 ±]`은 폐지** — 거리-only 생산.)
+      - (flat `planned_production`·2차 가공 표시 줄은 폐지 — 모든 생산이 [1차 생산](production.md) 단일 모델.)
     - **인구 상한 기여** — 종류의 [`pop_cap`](../data/buildings.md)이 0보다 크면 `"인구 상한 +N"`(예: 집 `"인구 상한 +2"`). 생산 줄처럼 건설 중에도 완성 시 기여분(카탈로그 값)을 보여준다. **캠프는 제외**(기본 상한 10을 이 패널에 노출하지 않음 — 캠프 정보는 [캠프 메뉴](camp-menu.md)가 담당).
 
 ## 클릭 라우팅
@@ -88,8 +87,8 @@
 `test/unit/test_building_info.gd`.
 
 - [정상] 완성 농장 `open` → 제목 = `"농장"`, 요약 = `"완성 · 시야 4"`
-- [정상] 영지(파리·프랑스)에 편입된 농장 `open` → 정보 리스트에 `"파리"`·`"프랑스"`·`"밀"`(생산 줄) 포함
-- [정상] 건설 중 농장(build_turns 3) `open` → 요약 = `"건설 중 3턴 · 시야 4"`, 생산 줄은 여전히 `"밀 +1 / 턴"`
+- [정상] 영지(파리·프랑스)에 편입된 농장 `open` → 정보 리스트에 `"파리"`·`"프랑스"`·`"식량"`(생산 줄) 포함
+- [정상] 건설 중 농장(build_turns 3) `open` → 요약 = `"건설 중 3턴 · 시야 4"`, 생산 줄은 여전히 산출 자원(`"식량"`) 표시
 - [경계] 영지 없는 건물 `open` → 영지/세력 줄 없음(정보 리스트에 생산 줄만)
 - [경계] 영지 있는 농장으로 연 뒤 영지 없는 건물로 재오픈 → 정보 리스트가 교체됨(이전 영지 줄 사라짐)
 - [정상] 집 `open` → 정보 리스트에 `"인구 상한 +2"` 포함(건설 중에도)
@@ -113,6 +112,6 @@
 
 ## 관련
 
-- 표시 데이터는 [Building](../entities/Building.md) — `label()`, `vision`, `is_complete()`/`remaining_turns`, `map_label_lines()`, [1차](production.md)·[2차 생산](processing.md) 상태(workers·recipe·work_points 등).
+- 표시 데이터는 [Building](../entities/Building.md) — `label()`, `vision`, `is_complete()`/`remaining_turns`, `map_label_lines()`, [1차 생산](production.md) 상태(`production_points`·`assigned_center` 등).
 - 종류별 생산·시야 값은 [data/buildings.md](../data/buildings.md).
 - 캠프 클릭 시 열리는 [Camp Menu](camp-menu.md)와 우측 상단을 쓰는 [Party Info](party-info.md)와 대응.

@@ -17,7 +17,7 @@
 캠프 메뉴에 **[성벽 건설]** 버튼(`_wall_btn`)을 둔다. 거점 업그레이드 버튼과 같은 패턴(즉시 적용 — 배치 모드 없음).
 
 - **표시 조건**: 연 건물이 거점이고 **tier ≥ town_hall**(마을회관·성)이며 **아직 성벽 없음**(`not is_walled()`). 캠프·이미 성벽 있음·비거점이면 숨김.
-- **텍스트**: `"성벽 건설  <비용>"`(예: `"성벽 건설  목재 15 · 석재 10"`). 비용 = `BuildingTypes.WALL_COST`.
+- **텍스트**: `"성벽 건설  <비용>"`(예: `"성벽 건설  목재 15 · 철 5"`). 비용 = `BuildingTypes.WALL_COST`.
 - **활성**: 여는 영지가 비용을 감당하면([`can_build_wall`](../data/buildings.md) = tier·자재 확인) 활성, 부족하면 비활성.
 - 누르면 `wall_requested(building)` 방출 → `game.gd` `_on_wall_requested`: 영지 자재 차감(`Territory.spend(WALL_COST)`) + `building.wall_level = 1` + 맵 다시 그리기. 갱신된 정보로 캠프 메뉴를 재오픈.
 
@@ -123,7 +123,7 @@
 - [정상] `wall_level = 1` + `gate_hp = 120` → `gate_broken() == false`
 
 **성벽 건설 가능 판정** — `test/unit/test_building_types.gd`:
-- [정상] `WALL_COST == {목재15, 석재10}`(자재 Dictionary)
+- [정상] `WALL_COST == {목재15, 철5}`(자재 Dictionary)
 - [정상] `can_build_wall(territory, building)` — 마을회관·성 + 자재 충분 → 참
 - [경계] 캠프(tier 0) → 거짓(성벽 불가); 이미 성벽 있음 → 거짓; 자재 부족 → 거짓
 

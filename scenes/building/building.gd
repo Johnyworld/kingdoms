@@ -35,21 +35,8 @@ var wall_hp := 0
 var gate_hp := 0
 
 # 1차 생산 건물 상태. → docs/spec/features/production.md
-var production_points := 0   # 누적 생산포인트. 매 턴 += workers, ≥ 거리면 자원 산출·차감.
-var workers := 0             # 배치 인원. 배정 거점 영지 인구에서 차출. 1차: 0-5, 2차: 0-3.
-var assigned_center = null   # 인원 차출·자원 입출력·거리 측정 대상 거점(Building). 건설 시 자동, 변경 가능.
-
-# 2차 생산(가공) 건물 상태. → docs/spec/features/processing.md
-var work_points := 0         # 누적 작업포인트. 매 턴 += work_speed(), 10당 레시피 1배치 변환.
-var active_recipe := 0       # 현재 레시피 인덱스(제련소 등 다중 레시피 선택).
-const WORK_SPEED := [0, 8, 15, 20]   # 배치 인원(0-3)별 작업 속도 포인트/턴(0.8/1.5/2.0 ×10).
-const WORK_PER_BATCH := 10           # 레시피 1배치에 필요한 작업포인트.
-# 작업 모드(2차-b). → docs/spec/features/processing.md
-const WORK_CONTINUOUS := 0   # 계속: 입력 있는 한 변환.
-const WORK_KEEP := 1         # N유지: 출력 자원이 work_target 미만일 때만 그 값까지.
-const WORK_TURNS := 2        # N턴: work_target 턴만큼 작업(변환한 턴만 카운트다운).
-var work_mode := WORK_CONTINUOUS
-var work_target := 0         # N유지=목표 출력량, N턴=남은 작업 턴(계속은 무시).
+var production_points := 0   # 누적 생산포인트. 매 턴 += 1(거리 기반), ≥ 거리면 자원 산출·차감.
+var assigned_center = null   # 자원 입출력·거리 측정 대상 거점(Building). 건설 시 자동, 변경 가능.
 
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
@@ -127,7 +114,7 @@ func label() -> String:
 func is_primary_production() -> bool:
 	return _spec.get("primary_production", false)
 
-## 산출 자원 id(카탈로그 produces, 아니면 ""). 벌목소="나무", 농장="밀".
+## 산출 자원 id(카탈로그 produces, 아니면 ""). 농장="식량", 벌목소="목재", 철광="철", 금광="금".
 func produces() -> String:
 	return _spec.get("produces", "")
 
@@ -135,62 +122,21 @@ func produces() -> String:
 func buildable_terrains() -> Array:
 	return _spec.get("buildable_terrains", [])
 
-## 매 턴 생산포인트를 인원만큼 올리고, distance마다 자원 1 산출(PP 차감). 산출 수 반환. → production.md
-## workers≤0·distance≤0·produces()==""면 0(no-op). 인원≥거리면 한 턴 여러 개.
+## 매 턴 생산포인트를 1 올리고, distance마다 자원 1 산출(PP 차감). 산출 수 반환. → production.md
+## distance≤0·produces()==""면 0(no-op). 거리 기반(인원 없음) — 가까울수록 빠르다.
 func tick_production(distance: int) -> int:
-	if workers <= 0 or distance <= 0 or produces() == "":
+	if distance <= 0 or produces() == "":
 		return 0
-	production_points += workers
+	production_points += 1
 	var produced := 0
 	while production_points >= distance:
 		production_points -= distance
 		produced += 1
 	return produced
 
-## 생산력 표시값 = workers / distance(턴당 자원, 소수). distance≤0이면 0.
+## 생산력 표시값 = 1 / distance(턴당 자원, 소수). distance≤0이면 0.
 func production_rate(distance: int) -> float:
-	return 0.0 if distance <= 0 else float(workers) / float(distance)
-
-## 2차 생산(가공) 건물인지(카탈로그 secondary_production). → processing.md
-func is_secondary_production() -> bool:
-	return _spec.get("secondary_production", false)
-
-## 가공 레시피 목록 [{in, out}]. 대부분 1개, 제련소 3개.
-func recipes() -> Array:
-	return _spec.get("recipes", [])
-
-## 현재 레시피 입력/출력(자원→수). 인덱스 범위 밖이면 {}.
-func active_recipe_input() -> Dictionary:
-	var r := recipes()
-	return r[active_recipe].get("in", {}) if active_recipe >= 0 and active_recipe < r.size() else {}
-
-func active_recipe_output() -> Dictionary:
-	var r := recipes()
-	return r[active_recipe].get("out", {}) if active_recipe >= 0 and active_recipe < r.size() else {}
-
-## 배치 인원별 작업 속도 포인트/턴([0,8,15,20], 인원 3 초과는 클램프).
-func work_speed() -> int:
-	return WORK_SPEED[clampi(workers, 0, 3)]
-
-## 매 턴 작업포인트를 인원 속도만큼 올리고, max_batches(입력·모드 상한)까지 배치를 반환·차감한다.
-## 남는 포인트는 유지(입력 부족 시 일시정지). 가공 건물 아니면 0. → processing.md
-func advance_work(max_batches: int) -> int:
-	if not is_secondary_production():
-		return 0
-	work_points += work_speed()
-	var b: int = mini(work_points / WORK_PER_BATCH, maxi(max_batches, 0))
-	work_points -= b * WORK_PER_BATCH
-	return b
-
-## 작업 모드별 이번 턴 배치 상한. current_output = 배정 거점 영지의 현재 출력 자원량(N유지 판정용). → processing.md
-func mode_batch_cap(current_output: int) -> int:
-	match work_mode:
-		WORK_KEEP:
-			return maxi(0, work_target - current_output)
-		WORK_TURNS:
-			return (1 << 30) if work_target > 0 else 0
-		_:
-			return 1 << 30   # 계속 — 입력만 제한
+	return 0.0 if distance <= 0 else 1.0 / float(distance)
 
 ## 영지 인구 상한에 더하는 값. 건설 중에는 0(완성 건물만 기여). 완성 후 카탈로그 pop_cap(없으면 0).
 ## 티어별: 캠프 0 · 마을회관 10 · 성 20, 집 +2. production()과 같은 건설-게이트 패턴. Territory.population_cap()이 합산한다.
@@ -220,7 +166,7 @@ func refund_on_demolish() -> Dictionary:
 			out[res_name] = amount
 	return out
 
-## 이 건물이 고용하는 노동력(인구 수). 카탈로그 required_pop(없으면 0). 건설 시 소비·철거 시 반환.
+## 폐지됨 — 인구는 병력 전용 예약이라 건물이 고용하지 않는다. 카탈로그에 required_pop 키가 없어 항상 0. → docs/spec/data/resources.md
 func required_pop() -> int:
 	return _spec.get("required_pop", 0)
 

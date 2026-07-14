@@ -56,12 +56,10 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Battle (전투씬·개시·복귀)](features/battle.md) — 인접 적 클릭 개시 → 실시간 관전 오버레이 → 사상자 반영·복귀
 - [Raid (약탈)](features/raid.md) — 전투로 전멸한 적 부대의 화물·전사자 장비를 승자가 노획(플레이어=선택 패널 / NPC=자동 전량)
 - [Equipment (장비 관리)](features/equipment.md) — 노획 장비를 멤버에게 장착·탈착(무기3·방어구4·방패1 슬롯, 스왑 없음). 행동 메뉴 [장비]로 여는 모달
-- [Trade (상거래)](features/trade.md) — 캠프 메뉴에서 부대 노획 장비·화물을 금으로 판매하고, 금으로 장비를 구매(영지 금고)
 - [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
 - [Combat Feedback (전투 연출)](features/combat-feedback.md) — 대미지 숫자·타격 반짝임·흔들림·돌진·상태이상 텍스트·사망 넉백
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
-- [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(벌목소·농장·사냥터·낚시터·철/금/은광). 생산포인트(인원÷거리) 모델 · 인원 1-5 거점 인구 차출 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접)
-- [Secondary Production (2차 생산·가공)](features/processing.md) — 자원→자원 변환 건물(제재소·축사·제련소·제분소·제빵소). 작업포인트(인원 속도 0.8/1.5/2) · 건물별 레시피(제련소 선택) · 인원 1-3 · 거점 인접 배치. 작업 모드(N개 유지·N턴)는 2차-b 후속
+- [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(농장·식량 / 벌목소·목재 / 철광·철 / 금광·금). 생산포인트(1÷거리, 거리 기반) 모델 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 자원 4종 체제
 - [Camp Capture (캠프 점령)](features/camp-capture.md) — 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
 - [Garrison / 주둔 (거점 수비)](features/garrison.md) — 수비대=부대, 거점 중심 타일 주둔 부대가 방어(초기 4명), 주둔/주둔 종료·주둔 중 사격
 - [Wall / 성벽 (거점 방어 구조물)](features/wall.md) — 마을회관·성 성벽(`wall_level`) 적 접근 차단 + 사다리 공성(3턴·밀기 15%·통로 돌파) + 성문(`gate_hp` 120, 충차로 파괴 시 그 면 통로 개방·성벽 유지)
@@ -72,7 +70,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 ### 데이터 (`data/`)
 캐릭터 · 아이템 · 자원 등의 리스트.
 
-- [Resources (자원)](data/resources.md)
+- [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
 - [Stats (능력치 정의)](data/stats.md)
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 부대·멤버(이름·능력치·색) 데이터. game.gd가 여기서 부대 생성
 - [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그 + 상성표. 전투 AT·DF·상성에 사용
@@ -102,7 +100,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 | 전투 공간 판정 | `scenes/combat/battle_field.gd` |
 | 헤드리스 전투 결산 | `scenes/combat/battle_sim.gd` |
 | 아이템(무기·방어구) 카탈로그 | `scenes/item/item_types.gd` |
-| 자원 가치 카탈로그 | `scenes/resource/resource_types.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 행동 메뉴 | `scenes/party/party_action_menu.gd` |
@@ -135,7 +132,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - **`features/settings.md`** — 타이틀의 "설정" 버튼이 아직 `TODO`다. 해상도 · 사운드 · 언어 등 저장 가능한 설정 화면을 정의하면 좋다.
 - **`features/save-load.md`** — 세이브/로드. 게임 진행(주인공 위치, 자원, 탐험된 안개)을 직렬화하는 규칙.
 - **턴/행동력 확장** — 기본 턴 시스템([features/turn.md](features/turn.md))은 도입됨(턴 종료 · 1턴 1이동 · 자원 수입). 남은 것은 행동력(AP) · 공격/전투 행동 · 적 턴(AI) 등으로의 확장이다.
-- **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))·완성 건물 시야의 fog 반영([features/fog-of-war.md](features/fog-of-war.md))·**캠프 건설**(새 영지 생성)·**철거**([building-info.md#철거](features/building-info.md#철거) — `demolish_refund` 자재 환급 + `required_pop` 인구 반환)까지 구현됨. 남은 세부: **철거 확인 다이얼로그**, **캠프(거점) 철거**(영지 상실), **건설 중 부분 환급**([building-info.md 미구현](features/building-info.md)).
+- **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))·완성 건물 시야의 fog 반영([features/fog-of-war.md](features/fog-of-war.md))·**캠프 건설**(새 영지 생성)·**철거**([building-info.md#철거](features/building-info.md#철거) — `demolish_refund` 자재 환급)까지 구현됨. 남은 세부: **철거 확인 다이얼로그**, **캠프(거점) 철거**(영지 상실), **건설 중 부분 환급**([building-info.md 미구현](features/building-info.md)).
 - **`entities/Enemy.md`** — 공격 범위가 있으니 적/전투 대상 엔티티가 자연스러운 다음 단계.
 - **`data/items.md`** — 아이템/장비 리스트 (능력치 보정 등).
 - **`features/input-scheme.md`** — 키보드/마우스/게임패드/터치 입력 매핑을 한곳에 정리 (전 플랫폼 배포 목표에 맞춤).

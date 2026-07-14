@@ -5,9 +5,6 @@ extends CanvasLayer
 ## 건설 리스트에서 건물 종류를 선택하면 방출. 게임이 받아 건설 모드로 처리한다(2b, 미구현).
 signal build_selected(type_id: String, territory: Territory)
 
-## 병사 구매로 주둔 부대에 병사가 추가될 때 방출. game.gd가 받아 부대 일람·안개·수비 배지를 갱신한다.
-signal garrison_changed
-
 ## 업그레이드 버튼 클릭 시 방출. game.gd가 받아 거점을 다음 티어로 업그레이드한다.
 signal upgrade_requested(building: Building)
 
@@ -38,26 +35,13 @@ var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
 var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
 
 var _building: Building            # 현재 열려 있는 거점
-var _party = null                  # 그 거점 주둔 부대(없으면 보급·판매·구매 패널 숨김) → garrison.md
+var _party = null                  # 그 거점 주둔 부대(없으면 보급 패널 숨김) → garrison.md
 
 # 보급(화물) 패널(부대 있을 때만). 영지 자원 ↔ 부대 화물 적재/하역.
+# (상거래(판매·구매·병사) 패널은 제거됨. 화물운반은 자원 세력 통합 시(Slice 2) 함께 제거 예정.)
 var _cargo_panel: PanelContainer
 var _cargo_list: VBoxContainer     # 자원별 적재/하역 행
 const CARGO_STEP := 5              # 적재/하역 버튼 한 번당 이동량
-
-# 판매 패널(부대 있을 때만). 부대 노획 장비·화물 → 영지 금.
-var _sell_panel: PanelContainer
-var _sell_loot_list: VBoxContainer   # 부대 노획 장비 판매 행(이름별 묶음)
-var _sell_cargo_list: VBoxContainer  # 화물 판매 행(자원별, 인구·금 제외)
-
-# 구매 패널(주둔 부대 있을 때만). 영지 금 → 부대 노획 장비·영지 자원·주둔 부대 병사.
-var _buy_panel: PanelContainer
-var _buy_list: VBoxContainer           # 카탈로그 장비 구매 행(무기·방어구·방패)
-var _buy_resource_list: VBoxContainer  # 자원 구매 행(→ 영지 자원)
-var _buy_soldier_list: VBoxContainer   # 병사 구매 행(→ 주둔 부대)
-const BUY_MARKUP := 2                  # 구매가 = 기준가 × BUY_MARKUP(판매가의 2배)
-const SOLDIER_GOLD_COST := 20          # 병사 1명 구매 금 비용
-const SOLDIER_POP_COST := 1            # 병사 1명 구매 인구(노동력) 비용
 
 func _ready() -> void:
 	layer = 64
@@ -90,8 +74,6 @@ func _build() -> void:
 	hbox.add_child(_build_resource_panel())
 	hbox.add_child(_build_menu_panel())
 	hbox.add_child(_build_cargo_panel())
-	hbox.add_child(_build_sell_panel())
-	hbox.add_child(_build_buy_panel())
 
 ## 좌측: 자원 정보 패널.
 func _build_resource_panel() -> Control:
@@ -213,79 +195,8 @@ func _build_cargo_panel() -> Control:
 	_cargo_panel.hide()
 	return _cargo_panel
 
-## 우측: 판매 패널(부대 있을 때만 표시). 부대 노획 장비·화물 → 영지 금.
-func _build_sell_panel() -> Control:
-	_sell_panel = PanelContainer.new()
-	_sell_panel.custom_minimum_size = Vector2(240, 260)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	_sell_panel.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "판매"
-	title.add_theme_font_size_override("font_size", 20)
-	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
-
-	var loot_title := Label.new()
-	loot_title.text = "장비"
-	vbox.add_child(loot_title)
-	_sell_loot_list = VBoxContainer.new()
-	_sell_loot_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_sell_loot_list)
-
-	var cargo_title := Label.new()
-	cargo_title.text = "화물"
-	vbox.add_child(cargo_title)
-	_sell_cargo_list = VBoxContainer.new()
-	_sell_cargo_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_sell_cargo_list)
-
-	_sell_panel.hide()
-	return _sell_panel
-
-## 우측: 구매 패널(부대 있을 때만 표시). 영지 금 → 부대 노획 장비. 전 카탈로그 나열.
-func _build_buy_panel() -> Control:
-	_buy_panel = PanelContainer.new()
-	_buy_panel.custom_minimum_size = Vector2(240, 260)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	_buy_panel.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "구매"
-	title.add_theme_font_size_override("font_size", 20)
-	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
-
-	var loot_title := Label.new()
-	loot_title.text = "장비"
-	vbox.add_child(loot_title)
-	_buy_list = VBoxContainer.new()
-	_buy_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_buy_list)
-
-	var res_title := Label.new()
-	res_title.text = "자원"
-	vbox.add_child(res_title)
-	_buy_resource_list = VBoxContainer.new()
-	_buy_resource_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_buy_resource_list)
-
-	var soldier_title := Label.new()
-	soldier_title.text = "병사"
-	vbox.add_child(soldier_title)
-	_buy_soldier_list = VBoxContainer.new()
-	_buy_soldier_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_buy_soldier_list)
-
-	_buy_panel.hide()
-	return _buy_panel
-
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
-## party(그 거점 주둔 부대)가 주어지고 건물이 거점이면 보급·판매·구매 패널도 띄운다. → garrison.md
+## party(그 거점 주둔 부대)가 주어지고 건물이 거점이면 보급 패널도 띄운다. → garrison.md
 func open(building: Building, party = null, can_demolish := false) -> void:
 	_building = building
 	_party = party
@@ -315,18 +226,12 @@ func open(building: Building, party = null, can_demolish := false) -> void:
 	# 좌측 패널: 영지 자원 그리드.
 	_fill_resource_grid()
 
-	# 보급(화물)·판매·구매 패널: 주둔 부대가 있고 거점일 때만.
+	# 보급(화물) 패널: 주둔 부대가 있고 거점일 때만.
 	if _party != null and BuildingTypes.is_center(building.building_type):
 		_refresh_cargo_lists()
 		_cargo_panel.show()
-		_refresh_sell_lists()
-		_sell_panel.show()
-		_refresh_buy_list()
-		_buy_panel.show()
 	else:
 		_cargo_panel.hide()
-		_sell_panel.hide()
-		_buy_panel.hide()
 	show()
 
 ## 좌측 자원 그리드를 비우고 영지 자원으로 다시 채운다(인구는 "현재/상한"). 적재/하역 뒤에도 갱신.
@@ -399,189 +304,6 @@ func _after_cargo_change() -> void:
 	_refresh_cargo_lists.call_deferred()
 	_fill_resource_grid.call_deferred()
 
-## 판매 목록을 다시 채운다. 장비: loot_items를 이름별로 묶어 [판매]. 화물: cargo 자원별(인구·금 제외) [판매].
-func _refresh_sell_lists() -> void:
-	for c in _sell_loot_list.get_children():
-		c.free()
-	for c in _sell_cargo_list.get_children():
-		c.free()
-	if _territory == null or _party == null:
-		return
-	# 부대 장비 섹션: 이름별 묶음.
-	for g in _grouped_items(_party.loot_items):
-		var text := "%s ×%d" % [ItemTypes.item_name(g["id"]), g["count"]]
-		_sell_loot_list.add_child(_make_sell_row(text, _sell_item.bind(g["id"])))
-	# 화물 섹션: 자원별(인구·금 제외).
-	for res_name in _party.cargo:
-		if res_name == "인구" or res_name == "금":
-			continue
-		var ctext := "%s ×%d" % [res_name, _party.cargo[res_name]]
-		_sell_cargo_list.add_child(_make_sell_row(ctext, _sell_cargo.bind(res_name)))
-
-## 아이템 id 목록을 [{id, count}]로 묶는다(첫 등장 순서 유지).
-func _grouped_items(ids: Array) -> Array:
-	var counts: Dictionary = {}
-	var order: Array = []
-	for id in ids:
-		if not counts.has(id):
-			order.append(id)
-		counts[id] = counts.get(id, 0) + 1
-	var out: Array = []
-	for id in order:
-		out.append({"id": id, "count": counts[id]})
-	return out
-
-## "라벨 + [판매]" 한 행.
-func _make_sell_row(text: String, on_sell: Callable) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(lbl)
-	var btn := Button.new()
-	btn.text = "판매"
-	btn.pressed.connect(on_sell)
-	row.add_child(btn)
-	return row
-
-## 부대 노획 장비 1개를 팔아 영지 금을 올린다(item_value). 부대 loot_items에서 그 id 하나 제거.
-func _sell_item(id: String) -> void:
-	if not (id in _party.loot_items):
-		return
-	_party.loot_items.erase(id)
-	_territory.resources["금"] = _territory.resources.get("금", 0) + ItemTypes.item_value(id)
-	_after_sell_change()
-
-## 화물 자원을 CARGO_STEP만큼 팔아 영지 금을 올린다(ResourceTypes.value × 판매량).
-func _sell_cargo(res_name: String) -> void:
-	var sold: int = _party.remove_cargo(res_name, CARGO_STEP)   # 보유분까지
-	if sold > 0:
-		_territory.resources["금"] = _territory.resources.get("금", 0) + ResourceTypes.value(res_name) * sold
-	_after_sell_change()
-
-## 판매 뒤 판매 목록·자원 그리드(금) 갱신. 지연 호출(버튼 free locked 방지).
-func _after_sell_change() -> void:
-	_refresh_sell_lists.call_deferred()
-	_fill_resource_grid.call_deferred()
-
-## 구매 목록을 다시 채운다. 전 카탈로그(무기·방어구·방패)를 섹션별로 나열, 각 행 "이름 가격금" + [구매].
-## 영지 금이 구매가보다 적으면 그 행의 [구매]는 비활성.
-func _refresh_buy_list() -> void:
-	for c in _buy_list.get_children():
-		c.free()
-	for c in _buy_resource_list.get_children():
-		c.free()
-	for c in _buy_soldier_list.get_children():
-		c.free()
-	if _territory == null or _party == null:
-		return
-	_add_buy_section("무기", ItemTypes.WEAPONS)
-	_add_buy_section("방어구", ItemTypes.ARMORS)
-	_add_buy_section("방패", ItemTypes.SHIELDS)
-	_add_buy_section("도구", ItemTypes.TOOLS)   # 고리 사다리 등(→ 부대 loot_items) → wall.md
-	_refresh_buy_resources()
-	_refresh_buy_soldier()
-
-## 자원 구매가 = 자원 판매가 × BUY_MARKUP × CARGO_STEP(한 번에 CARGO_STEP개). 목록·구매가 공유.
-func _resource_buy_price(res_name: String) -> int:
-	return ResourceTypes.value(res_name) * BUY_MARKUP * CARGO_STEP
-
-## 자원 구매 행: ResourceTypes.VALUES의 자원별 "이름 가격금" + [구매]. 금 부족이면 비활성.
-func _refresh_buy_resources() -> void:
-	var gold: int = _territory.resources.get("금", 0)
-	for res_name in ResourceTypes.VALUES:
-		var price: int = _resource_buy_price(res_name)
-		var row := HBoxContainer.new()
-		var lbl := Label.new()
-		lbl.text = "%s  %d금" % [res_name, price]
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(lbl)
-		var btn := Button.new()
-		btn.text = "구매"
-		btn.disabled = gold < price
-		btn.pressed.connect(_buy_resource.bind(res_name))
-		row.add_child(btn)
-		_buy_resource_list.add_child(row)
-
-## 병사 구매 행: "소집병 금+인구" + [구매]. 금·인구 부족이면 비활성.
-func _refresh_buy_soldier() -> void:
-	var gold: int = _territory.resources.get("금", 0)
-	var pop: int = _territory.resources.get("인구", 0)
-	var row := HBoxContainer.new()
-	var lbl := Label.new()
-	lbl.text = "소집병  %d금 + 인구 %d" % [SOLDIER_GOLD_COST, SOLDIER_POP_COST]
-	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(lbl)
-	var btn := Button.new()
-	btn.text = "구매"
-	btn.disabled = gold < SOLDIER_GOLD_COST or pop < SOLDIER_POP_COST
-	btn.pressed.connect(_buy_soldier)
-	row.add_child(btn)
-	_buy_soldier_list.add_child(row)
-
-## 자원을 CARGO_STEP만큼 사서 영지 재고에 넣는다. 영지 금 ≥ 구매가일 때만. 부족하면 no-op.
-func _buy_resource(res_name: String) -> void:
-	var price: int = _resource_buy_price(res_name)
-	if price <= 0 or _territory.resources.get("금", 0) < price:
-		return
-	_territory.resources["금"] = _territory.resources.get("금", 0) - price
-	_territory.resources[res_name] = _territory.resources.get(res_name, 0) + CARGO_STEP
-	_after_buy_change()
-
-## 소집병 1명을 사서 그 거점 주둔 부대(_party)에 편입한다. 주둔 부대 있고 금·인구 충분할 때만. 부족하면 no-op.
-func _buy_soldier() -> void:
-	if _party == null:
-		return   # 주둔 부대 없으면 편입 대상이 없다
-	if _territory.resources.get("금", 0) < SOLDIER_GOLD_COST or _territory.resources.get("인구", 0) < SOLDIER_POP_COST:
-		return
-	_territory.resources["금"] = _territory.resources.get("금", 0) - SOLDIER_GOLD_COST
-	_territory.resources["인구"] = _territory.resources.get("인구", 0) - SOLDIER_POP_COST
-	for h in UnitTypes.make_garrison(1):   # 소집병 1명 → 주둔 부대
-		_party.add_member(h)
-	garrison_changed.emit()   # game.gd가 일람·안개·수비 배지 갱신
-	_after_buy_change()
-
-## 아이템 구매가 = 기준가(item_value) × BUY_MARKUP. 구매 목록·구매 처리가 공유(단일 출처).
-func _buy_price(id: String) -> int:
-	return ItemTypes.item_value(id) * BUY_MARKUP
-
-## 한 카탈로그(무기/방어구/방패)를 섹션 제목 + 아이템 행들로 구매 목록에 더한다.
-func _add_buy_section(title: String, catalog: Dictionary) -> void:
-	var header := Label.new()
-	header.text = title
-	_buy_list.add_child(header)
-	var gold: int = _territory.resources.get("금", 0)
-	for id in catalog:
-		var price: int = _buy_price(id)
-		if price <= 0:
-			continue   # 가치 0(미등록) 아이템은 판매 대상이 아니다 — 금 0 무한 구매 방지
-		var row := HBoxContainer.new()
-		var lbl := Label.new()
-		lbl.text = "%s  %d금" % [ItemTypes.item_name(id), price]
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(lbl)
-		var btn := Button.new()
-		btn.text = "구매"
-		btn.disabled = gold < price
-		btn.pressed.connect(_buy_item.bind(id))
-		row.add_child(btn)
-		_buy_list.add_child(row)
-
-## 장비를 사서 부대 노획 장비로. 영지 금 ≥ 구매가일 때만(금 차감 + loot_items 추가). 부족하면 no-op.
-func _buy_item(id: String) -> void:
-	var price: int = _buy_price(id)
-	if price <= 0 or _territory.resources.get("금", 0) < price:
-		return   # 가치 0(미등록) 아이템·금 부족이면 no-op
-	_territory.resources["금"] = _territory.resources.get("금", 0) - price
-	_party.loot_items.append(id)
-	_after_buy_change()
-
-## 구매 뒤 구매·판매 목록과 자원 그리드(금) 갱신. 지연 호출(버튼 free locked 방지).
-func _after_buy_change() -> void:
-	_refresh_buy_list.call_deferred()
-	_refresh_sell_lists.call_deferred()   # loot_items 늘었으니 판매 장비 목록도 갱신
-	_fill_resource_grid.call_deferred()
-
 func close_menu() -> void:
 	hide()
 
@@ -641,16 +363,12 @@ func _on_build_pressed() -> void:
 		var cost: Dictionary = spec.get("build_cost", {})
 		var item := Button.new()
 		var label_text = "%s  %s" % [spec.get("label", type_id), _format_cost(cost)]
-		# 필요인원(노동력)이 있으면 표시.
-		var required: int = spec.get("required_pop", 0)
-		if required > 0:
-			label_text += "  인원 %d" % required
 		# 선행건물 충족 여부(영지 있을 때만 판정 — 없으면 어차피 전부 비활성). 미충족이면 사유를 라벨에 덧붙인다.
 		if _territory != null and not BuildPlanner.prerequisite_met(_territory, type_id):
 			var prereq_id: String = spec.get("prerequisite", "")
 			label_text += "  (선행: %s 필요)" % BuildingTypes.get_type(prereq_id).get("label", prereq_id)
 		item.text = label_text
-		# 영지가 없거나 · 건축 조건(선행·자재·필요인원) 미충족이면 비활성.
+		# 영지가 없거나 · 건축 조건(선행·자재) 미충족이면 비활성.
 		item.disabled = _territory == null or not BuildPlanner.can_build(_territory, type_id)
 		item.pressed.connect(_on_build_item_selected.bind(type_id))
 		_build_list.add_child(item)

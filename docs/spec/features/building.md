@@ -8,11 +8,11 @@
 2. 맵에서 배치할 위치를 고른다. **영지 시야 안**이고 빈 땅이어야 배치할 수 있다.
 3. 배치하면 영지 자원에서 **건설 비용(`build_cost`)을 즉시 차감**하고, 그 자리에 **건설 중** 건물이 생긴다.
 4. 턴이 종료될 때마다 건설이 **1턴씩 진행**되고, `build_turns`만큼 지나면 **완성**된다.
-5. 완성된 건물부터 생산(`production`)·시야가 동작한다.
+5. 완성된 [1차 생산](production.md) 건물부터 자원 채취·시야가 동작한다.
 
-건설 가능한 종류는 `BuildingTypes.BUILDABLE_IDS` — **채석장 · 농장 · 집 · 벌목소**([buildings.md](../data/buildings.md)). **거점(캠프·마을회관·성)은 건축 리스트에 없다** — 마을회관·성은 [거점 업그레이드](#거점-업그레이드)로만 도달하고, 캠프 건설(새 영지)은 이후(3단계·미구현). 종류마다 발자국(`footprint`)이 다르다 — 농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
+건설 가능한 종류는 `BuildingTypes.BUILDABLE_IDS` — **농장 · 벌목소 · 철광 · 금광 · 집 · 공성 작업장**([buildings.md](../data/buildings.md)). **거점(캠프·마을회관·성)은 건축 리스트에 없다** — 마을회관·성은 [거점 업그레이드](#거점-업그레이드)로만 도달하고, 캠프 건설(새 영지)은 별도 버튼. 종류마다 발자국(`footprint`)이 다르다 — 소형 건물(농장·벌목소·철광·금광·집)은 1헥스.
 
-**선행 = 거점 티어**: 각 종류는 [`prerequisite`](../data/buildings.md#선행건물-prerequisite--거점-티어-기준)(거점 티어)를 가진다. 채석장은 거점 tier 0(캠프)부터, 농장·집·벌목소는 tier 1(마을회관)부터. 선행 미충족 종류는 건축 리스트에 뜨되 비활성이다(아래 [선행건물 게이트](#선행건물-게이트)).
+**선행 = 거점 티어**: 각 종류는 [`prerequisite`](../data/buildings.md#선행건물-prerequisite--거점-티어-기준)(거점 티어)를 가진다. 1차 생산(농장·벌목소·철광·금광)은 거점 tier 0(캠프)부터, 집·공성 작업장은 tier 1(마을회관)부터. 선행 미충족 종류는 건축 리스트에 뜨되 비활성이다(아래 [선행건물 게이트](#선행건물-게이트)).
 
 ## 구현 범위 (슬라이스)
 
@@ -31,7 +31,7 @@
 - 진입: `_build_mode = true`, 건설할 종류·비용 지불 영지를 기억한다. **건설 가능 영역**(영지 시야) 윤곽선을 계산해 표시한다(아래 `BuildArea`).
 - **마우스 이동**: 커서 아래 셀을 중심으로 **종류의 footprint만큼**(7헥스 또는 1헥스) **미리보기**를 그린다(`BuildPreview`). 배치 가능하면 초록, 불가하면 빨강.
   - 배치 가능 판정 = `BuildPlanner.can_place(..., hexes)`. `hexes`는 건설할 종류의 카탈로그 `footprint`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)` — 플레이어 건물(`_buildings`) + [NPC 거점](npc-bases.md)(`_npc_buildings`)을 합쳐 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
-- **좌클릭**: 배치 가능한 자리(`can_place`)이고 **조건 충족**(`BuildPlanner.can_build` — 선행·자재·[필요인원](#필요인원-게이트))이면 → `territory.build_pay(type_id)`(자재 차감 + 인구 고용) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
+- **좌클릭**: 배치 가능한 자리(`can_place`)이고 **조건 충족**(`BuildPlanner.can_build` — 선행·자재)이면 → `territory.build_pay(type_id)`(자재 차감) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
 - **우클릭 / ESC**: 건설 모드 취소(미리보기·영역 윤곽선 제거).
 - 건설 모드 중에는 유닛 선택·이동·캠프 메뉴 열기 등 일반 클릭이 동작하지 않는다.
 
@@ -77,13 +77,13 @@
 - `setup(terrain, center_cell, type_id, under_construction := false)` — `under_construction`이 참이면 상태를 건설 중으로 두고 `remaining_turns`를 카탈로그의 `build_turns`로 채운다. 기본값(거짓)이면 **즉시 완성** 상태(기존 동작과 동일).
 - `is_complete() -> bool` — 건설 중이 아니면 참.
 - `advance_construction() -> bool` — 건설을 1턴 진행한다. 이미 완성이면 아무 일도 안 하고 `false`. 건설 중이면 `remaining_turns -= 1`, 0 이하가 되면 완성 처리(`under_construction = false`, `remaining_turns = 0`)하고 **이번에 완성됐으면 `true`** 반환, 아직 진행 중이면 `false`.
-- `production() -> Dictionary` — **건설 중에는 빈 Dictionary**(생산 없음). 완성 후에만 카탈로그 `production`을 반환.
+- 생산: 건설 중에는 [1차 생산](production.md)이 동작하지 않는다(`tick_production`은 완성 건물만 game이 부른다). (flat `production()`은 폐지.)
 - 시야: 건설 중 건물은 시야에 기여하지 않는다(배치 유효성의 `territory_vision`이 완성 건물만 센다). `vision` 값 자체는 종류 스펙 그대로 유지.
 - 렌더: 건설 중이면 반투명하게 그리고 중심 근처에 **"건설 중 N"**(남은 턴)을 표시한다.
 
 ## 턴 진행 (`TurnManager` · `Territory`)
 
-턴 종료 시 건설을 진행한다. 이번 턴에 완성된 건물은 **다음 턴부터** 생산한다(자원 생산은 `end_turn` 밖 `game.gd`가 처리 — [1차](production.md)·[2차 생산](processing.md)).
+턴 종료 시 건설을 진행한다. 이번 턴에 완성된 건물은 **다음 턴부터** 생산한다(자원 생산은 `end_turn` 밖 `game.gd`가 처리 — [1차 생산](production.md)).
 
 - `Territory.advance_construction() -> void` — 소속 건물들의 `advance_construction()`을 호출한다.
 - `TurnManager.end_turn(units, territories)` 순서: ① `number += 1` → ② 유닛 `reset_turn` → ③ 영지 `grow_population` → ④ 영지 `advance_construction`. (flat `collect_income`은 폐지.)
@@ -102,7 +102,7 @@
   3. `occupied`(이미 건물이 점유한 셀 집합)와 겹치지 않으면
   참. 하나라도 위반하면 거짓. 맵 가장자리라 이웃이 범위를 벗어나면 배치 불가(1헥스 건물은 중심만 판정하므로 가장자리 제약이 완화됨).
 - `prerequisite_met(territory, type_id) -> bool` — `type_id`의 [`prerequisite`](../data/buildings.md#선행건물-prerequisite--거점-티어-기준)(거점 티어 id)가 그 영지에서 충족됐는지. 선행이 `""`(없음)이면 항상 참. 아니면 **영지의 거점 티어가 선행 티어 이상**이면 참 — `territory.buildings` 중 **완성**(`is_complete()`)이고 `is_center`이고 `center_tier >= center_tier(선행)`인 건물이 하나라도 있으면 참. **건물 존재가 아니라 티어 비교**라, 캠프→마을회관→성으로 올려도 하위 티어 선행이 계속 충족된다(성이어도 town_hall 선행 만족).
-- `can_build(territory, type_id) -> bool` — 그 영지에 `type_id`를 지을 수 있는지 종합 판정: **① 선행 충족**(`prerequisite_met`) **② 자재 충분**(`territory.can_afford(build_cost)`) **③ 인구 ≥ [필요인원](../data/buildings.md#필요인원-required_pop)**(`territory.resources["인구"] >= required_pop`). 셋 다 참이어야 참. 배치 유효성(`can_place`, 지형·시야·겹침)과는 별개 — 이건 "자원/조건" 게이트다. [캠프 메뉴](camp-menu.md) 리스트 활성 여부와 `game.gd`의 배치 시점 판정이 공유한다.
+- `can_build(territory, type_id) -> bool` — 그 영지에 `type_id`를 지을 수 있는지 종합 판정: **① 선행 충족**(`prerequisite_met`) **② 자재 충분**(`territory.can_afford(build_cost)`). 둘 다 참이어야 참. (`required_pop` 폐지 — 인구 게이트 없음.) 배치 유효성(`can_place`, 지형·시야·겹침)과는 별개 — 이건 "자원/조건" 게이트다. [캠프 메뉴](camp-menu.md) 리스트 활성 여부와 `game.gd`의 배치 시점 판정이 공유한다.
 
 ## 선행건물 게이트
 
@@ -110,13 +110,13 @@
 
 - 판정 = `BuildPlanner.prerequisite_met(territory, type_id)`. 영지에 선행 종류의 **완성** 건물이 있어야 참.
 - [캠프 메뉴](camp-menu.md) 건축 리스트: 각 종류 버튼은 **자원 부족 또는 선행 미충족**이면 비활성. 선행 미충족이면 라벨에 `(선행: <라벨> 필요)`를 덧붙여 이유를 보인다.
-- 예: 시작 영지엔 캠프만 완성돼 있으므로 **채석장·마을회관만 활성**, 농장·집·벌목소는 마을회관 완성 전까지 비활성.
+- 예: 시작 영지는 캠프(tier 0)이므로 **1차 생산(농장·벌목소·철광·금광)은 활성**, 집·공성 작업장은 마을회관 업그레이드 전까지 비활성.
 
 ## 캠프 건설 (새 영지 확장)
 
 기존 거점(캠프 메뉴)에서 **새 캠프**를 세워 **새 영지**를 만든다 — 내 군대가 있는 곳에 전초기지를 개척한다.
 
-- **진입**: 캠프 메뉴의 **"캠프 건설 (새 영지)"** 버튼(`camp_menu`) → `found_camp_requested(territory)` 방출 → `game.gd`가 캠프 건설 모드로 진입. 버튼은 여는 영지가 캠프 비용(목재10·밀10)을 감당하면(`BuildPlanner.can_build(territory, "camp")`) 활성.
+- **진입**: 캠프 메뉴의 **"캠프 건설 (새 영지)"** 버튼(`camp_menu`) → `found_camp_requested(territory)` 방출 → `game.gd`가 캠프 건설 모드로 진입. 버튼은 여는 영지가 캠프 비용(목재10·식량10)을 감당하면(`BuildPlanner.can_build(territory, "camp")`) 활성.
 - **배치 = 활성 부대 시야**: 일반 건물은 영지 시야 안에 짓지만, **캠프는 활성 [부대](../entities/Party.md)의 시야 반경**(`party.vision()`, 부대 위치 기준) 안에 짓는다(`game.gd`가 `_build_type == "camp"`면 배치 영역·`can_place` 시야를 부대 시야로 바꾼다). footprint 7.
 - **부대 필요**: 활성 부대가 비어(멤버 0) 있으면 시야가 없어 배치가 불가능하므로, 건설 모드에 **진입하지 않고** 안내 토스트("캠프를 세우려면 부대가 필요하다")를 띄운다(`_on_found_camp_requested`).
 - **새 영지 생성(`game.gd` `_found_camp`)**: 여는 영지가 `build_pay("camp")`로 비용 지불 → 새 `Territory`(이름 `"전초기지 N"`, **자원 0·인구 0**) 생성 → 플레이어 세력 편입 → **건설 중** 캠프 배치(`Building.setup(.., true)`) → 새 영지에 편입 → `_buildings`·`_territories`(턴 대상)에 등록 → [안개](fog-of-war.md) 갱신.
@@ -128,36 +128,26 @@
 
 거점은 [캠프→마을회관→성 인플레이스 티어](../data/buildings.md#거점-업그레이드)로 올린다(별도 건물이 아님).
 
-- **판정** `BuildPlanner.can_upgrade(territory, building) -> bool` — 그 거점의 `next_center`가 있고(최종 성이 아니고), 영지가 **다음 티어의 `build_cost`를 감당**하면 참. (선행·필요인원은 거점 업그레이드에 없음.)
-- **UI**: [캠프 메뉴](camp-menu.md)에 **업그레이드 버튼** — 현재 거점의 다음 티어와 비용을 표시(예: `"마을회관으로 업그레이드  목재 10 · 석재 10 · 밀 20"`). `can_upgrade`면 활성, 누르면 `upgrade_requested(building)` 방출.
-- **실행(`game.gd` `_on_upgrade_requested`)**: `next = next_center(building.building_type)` → `territory.build_pay(next)`(자재 차감, 거점은 필요인원 0) → `building.upgrade_to(next)` → 시야 갱신(`_update_fog`, 티어별 vision 변화)·캠프 메뉴 갱신. **즉시** 티어업(건설 시간 미구현).
+- **판정** `BuildPlanner.can_upgrade(territory, building) -> bool` — 그 거점의 `next_center`가 있고(최종 성이 아니고), 영지가 **다음 티어의 `build_cost`를 감당**하면 참. (선행은 거점 업그레이드에 없음.)
+- **UI**: [캠프 메뉴](camp-menu.md)에 **업그레이드 버튼** — 현재 거점의 다음 티어와 비용을 표시(예: `"마을회관으로 업그레이드  목재 20 · 식량 20"`). `can_upgrade`면 활성, 누르면 `upgrade_requested(building)` 방출.
+- **실행(`game.gd` `_on_upgrade_requested`)**: `next = next_center(building.building_type)` → `territory.build_pay(next)`(자재 차감) → `building.upgrade_to(next)` → 시야 갱신(`_update_fog`, 티어별 vision 변화)·캠프 메뉴 갱신. **즉시** 티어업(건설 시간 미구현).
 - 업그레이드로 [인구 상한](../entities/Territory.md#인구-상한population_cap)이 오른다(캠프 0 → 마을회관 10 → 성 20). 수비대·위치·영지는 유지.
-
-## 필요인원 게이트
-
-생산 건물은 [필요인원](../data/buildings.md#필요인원-required_pop)(노동력)만큼 인구가 있어야 짓고, 지을 때 그만큼 고용한다.
-
-- 판정은 [`BuildPlanner.can_build`](#배치-유효성-buildplanner)의 ③(인구 ≥ `required_pop`)로 선행·자재와 함께 묶인다.
-- **지불**: 배치 시 `territory.build_pay(type_id)` — `build_cost` 자재 차감 + 인구 `required_pop`만큼 소비(고용). [철거](building-info.md#철거) 시 `Territory.demolish`가 인구를 되돌린다.
-- [캠프 메뉴](camp-menu.md) 리스트: 항목 텍스트에 `인원 N`(N>0)을 덧붙여 보이고, `can_build`가 거짓이면 비활성. 인구 부족도 비활성 사유가 된다.
-- 예: 시작 인구 10이면 채석장(인원 1)·농장(인원 2, 마을회관 후)을 여러 채 짓다 인구가 바닥나면 더는 못 짓는다 — 집으로 [인구 상한](../entities/Territory.md#인구-상한population_cap)을 올리고 인구를 늘려야 한다.
 
 ## 테스트 시나리오
 
 - `test/unit/test_territory.gd` (자원 검사·차감)
   - [정상] `can_afford({목재:5})` — 자원이 충분하면 참, 부족하면 거짓
   - [경계] `can_afford({})` — 빈 비용은 항상 참
-  - [경계] 없는 자원 키를 요구하면(`{철:1}`, 보유 없음) 거짓
-  - [정상] `spend({목재:5, 밀:5})` 후 해당 자원이 정확히 줄어든다
+  - [경계] 없는 자원 키를 요구하면(`{철:99}`, 보유 부족) 거짓
+  - [정상] `spend({목재:5, 식량:5})` 후 해당 자원이 정확히 줄어든다
 - `test/unit/test_building.gd` (건설 중 상태)
-  - [정상] `setup(.., "farm", true)` 후 `is_complete() == false`, `remaining_turns == 3`(=build_turns), `production() == {}`
-  - [정상] `setup(.., "farm")`(기본) 후 `is_complete() == true`, `production() == {밀:1}`
+  - [정상] `setup(.., "farm", true)` 후 `is_complete() == false`, `remaining_turns == 3`(=build_turns)
+  - [정상] `setup(.., "farm")`(기본) 후 `is_complete() == true`
   - [정상] `advance_construction()`을 build_turns회 호출하면 완성되고, 완성되는 호출만 `true` 반환
   - [경계] 완성된 건물에 `advance_construction()` → `false`, 상태 불변
-  - [정상] 완성 후 `production() == {밀:1}`
 - `test/unit/test_turn.gd` (턴 진행)
-  - [정상] 건설 중 농장을 가진 영지를 `end_turn` → 건설 1턴 진행(`remaining_turns` 감소), 완성 전엔 `밀` 수입 없음
-  - [정상] build_turns회 `end_turn` 후 농장 완성, 그 **다음** 턴 종료부터 `밀` 수입 발생
+  - [정상] 건설 중 농장을 가진 영지를 `end_turn` → 건설 1턴 진행(`remaining_turns` 감소)
+  - [정상] build_turns회 `end_turn` 후 농장 완성
 - `test/unit/test_build_planner.gd` (배치 유효성, 신규)
   - [정상] 시야 안 + 빈 땅 + 맵 내부 중심 → `can_place` 참
   - [예외] footprint 일부가 시야 밖 → 거짓
@@ -168,11 +158,10 @@
   - [정상] `footprint`는 기본 7헥스(중심+이웃 6); `hexes=1`이면 중심 1칸만; `hexes=7`은 기본과 동일
   - [정상] `can_place(..., 1)`(1헥스)는 중심 1칸만 판정 — 이웃이 시야 밖/점유여도 중심이 유효하면 참
   - [정상] `occupied_cells`는 건물들의 점유 셀 합집합(건물 1개면 7셀, 겹치지 않는 2개면 14셀)
-  - [정상] `prerequisite_met`(티어 기준) — **캠프**(tier 0) 거점 영지: `quarry`(선행 camp)는 참, `farm`·`house`·`lumberjack`(선행 town_hall)은 거짓
-  - [정상] `prerequisite_met` — 거점이 **마을회관**(tier 1)이면 `farm`·`house`·`lumberjack` 참으로 전환; **성**(tier 2)이어도 계속 참(티어 비교라 상위 티어도 만족)
+  - [정상] `prerequisite_met`(티어 기준) — **캠프**(tier 0) 거점 영지: `farm`·`lumberjack`(선행 camp)은 참, `house`·`siege_workshop`(선행 town_hall)은 거짓
+  - [정상] `prerequisite_met` — 거점이 **마을회관**(tier 1)이면 `house`·`siege_workshop` 참으로 전환; **성**(tier 2)이어도 계속 참(티어 비교라 상위 티어도 만족)
   - [경계] `prerequisite_met` — 거점이 **건설 중**이면 아직 거짓(완성돼야 충족)
-  - [정상] `can_build` — 캠프 거점 + 인구·목재 충분 영지에서 `quarry`(선행 camp·목재10·인원1)는 참
-  - [예외] `can_build` — 인구가 `required_pop` 미만이면 거짓(선행·자재 충족이어도)
+  - [정상] `can_build` — 캠프 거점 + 목재 충분 영지에서 `farm`(선행 camp·목재5)는 참
   - [예외] `can_build` — 선행 미충족이면 거짓; 자재 부족이면 거짓
   - [정상] `can_upgrade` — 캠프 거점 + 마을회관 비용 충분 → 참; 성 거점(최종)은 항상 거짓(next 없음); 비용 부족이면 거짓
   - [정상] `center_tier`/`next_center` — camp 0/→town_hall, town_hall 1/→castle, castle 2/→""
@@ -184,7 +173,7 @@
 
 ## 관련
 
-- 종류별 `build_cost`·`build_turns`·`production`은 [buildings.md](../data/buildings.md).
+- 종류별 `build_cost`·`build_turns`·`produces`(1차 생산)는 [buildings.md](../data/buildings.md).
 - 건설 중 상태를 가지는 건물은 [Building 엔티티](../entities/Building.md).
 - 자원을 보유·차감하는 [Territory 엔티티](../entities/Territory.md).
 - 턴 종료 처리 순서는 [Turn](turn.md).

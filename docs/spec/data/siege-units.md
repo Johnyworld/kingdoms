@@ -20,8 +20,8 @@
 
 | id | 이름(`name`) | 견인 이동력(`movement`) | 최소 사거리(`min_range`) | 최대 사거리(`fire_range`) | 공격력(`attack`) | 내구도(`hit_points`) | 생산 금(`produce_gold`) | 생산 자재(`produce_cost`) | 표적(`targets`) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `catapult` | 투석기 | 2 | 4 | 5 | 50 | 60 | 40 | 목재 30 · 석재 20 | `["unit","wall","gate"]` |
-| `battering_ram` | 충차 | 1 | 1 | 1 | 90 | 40 | 50 | 목재 40 · 석재 10 | `["gate"]` |
+| `catapult` | 투석기 | 2 | 4 | 5 | 50 | 60 | 40 | 목재 30 · 철 20 | `["unit","wall","gate"]` |
+| `battering_ram` | 충차 | 1 | 1 | 1 | 90 | 40 | 50 | 목재 40 · 철 10 | `["gate"]` |
 
 - **견인 이동력** — 이 유닛을 실은 부대의 이동력 상한(느림). 부대 이동력 = `min(사람 기준 이동력, 견인 이동력)`, 단 사람이 `CREW_MIN` 미만이면 0. → [Party](../entities/Party.md)
 - **투석 사거리 밴드(`min_range`~`fire_range`)** — [투석](../features/siege-engines.md#투석-공성-성벽) 가능한 헥스 거리 범위(투석기 **4~5**). 너무 가까우면(< `min_range`) 못 쏜다(포물선 공성이라 근거리 불가). 부대 셀에서 표적까지 거리가 이 밴드 안이어야 투석 가능.
@@ -58,9 +58,9 @@
 `test/unit/test_siege_types.gd`. → [Siege Engines 테스트 시나리오](../features/siege-engines.md#테스트-시나리오)
 
 - [정상] `CATAPULT == "catapult"`, `BATTERING_RAM == "battering_ram"`, `CREW_MIN == 4`
-- [정상] `type_name("catapult") == "투석기"`, `movement("catapult") == 2`, `min_range("catapult") == 4`, `fire_range("catapult") == 5`, `attack("catapult") == 50`, `max_hp("catapult") == 60`, `produce_gold("catapult") == 40`, `produce_cost("catapult") == {"목재":30, "석재":20}`
-- [정상] `produce_full_cost("catapult") == {"금":40, "목재":30, "석재":20}`(금+자재 통합)
-- [정상] 충차: `type_name("battering_ram") == "충차"`, `movement == 1`, `min_range == 1`, `fire_range == 1`, `attack == 90`, `max_hp == 40`, `produce_gold == 50`, `produce_cost == {"목재":40, "석재":10}`, `produce_full_cost == {"금":50, "목재":40, "석재":10}`
+- [정상] `type_name("catapult") == "투석기"`, `movement("catapult") == 2`, `min_range("catapult") == 4`, `fire_range("catapult") == 5`, `attack("catapult") == 50`, `max_hp("catapult") == 60`, `produce_gold("catapult") == 40`, `produce_cost("catapult") == {"목재":30, "철":20}`
+- [정상] `produce_full_cost("catapult") == {"금":40, "목재":30, "철":20}`(금+자재 통합)
+- [정상] 충차: `type_name("battering_ram") == "충차"`, `movement == 1`, `min_range == 1`, `fire_range == 1`, `attack == 90`, `max_hp == 40`, `produce_gold == 50`, `produce_cost == {"목재":40, "철":10}`, `produce_full_cost == {"금":50, "목재":40, "철":10}`
 - [정상] `targets("catapult") == ["unit","wall","gate"]`, `targets("battering_ram") == ["gate"]`
 - [정상] `can_target("battering_ram","gate") == true`, `can_target("battering_ram","wall") == false`, `can_target("battering_ram","unit") == false`; `can_target("catapult","wall") == true`
 - [경계] 없는 id → `type_name` `""`, `movement`·`min_range`·`fire_range`·`attack`·`max_hp` `0`, `produce_gold` `0`, `produce_cost` `{}`, `produce_full_cost` `{}`, `targets` `[]`, `can_target` `false`

@@ -22,10 +22,10 @@ func _typed_building(center: Vector2i, type_id: String, under_construction := fa
 	return b
 
 func test_init_sets_name_and_resources() -> void:
-	var t := _territory("파리", {"인구": 10, "밀": 50})
+	var t := _territory("파리", {"인구": 10, "식량": 50})
 	assert_eq(t.name, "파리", "생성 시 이름 설정")
 	assert_eq(t.resources.get("인구"), 10, "인구 자원")
-	assert_eq(t.resources.get("밀"), 50, "밀 자원")
+	assert_eq(t.resources.get("식량"), 50, "식량 자원")
 
 func test_empty_on_create() -> void:
 	var t := _territory()
@@ -61,8 +61,8 @@ func test_remove_building_not_owned_is_noop() -> void:
 # --- 자원 검사·차감 (건축) ---
 
 func test_can_afford_true_when_enough() -> void:
-	var t := _territory("파리", {"목재": 10, "밀": 10})
-	assert_true(t.can_afford({"목재": 5, "밀": 5}), "자원이 충분하면 참")
+	var t := _territory("파리", {"목재": 10, "식량": 10})
+	assert_true(t.can_afford({"목재": 5, "식량": 5}), "자원이 충분하면 참")
 
 func test_can_afford_false_when_short() -> void:
 	var t := _territory("파리", {"목재": 3})
@@ -77,10 +77,10 @@ func test_can_afford_missing_resource_false() -> void:
 	assert_false(t.can_afford({"철": 1}), "보유 없는 자원 요구는 거짓")
 
 func test_spend_deducts_resources() -> void:
-	var t := _territory("파리", {"목재": 10, "밀": 10})
-	t.spend({"목재": 5, "밀": 5})
+	var t := _territory("파리", {"목재": 10, "식량": 10})
+	t.spend({"목재": 5, "식량": 5})
 	assert_eq(t.resources["목재"], 5, "목재 5 차감")
-	assert_eq(t.resources["밀"], 5, "밀 5 차감")
+	assert_eq(t.resources["식량"], 5, "식량 5 차감")
 
 # --- 인구 상한 (population_cap) + 자연 증가 (grow_population) ---
 
@@ -137,15 +137,15 @@ func test_demolish_removes_and_refunds() -> void:
 	assert_eq(t.resources["목재"], 1, "자재 환급 +1(demolish_refund)")
 
 func test_demolish_under_construction_refunds_partial_build_cost() -> void:
-	# 건설 중 농장(build_turns 3, build_cost 목재5·밀5) 1턴 진행(remaining 2) 철거 → floor(5×2/3)=3씩 환급.
-	var t := _territory("파리", {"인구": 5, "목재": 0, "밀": 0})
-	var farm := _typed_building(Vector2i(20, 20), "farm", true)
-	farm.advance_construction()   # remaining 2 / 3
-	t.add_building(farm)
-	t.demolish(farm)
-	assert_eq(t.resources["목재"], 3, "건설 중 부분 환급 목재 3(build_cost 비례)")
-	assert_eq(t.resources["밀"], 3, "건설 중 부분 환급 밀 3")
-	assert_eq(t.resources["인구"], 5, "농장은 required_pop 0 — 노동력 반환 없음")
+	# 건설 중 철광(build_turns 5, build_cost 목재15) 2턴 진행(remaining 3) 철거 → floor(15×3/5)=9 환급.
+	var t := _territory("파리", {"인구": 5, "목재": 0})
+	var mine := _typed_building(Vector2i(20, 20), "iron_mine", true)
+	mine.advance_construction()   # remaining 4 / 5
+	mine.advance_construction()   # remaining 3 / 5
+	t.add_building(mine)
+	t.demolish(mine)
+	assert_eq(t.resources["목재"], 9, "건설 중 부분 환급 목재 9(build_cost 비례)")
+	assert_eq(t.resources["인구"], 5, "required_pop 폐지 — 노동력 반환 없음")
 
 func test_demolish_creates_missing_resource_key() -> void:
 	var t := _territory("파리", {})  # 목재·인구 키 없음
@@ -160,26 +160,26 @@ func test_demolish_not_owned_is_noop() -> void:
 	t.demolish(farm)
 	assert_eq(t.resources["목재"], 5, "보유하지 않은 건물 철거는 환급 없음")
 
-# --- 건설 지불 (build_pay) — 자재 + 필요인원 고용 ---
+# --- 건설 지불 (build_pay) — 자재만(required_pop 폐지) ---
 
-func test_build_pay_farm_deducts_cost_and_labor() -> void:
-	var t := _territory("파리", {"인구": 10, "목재": 20, "밀": 50})
+func test_build_pay_farm_deducts_materials_only() -> void:
+	var t := _territory("파리", {"인구": 10, "목재": 20, "식량": 50})
 	t.build_pay("farm")
 	assert_eq(t.resources["목재"], 15, "목재 5 차감")
-	assert_eq(t.resources["밀"], 45, "밀 5 차감")
-	assert_eq(t.resources["인구"], 10, "농장(1차 생산)은 required_pop 0 — 인구 차감 없음")
+	assert_eq(t.resources["인구"], 10, "required_pop 폐지 — 인구 차감 없음")
 
-func test_build_pay_siege_workshop_employs_two() -> void:
-	# 채석장은 1차 생산 전환으로 required_pop 0. 고정 노동력 고용은 공성 작업장(2)만 남음.
-	var t := _territory("파리", {"인구": 10, "목재": 30, "석재": 30})
-	t.build_pay("siege_workshop")
-	assert_eq(t.resources["인구"], 8, "공성 작업장 필요인원 2 고용")
-
-func test_build_pay_quarry_no_labor() -> void:
+func test_build_pay_iron_mine_no_labor() -> void:
 	var t := _territory("파리", {"인구": 10, "목재": 20})
-	t.build_pay("quarry")
-	assert_eq(t.resources["목재"], 10, "목재 10 차감")
-	assert_eq(t.resources["인구"], 10, "채석장(1차 생산)은 고정 노동력 없음")
+	t.build_pay("iron_mine")
+	assert_eq(t.resources["목재"], 5, "목재 15 차감")
+	assert_eq(t.resources["인구"], 10, "인구 차감 없음")
+
+func test_build_pay_siege_workshop_no_labor() -> void:
+	var t := _territory("파리", {"인구": 10, "목재": 30, "철": 30})
+	t.build_pay("siege_workshop")
+	assert_eq(t.resources["목재"], 10, "목재 20 차감")
+	assert_eq(t.resources["철"], 20, "철 10 차감")
+	assert_eq(t.resources["인구"], 10, "required_pop 폐지 — 인구 차감 없음")
 
 # --- 완성 건물 판정 (공성 작업장 생산 게이트) → docs/spec/features/siege-engines.md ---
 

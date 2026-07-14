@@ -3,11 +3,11 @@
 > 스크립트: `scenes/item/item_types.gd` (`class_name ItemTypes`)
 
 전투에 쓰이는 **무기·방어구 카탈로그**와 **상성표**. `BuildingTypes`·`Terrain`·`UnitTypes`와 같은 "GDScript 카탈로그" 패턴이다.
-기획 원본 `docs/table/아이템/무기.md`·`방어구.md`에서 **전투에 쓰는 필드만** 옮긴 **부분집합**이다(무게·공격거리·근접거리·생산비용·부위 등은 미수록 — 관련 기능이 생길 때 추가). **[가치(`value`)](../features/trade.md)** 는 수록(무기=공격력, 방어구·방패=방어력×2 기준 — 판매가; 구매가는 ×2).
+기획 원본 `docs/table/아이템/무기.md`·`방어구.md`에서 **전투에 쓰는 필드만** 옮긴 **부분집합**이다(무게·공격거리·근접거리·생산비용·부위 등은 미수록 — 관련 기능이 생길 때 추가). **가치(`value`)** 필드는 수록돼 있으나, [상거래 제거](../features/camp-menu.md)로 **현재 소비처가 없다**(재도입 시 사용). 무기=공격력, 방어구·방패=방어력×2 기준.
 
 ## 무기 (`ItemTypes.WEAPONS`)
 
-`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법`([방어구 상성](#상성표)에 사용). `value`는 기준가([Trade](../features/trade.md) — 판매가, 구매가 ×2). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투씬([Battle](../features/battle.md))에서 쓴다:
+`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법`([방어구 상성](#상성표)에 사용). `value`는 기준가(상거래 제거로 **현재 미사용**). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투씬([Battle](../features/battle.md))에서 쓴다:
 - **`reach`(근접거리)** — 전투씬 근접 공격 개시 거리(원본 무기.md). **클수록 리치가 길어 먼저 사거리에 진입 = 선제 공격**. 맨손 1.0.
 - **`attack_speed`(공격속도)** — 1회 공격에 걸리는 초(민첩 0 기준). 낮을수록 빠름. 최종 공격 간격은 민첩으로 단축([Combat](../features/combat.md) `attack_interval`).
 - **`throw_range`**(선택, 기본 0) — **던지는 무기**의 전투씬 투척 사거리. 활과 달리 월드맵 `range`는 1이지만 접근 중 이 거리부터 투척한다.
@@ -63,7 +63,7 @@
 
 ## 도구 (`ItemTypes.TOOLS`)
 
-장착하지 않는(슬롯 없음) 소지 아이템. 부대 `loot_items`에 담고 [캠프 구매](../features/trade.md)로 산다. `{id: {name, value}}`.
+장착하지 않는(슬롯 없음) 소지 아이템. 부대 `loot_items`에 담는다(고리 사다리 등). `{id: {name, value}}`. (상거래 제거로 구매처는 없음 — 노획으로만 획득.)
 
 | id | 이름 | 가치 | 효과 |
 | --- | --- | --- | --- |
@@ -108,7 +108,7 @@
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
 - `item_name(id) -> String` — 무기·방어구·방패·도구 카탈로그를 통합 조회한 이름. 무기→방어구→방패→도구 순으로 찾고, 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
 - `item_slot(id) -> String` — 그 아이템이 들어가는 장비 슬롯 분류. 무기면 `"weapon"`, 방어구면 `"armor"`, 방패면 `"shield"`, 세 곳 어디에도 없으면 `""`. [장비 관리](../features/equipment.md)에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
-- `item_value(id) -> int` — 그 아이템의 기준가([Trade](../features/trade.md) — 판매가, 구매가 ×2). 무기→방어구→방패→도구 순으로 `value`를 찾고, 어디에도 없으면 `0`.
+- `item_value(id) -> int` — 그 아이템의 기준가. 무기→방어구→방패→도구 순으로 `value`를 찾고, 어디에도 없으면 `0`. (상거래 제거로 **현재 호출처 없음** — 함수·필드는 재도입 대비 유지.)
 
 ## 미수록 / 미구현
 

@@ -7,18 +7,15 @@ extends RefCounted
 ## - 도착 칸의 지형에 따라, 그 칸까지 갈 수 있는 최대 헥스 거리(이동력)가 정해진다.
 ## - 산은 진입·통과 불가(도달 거리 -1). BFS 통과도 막는다.
 
-const GRASS := 0     # 초원 — 기본
-const FOREST := 1    # 숲 — 이동력 1/2(올림)
+const GRASS := 0     # 초원 — 기본 (농장·식량)
+const FOREST := 1    # 숲 — 이동력 1/2(올림) (벌목소·목재)
 const SWAMP := 2     # 습지 — 이동력 1/2(내림)
 const MOUNTAIN := 3  # 산 — 이동 불가
 const DESERT := 4    # 사막 — 기본
-# 1차 생산 지형(슬라이스 2). 전부 통행 가능·기본 이동(물가 항해 규칙은 후속). → docs/spec/features/production.md
-const STONE := 5        # 돌 — 채석장
-const ANIMAL := 6       # 동물 — 사냥터
-const WATER := 7        # 물가 — 낚시터(통행 가능 플레이스홀더)
+# 생산 지형. 통행 가능·기본 이동. 자원 4종 축소로 철맥·금맥만 유지(돌·동물·물가·은맥 제거).
+# id는 재번호하지 않는다(타일셋 참조 안정) — 그래서 5~7·10 공백. → docs/spec/data/terrain.md
 const IRON_VEIN := 8    # 철맥 — 철광
 const GOLD_VEIN := 9    # 금맥 — 금광
-const SILVER_VEIN := 10 # 은맥 — 은광
 
 # 타일셋 소스는 모두 단일 타일이라 atlas 좌표가 같다.
 const ATLAS := Vector2i(0, 0)
@@ -29,12 +26,8 @@ const CATALOG := {
 	SWAMP: {"label": "습지"},
 	MOUNTAIN: {"label": "산"},
 	DESERT: {"label": "사막"},
-	STONE: {"label": "돌"},
-	ANIMAL: {"label": "동물"},
-	WATER: {"label": "물가"},
 	IRON_VEIN: {"label": "철맥"},
 	GOLD_VEIN: {"label": "금맥"},
-	SILVER_VEIN: {"label": "은맥"},
 }
 
 ## 이동 BFS가 통과할 수 없는 지형의 source id 목록(산). movement_ranges가 넘긴다.

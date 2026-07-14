@@ -12,7 +12,7 @@
 
 > 게임 시작 시 캠프가 배치되고(즉시 완성), 이후 [건축](../features/building.md)으로 **농장을 건설**할 수 있다(건설 중 → 완성). `production`/`build_turns`/`build_cost`/`demolish_refund` 모두 사용된다([철거](../features/building-info.md#철거) 구현됨 — 완성은 `demolish_refund`, 건설 중은 `build_cost` 진행도 비례 환급).
 
-차지하는 **발자국(footprint)은 종류별**이다([카탈로그](../data/buildings.md) `footprint`). 캠프·농장은 **중심 1헥스 + 주변 6헥스 = 7헥스**, 소형 생산 건물(집·벌목소·채석장)은 **중심 1헥스**만 차지한다. `setup`이 `_spec.footprint`(기본 7)로 점유 셀을 잡는다.
+차지하는 **발자국(footprint)은 종류별**이다([카탈로그](../data/buildings.md) `footprint`). 거점(캠프·마을회관·성)은 **중심 1헥스 + 주변 6헥스 = 7헥스**, 소형 건물(농장·벌목소·철광·금광·집·공성 작업장)은 **중심 1헥스**만 차지한다. `setup`이 `_spec.footprint`(기본 7)로 점유 셀을 잡는다.
 헥스 중 하나라도 클릭되면 게임 쪽에서 종류에 따라 UI를 연다: **캠프**는 [캠프 메뉴](../features/camp-menu.md)(자원·건축), **그 외 건물(농장)**은 [건물 정보 패널](../features/building-info.md).
 `_draw()`로 종류별 색으로 부지 + 중심 텐트를 그린다.
 
@@ -40,11 +40,8 @@
 | 성벽 단계 | `wall_level` | `int` | `0` | 거점 [성벽](../features/wall.md) 단계. `0`=없음, `≥1`=성벽(적 접근 차단). 마을회관·성만 [성벽 건설](../features/wall.md)로 올린다. `is_walled()`로 조회 |
 | 성벽 내구도 | `wall_hp` | `int` | `0` | 거점 [성벽 내구도](../features/wall.md#성벽-내구도-buildingwall_hp--siege). 성벽 건설 시 `Siege.WALL_MAX_HP`(180)로 채우고, [투석](../features/siege-engines.md#투석-공성-성벽)으로 깎여 0이면 붕괴(`wall_level`→0). `is_walled()`는 이 값과 무관(붕괴는 `wall_level`로 처리) |
 | 성문 내구도 | `gate_hp` | `int` | `0` | 거점 [성문 내구도](../features/wall.md#성문-gate). 성벽 건설 시 `Siege.GATE_MAX_HP`(120)로 채우고, [충차·투석](../features/wall.md#성문-gate)으로 깎여 0이면 성문 면 통로 개방(성벽은 유지). 성벽 없으면 `0` |
-| 생산포인트 | `production_points` | `int` | `0` | [1차 생산 건물](../features/production.md)의 누적 생산포인트. 매 턴 `+= workers`, `≥ 거리`면 자원 산출·차감 |
-| 배치 인원 | `workers` | `int` | `0` | [1차 생산 건물](../features/production.md)에 배치한 인원(0-5). 배정 거점 영지 인구에서 차출. 생산력 = `workers ÷ 거리` |
-| 배정 거점 | `assigned_center` | `Building` | `null` | [1차](../features/production.md)/[2차 생산](../features/processing.md) 건물이 인원 차출·자원 입출력·거리 측정하는 대상 거점. 건설 시 자동, 변경 가능 |
-| 작업포인트 | `work_points` | `int` | `0` | [2차 생산(가공)](../features/processing.md) 건물의 누적 작업포인트. 매 턴 `+= work_speed()`, 10당 레시피 1배치 변환 |
-| 활성 레시피 | `active_recipe` | `int` | `0` | [2차 생산](../features/processing.md) 건물의 현재 레시피 인덱스(제련소 등 다중 레시피 선택) |
+| 생산포인트 | `production_points` | `int` | `0` | [1차 생산 건물](../features/production.md)의 누적 생산포인트. 매 턴 `+= 1`(거리 기반), `≥ 거리`면 자원 산출·차감 |
+| 배정 거점 | `assigned_center` | `Building` | `null` | [1차 생산](../features/production.md) 건물이 자원 입출력·거리 측정하는 대상 거점. 건설 시 자동, 변경 가능. (인원 차출은 폐지) |
 
 > **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([Garrison / 주둔](../features/garrison.md)). 예전 `Building.garrison`(Human 배열)은 폐지됐다.
 
@@ -70,19 +67,16 @@
 - `gate_cell() -> Vector2i` — 성문이 놓인 ring 한 면(footprint 이웃 6칸 중 결정론적으로 한 칸 — 각도순 정렬 첫 칸). [성문](../features/wall.md#성문-gate) 표적·통로 셀. 성벽 유무와 무관하게 계산(위치 고정).
 - `gate_broken() -> bool` — `is_walled() and gate_hp <= 0`. 성문이 부서져 그 면 통로가 열렸는지([성문 돌파](../features/wall.md#성문-gate)).
 - `is_primary_production() -> bool` — [1차 생산 건물](../features/production.md)인지(카탈로그 `primary_production`). 배치 규칙(캠프 선행·지형 제한)·생산포인트 경로 게이트.
-- `produces() -> String` — 산출 자원 id(카탈로그 `produces`, 아니면 `""`). 벌목소=`"나무"`, 농장=`"밀"`.
+- `produces() -> String` — 산출 자원 id(카탈로그 `produces`, 아니면 `""`). 농장=`"식량"`, 벌목소=`"목재"`, 철광=`"철"`, 금광=`"금"`.
 - `buildable_terrains() -> Array` — 건설 가능 지형 source_id 리스트(카탈로그 `buildable_terrains`, 없으면 `[]`=제한 없음).
-- `tick_production(distance) -> int` — 매 턴 `production_points += workers` 후 `≥ distance`마다 자원 1 산출(PP 차감), 산출 수 반환. `workers≤0`·`distance≤0`·`produces()==""`면 0. → [생산포인트](../features/production.md#생산포인트-메커니즘)
-- `production_rate(distance) -> float` — 생산력 표시값 `workers/distance`(distance≤0이면 0).
-- `is_secondary_production() -> bool` — [2차 생산(가공)](../features/processing.md) 건물인지(카탈로그 `secondary_production`).
-- `recipes() -> Array` — 가공 레시피 목록(`[{in, out}]`). `active_recipe_input()`/`active_recipe_output() -> Dictionary` — 현재 레시피 입출력.
-- `work_speed() -> int` — 인원별 작업 속도 포인트/턴(`[0,8,15,20]`). `advance_work(max_batches) -> int` — `work_points += work_speed()` 후 `min(work_points/10, max_batches)` 배치 반환·차감. → [processing.md](../features/processing.md)
+- `tick_production(distance) -> int` — 매 턴 `production_points += 1`(거리 기반, 인원 무관) 후 `≥ distance`마다 자원 1 산출(PP 차감), 산출 수 반환. `distance≤0`·`produces()==""`면 0. → [생산포인트](../features/production.md#생산포인트-메커니즘-거리-기반)
+- `production_rate(distance) -> float` — 생산력 표시값 `1.0/distance`(distance≤0이면 0).
 - `advance_construction() -> bool` — 건설을 1턴 진행. 이미 완성이면 `false`(불변). 건설 중이면 `remaining_turns -= 1`, 0 이하가 되면 완성 처리하고 **이번에 완성됐으면 `true`**, 아직 진행 중이면 `false`.
-- (flat `production()`/`planned_production()`은 **폐지** — 모든 생산이 [1차 생산포인트](../features/production.md)·[2차 작업포인트](../features/processing.md)로 이관. 채석장도 1차 생산으로 전환됨.)
+- (flat `production()`/`planned_production()`·2차 가공(`is_secondary_production`/`work_speed`/`advance_work`/`recipes`)은 **폐지** — 모든 생산이 [1차 생산포인트](../features/production.md)로 단일화됐다.)
 - `pop_cap() -> int` — 이 건물이 영지 [인구 상한](Territory.md#인구-상한population_cap)에 더하는 값. **건설 중에는 0**(완성 건물만 기여), 완성 후 카탈로그 `pop_cap`(없으면 0). 거점 티어별: 캠프 0 · 마을회관 10 · 성 20, 집 +2.
 - `demolish_refund() -> Dictionary` — **완성 건물** 철거 시 돌려받는 salvage 자재(자원명→수량). 카탈로그 `demolish_refund`(없으면 빈 Dictionary). 순수 카탈로그값(건설 여부 무관).
 - `refund_on_demolish() -> Dictionary` — [철거](../features/building-info.md#철거) 시 **실제 환급** 자재. **완성**이면 `demolish_refund()`. **건설 중**이면 낸 `build_cost`를 진행도 비례로 — `floor(build_cost[자원] × remaining_turns ÷ build_turns)`(안 쓴 자재 회수, 0인 자원은 생략). `build_turns ≤ 0`이면 `build_cost` 전액(방어). `Territory.demolish`와 철거 미리보기가 이걸 쓴다.
-- `required_pop() -> int` — 이 건물이 고용하는 [노동력](../data/buildings.md#필요인원-required_pop)(인구 수). 카탈로그 `required_pop`(없으면 0). 건설 시 영지 인구에서 소비, 철거 시 반환. 건설 여부와 무관(카탈로그 값).
+- `required_pop() -> int` — **폐지됨**. `인구`가 [병력 전용 예약](../data/resources.md#인구-병력-예약)이라 건물이 인구를 고용하지 않는다. 항상 `0`(카탈로그에 `required_pop` 키 없음).
 - `upgrade_to(type_id) -> void` — 거점 [인플레이스 업그레이드](../data/buildings.md#거점-업그레이드). `building_type`·`_spec`·`vision`·`cells`(footprint)를 새 티어로 교체하고 **완성 상태**로 둔다. **위치(center)·영지·`wall_level`·`wall_hp`(성벽·내구도)은 유지**. 모든 거점이 footprint 7이라 점유 셀은 그대로. 주둔 부대는 별도 부대라 업그레이드와 무관하게 그 자리에 남는다. 비용 지불(`Territory.build_pay`)은 호출부([건축](../features/building.md#거점-업그레이드))가 먼저 한다.
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
   - 영지가 없으면(`territory == null`) 빈 배열.
@@ -110,14 +104,14 @@
 - [정상] `upgrade_to("town_hall")` — 캠프를 마을회관으로: `building_type == "town_hall"`, `vision == 6`, `pop_cap() == 10`, `is_complete()`, 점유 셀 7 유지, `wall_level`·`wall_hp` 유지
 - [정상] `demolish_refund()` — 농장 `{목재1}`, 집 `{목재2}`; **건설 중**에도 동일(순수 카탈로그값)
 - [정상] `refund_on_demolish()` **완성** = `demolish_refund()`(카탈로그 salvage)
-- [정상] `refund_on_demolish()` **건설 중 진행도 비례** — 농장(build_turns 3, build_cost 목재5·밀5): 갓 시작(remaining 3) → `{목재5,밀5}`(전액); 1턴 진행(remaining 2) → `{목재3,밀3}`(floor 5×2/3)
+- [정상] `refund_on_demolish()` **건설 중 진행도 비례** — 철광(build_turns 5, build_cost 목재15): 갓 시작(remaining 5) → `{목재15}`(전액); 2턴 진행(remaining 3) → `{목재9}`(floor 15×3/5)
 - [경계] `refund_on_demolish()` 건설 중 진행이 많아 어떤 자원의 몫이 0이면 그 자원은 결과에서 생략
-- [정상] `required_pop()` — 공성 작업장 2(고정 노동력), 1·2차 생산(농장·벌목소·채석장·제재소 등)·집·캠프 0
+- [정상] `required_pop()` — 폐지, 모든 건물 0(공성 작업장·농장·벌목소·집·캠프 등 전부 0)
 - [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`
 - [정상] `advance_construction()`를 build_turns회 → 완성(`is_complete()`), 완성되는 호출만 `true`
 - [경계] 완성된 건물에 `advance_construction()` → `false`, 상태 불변
-- [정상] 1차 생산: 채석장 `is_primary_production()`·`produces()=="석재"`·`buildable_terrains()==[Terrain.STONE]`
-- (생산 산출은 `tick_production`(1차)·`advance_work`(2차)로 검증 — [production.md](../features/production.md)·[processing.md](../features/processing.md))
+- [정상] 1차 생산: 농장 `is_primary_production()`·`produces()=="식량"`·`buildable_terrains()==[Terrain.GRASS]`
+- (생산 산출은 `tick_production`(1차)로 검증 — [production.md](../features/production.md))
 - [정상] 기본 `territory == null`
 - [정상] 영지(이름·세력 포함)에 편입되면 `map_label_lines()` = [영지명(흰색), 세력명(세력색)] 2줄
 - [경계] `territory == null`이면 `map_label_lines()`는 빈 배열

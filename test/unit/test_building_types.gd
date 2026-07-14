@@ -1,5 +1,5 @@
 extends GutTest
-## 건물 종류 카탈로그(BuildingTypes) 테스트.
+## 건물 종류 카탈로그(BuildingTypes) 테스트. 자원 4종 축소 반영.
 
 var types = load("res://scenes/building/building_types.gd")
 
@@ -15,11 +15,14 @@ func test_camp_spec_values() -> void:
 	assert_eq(spec["label"], "캠프", "라벨은 캠프")
 	assert_eq(spec["vision"], 5, "시야 5")
 	assert_eq(spec["footprint"], 7, "캠프 footprint 7헥스")
-	# 캠프 resources = 생성 영지 초기 자원(인구·금·석재 + 고기·생선·은 + 밀가루·은괴·금괴 = 15종).
-	var expected := {"인구": 10, "밀": 50, "빵": 20, "나무": 20, "목재": 40, "석재": 30, "철": 10, "철괴": 10, "금": 0, "고기": 0, "생선": 0, "은": 0, "밀가루": 0, "은괴": 0, "금괴": 0, "가죽": 0, "천": 0}
-	assert_eq(spec["resources"].size(), expected.size(), "자원 17종")
+	# 캠프 resources = 생성 영지 초기 자원(목재·식량·철·금 + 인구 = 5종).
+	var expected := {"목재": 40, "식량": 50, "철": 10, "금": 0, "인구": 10}
+	assert_eq(spec["resources"].size(), expected.size(), "자원 5종")
 	for key in expected:
 		assert_eq(spec["resources"].get(key), expected[key], "%s 초기값" % key)
+	# 제거된 자원 키는 없다.
+	for key in ["밀", "석재", "철괴", "나무", "빵", "고기"]:
+		assert_false(spec["resources"].has(key), "제거된 자원 %s 없음" % key)
 
 func test_farm_spec_values() -> void:
 	var spec: Dictionary = types.get_type("farm")
@@ -29,7 +32,7 @@ func test_farm_spec_values() -> void:
 	for key in ["fill_color", "edge_color", "tent_color"]:
 		assert_true(spec.has(key), "farm 외형 색상 %s 키 존재" % key)
 
-# --- 신규 소형 생산 건물 (footprint 1) ---
+# --- 소형 건물 (footprint 1) ---
 
 func test_house_spec() -> void:
 	var spec: Dictionary = types.get_type("house")
@@ -37,7 +40,7 @@ func test_house_spec() -> void:
 	assert_eq(spec["vision"], 2, "시야 2")
 	assert_eq(spec["footprint"], 1, "집 footprint 1헥스")
 	assert_eq(spec["build_turns"], 4, "집 필요 턴 4")
-	assert_eq(spec["build_cost"], {"목재": 8, "석재": 4}, "집 필요 자원")
+	assert_eq(spec["build_cost"], {"목재": 8, "식량": 4}, "집 필요 자원")
 	assert_eq(spec["pop_cap"], 2, "집 인구 상한 기여 +2")
 	assert_eq(spec.get("production", {}).size(), 0, "집은 생산 없음(상한으로 전환)")
 	for key in ["fill_color", "edge_color", "tent_color"]:
@@ -67,33 +70,36 @@ func test_lumberjack_spec() -> void:
 	assert_eq(spec["vision"], 3, "시야 3")
 	assert_eq(spec["footprint"], 1, "벌목소 footprint 1헥스")
 	assert_eq(spec["build_turns"], 3, "벌목소 필요 턴 3")
-	assert_eq(spec["build_cost"], {"목재": 5, "석재": 5}, "벌목소 필요 자원")
+	assert_eq(spec["build_cost"], {"목재": 5}, "벌목소 필요 자원")
 	assert_eq(spec.get("production", {}).size(), 0, "벌목소 flat 생산 없음(1차 생산)")
 	assert_true(spec.get("primary_production", false), "벌목소는 1차 생산")
-	assert_eq(spec.get("produces", ""), "나무", "벌목소 산출 나무")
+	assert_eq(spec.get("produces", ""), "목재", "벌목소 산출 목재")
 	assert_eq(spec.get("buildable_terrains", []), [Terrain.FOREST], "벌목소는 숲에만")
 
-func test_quarry_spec() -> void:
-	var spec: Dictionary = types.get_type("quarry")
-	assert_eq(spec["label"], "채석장", "라벨은 채석장")
-	assert_eq(spec["vision"], 3, "시야 3")
-	assert_eq(spec["footprint"], 1, "채석장 footprint 1헥스")
-	assert_eq(spec["build_turns"], 4, "채석장 필요 턴 4")
-	assert_eq(spec["build_cost"], {"목재": 10}, "채석장 필요 자원(목재만)")
-	assert_true(spec.get("primary_production", false), "채석장은 1차 생산으로 전환")
-	assert_eq(spec.get("produces", ""), "석재", "채석장 산출 석재")
-	assert_eq(spec.get("buildable_terrains", []), [Terrain.STONE], "채석장은 돌에만")
-	assert_eq(spec.get("production", {}).size(), 0, "flat production 없음")
-	assert_eq(spec.get("required_pop", 0), 0, "채석장 required_pop 0(1차 생산 가변 배치)")
-	assert_eq(spec["prerequisite"], "camp", "채석장 선행 = 캠프(부트스트랩)")
+func test_iron_mine_spec() -> void:
+	var spec: Dictionary = types.get_type("iron_mine")
+	assert_eq(spec["label"], "철광", "라벨은 철광")
+	assert_eq(spec["build_cost"], {"목재": 15}, "철광 필요 자원")
+	assert_true(spec.get("primary_production", false), "철광은 1차 생산")
+	assert_eq(spec.get("produces", ""), "철", "철광 산출 철")
+	assert_eq(spec.get("buildable_terrains", []), [Terrain.IRON_VEIN], "철광은 철맥에만")
+	assert_eq(spec["prerequisite"], "camp", "철광 선행 = 캠프")
+
+func test_gold_mine_spec() -> void:
+	var spec: Dictionary = types.get_type("gold_mine")
+	assert_eq(spec["label"], "금광", "라벨은 금광")
+	assert_eq(spec["build_cost"], {"목재": 15, "철": 5}, "금광 필요 자원")
+	assert_true(spec.get("primary_production", false), "금광은 1차 생산")
+	assert_eq(spec.get("produces", ""), "금", "금광 산출 금")
+	assert_eq(spec.get("buildable_terrains", []), [Terrain.GOLD_VEIN], "금광은 금맥에만")
 
 func test_town_hall_spec() -> void:
 	var spec: Dictionary = types.get_type("town_hall")
 	assert_eq(spec["label"], "마을회관", "라벨은 마을회관")
 	assert_eq(spec["vision"], 6, "시야 6")
 	assert_eq(spec["footprint"], 7, "마을회관 footprint 7헥스")
-	assert_eq(spec["build_turns"], 8, "마을회관 필요 턴 8(조정)")
-	assert_eq(spec["build_cost"], {"목재": 10, "석재": 10, "밀": 20}, "마을회관 필요 자원(조정)")
+	assert_eq(spec["build_turns"], 8, "마을회관 필요 턴 8")
+	assert_eq(spec["build_cost"], {"목재": 20, "식량": 20}, "마을회관 필요 자원")
 	assert_eq(spec["prerequisite"], "camp", "마을회관 선행 = 캠프")
 	assert_eq(spec.get("production", {}).size(), 0, "마을회관은 생산 없음")
 
@@ -102,9 +108,9 @@ func test_castle_spec() -> void:
 	assert_eq(spec["label"], "성", "라벨은 성")
 	assert_eq(spec["vision"], 8, "시야 8")
 	assert_eq(spec["footprint"], 7, "성 footprint 7헥스")
-	assert_eq(spec["build_turns"], 12, "성 필요 턴 12(조정)")
-	assert_eq(spec["build_cost"], {"석재": 50, "밀": 30}, "성 필요 자원(조정)")
-	assert_eq(spec["demolish_refund"], {"석재": 10}, "성 파괴 환산")
+	assert_eq(spec["build_turns"], 12, "성 필요 턴 12")
+	assert_eq(spec["build_cost"], {"목재": 40, "식량": 30, "철": 20}, "성 필요 자원")
+	assert_eq(spec["demolish_refund"], {"목재": 4, "철": 2}, "성 파괴 환산")
 	assert_eq(spec["prerequisite"], "town_hall", "성 선행 = 마을회관")
 	assert_eq(spec.get("production", {}).size(), 0, "성은 생산 없음")
 
@@ -112,40 +118,42 @@ func test_castle_spec() -> void:
 
 func test_prerequisite_fields() -> void:
 	assert_eq(types.get_type("camp").get("prerequisite", ""), "", "캠프는 선행 없음")
-	for id in ["castle", "house"]:
+	for id in ["castle", "house", "siege_workshop"]:
 		assert_eq(types.get_type(id)["prerequisite"], "town_hall", "%s 선행 = 마을회관" % id)
-	for id in ["farm", "lumberjack", "quarry"]:
-		assert_eq(types.get_type(id)["prerequisite"], "camp", "%s 선행 = 캠프(1차 생산/부트스트랩)" % id)
+	for id in ["farm", "lumberjack", "iron_mine", "gold_mine"]:
+		assert_eq(types.get_type(id)["prerequisite"], "camp", "%s 선행 = 캠프(1차 생산)" % id)
 
 # --- 건설 · 경제 ---
 
 func test_farm_economy() -> void:
 	var spec: Dictionary = types.get_type("farm")
 	assert_eq(spec["build_turns"], 3, "농장 필요 턴 3")
-	assert_eq(spec["build_cost"], {"목재": 5, "밀": 5}, "농장 필요 자재(인구는 required_pop으로 이동)")
+	assert_eq(spec["build_cost"], {"목재": 5}, "농장 필요 자재")
 	assert_eq(spec["demolish_refund"], {"목재": 1}, "농장 파괴 환산(자재만)")
-	assert_eq(spec.get("required_pop", 0), 0, "농장 필요인원 0(1차 생산 가변 배치)")
+	assert_eq(spec.get("required_pop", 0), 0, "농장 필요인원 0(폐지)")
 	assert_eq(spec.get("production", {}).size(), 0, "농장 flat 생산 없음")
 	assert_true(spec.get("primary_production", false), "농장은 1차 생산")
-	assert_eq(spec.get("produces", ""), "밀", "농장 산출 밀")
+	assert_eq(spec.get("produces", ""), "식량", "농장 산출 식량")
 	assert_eq(spec.get("buildable_terrains", []), [Terrain.GRASS], "농장은 초원에만")
 
-func test_required_pop_fields() -> void:
-	# 1·2차 생산은 가변 배치(required_pop 0). 고정 노동력은 공성 작업장(2)만 남음.
-	assert_eq(types.get_type("siege_workshop")["required_pop"], 2, "공성 작업장 필요인원 2")
-	for id in ["farm", "lumberjack", "quarry", "sawmill", "smelter", "camp", "town_hall", "castle", "house"]:
-		assert_eq(types.get_type(id).get("required_pop", 0), 0, "%s 필요인원 0(가변 배치 또는 노동력 없음)" % id)
+func test_required_pop_abolished() -> void:
+	# required_pop 폐지 — 모든 건물 0(공성 작업장 포함).
+	for id in ["farm", "lumberjack", "iron_mine", "gold_mine", "siege_workshop", "camp", "town_hall", "castle", "house"]:
+		assert_eq(types.get_type(id).get("required_pop", 0), 0, "%s 필요인원 0" % id)
 
 func test_camp_economy() -> void:
 	var spec: Dictionary = types.get_type("camp")
 	assert_eq(spec["build_turns"], 8, "캠프 필요 턴 8")
-	assert_eq(spec["build_cost"], {"목재": 10, "밀": 10}, "캠프 필요 자원")
+	assert_eq(spec["build_cost"], {"목재": 10, "식량": 10}, "캠프 필요 자원")
 	assert_eq(spec["demolish_refund"], {"목재": 2}, "캠프 파괴 환산")
 
 func test_unknown_type_empty() -> void:
 	assert_eq(types.get_type("없는id").size(), 0, "없는 종류는 빈 Dictionary")
 
-# --- 건축 가능 목록 ---
+func test_removed_types_empty() -> void:
+	# 제거된 종류(잉여 1차·2차 생산)는 빈 Dictionary.
+	for id in ["quarry", "hunting_ground", "fishing_spot", "silver_mine", "sawmill", "mill", "bakery", "stable", "ranch", "smelter"]:
+		assert_eq(types.get_type(id).size(), 0, "제거된 종류 %s는 빈 Dictionary" % id)
 
 # --- 거점(center) ---
 
@@ -155,54 +163,13 @@ func test_center_ids() -> void:
 func test_is_center() -> void:
 	for id in ["camp", "town_hall", "castle"]:
 		assert_true(types.is_center(id), "%s는 거점" % id)
-	for id in ["farm", "house", "lumberjack", "quarry", "없는id"]:
+	for id in ["farm", "house", "lumberjack", "iron_mine", "없는id"]:
 		assert_false(types.is_center(id), "%s는 거점 아님" % id)
 
 func test_buildable_ids() -> void:
-	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "sawmill", "mill", "bakery", "stable", "ranch", "smelter", "siege_workshop"], "건축 가능 목록(거점 제외)")
-
-func test_secondary_production_buildings() -> void:
-	# 5개 가공 건물(2차 생산) — 레시피·모델. → processing.md
-	var cases := {
-		"sawmill": {"나무": 1},
-		"mill": {"밀": 1},
-		"bakery": {"밀가루": 1},
-		"stable": {"밀": 2},
-		"ranch": {"밀": 2},
-	}
-	for id in cases:
-		var spec: Dictionary = types.get_type(id)
-		assert_true(spec.get("secondary_production", false), "%s 2차 생산" % id)
-		assert_eq(spec.get("prerequisite"), "camp", "%s 선행 캠프" % id)
-		assert_eq(spec.get("footprint"), 1, "%s footprint 1" % id)
-		assert_eq(spec["recipes"][0]["in"], cases[id], "%s 레시피 입력" % id)
-	# 부산물(다중 산출): 축사 고기+가죽, 목장 고기+천.
-	assert_eq(types.get_type("stable")["recipes"][0]["out"], {"고기": 1, "가죽": 1}, "축사 부산물 가죽")
-	assert_eq(types.get_type("ranch")["recipes"][0]["out"], {"고기": 1, "천": 1}, "목장 부산물 천")
-	# 제련소: 레시피 3개(철괴/은괴/금괴)
-	var smelter: Dictionary = types.get_type("smelter")
-	assert_eq(smelter["recipes"].size(), 3, "제련소 레시피 3개")
-	assert_eq(smelter["recipes"][0], {"in": {"철": 1}, "out": {"철괴": 1}}, "제련소 레시피0 철→철괴")
-
-func test_slice2_production_buildings() -> void:
-	# 5개 신규 1차 생산 건물(슬라이스 2) — 지형·산출·모델. → production.md
-	var cases := {
-		"hunting_ground": [Terrain.ANIMAL, "고기"],
-		"fishing_spot": [Terrain.WATER, "생선"],
-		"iron_mine": [Terrain.IRON_VEIN, "철"],
-		"gold_mine": [Terrain.GOLD_VEIN, "금"],
-		"silver_mine": [Terrain.SILVER_VEIN, "은"],
-	}
-	for id in cases:
-		var spec: Dictionary = types.get_type(id)
-		assert_true(spec.get("primary_production", false), "%s 1차 생산" % id)
-		assert_eq(spec.get("produces", ""), cases[id][1], "%s 산출 자원" % id)
-		assert_eq(spec.get("buildable_terrains", []), [cases[id][0]], "%s 건설 지형" % id)
-		assert_eq(spec.get("footprint"), 1, "%s footprint 1" % id)
-		assert_eq(spec.get("prerequisite"), "camp", "%s 선행 캠프" % id)
-		assert_eq(spec.get("production", {}).size(), 0, "%s flat 생산 없음" % id)
+	assert_eq(types.BUILDABLE_IDS, ["farm", "lumberjack", "iron_mine", "gold_mine", "house", "siege_workshop"], "건축 가능 목록(거점·제거 종류 제외)")
 	for id in ["camp", "town_hall", "castle"]:
-		assert_does_not_have(types.BUILDABLE_IDS, id, "거점 %s는 건축 목록 제외(업그레이드/새영지)" % id)
+		assert_does_not_have(types.BUILDABLE_IDS, id, "거점 %s는 건축 목록 제외" % id)
 
 # --- 공성 작업장 → docs/spec/features/siege-engines.md ---
 
@@ -211,6 +178,7 @@ func test_siege_workshop_spec() -> void:
 	assert_eq(spec.get("label"), "공성 작업장", "라벨")
 	assert_eq(spec.get("footprint"), 1, "footprint 1헥스")
 	assert_eq(spec.get("prerequisite"), "town_hall", "선행 마을회관")
+	assert_eq(spec["build_cost"], {"목재": 20, "철": 10}, "공성 작업장 비용")
 	assert_false(spec.has("production"), "턴당 생산 없음")
 
 # --- 성벽 (WALL_COST / can_build_wall) ---
@@ -226,16 +194,16 @@ func _bld(type_id: String, walled := false) -> Node2D:
 	return b
 
 func test_wall_cost_is_materials() -> void:
-	assert_eq(types.WALL_COST, {"목재": 15, "석재": 10}, "성벽 비용 = 목재15·석재10")
+	assert_eq(types.WALL_COST, {"목재": 15, "철": 5}, "성벽 비용 = 목재15·철5")
 
 func test_can_build_wall_town_hall_affordable() -> void:
-	assert_true(types.can_build_wall(_terr({"목재": 20, "석재": 20}), _bld("town_hall")), "마을회관 + 자재 충분 → 참")
+	assert_true(types.can_build_wall(_terr({"목재": 20, "철": 20}), _bld("town_hall")), "마을회관 + 자재 충분 → 참")
 
 func test_can_build_wall_camp_false() -> void:
-	assert_false(types.can_build_wall(_terr({"목재": 20, "석재": 20}), _bld("camp")), "캠프(tier 0)는 성벽 불가")
+	assert_false(types.can_build_wall(_terr({"목재": 20, "철": 20}), _bld("camp")), "캠프(tier 0)는 성벽 불가")
 
 func test_can_build_wall_already_walled_false() -> void:
-	assert_false(types.can_build_wall(_terr({"목재": 20, "석재": 20}), _bld("town_hall", true)), "이미 성벽 → 거짓")
+	assert_false(types.can_build_wall(_terr({"목재": 20, "철": 20}), _bld("town_hall", true)), "이미 성벽 → 거짓")
 
 func test_can_build_wall_poor_false() -> void:
 	assert_false(types.can_build_wall(_terr({"목재": 5}), _bld("town_hall")), "자재 부족 → 거짓")

@@ -137,10 +137,10 @@ func test_merge_from_combines_cargo() -> void:
 	var b := _party()
 	b.add_member(_human())
 	b.add_cargo("목재", 30)
-	b.add_cargo("석재", 10)
+	b.add_cargo("철", 10)
 	a.merge_from(b)
 	assert_eq(a.cargo["목재"], 60, "목재 30+30 합산(용량 50 초과 허용)")
-	assert_eq(a.cargo["석재"], 10, "석재도 합쳐짐")
+	assert_eq(a.cargo["철"], 10, "철도 합쳐짐")
 	assert_true(b.cargo.is_empty(), "b 화물은 비워짐(소실 아님, 이관)")
 
 # --- 지휘관(commander) ---
@@ -395,8 +395,8 @@ func test_take_loot_allows_overflow() -> void:
 	var winner := _party()
 	winner.add_cargo("목재", 48)
 	var loser := _party()
-	loser.add_cargo("석재", 10)
-	assert_eq(winner.take_loot(loser, "석재", 10), 10, "전량 이전")
+	loser.add_cargo("철", 10)
+	assert_eq(winner.take_loot(loser, "철", 10), 10, "전량 이전")
 	assert_eq(winner.cargo_total(), 58, "용량 초과 허용(58 > 50)")
 
 func test_take_loot_negative_or_missing_is_noop() -> void:
@@ -404,7 +404,7 @@ func test_take_loot_negative_or_missing_is_noop() -> void:
 	var loser := _party()
 	loser.add_cargo("목재", 5)
 	assert_eq(winner.take_loot(loser, "목재", -3), 0, "음수는 0")
-	assert_eq(winner.take_loot(loser, "석재", 5), 0, "없는 자원은 0")
+	assert_eq(winner.take_loot(loser, "철", 5), 0, "없는 자원은 0")
 	assert_eq(loser.cargo["목재"], 5, "패자 화물 변화 없음")
 	assert_true(winner.cargo.is_empty(), "승자 화물 변화 없음")
 
@@ -570,7 +570,7 @@ func test_transfer_cargo_to_allows_overflow() -> void:
 	var a := _party()
 	var b := _party()
 	a.add_cargo("목재", 5)
-	b.add_cargo("석재", 48)
+	b.add_cargo("철", 48)
 	assert_eq(a.transfer_cargo_to(b, "목재", 5), 5, "전량 이동")
 	assert_eq(b.cargo_total(), 53, "받는 부대 용량 초과 허용(53 > 50)")
 
@@ -579,7 +579,7 @@ func test_transfer_cargo_to_negative_or_missing() -> void:
 	var b := _party()
 	a.add_cargo("목재", 5)
 	assert_eq(a.transfer_cargo_to(b, "목재", -3), 0, "음수는 0")
-	assert_eq(a.transfer_cargo_to(b, "석재", 5), 0, "미보유 자원은 0")
+	assert_eq(a.transfer_cargo_to(b, "철", 5), 0, "미보유 자원은 0")
 	assert_eq(a.cargo["목재"], 5, "A 변화 없음")
 	assert_true(b.cargo.is_empty(), "B 변화 없음")
 

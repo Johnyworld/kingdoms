@@ -4,7 +4,7 @@ class_name Territory extends RefCounted
 ## 시각 요소가 없는 순수 데이터 엔티티라 씬 없이 스크립트만 둔다.
 
 var name: String
-var resources: Dictionary   # 모든 자원(인구·밀·빵·나무·목재·철·철괴·금). 삽입 순서 = 메뉴 표시 순서.
+var resources: Dictionary   # 자원 4종(목재·식량·철·금) + 인구(병력 예약). 삽입 순서 = 메뉴 표시 순서.
 var faction: Faction = null
 var buildings: Array = []
 
@@ -27,7 +27,7 @@ func remove_building(building) -> void:
 	if building.territory == self:
 		building.territory = null
 
-# flat 생산(collect_income)은 폐지됨 — 모든 생산이 [1차 생산포인트](../../docs/spec/features/production.md)·[2차 작업포인트](../../docs/spec/features/processing.md)로 이관. game.gd가 턴 종료 시 처리한다.
+# flat 생산·2차 가공은 폐지됨 — 모든 생산이 [1차 생산포인트(거리 기반)](../../docs/spec/features/production.md)로 단일화. game.gd가 턴 종료 시 처리한다.
 
 ## 이 비용을 지불할 자원이 충분한지. cost의 모든 자원에 대해 보유량 >= 요구량이면 참. 빈 비용은 참.
 func can_afford(cost: Dictionary) -> bool:
@@ -41,14 +41,11 @@ func spend(cost: Dictionary) -> void:
 	for res_name in cost:
 		resources[res_name] = resources.get(res_name, 0) - cost[res_name]
 
-## 그 종류 건물의 건설 비용을 지불한다: build_cost 자재 차감 + 필요인원(required_pop)만큼 인구 고용.
+## 그 종류 건물의 건설 비용(build_cost 자재)을 차감한다. required_pop 폐지로 인구는 소비하지 않는다.
 ## 음수 방지는 하지 않으므로 호출 전 BuildPlanner.can_build로 확인한다.
 func build_pay(type_id: String) -> void:
 	var spec := BuildingTypes.get_type(type_id)
 	spend(spec.get("build_cost", {}))
-	var labor: int = spec.get("required_pop", 0)
-	if labor > 0:
-		resources["인구"] = resources.get("인구", 0) - labor
 
 ## 턴 종료 시 호출. 소속 건물들의 건설을 1턴씩 진행한다(건설 중 건물만 영향).
 func advance_construction() -> void:
@@ -77,16 +74,13 @@ func has_completed_building(type_id: String) -> bool:
 	return false
 
 ## 건물을 철거한다. 보유한 건물이면 영지에서 떼어내고(remove_building) 실제 환급(refund_on_demolish)을 자원에 더한다.
-## 완성=salvage(demolish_refund), 건설 중=낸 build_cost 진행도 비례. 인구는 전액 반환.
+## 완성=salvage(demolish_refund), 건설 중=낸 build_cost 진행도 비례. required_pop 폐지로 인구 반환은 없다.
 ## 보유하지 않은 건물이면 no-op(환급도 없음). 캠프 철거(영지 상실)는 미구현이라 호출부에서 캠프를 제외한다.
 func demolish(building) -> void:
 	if not (building in buildings):
 		return
 	var refund: Dictionary = building.refund_on_demolish()
-	var labor: int = building.required_pop()   # 고용 해제 — 인구 반환
 	remove_building(building)
 	for res_name in refund:
 		resources[res_name] = resources.get(res_name, 0) + refund[res_name]
-	if labor > 0:
-		resources["인구"] = resources.get("인구", 0) + labor
 

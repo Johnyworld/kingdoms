@@ -74,26 +74,26 @@ func test_end_turn_resets_units() -> void:
 	tm.end_turn([p], [])
 	assert_false(p.moved_this_turn, "턴 종료 시 부대 이동 상태 리셋")
 
-# flat 생산(collect_income/production)은 폐지됨 — 모든 생산이 game.gd의 1차 생산포인트·2차 작업포인트로 이관. → production.md · processing.md
+# flat 생산·2차 가공은 폐지됨 — 모든 생산이 game.gd의 1차 생산포인트(거리 기반)로 이관. → production.md
 
 # --- 건설 진행 (건축) ---
 
 func test_end_turn_advances_construction() -> void:
 	var tm := _turn_manager()
-	var t := _territory({"석재": 50})
-	var quarry := _building_uc("quarry")  # build_turns 4
-	t.add_building(quarry)
+	var t := _territory({"목재": 50})
+	var farm := _building_uc("farm")  # build_turns 3
+	t.add_building(farm)
 	tm.end_turn([], [t])
-	assert_eq(quarry.remaining_turns, 3, "턴 종료 시 건설 1턴 진행")
+	assert_eq(farm.remaining_turns, 2, "턴 종료 시 건설 1턴 진행")
 
 func test_construction_completes_on_schedule() -> void:
 	var tm := _turn_manager()
-	var t := _territory({"석재": 50})
-	var quarry := _building_uc("quarry")  # build_turns 4
-	t.add_building(quarry)
-	for i in 4:
+	var t := _territory({"목재": 50})
+	var farm := _building_uc("farm")  # build_turns 3
+	t.add_building(farm)
+	for i in 3:
 		tm.end_turn([], [t])
-	assert_true(quarry.is_complete(), "4턴 후 완성")
+	assert_true(farm.is_complete(), "3턴 후 완성")
 
 # --- 인구 자연 증가 ---
 

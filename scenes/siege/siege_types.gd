@@ -19,7 +19,7 @@ const CATALOG := {
 		"attack": 50,
 		"hit_points": 60,
 		"produce_gold": 40,
-		"produce_cost": {"목재": 30, "석재": 20},
+		"produce_cost": {"목재": 30, "철": 20},
 		"targets": ["unit", "wall", "gate"],   # 성벽·성문·유닛 겸용
 	},
 	"battering_ram": {
@@ -30,7 +30,7 @@ const CATALOG := {
 		"attack": 90,         # 성문 특화 고화력(성문 120 ≈2발 파괴)
 		"hit_points": 40,     # 근접 노출 — 취약
 		"produce_gold": 50,
-		"produce_cost": {"목재": 40, "석재": 10},
+		"produce_cost": {"목재": 40, "철": 10},
 		"targets": ["gate"],  # 성문만 타격(성벽·유닛 안 침)
 	},
 }
