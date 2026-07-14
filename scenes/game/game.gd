@@ -1,9 +1,9 @@
 extends Node2D
-## 50x50 헥스 타일 맵(초원)을 그리고, 카메라를 중앙에 배치한다.
+## 100x100 헥스 타일 맵(초원)을 그리고, 카메라를 플레이어 거점(남서 모서리)에 배치한다.
 ## 카메라는 WASD 또는 마우스를 화면 가장자리에 대면 상하좌우로 이동한다.
 
-const MAP_WIDTH := 50
-const MAP_HEIGHT := 50
+const MAP_WIDTH := 100
+const MAP_HEIGHT := 100
 
 const CAM_SPEED := 900.0    # 픽셀/초
 const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)
@@ -30,19 +30,25 @@ const NPC_RETREAT_SCAN := 6
 # 표적 우선순위(무방비 캠프·약한 적)를 이 반경 안에서만 우대한다. 밖이면 기존 최근접 접근으로 폴백.
 const NPC_PRIORITY_SCAN := 8
 
-# NPC 부대 배치 오프셋(맵 중앙 기준 칸). 초기 시야 안에 들도록 임시 배치한다.
-const NPC_OFFSETS := {
-	"qasim": Vector2i(5, 0),
-	"balthazar": Vector2i(0, -5),
-	"batur": Vector2i(-7, 1),
+# 4왕국 거점 배치 — 각 왕국을 맵 모서리 근처(안쪽 MARGIN칸)에 둔다. y↑=남, x↑=동.
+# 플레이어는 남서(SW), NPC 3세력은 나머지 세 모서리(방향 유지: 서=NW, 북=NE, 동=SE).
+const MARGIN := 10   # 모서리에서 거점 중심까지 안쪽 거리(칸)
+
+# 플레이어 거점(마을회관) 중심 — 남서(SW) 모서리.
+const PLAYER_BASE := Vector2i(MARGIN, MAP_HEIGHT - 1 - MARGIN)
+
+# NPC 세력 거점(캠프) 중심 — 나머지 세 모서리.
+const NPC_BASES := {
+	"batur": Vector2i(MARGIN, MARGIN),                                     # 북서(NW) — 초원 칸국(서)
+	"balthazar": Vector2i(MAP_WIDTH - 1 - MARGIN, MARGIN),                 # 북동(NE) — 암흑 제국(북)
+	"qasim": Vector2i(MAP_WIDTH - 1 - MARGIN, MAP_HEIGHT - 1 - MARGIN),    # 남동(SE) — 사막 술탄국(동)
 }
 
-# NPC 세력 거점(캠프) 배치 오프셋(맵 중앙 기준 칸). 각 부대와 같은 방향의 바깥쪽 —
-# 초기 시야 밖이라 처음엔 안개에 가려지고, 플레이어가 다가가 발견하면 드러난다.
-const NPC_BASE_OFFSETS := {
-	"qasim": Vector2i(11, 0),      # 사막 술탄국 — 동
-	"balthazar": Vector2i(0, -11), # 암흑 제국 — 북
-	"batur": Vector2i(-12, 1),     # 초원 칸국 — 서
+# NPC 부대 시작 오프셋(자기 거점 기준, 맵 중앙 쪽). 거점보다 안쪽에 서서 초기 조우 여지를 둔다.
+const NPC_PARTY_OFFSETS := {
+	"batur": Vector2i(5, 5),       # NW → 중앙(+x,+y)
+	"balthazar": Vector2i(-5, 5),  # NE → 중앙(-x,+y)
+	"qasim": Vector2i(-5, -5),     # SE → 중앙(-x,-y)
 }
 
 @onready var terrain: TileMapLayer = $TerrainLayer
@@ -152,7 +158,7 @@ func _ready() -> void:
 	_siege_overlay.ladders = _ladders
 	add_child(_siege_overlay)
 	# 첫 거점은 마을회관 티어로 시작(캠프에서 한 번 업그레이드된 상태) — 인구 상한 10, 시작부터 생산 건물 해금.
-	building.setup(terrain, Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2), "town_hall")
+	building.setup(terrain, PLAYER_BASE, "town_hall")
 	building.wall_level = 1   # 시작 성벽(공성 시험용) → siege-engines.md
 	building.wall_hp = Siege.WALL_MAX_HP
 	building.gate_hp = Siege.GATE_MAX_HP
@@ -217,11 +223,11 @@ func _generate_map() -> void:
 	_min_pos = Vector2(min(corner_a.x, corner_b.x), min(corner_a.y, corner_b.y))
 	_max_pos = Vector2(max(corner_a.x, corner_b.x), max(corner_a.y, corner_b.y))
 
-## 시작 지점(중앙 캠프) 근처에 방ㄴ향별 지형 덩어리를 배치한다.
-## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산. 캠프(중앙 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
+## 플레이어 거점(남서 모서리) 근처에 방향별 지형 덩어리를 배치한다.
+## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산. 캠프(중심 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
 ## (y가 커질수록 남쪽, x가 커질수록 동쪽.)
 func _place_starting_terrain() -> void:
-	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
+	var center := PLAYER_BASE
 	_paint_patches([center + Vector2i(-6, -1), center + Vector2i(-8, 2)], Terrain.FOREST)   # 서쪽 숲
 	_paint_patches([center + Vector2i(6, -1), center + Vector2i(8, 2)], Terrain.SWAMP)      # 동쪽 습지
 	_paint_patches([center + Vector2i(0, -6), center + Vector2i(2, -7)], Terrain.DESERT)    # 북쪽 사막
@@ -241,15 +247,14 @@ func _paint_patches(seeds: Array, source_id: int) -> void:
 		for n in terrain.get_surrounding_cells(center):
 			terrain.set_cell(n, source_id, Terrain.ATLAS)
 
-## 카메라를 맵 중앙 타일로 이동시킨다.
+## 카메라를 플레이어 거점(남서 모서리) 타일로 이동시킨다.
 func _center_camera() -> void:
-	var center_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
-	camera.position = terrain.map_to_local(center_cell)
+	camera.position = terrain.map_to_local(PLAYER_BASE)
 	camera.make_current()
 
 ## 플레이어 + NPC 세력·영지·거점을 유닛 카탈로그에서 만든다.
-## 플레이어: 세력 "푸른 왕국" → 영지 "창천성"에 중앙 캠프를 넣는다(자원 수입 대상 _territories).
-## NPC 3세력: 각 부대 방향 바깥쪽에 수도 영지 + 완성 캠프를 배치한다(_npc_buildings, 경제 미사용).
+## 플레이어: 세력 "푸른 왕국" → 영지 "창천성"에 남서 모서리 캠프를 넣는다(자원 수입 대상 _territories).
+## NPC 3세력: 나머지 세 모서리에 수도 영지 + 완성 캠프를 배치한다(_npc_buildings, 경제 미사용).
 func _setup_factions() -> void:
 	var spec := UnitTypes.get_party(UnitTypes.PLAYER_ID)
 	var territory := Territory.new(spec["territory"], _camp_resources())
@@ -259,9 +264,8 @@ func _setup_factions() -> void:
 	_territories = [territory]
 	_factions = [_player_faction]
 
-	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
 	for id in UnitTypes.NPC_IDS:
-		_npc_buildings.append(_setup_npc_base(id, center + NPC_BASE_OFFSETS[id]))
+		_npc_buildings.append(_setup_npc_base(id, NPC_BASES[id]))
 
 ## NPC 세력 하나의 거점을 만든다: 세력 → 수도 영지 → 완성 캠프(중심 base_cell). 캠프 노드를 반환한다.
 ## 세력·영지는 캠프의 territory 참조로 살아 있게 유지된다(_npc_buildings가 캠프 노드를 보유).
@@ -287,18 +291,17 @@ func _camp_resources() -> Dictionary:
 
 ## 부대를 유닛 카탈로그에서 생성한다.
 ## 플레이어 부대(아젤 하르윈)는 기존 $Party 노드에 채우고 금색 유지.
-## NPC 부대 3개는 새로 인스턴스화해 세력 색으로 그리고 시작 지점 주변에 배치(표시만).
+## NPC 부대 3개는 새로 인스턴스화해 세력 색으로 그리고 각자 거점 앞(맵 중앙 쪽)에 배치.
 func _setup_parties() -> void:
 	_populate_party(party, UnitTypes.PLAYER_ID)
 	party.add_siege_unit(SiegeUnit.new())   # 플레이어 부대 시작 투석기 1대 → siege-engines.md
-	var center := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2)
 	for id in UnitTypes.NPC_IDS:
 		var p := PARTY_SCENE.instantiate()
 		add_child(p)
 		_populate_party(p, id)
 		p.add_siege_unit(SiegeUnit.new())   # 로빙 NPC 시작 투석기 1대(5f positioning 공성) → siege-engines.md
 		p.token_color = UnitTypes.get_party(id)["color"]
-		p.position = terrain.map_to_local(center + NPC_OFFSETS[id])
+		p.position = terrain.map_to_local(NPC_BASES[id] + NPC_PARTY_OFFSETS[id])
 		_npc_parties.append(p)
 
 ## 부대에 카탈로그 멤버를 채우고 이름·지휘관을 설정한다.
@@ -314,7 +317,7 @@ func _populate_party(p, id: String) -> void:
 
 ## 주인공 부대를 캠프 바로 아래(캠프 영역 밖) 타일에 배치한다.
 func _place_party() -> void:
-	var party_cell := Vector2i(MAP_WIDTH / 2, MAP_HEIGHT / 2 + 3)
+	var party_cell := PLAYER_BASE + Vector2i(0, 3)
 	party.position = terrain.map_to_local(party_cell)
 
 ## 주인공 위치에서 이동력만큼 BFS로 도달 셀(파랑)을 구하고, 공격 가능한 적(빨강)을 분류한다.
