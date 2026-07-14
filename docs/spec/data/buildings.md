@@ -13,14 +13,14 @@
 ### 기본 · 외형
 
 `footprint`은 건물이 차지하는 헥스 수(테이블 "필요헥스"). `7`이면 중심+이웃 6칸, `1`이면 중심 1칸만.
-캠프·마을회관·성·농장은 7헥스, 소형 생산 건물(집·벌목소·채석장)은 1헥스.
+캠프·마을회관·성은 7헥스, 소형 건물(집·벌목소·농장·채석장)은 1헥스.
 
 | id | `label` | `vision` | `footprint` | 초기 `resources` (→ 생성 영지 초기 자원) | 외형 색상 |
 | --- | --- | --- | --- | --- | --- |
 | `camp` | 캠프 | 5 | 7 | 인구 10 / 밀 50 / 빵 20 / 나무 20 / 목재 40 / 석재 30 / 철 10 / 철괴 10 / 금 0 | 흙색 계열 |
 | `town_hall` | 마을회관 | 6 | 7 | (없음) | 밝은 목조·기와 계열 |
 | `castle` | 성 | 8 | 7 | (없음) | 회청색 석조 계열 |
-| `farm` | 농장 | 4 | 7 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
+| `farm` | 농장 | 4 | 1 | (없음 — 영지를 새로 만들지 않음) | 녹색(밭) 계열 |
 | `house` | 집 | 2 | 1 | (없음) | 따뜻한 흙색(목조) 계열 |
 | `lumberjack` | 벌목소 | 3 | 1 | (없음) | 짙은 녹갈색 계열 |
 | `quarry` | 채석장 | 3 | 1 | (없음) | 회색(석재) 계열 |
@@ -40,10 +40,10 @@
 | `camp` | 8 | 목재 10 / 밀 10 | 목재 2 | 0 | **0** | (없음) | 거점 tier 0. [캠프 건설](../features/building.md#캠프-건설-새-영지-확장)로 새 영지의 시작 티어가 된다 |
 | `town_hall` | 8 | 목재 10 / 석재 10 / 밀 20 | 목재 2 / 석재 2 | 0 | **10** | (없음) | 거점 tier 1. 인구 상한 10. 대부분 건물의 선행. 상인 방문 **미구현** |
 | `castle` | 12 | 석재 50 / 밀 30 | 석재 10 | 0 | **20** | (없음) | 거점 tier 2(최종). 인구 상한 20. 고급 건물 해금 **미구현** |
-| `farm` | 3 | 목재 5 / 밀 5 | 목재 1 | 2 | — | 밀 1 (턴당) | 농부 2명(노동력) |
+| `farm` | 3 | 목재 5 / 밀 5 | 목재 1 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 밀`, `buildable_terrains [초원]`, footprint 1. 생산포인트(인원÷거리) |
 | `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 0 | 2 | (없음) | **인구 상한 `pop_cap +2`**(생산 아님) |
-| `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 1 | — | 나무 2 (턴당) | 나뭇꾼 1명(노동력) |
-| `quarry` | 4 | 목재 10 | 목재 2 | 1 | — | 석재 2 (턴당) | 채석꾼 1명(노동력) |
+| `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 나무`, `buildable_terrains [숲]`, footprint 1. 생산포인트 |
+| `quarry` | 4 | 목재 10 | 목재 2 | 1 | — | 석재 2 (턴당) | 채석꾼 1명(노동력). **flat 유지**(슬라이스 2에서 1차 생산 전환) |
 | `siege_workshop` | 6 | 목재 20 / 석재 20 | 목재 4 / 석재 4 | 2 | — | (없음) | 장인 2명(노동력). 완성 시 그 영지 거점에서 [투석기 생산](../features/siege-engines.md) 해금 |
 
 > **마을회관 값은 테이블에서 조정됨(플레이성/부트스트랩)**: 테이블 원본은 `build_turns 15 / 목재30·석재20·밀20`. 시작 자원(목재 20, 석재 0)만으로는 도달 불가하므로, 시작 → 채석장으로 석재 확보 → 마을회관 건설이 가능하도록 `build_turns 8 / 목재10·석재10·밀20`으로 낮췄다. 경제 밸런스가 갖춰지면 재조정한다.
@@ -84,12 +84,13 @@
 | id | `prerequisite` | 필요 거점 티어 |
 | --- | --- | --- |
 | `quarry` | `camp` | 거점 tier ≥ 0 (거점만 있으면. 석재 부트스트랩) |
-| `farm` | `town_hall` | 거점 tier ≥ 1 (마을회관 이상) |
-| `house` | `town_hall` | 〃 |
-| `lumberjack` | `town_hall` | 〃 |
+| `farm` | `camp` | 거점 tier ≥ 0 ([1차 생산](../features/production.md)은 캠프부터) |
+| `lumberjack` | `camp` | 거점 tier ≥ 0 (〃) |
+| `house` | `town_hall` | 거점 tier ≥ 1 (마을회관 이상) |
 
 - 거점 자신(`camp`/`town_hall`/`castle`)의 `prerequisite` 필드는 업그레이드 경로(`next_center`)로 대체되어 게이트에는 쓰이지 않는다(카탈로그엔 남아 있음).
-- 체인: **캠프 →(업그레이드) 마을회관 →(업그레이드) 성**, 그리고 마을회관 티어에서 **농장·집·벌목소** 해금(채석장은 캠프 티어부터).
+- 체인: **캠프 →(업그레이드) 마을회관 →(업그레이드) 성**. **1차 생산(농장·벌목소·채석장)은 캠프 티어부터** 해금. 집 등 나머지는 마을회관 티어부터.
+- **배치 규칙**([1차 생산](../features/production.md#배치-규칙-build_planner--gamegd)): 1차 생산 = 지형 제한(`buildable_terrains`) + 건물∪부대 시야. 기타 건물 = 마을회관 인접.
 - 병영 등 군사 체인, 필요직업/인원(직업 클래스)은 아직 **미구현**.
 
 ### 성벽 (`WALL_COST`)
@@ -116,9 +117,11 @@
 
 - [정상] `get_type("camp")`에 `label`·`vision`·`resources`·외형 색상 키가 모두 존재
 - [정상] `get_type("camp").vision == 5`, `label == "캠프"`, `footprint == 7`, 자원 7종(인구 10 포함)
-- [정상] `get_type("farm").label == "농장"`, `vision == 4`, `footprint == 7`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
-- [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {목재5, 밀5}`, `demolish_refund == {목재1}`, `required_pop == 2`, `production == {밀1}`
-- [정상] 필요인원 — `farm.required_pop == 2`, `lumberjack.required_pop == 1`, `quarry.required_pop == 1`, `house`·`camp`·`town_hall`·`castle`는 0(빈/미정의)
+- [정상] `get_type("farm").label == "농장"`, `vision == 4`, `footprint == 1`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
+- [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {목재5, 밀5}`, `demolish_refund == {목재1}`, `required_pop == 0`, `production == {}`(flat 없음 — [1차 생산](../features/production.md))
+- [정상] 1차 생산 — `farm`: `primary_production==true`, `produces=="밀"`, `buildable_terrains==[초원]`; `lumberjack`: `primary_production==true`, `produces=="나무"`, `buildable_terrains==[숲]`, `production=={}`
+- [정상] 필요인원 — `farm.required_pop == 0`, `lumberjack.required_pop == 0`(1차 생산은 가변 배치), `quarry.required_pop == 1`(flat 유지), `house`·`camp`·`town_hall`·`castle`는 0
+- [경계] 비-생산 건물 — `house`·`quarry`·`camp`: `primary_production` false/미정의, `produces==""`, `buildable_terrains==[]`
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 밀10}`, `demolish_refund == {목재2}`
 - [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 석재4}`, `pop_cap == 2`, `production` 없음(생산 아님), 외형 색상 키 존재
 - [정상] 인구 상한 티어 — `camp.pop_cap == 0`, `town_hall.pop_cap == 10`, `castle.pop_cap == 20`, `house.pop_cap == 2`

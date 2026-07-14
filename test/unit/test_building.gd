@@ -80,6 +80,54 @@ func test_gate_broken_requires_wall_and_zero_hp() -> void:
 	building.gate_hp = 0
 	assert_false(building.gate_broken(), "성벽 없으면 성문 무의미")
 
+# --- 1차 생산 (생산포인트) → docs/spec/features/production.md ---
+
+func _lumberjack() -> void:
+	building.setup(terrain, _center(), "lumberjack")
+
+func test_production_defaults() -> void:
+	_lumberjack()
+	assert_eq(building.production_points, 0, "PP 기본 0")
+	assert_eq(building.workers, 0, "인원 기본 0")
+	assert_true(building.is_primary_production(), "벌목소는 1차 생산")
+	assert_eq(building.produces(), "나무", "산출 나무")
+	assert_eq(building.buildable_terrains(), [Terrain.FOREST], "숲에만")
+
+func test_tick_production_accrues() -> void:
+	_lumberjack()
+	building.workers = 3
+	var out: Array = []
+	for i in 5:
+		out.append(building.tick_production(5))
+	assert_eq(out, [0, 1, 0, 1, 1], "3명·거리5 5턴 산출 [0,1,0,1,1]")
+	assert_eq(building.production_points, 0, "5턴 후 PP 0")
+
+func test_tick_production_multi_per_turn() -> void:
+	_lumberjack()
+	building.workers = 5
+	assert_eq(building.tick_production(2), 2, "5명·거리2 → 한 턴 2 산출")
+	assert_eq(building.production_points, 1, "PP 5→1")
+
+func test_tick_production_guards() -> void:
+	_lumberjack()
+	assert_eq(building.tick_production(5), 0, "인원 0 → 산출 0")
+	assert_eq(building.production_points, 0, "PP 불변")
+	building.workers = 3
+	assert_eq(building.tick_production(0), 0, "거리 0 → 0(방어)")
+
+func test_production_rate() -> void:
+	_lumberjack()
+	building.workers = 3
+	assert_almost_eq(building.production_rate(5), 0.6, 0.001, "인원3÷거리5 = 0.6")
+	assert_eq(building.production_rate(0), 0.0, "거리 0 → 0")
+
+func test_non_production_building() -> void:
+	_camp()
+	assert_false(building.is_primary_production(), "캠프는 1차 생산 아님")
+	assert_eq(building.produces(), "", "산출 없음")
+	assert_eq(building.buildable_terrains(), [], "지형 제한 없음")
+	assert_eq(building.tick_production(5), 0, "생산 없음 → tick 0")
+
 # --- 점유 영역 ---
 
 func test_occupies_seven_hexes() -> void:
@@ -149,12 +197,13 @@ func test_farm_under_construction() -> void:
 	assert_eq(building.production(), {}, "건설 중엔 생산 없음")
 
 func test_advance_construction_completes_on_last_turn() -> void:
-	building.setup(terrain, _center(), "farm", true)
+	building.setup(terrain, _center(), "quarry", true)   # flat 생산 건물(채석장, build_turns 4)로 완성-생산 검증
 	assert_false(building.advance_construction(), "1턴: 아직 미완성")
 	assert_false(building.advance_construction(), "2턴: 아직 미완성")
-	assert_true(building.advance_construction(), "3턴: 완성되는 호출만 true")
+	assert_false(building.advance_construction(), "3턴: 아직 미완성")
+	assert_true(building.advance_construction(), "4턴: 완성되는 호출만 true")
 	assert_true(building.is_complete(), "완성됨")
-	assert_eq(building.production(), {"밀": 1}, "완성 후 생산 시작")
+	assert_eq(building.production(), {"석재": 2}, "완성 후 생산 시작")
 
 func test_refund_on_demolish_complete_uses_salvage() -> void:
 	building.setup(terrain, _center(), "farm")   # 완성
@@ -176,18 +225,22 @@ func test_advance_construction_on_complete_is_noop() -> void:
 
 # --- 완성 시 생산량 (planned_production) — 건설 여부와 무관 ---
 
-func test_planned_production_farm_complete() -> void:
+func test_planned_production_quarry_complete() -> void:
+	building.setup(terrain, _center(), "quarry")
+	assert_eq(building.planned_production(), {"석재": 2}, "완성 채석장 생산 = 석재 2")
+
+func test_primary_production_has_no_flat_production() -> void:
 	building.setup(terrain, _center(), "farm")
-	assert_eq(building.planned_production(), {"밀": 1}, "완성 농장 완성 시 생산 = 밀 1")
+	assert_eq(building.planned_production(), {}, "1차 생산(농장)은 flat production 없음")
 
 func test_planned_production_camp_empty() -> void:
 	_camp()
 	assert_eq(building.planned_production(), {}, "캠프는 생산 없음")
 
 func test_planned_production_ignores_construction() -> void:
-	building.setup(terrain, _center(), "farm", true)
+	building.setup(terrain, _center(), "quarry", true)
 	assert_eq(building.production(), {}, "건설 중 production은 빈 Dictionary")
-	assert_eq(building.planned_production(), {"밀": 1}, "건설 중에도 완성 시 생산은 밀 1")
+	assert_eq(building.planned_production(), {"석재": 2}, "건설 중에도 완성 시 생산은 석재 2")
 
 # --- 인구 상한 기여 (pop_cap) ---
 
@@ -244,12 +297,12 @@ func test_demolish_refund_same_under_construction() -> void:
 # --- 필요인원 (required_pop) ---
 
 func test_required_pop_by_type() -> void:
-	building.setup(terrain, _center(), "farm")
-	assert_eq(building.required_pop(), 2, "농장 필요인원 2")
+	building.setup(terrain, _center(), "quarry")
+	assert_eq(building.required_pop(), 1, "채석장 필요인원 1(flat 유지)")
 	var lumber = load("res://scenes/building/building.gd").new()
 	add_child_autofree(lumber)
 	lumber.setup(terrain, Vector2i(30, 30), "lumberjack")
-	assert_eq(lumber.required_pop(), 1, "벌목소 필요인원 1")
+	assert_eq(lumber.required_pop(), 0, "벌목소 필요인원 0(1차 생산 가변 배치)")
 	var house = load("res://scenes/building/building.gd").new()
 	add_child_autofree(house)
 	house.setup(terrain, Vector2i(10, 10), "house")

@@ -133,7 +133,7 @@ func test_demolish_removes_and_refunds() -> void:
 	t.demolish(farm)
 	assert_false(farm in t.buildings, "철거된 건물은 buildings에서 빠짐")
 	assert_null(farm.territory, "farm.territory == null")
-	assert_eq(t.resources["인구"], 7, "노동력 반환 +2(required_pop)")
+	assert_eq(t.resources["인구"], 5, "농장(1차 생산)은 required_pop 0 — 노동력 반환 없음")
 	assert_eq(t.resources["목재"], 1, "자재 환급 +1(demolish_refund)")
 
 func test_demolish_under_construction_refunds_partial_build_cost() -> void:
@@ -145,7 +145,7 @@ func test_demolish_under_construction_refunds_partial_build_cost() -> void:
 	t.demolish(farm)
 	assert_eq(t.resources["목재"], 3, "건설 중 부분 환급 목재 3(build_cost 비례)")
 	assert_eq(t.resources["밀"], 3, "건설 중 부분 환급 밀 3")
-	assert_eq(t.resources["인구"], 7, "노동력은 전액 반환 +2")
+	assert_eq(t.resources["인구"], 5, "농장은 required_pop 0 — 노동력 반환 없음")
 
 func test_demolish_creates_missing_resource_key() -> void:
 	var t := _territory("파리", {})  # 목재·인구 키 없음
@@ -167,7 +167,7 @@ func test_build_pay_farm_deducts_cost_and_labor() -> void:
 	t.build_pay("farm")
 	assert_eq(t.resources["목재"], 15, "목재 5 차감")
 	assert_eq(t.resources["밀"], 45, "밀 5 차감")
-	assert_eq(t.resources["인구"], 8, "필요인원 2 고용(인구 -2)")
+	assert_eq(t.resources["인구"], 10, "농장(1차 생산)은 required_pop 0 — 인구 차감 없음")
 
 func test_build_pay_quarry_employs_one() -> void:
 	var t := _territory("파리", {"인구": 10, "목재": 20})

@@ -25,7 +25,7 @@ func test_farm_spec_values() -> void:
 	var spec: Dictionary = types.get_type("farm")
 	assert_eq(spec["label"], "농장", "라벨은 농장")
 	assert_eq(spec["vision"], 4, "시야 4")
-	assert_eq(spec["footprint"], 7, "농장 footprint 7헥스")
+	assert_eq(spec["footprint"], 1, "농장 footprint 1헥스")
 	for key in ["fill_color", "edge_color", "tent_color"]:
 		assert_true(spec.has(key), "farm 외형 색상 %s 키 존재" % key)
 
@@ -68,7 +68,10 @@ func test_lumberjack_spec() -> void:
 	assert_eq(spec["footprint"], 1, "벌목소 footprint 1헥스")
 	assert_eq(spec["build_turns"], 3, "벌목소 필요 턴 3")
 	assert_eq(spec["build_cost"], {"목재": 5, "석재": 5}, "벌목소 필요 자원")
-	assert_eq(spec["production"], {"나무": 2}, "벌목소 턴당 나무 2")
+	assert_eq(spec.get("production", {}).size(), 0, "벌목소 flat 생산 없음(1차 생산)")
+	assert_true(spec.get("primary_production", false), "벌목소는 1차 생산")
+	assert_eq(spec.get("produces", ""), "나무", "벌목소 산출 나무")
+	assert_eq(spec.get("buildable_terrains", []), [Terrain.FOREST], "벌목소는 숲에만")
 
 func test_quarry_spec() -> void:
 	var spec: Dictionary = types.get_type("quarry")
@@ -105,8 +108,10 @@ func test_castle_spec() -> void:
 
 func test_prerequisite_fields() -> void:
 	assert_eq(types.get_type("camp").get("prerequisite", ""), "", "캠프는 선행 없음")
-	for id in ["castle", "farm", "house", "lumberjack"]:
+	for id in ["castle", "house"]:
 		assert_eq(types.get_type(id)["prerequisite"], "town_hall", "%s 선행 = 마을회관" % id)
+	for id in ["farm", "lumberjack", "quarry"]:
+		assert_eq(types.get_type(id)["prerequisite"], "camp", "%s 선행 = 캠프(1차 생산/부트스트랩)" % id)
 
 # --- 건설 · 경제 ---
 
@@ -115,13 +120,16 @@ func test_farm_economy() -> void:
 	assert_eq(spec["build_turns"], 3, "농장 필요 턴 3")
 	assert_eq(spec["build_cost"], {"목재": 5, "밀": 5}, "농장 필요 자재(인구는 required_pop으로 이동)")
 	assert_eq(spec["demolish_refund"], {"목재": 1}, "농장 파괴 환산(자재만)")
-	assert_eq(spec["required_pop"], 2, "농장 필요인원 2")
-	assert_eq(spec["production"], {"밀": 1}, "농장 턴당 생산")
+	assert_eq(spec.get("required_pop", 0), 0, "농장 필요인원 0(1차 생산 가변 배치)")
+	assert_eq(spec.get("production", {}).size(), 0, "농장 flat 생산 없음")
+	assert_true(spec.get("primary_production", false), "농장은 1차 생산")
+	assert_eq(spec.get("produces", ""), "밀", "농장 산출 밀")
+	assert_eq(spec.get("buildable_terrains", []), [Terrain.GRASS], "농장은 초원에만")
 
 func test_required_pop_fields() -> void:
-	assert_eq(types.get_type("farm")["required_pop"], 2, "농장 필요인원 2")
-	assert_eq(types.get_type("lumberjack")["required_pop"], 1, "벌목소 필요인원 1")
-	assert_eq(types.get_type("quarry")["required_pop"], 1, "채석장 필요인원 1")
+	assert_eq(types.get_type("farm").get("required_pop", 0), 0, "농장 필요인원 0(1차 생산)")
+	assert_eq(types.get_type("lumberjack").get("required_pop", 0), 0, "벌목소 필요인원 0(1차 생산)")
+	assert_eq(types.get_type("quarry")["required_pop"], 1, "채석장 필요인원 1(flat 유지)")
 	for id in ["camp", "town_hall", "castle", "house"]:
 		assert_eq(types.get_type(id).get("required_pop", 0), 0, "%s 필요인원 0" % id)
 

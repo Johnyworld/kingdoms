@@ -102,16 +102,18 @@ func test_item_disabled_when_low_population() -> void:
 	menu._on_build_pressed()
 	assert_true(_item(0).disabled, "인구 부족(0 < 1)이면 채석장 비활성")
 
-func test_farm_locked_at_camp_tier() -> void:
+func test_primary_active_house_locked_at_camp_tier() -> void:
 	menu.open(_center("camp"))  # 캠프 티어(마을회관 미만)
 	menu._on_build_pressed()
-	assert_true(_item(1).disabled, "캠프 티어면 농장 비활성")
-	assert_string_contains(_item(1).text, "선행: 마을회관", "선행 미충족 사유 표기")
+	assert_false(_item(1).disabled, "캠프 티어에서 농장(1차 생산) 활성")
+	assert_true(_item(2).disabled, "캠프 티어면 집 비활성(선행 마을회관)")
+	assert_string_contains(_item(2).text, "선행: 마을회관", "집 선행 미충족 사유 표기")
 
-func test_farm_active_at_town_hall_tier() -> void:
-	menu.open(_center("town_hall"))  # 마을회관 티어
+func test_house_active_at_town_hall_tier() -> void:
+	menu.open(_center("town_hall", {"인구": 10, "목재": 20, "석재": 20, "밀": 50}))  # 마을회관 티어 + 석재
 	menu._on_build_pressed()
-	assert_false(_item(1).disabled, "마을회관 티어면 농장 활성")
+	assert_false(_item(1).disabled, "마을회관 티어에서 농장 활성")
+	assert_false(_item(2).disabled, "마을회관 티어에서 집 활성")
 
 # --- 거점 업그레이드 버튼 ---
 

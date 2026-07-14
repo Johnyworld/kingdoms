@@ -86,8 +86,8 @@ func test_occupied_cells_one_building() -> void:
 
 func test_occupied_cells_two_disjoint_buildings() -> void:
 	var a := _building(_center(), "camp")
-	var b := _building(_center() + Vector2i(10, 0), "farm")  # 충분히 떨어져 안 겹침
-	assert_eq(BuildPlanner.occupied_cells([a, b]).size(), 14, "안 겹치는 건물 2개 = 14셀")
+	var b := _building(_center() + Vector2i(10, 0), "town_hall")  # 충분히 떨어져 안 겹침(둘 다 footprint 7)
+	assert_eq(BuildPlanner.occupied_cells([a, b]).size(), 14, "안 겹치는 거점 2개 = 14셀")
 
 func test_occupied_cells_empty() -> void:
 	assert_eq(BuildPlanner.occupied_cells([]).size(), 0, "건물 없으면 빈 집합")
@@ -127,12 +127,12 @@ func test_can_place_one_hex_ignores_neighbors() -> void:
 # --- prerequisite_met (거점 티어 기준) ---
 
 func test_prerequisite_camp_tier() -> void:
-	# 캠프 거점(tier 0): 채석장(선행 camp)은 참, 농장/집/벌목소(선행 town_hall)는 거짓.
+	# 캠프 거점(tier 0): 1차 생산(채석장·농장·벌목소, 선행 camp)은 참, 집(선행 town_hall)은 거짓.
 	var t := _territory_with(_building(_center(), "camp"))
 	assert_true(BuildPlanner.prerequisite_met(t, "quarry"), "채석장(선행 camp tier0) 충족")
-	assert_false(BuildPlanner.prerequisite_met(t, "farm"), "농장(선행 town_hall tier1) 미충족")
-	assert_false(BuildPlanner.prerequisite_met(t, "house"), "집 미충족")
-	assert_false(BuildPlanner.prerequisite_met(t, "lumberjack"), "벌목소 미충족")
+	assert_true(BuildPlanner.prerequisite_met(t, "farm"), "농장(선행 camp) 충족")
+	assert_true(BuildPlanner.prerequisite_met(t, "lumberjack"), "벌목소(선행 camp) 충족")
+	assert_false(BuildPlanner.prerequisite_met(t, "house"), "집(선행 town_hall tier1) 미충족")
 
 func test_prerequisite_town_hall_tier() -> void:
 	# 마을회관 거점(tier 1): 농장/집/벌목소 충족.
@@ -176,7 +176,7 @@ func test_can_build_false_short_materials() -> void:
 func test_can_build_false_prerequisite() -> void:
 	var camp := _building(_center(), "camp")
 	var t := _territory_with_res(camp, {"인구": 10, "목재": 20, "밀": 50})
-	assert_false(BuildPlanner.can_build(t, "farm"), "캠프 티어(마을회관 미만)면 농장 불가(선행)")
+	assert_false(BuildPlanner.can_build(t, "house"), "캠프 티어(마을회관 미만)면 집 불가(선행)")
 
 # --- can_upgrade (거점 티어 업그레이드) ---
 
@@ -204,3 +204,34 @@ func test_cannot_place_at_map_edge() -> void:
 	for c in BuildPlanner.footprint(terrain, edge):
 		vis[c] = true
 	assert_false(BuildPlanner.can_place(terrain, edge, MAP, MAP, vis, {}), "맵 가장자리는 이웃이 범위 밖 → 불가")
+
+# --- 지형 제한 배치 (1차 생산) → docs/spec/features/production.md ---
+
+func test_can_place_terrain_restricted() -> void:
+	var spot := Vector2i(10, 10)
+	var vis := {spot: true}
+	terrain.set_cell(spot, Terrain.FOREST, Terrain.ATLAS)
+	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1, [Terrain.FOREST]), "숲이면 벌목소 배치 가능")
+	terrain.set_cell(spot, Terrain.GRASS, Terrain.ATLAS)
+	assert_false(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1, [Terrain.FOREST]), "초원이면 벌목소 불가")
+
+func test_can_place_no_terrain_restriction() -> void:
+	var spot := Vector2i(10, 10)
+	var vis := {spot: true}
+	terrain.set_cell(spot, Terrain.GRASS, Terrain.ATLAS)
+	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1, []), "제한 없으면 지형 무관")
+
+# --- 마을회관 인접 셀 (비-생산 건물 배치) ---
+
+func test_town_hall_adjacent_cells() -> void:
+	var th := _building(_center(), "town_hall")   # footprint 7
+	var cells: Dictionary = BuildPlanner.town_hall_adjacent_cells(terrain, [th], MAP, MAP)
+	assert_gt(cells.size(), 0, "마을회관 인접 셀 존재")
+	assert_false(cells.has(Vector2i(0, 0)), "먼 셀은 인접 아님")
+	for c in th.cells:
+		assert_false(cells.has(c), "footprint 셀 자체는 인접 집합에서 제외")
+
+func test_town_hall_adjacent_empty_for_camp_only() -> void:
+	var camp := _building(_center(), "camp")   # tier 0 < 마을회관
+	var cells: Dictionary = BuildPlanner.town_hall_adjacent_cells(terrain, [camp], MAP, MAP)
+	assert_eq(cells.size(), 0, "캠프만 있으면 마을회관 인접 없음")

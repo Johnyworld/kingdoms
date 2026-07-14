@@ -34,6 +34,11 @@ var wall_hp := 0
 # 성문 내구도. 성벽 건설 시 Siege.GATE_MAX_HP로 채우고, 충차·투석으로 깎여 0이면 그 면 통로 개방(성벽 유지). → docs/spec/features/wall.md 성문
 var gate_hp := 0
 
+# 1차 생산 건물 상태. → docs/spec/features/production.md
+var production_points := 0   # 누적 생산포인트. 매 턴 += workers, ≥ 거리면 자원 산출·차감.
+var workers := 0             # 배치 인원(0-5). 배정 거점 영지 인구에서 차출. 생산력 = workers ÷ 거리.
+var assigned_center = null   # 인원 차출·자원 산출·거리 측정 대상 거점(Building). 건설 시 최근접 자동, 변경 가능.
+
 # 미지정/알 수 없는 종류일 때의 중립 폴백 색(캠프로 위장하지 않도록 회색).
 const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
 const FALLBACK_EDGE := Color(0.3, 0.3, 0.3)
@@ -106,7 +111,36 @@ func gate_broken() -> bool:
 func label() -> String:
 	return _spec.get("label", "")
 
+## 1차 생산 건물인지(카탈로그 primary_production). 배치 규칙·생산포인트 경로 게이트. → production.md
+func is_primary_production() -> bool:
+	return _spec.get("primary_production", false)
+
+## 산출 자원 id(카탈로그 produces, 아니면 ""). 벌목소="나무", 농장="밀".
+func produces() -> String:
+	return _spec.get("produces", "")
+
+## 건설 가능 지형 source_id 리스트(카탈로그 buildable_terrains, 없으면 []=제한 없음). → Terrain
+func buildable_terrains() -> Array:
+	return _spec.get("buildable_terrains", [])
+
+## 매 턴 생산포인트를 인원만큼 올리고, distance마다 자원 1 산출(PP 차감). 산출 수 반환. → production.md
+## workers≤0·distance≤0·produces()==""면 0(no-op). 인원≥거리면 한 턴 여러 개.
+func tick_production(distance: int) -> int:
+	if workers <= 0 or distance <= 0 or produces() == "":
+		return 0
+	production_points += workers
+	var produced := 0
+	while production_points >= distance:
+		production_points -= distance
+		produced += 1
+	return produced
+
+## 생산력 표시값 = workers / distance(턴당 자원, 소수). distance≤0이면 0.
+func production_rate(distance: int) -> float:
+	return 0.0 if distance <= 0 else float(workers) / float(distance)
+
 ## 종류의 턴당 생산량(자원명→수량). 건설 중에는 빈 Dictionary(생산 없음).
+## 1차 생산 건물은 flat production 키가 없어 {} — 생산포인트 경로만 쓴다. → production.md
 ## 완성 후 없으면 빈 Dictionary(캠프 등). 턴 종료 시 영지 수입(Territory.collect_income)에 쓰인다.
 func production() -> Dictionary:
 	if under_construction:

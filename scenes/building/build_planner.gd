@@ -76,7 +76,8 @@ static func occupied_cells(buildings: Array) -> Dictionary:
 ## center에 건물을 놓을 수 있는지. footprint 7헥스가 모두
 ## ① 맵 범위 [0, map_w) x [0, map_h) 안 ② 시야(vision_cells) 안 ③ occupied(기존 건물 점유 셀)와 미겹침
 ## 이면 참. 하나라도 위반하면 거짓(맵 가장자리라 이웃이 범위를 벗어나면 배치 불가).
-static func can_place(terrain: TileMapLayer, center: Vector2i, map_w: int, map_h: int, vision_cells: Dictionary, occupied: Dictionary, hexes := 7) -> bool:
+## buildable_terrains(비어 있지 않으면)면 footprint 각 셀의 지형(get_cell_source_id)이 그 리스트에 들어야 한다(1차 생산 지형 제한). → production.md
+static func can_place(terrain: TileMapLayer, center: Vector2i, map_w: int, map_h: int, vision_cells: Dictionary, occupied: Dictionary, hexes := 7, buildable_terrains := []) -> bool:
 	for c in footprint(terrain, center, hexes):
 		if c.x < 0 or c.x >= map_w or c.y < 0 or c.y >= map_h:
 			return false
@@ -84,4 +85,28 @@ static func can_place(terrain: TileMapLayer, center: Vector2i, map_w: int, map_h
 			return false
 		if occupied.has(c):
 			return false
+		if not buildable_terrains.is_empty() and not (terrain.get_cell_source_id(c) in buildable_terrains):
+			return false
 	return true
+
+## 완성 거점(티어 ≥ 마을회관 = 마을회관·성)의 footprint에 인접한 셀 집합 { cell: true }.
+## 비-생산 건물은 여기(마을회관 인접)에만 지을 수 있다. footprint 셀 자체와 맵 밖은 제외. → production.md 배치 규칙
+static func town_hall_adjacent_cells(terrain: TileMapLayer, buildings: Array, map_w: int, map_h: int) -> Dictionary:
+	var own := {}       # 거점 footprint 셀(인접 집합에서 제외)
+	var centers := []
+	for b in buildings:
+		if b.is_complete() and BuildingTypes.is_center(b.building_type) \
+				and BuildingTypes.center_tier(b.building_type) >= BuildingTypes.center_tier("town_hall"):
+			centers.append(b)
+			for c in b.cells:
+				own[c] = true
+	var adj := {}
+	for b in centers:
+		for c in b.cells:
+			for n in terrain.get_surrounding_cells(c):
+				if n.x < 0 or n.x >= map_w or n.y < 0 or n.y >= map_h:
+					continue
+				if own.has(n):
+					continue
+				adj[n] = true
+	return adj

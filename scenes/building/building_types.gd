@@ -105,18 +105,19 @@ const CATALOG := {
 	"farm": {
 		"label": "농장",
 		"vision": 4,
-		"footprint": 7,
-		"prerequisite": "town_hall",
+		"footprint": 1,
+		"prerequisite": "camp",   # 1차 생산은 캠프부터(배치 규칙). → production.md
 		# 외형(녹색 밭 계열). 농장 전용 렌더링은 Phase 2에서 다듬는다.
 		"fill_color": Color(0.45, 0.62, 0.28, 0.9),
 		"edge_color": Color(0.28, 0.4, 0.16),
 		"tent_color": Color(0.85, 0.78, 0.5),
-		# 건설 · 경제 (Phase 2에서 사용).
 		"build_turns": 3,
 		"build_cost": {"목재": 5, "밀": 5},
 		"demolish_refund": {"목재": 1},
-		"required_pop": 2,   # 농부 2명(노동력). 원래 build_cost의 인구2를 재분류.
-		"production": {"밀": 1},
+		# 1차 생산: 초원 위에 지어 생산포인트(인원÷거리)로 밀을 캔다. flat production·required_pop 없음. → production.md
+		"primary_production": true,
+		"produces": "밀",
+		"buildable_terrains": [Terrain.GRASS],
 	},
 	# --- 소형 생산 건물(footprint 1). 필요직업/인원은 미구현(다음 슬라이스). ---
 	"house": {
@@ -138,7 +139,7 @@ const CATALOG := {
 		"label": "벌목소",
 		"vision": 3,
 		"footprint": 1,
-		"prerequisite": "town_hall",
+		"prerequisite": "camp",   # 1차 생산은 캠프부터(배치 규칙). → production.md
 		# 외형(짙은 녹갈색 계열).
 		"fill_color": Color(0.4, 0.5, 0.28, 0.9),
 		"edge_color": Color(0.24, 0.3, 0.15),
@@ -146,8 +147,10 @@ const CATALOG := {
 		"build_turns": 3,
 		"build_cost": {"목재": 5, "석재": 5},
 		"demolish_refund": {"목재": 1},
-		"required_pop": 1,   # 나뭇꾼 1명(노동력).
-		"production": {"나무": 2},
+		# 1차 생산: 숲 위에 지어 생산포인트(인원÷거리)로 나무를 캔다. → production.md
+		"primary_production": true,
+		"produces": "나무",
+		"buildable_terrains": [Terrain.FOREST],
 	},
 	"quarry": {
 		"label": "채석장",
