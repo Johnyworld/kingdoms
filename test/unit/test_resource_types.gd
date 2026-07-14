@@ -7,6 +7,11 @@ func test_value_sellable_resources() -> void:
 	assert_eq(ResourceTypes.value("목재"), 2, "목재 판매가 2")
 	assert_eq(ResourceTypes.value("철"), 5, "철 판매가 5")
 
+func test_value_primary_production_resources() -> void:
+	assert_eq(ResourceTypes.value("고기"), 2, "고기 판매가 2(사냥터)")
+	assert_eq(ResourceTypes.value("생선"), 2, "생선 판매가 2(낚시터)")
+	assert_eq(ResourceTypes.value("은"), 8, "은 판매가 8(은광, 희소)")
+
 func test_value_non_sellable() -> void:
 	assert_eq(ResourceTypes.value("인구"), 0, "인구는 판매 불가(0)")
 	assert_eq(ResourceTypes.value("금"), 0, "금은 화폐, 판매 불가(0)")

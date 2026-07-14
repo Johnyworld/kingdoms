@@ -43,7 +43,12 @@
 | `farm` | 3 | 목재 5 / 밀 5 | 목재 1 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 밀`, `buildable_terrains [초원]`, footprint 1. 생산포인트(인원÷거리) |
 | `house` | 4 | 목재 8 / 석재 4 | 목재 2 | 0 | 2 | (없음) | **인구 상한 `pop_cap +2`**(생산 아님) |
 | `lumberjack` | 3 | 목재 5 / 석재 5 | 목재 1 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 나무`, `buildable_terrains [숲]`, footprint 1. 생산포인트 |
-| `quarry` | 4 | 목재 10 | 목재 2 | 1 | — | 석재 2 (턴당) | 채석꾼 1명(노동력). **flat 유지**(슬라이스 2에서 1차 생산 전환) |
+| `quarry` | 4 | 목재 10 | 목재 2 | 1 | — | 석재 2 (턴당) | 채석꾼 1명(노동력). **flat 유지**(1차 생산 전환은 가공 건물 슬라이스와 함께 보류) |
+| `hunting_ground` | 3 | 목재 10 | 목재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 고기`, `buildable_terrains [동물]` |
+| `fishing_spot` | 3 | 목재 10 | 목재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 생선`, `[물가]` |
+| `iron_mine` | 5 | 목재 15 / 석재 10 | 목재 2 / 석재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 철`, `[철맥]` |
+| `gold_mine` | 6 | 목재 15 / 석재 15 | 목재 2 / 석재 3 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 금`, `[금맥]` |
+| `silver_mine` | 5 | 목재 15 / 석재 12 | 목재 2 / 석재 2 | 0 | — | (없음) | **[1차 생산](../features/production.md)** — `produces 은`, `[은맥]` |
 | `siege_workshop` | 6 | 목재 20 / 석재 20 | 목재 4 / 석재 4 | 2 | — | (없음) | 장인 2명(노동력). 완성 시 그 영지 거점에서 [투석기 생산](../features/siege-engines.md) 해금 |
 
 > **마을회관 값은 테이블에서 조정됨(플레이성/부트스트랩)**: 테이블 원본은 `build_turns 15 / 목재30·석재20·밀20`. 시작 자원(목재 20, 석재 0)만으로는 도달 불가하므로, 시작 → 채석장으로 석재 확보 → 마을회관 건설이 가능하도록 `build_turns 8 / 목재10·석재10·밀20`으로 낮췄다. 경제 밸런스가 갖춰지면 재조정한다.

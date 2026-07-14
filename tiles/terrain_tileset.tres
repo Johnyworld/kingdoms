@@ -1,10 +1,16 @@
-[gd_resource type="TileSet" load_steps=11 format=3]
+[gd_resource type="TileSet" load_steps=23 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/tiles/grass_hex.svg" id="1_grass"]
 [ext_resource type="Texture2D" path="res://assets/tiles/forest_hex.svg" id="2_forest"]
 [ext_resource type="Texture2D" path="res://assets/tiles/swamp_hex.svg" id="3_swamp"]
 [ext_resource type="Texture2D" path="res://assets/tiles/mountain_hex.svg" id="4_mountain"]
 [ext_resource type="Texture2D" path="res://assets/tiles/desert_hex.svg" id="5_desert"]
+[ext_resource type="Texture2D" path="res://assets/tiles/stone_hex.svg" id="6_stone"]
+[ext_resource type="Texture2D" path="res://assets/tiles/animal_hex.svg" id="7_animal"]
+[ext_resource type="Texture2D" path="res://assets/tiles/water_hex.svg" id="8_water"]
+[ext_resource type="Texture2D" path="res://assets/tiles/iron_vein_hex.svg" id="9_iron"]
+[ext_resource type="Texture2D" path="res://assets/tiles/gold_vein_hex.svg" id="10_gold"]
+[ext_resource type="Texture2D" path="res://assets/tiles/silver_vein_hex.svg" id="11_silver"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_grass"]
 texture = ExtResource("1_grass")
@@ -31,6 +37,36 @@ texture = ExtResource("5_desert")
 texture_region_size = Vector2i(64, 46)
 0:0/0 = 0
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_stone"]
+texture = ExtResource("6_stone")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_animal"]
+texture = ExtResource("7_animal")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_water"]
+texture = ExtResource("8_water")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_iron"]
+texture = ExtResource("9_iron")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_gold"]
+texture = ExtResource("10_gold")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_silver"]
+texture = ExtResource("11_silver")
+texture_region_size = Vector2i(64, 46)
+0:0/0 = 0
+
 [resource]
 tile_shape = 3
 tile_layout = 0
@@ -41,3 +77,9 @@ sources/1 = SubResource("TileSetAtlasSource_forest")
 sources/2 = SubResource("TileSetAtlasSource_swamp")
 sources/3 = SubResource("TileSetAtlasSource_mountain")
 sources/4 = SubResource("TileSetAtlasSource_desert")
+sources/5 = SubResource("TileSetAtlasSource_stone")
+sources/6 = SubResource("TileSetAtlasSource_animal")
+sources/7 = SubResource("TileSetAtlasSource_water")
+sources/8 = SubResource("TileSetAtlasSource_iron")
+sources/9 = SubResource("TileSetAtlasSource_gold")
+sources/10 = SubResource("TileSetAtlasSource_silver")

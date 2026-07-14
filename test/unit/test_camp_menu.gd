@@ -86,7 +86,7 @@ func test_build_list_five_items_quarry_active() -> void:
 	menu.open(_center("camp"))  # 캠프 티어
 	menu._on_build_pressed()
 	assert_true(menu._build_list.visible, "건축 후 리스트 표시")
-	assert_eq(menu._build_list.get_child_count(), 5, "건축 가능 5종(거점 제외, 공성 작업장 포함)")
+	assert_eq(menu._build_list.get_child_count(), 10, "건축 가능 10종(1차 생산 5 신규 포함, 거점 제외)")
 	assert_false(_item(0).disabled, "채석장(선행 camp)은 캠프 티어부터 활성")
 
 func test_item_text_has_label_and_cost() -> void:

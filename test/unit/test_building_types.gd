@@ -15,9 +15,9 @@ func test_camp_spec_values() -> void:
 	assert_eq(spec["label"], "캠프", "라벨은 캠프")
 	assert_eq(spec["vision"], 5, "시야 5")
 	assert_eq(spec["footprint"], 7, "캠프 footprint 7헥스")
-	# 캠프 resources = 생성 영지 초기 자원(인구·금·석재 포함 9종).
-	var expected := {"인구": 10, "밀": 50, "빵": 20, "나무": 20, "목재": 40, "석재": 30, "철": 10, "철괴": 10, "금": 0}
-	assert_eq(spec["resources"].size(), expected.size(), "자원 9종")
+	# 캠프 resources = 생성 영지 초기 자원(인구·금·석재 + 고기·생선·은 = 12종).
+	var expected := {"인구": 10, "밀": 50, "빵": 20, "나무": 20, "목재": 40, "석재": 30, "철": 10, "철괴": 10, "금": 0, "고기": 0, "생선": 0, "은": 0}
+	assert_eq(spec["resources"].size(), expected.size(), "자원 12종")
 	for key in expected:
 		assert_eq(spec["resources"].get(key), expected[key], "%s 초기값" % key)
 
@@ -156,7 +156,25 @@ func test_is_center() -> void:
 		assert_false(types.is_center(id), "%s는 거점 아님" % id)
 
 func test_buildable_ids() -> void:
-	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack", "siege_workshop"], "건축 가능 목록(거점 제외)")
+	assert_eq(types.BUILDABLE_IDS, ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "siege_workshop"], "건축 가능 목록(거점 제외)")
+
+func test_slice2_production_buildings() -> void:
+	# 5개 신규 1차 생산 건물(슬라이스 2) — 지형·산출·모델. → production.md
+	var cases := {
+		"hunting_ground": [Terrain.ANIMAL, "고기"],
+		"fishing_spot": [Terrain.WATER, "생선"],
+		"iron_mine": [Terrain.IRON_VEIN, "철"],
+		"gold_mine": [Terrain.GOLD_VEIN, "금"],
+		"silver_mine": [Terrain.SILVER_VEIN, "은"],
+	}
+	for id in cases:
+		var spec: Dictionary = types.get_type(id)
+		assert_true(spec.get("primary_production", false), "%s 1차 생산" % id)
+		assert_eq(spec.get("produces", ""), cases[id][1], "%s 산출 자원" % id)
+		assert_eq(spec.get("buildable_terrains", []), [cases[id][0]], "%s 건설 지형" % id)
+		assert_eq(spec.get("footprint"), 1, "%s footprint 1" % id)
+		assert_eq(spec.get("prerequisite"), "camp", "%s 선행 캠프" % id)
+		assert_eq(spec.get("production", {}).size(), 0, "%s flat 생산 없음" % id)
 	for id in ["camp", "town_hall", "castle"]:
 		assert_does_not_have(types.BUILDABLE_IDS, id, "거점 %s는 건축 목록 제외(업그레이드/새영지)" % id)
 

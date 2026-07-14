@@ -41,3 +41,20 @@ func test_labels() -> void:
 	assert_eq(Terrain.label(Terrain.FOREST), "숲")
 	assert_eq(Terrain.label(Terrain.MOUNTAIN), "산")
 	assert_eq(Terrain.label(-1), "초원", "알 수 없는 지형은 초원 라벨")
+
+# --- 1차 생산 지형(슬라이스 2) → docs/spec/features/production.md ---
+
+func test_production_terrain_ids_and_labels() -> void:
+	assert_eq(Terrain.STONE, 5, "돌 id 5")
+	assert_eq(Terrain.SILVER_VEIN, 10, "은맥 id 10")
+	assert_eq(Terrain.label(Terrain.STONE), "돌")
+	assert_eq(Terrain.label(Terrain.ANIMAL), "동물")
+	assert_eq(Terrain.label(Terrain.WATER), "물가")
+	assert_eq(Terrain.label(Terrain.IRON_VEIN), "철맥")
+	assert_eq(Terrain.label(Terrain.GOLD_VEIN), "금맥")
+	assert_eq(Terrain.label(Terrain.SILVER_VEIN), "은맥")
+
+func test_production_terrain_passable_and_normal_move() -> void:
+	for id in [Terrain.STONE, Terrain.ANIMAL, Terrain.WATER, Terrain.IRON_VEIN, Terrain.GOLD_VEIN, Terrain.SILVER_VEIN]:
+		assert_true(Terrain.is_passable(id), "1차 생산 지형 통행 가능: %d" % id)
+		assert_eq(Terrain.move_cap(id, 3), 3, "기본 이동(이동력 그대로): %d" % id)

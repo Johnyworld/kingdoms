@@ -15,6 +15,9 @@
 | 철 | 10 | 5 | |
 | 철괴 | 10 | 12 | |
 | 금 | 0 | — | **화폐**. [상거래](../features/trade.md)(판매)로만 획득(생산 없음). 영지 금고 — 부대 화물로 운반 안 함, 판매 대상도 아님 |
+| 고기 | 0 | 2 | [사냥터](../features/production.md) 산출(1차 생산, 슬라이스 2) |
+| 생선 | 0 | 2 | [낚시터](../features/production.md) 산출 |
+| 은 | 0 | 8 | [은광](../features/production.md) 산출(희소) |
 
 ## 자원 가치 카탈로그 (`ResourceTypes`)
 
@@ -28,6 +31,7 @@
 `test/unit/test_resource_types.gd`.
 
 - [정상] `ResourceTypes.value("철괴") == 12`, `value("밀") == 1`, `value("목재") == 2`
+- [정상] `value("고기") == 2`, `value("생선") == 2`, `value("은") == 8`(슬라이스 2 신규)
 - [예외] `value("인구") == 0`, `value("금") == 0`(판매 불가), 없는 자원 → `0`
 
 ## 관련

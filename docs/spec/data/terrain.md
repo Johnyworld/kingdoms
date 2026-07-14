@@ -14,6 +14,14 @@
 | 2 | `SWAMP` | 습지 | `swamp_hex.svg` | 이동력 **1/2 내림**(`floor`) |
 | 3 | `MOUNTAIN` | 산 | `mountain_hex.svg` | **진입·통과 불가** |
 | 4 | `DESERT` | 사막 | `desert_hex.svg` | 기본 (이동력 그대로) |
+| 5 | `STONE` | 돌 | `stone_hex.svg` | 기본 (채석장 지형) |
+| 6 | `ANIMAL` | 동물 | `animal_hex.svg` | 기본 (사냥터 지형) |
+| 7 | `WATER` | 물가 | `water_hex.svg` | 기본 (낚시터 지형 — 항해 규칙은 후속, 현재 통행 가능) |
+| 8 | `IRON_VEIN` | 철맥 | `iron_vein_hex.svg` | 기본 (철광 지형) |
+| 9 | `GOLD_VEIN` | 금맥 | `gold_vein_hex.svg` | 기본 (금광 지형) |
+| 10 | `SILVER_VEIN` | 은맥 | `silver_vein_hex.svg` | 기본 (은광 지형) |
+
+> id 5~10은 [1차 생산 건물](../features/production.md)의 `buildable_terrains` 대상(슬라이스 2). 텍스처는 임시 플레이스홀더 SVG. 전부 통행 가능·기본 이동(산만 예외).
 
 ## 이동 규칙 (`move_cap`)
 
@@ -45,6 +53,6 @@
 
 ## 미구현 / TODO
 
-- **맵 생성기**: 현재는 시작 지점 근처에 방향별 소규모 덩어리(서=숲·동=습지·북=사막·남=산)만 고정 배치([map-and-camera.md](../features/map-and-camera.md)). 맵 전역 절차적 생성·바이옴 규칙은 미구현.
+- **맵 생성기**: 현재는 시작 지점 근처에 방향별 소규모 덩어리(서=숲·동=습지·북=사막·남=산 + 1차 생산 지형 6종 흩뿌림)만 고정 배치([map-and-camera.md](../features/map-and-camera.md)). 맵 전역 절차적 생성·바이옴 규칙은 미구현.
 - **시야 차단**: 산이 시야를 가리는 규칙은 없음(이동만 막는다).
 - **자원/생산 연계**: 지형별 자원 산출·건설 가능 지형 제한 등은 미구현.

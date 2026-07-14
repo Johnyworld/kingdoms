@@ -27,7 +27,7 @@ static func next_center(type_id: String) -> String:
 
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 거점(캠프·마을회관·성)은 제외 — 캠프=새 영지(미구현), 마을회관·성=업그레이드.
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
-const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack", "siege_workshop"]
+const BUILDABLE_IDS := ["quarry", "farm", "house", "lumberjack", "hunting_ground", "fishing_spot", "iron_mine", "gold_mine", "silver_mine", "siege_workshop"]
 
 # 거점 성벽 1단계 건설 비용(자재). 성벽은 카탈로그 건물이 아니라 거점에 붙는 값(Building.wall_level). → docs/spec/features/wall.md
 const WALL_COST := {"목재": 15, "석재": 10}
@@ -60,6 +60,9 @@ const CATALOG := {
 			"철": 10,
 			"철괴": 10,
 			"금": 0,   # 화폐. 판매로만 늘어난다(생산 없음).
+			"고기": 0,   # 사냥터 산출(1차 생산, 슬라이스 2)
+			"생선": 0,   # 낚시터 산출
+			"은": 0,     # 은광 산출
 		},
 		# 외형.
 		"fill_color": Color(0.52, 0.38, 0.24, 0.9),  # 부지(흙색)
@@ -165,7 +168,83 @@ const CATALOG := {
 		"build_cost": {"목재": 10},
 		"demolish_refund": {"목재": 2},
 		"required_pop": 1,   # 채석꾼 1명(노동력).
-		"production": {"석재": 2},
+		"production": {"석재": 2},   # flat 유지(1차 생산 전환은 가공 건물 슬라이스와 함께 보류). → production.md
+	},
+	# --- 1차 생산 건물(슬라이스 2). 생산포인트(인원÷거리)·지형 제한·캠프 선행. → docs/spec/features/production.md ---
+	"hunting_ground": {
+		"label": "사냥터",
+		"vision": 4,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.5, 0.55, 0.32, 0.9),
+		"edge_color": Color(0.3, 0.34, 0.18),
+		"tent_color": Color(0.72, 0.6, 0.4),
+		"build_turns": 3,
+		"build_cost": {"목재": 10},
+		"demolish_refund": {"목재": 2},
+		"primary_production": true,
+		"produces": "고기",
+		"buildable_terrains": [Terrain.ANIMAL],
+	},
+	"fishing_spot": {
+		"label": "낚시터",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.32, 0.5, 0.62, 0.9),
+		"edge_color": Color(0.2, 0.34, 0.44),
+		"tent_color": Color(0.7, 0.62, 0.45),
+		"build_turns": 3,
+		"build_cost": {"목재": 10},
+		"demolish_refund": {"목재": 2},
+		"primary_production": true,
+		"produces": "생선",
+		"buildable_terrains": [Terrain.WATER],
+	},
+	"iron_mine": {
+		"label": "철광",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.45, 0.46, 0.5, 0.9),
+		"edge_color": Color(0.28, 0.29, 0.33),
+		"tent_color": Color(0.66, 0.68, 0.72),
+		"build_turns": 5,
+		"build_cost": {"목재": 15, "석재": 10},
+		"demolish_refund": {"목재": 2, "석재": 2},
+		"primary_production": true,
+		"produces": "철",
+		"buildable_terrains": [Terrain.IRON_VEIN],
+	},
+	"gold_mine": {
+		"label": "금광",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.6, 0.52, 0.28, 0.9),
+		"edge_color": Color(0.4, 0.34, 0.16),
+		"tent_color": Color(0.9, 0.8, 0.4),
+		"build_turns": 6,
+		"build_cost": {"목재": 15, "석재": 15},
+		"demolish_refund": {"목재": 2, "석재": 3},
+		"primary_production": true,
+		"produces": "금",
+		"buildable_terrains": [Terrain.GOLD_VEIN],
+	},
+	"silver_mine": {
+		"label": "은광",
+		"vision": 3,
+		"footprint": 1,
+		"prerequisite": "camp",
+		"fill_color": Color(0.55, 0.57, 0.6, 0.9),
+		"edge_color": Color(0.36, 0.37, 0.4),
+		"tent_color": Color(0.82, 0.85, 0.9),
+		"build_turns": 5,
+		"build_cost": {"목재": 15, "석재": 12},
+		"demolish_refund": {"목재": 2, "석재": 2},
+		"primary_production": true,
+		"produces": "은",
+		"buildable_terrains": [Terrain.SILVER_VEIN],
 	},
 	# --- 공성 작업장: 완성 시 그 영지 거점에서 투석기 생산 해금. 턴당 생산 없음. → docs/spec/features/siege-engines.md ---
 	"siege_workshop": {

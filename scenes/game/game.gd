@@ -223,6 +223,13 @@ func _place_starting_terrain() -> void:
 	_paint_patches([center + Vector2i(6, -1), center + Vector2i(8, 2)], Terrain.SWAMP)      # 동쪽 습지
 	_paint_patches([center + Vector2i(0, -6), center + Vector2i(2, -7)], Terrain.DESERT)    # 북쪽 사막
 	_paint_patches([center + Vector2i(0, 7), center + Vector2i(-2, 8)], Terrain.MOUNTAIN)   # 남쪽 산
+	# 1차 생산 지형(슬라이스 2). 거점 주변에 흩어 배치 → 벌목소·농장 외 생산 건물 자리. → production.md
+	_paint_patches([center + Vector2i(-4, 4)], Terrain.STONE)        # 돌 → 채석장
+	_paint_patches([center + Vector2i(4, 5)], Terrain.ANIMAL)        # 동물 → 사냥터
+	_paint_patches([center + Vector2i(-5, -4)], Terrain.WATER)       # 물가 → 낚시터
+	_paint_patches([center + Vector2i(5, -5)], Terrain.IRON_VEIN)    # 철맥 → 철광
+	_paint_patches([center + Vector2i(8, -3)], Terrain.GOLD_VEIN)    # 금맥 → 금광
+	_paint_patches([center + Vector2i(-8, -2)], Terrain.SILVER_VEIN) # 은맥 → 은광
 
 ## 씨앗 칸들 각각을 중심으로 (씨앗 + 이웃 6칸)을 해당 지형으로 칠한다.
 func _paint_patches(seeds: Array, source_id: int) -> void:
