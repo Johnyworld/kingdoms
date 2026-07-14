@@ -133,3 +133,40 @@ func test_team_wiped_counts_structure() -> void:
 	# 구조물만 살아있으면 미전멸(성벽 안 부서짐), 투석기만 살아있으면 전멸(siege 제외).
 	assert_false(BattleField.team_wiped([_structure("b", Vector2.ZERO, "wall")], "b"), "성벽 살아있으면 미전멸")
 	assert_true(BattleField.team_wiped([_siege("b", Vector2.ZERO, "siege")], "b"), "투석기만 살아있으면 전멸")
+
+# --- firing_siege: 밴드 안 살아있는 공성 전투원(투석 순차 연출 발사·반격 판정) → battle.md ---
+
+func _band_siege(team: String, alive: bool, min_r: int, range_r: int, human = null) -> Dictionary:
+	var u := _unit(team, alive, Vector2.ZERO, human)
+	u["siege"] = true
+	u["min_range"] = min_r
+	u["range"] = range_r
+	return u
+
+func test_firing_siege_in_band_only() -> void:
+	# 팀 a의 살아있는 밴드(4~5) 안 투석기만 반환.
+	var cat := _band_siege("a", true, 4, 5, "cat")
+	var got := BattleField.firing_siege([cat], "a", 4)
+	assert_eq(got.size(), 1, "밴드 안 투석기 1대")
+	assert_eq(got[0]["human"], "cat", "그 투석기")
+
+func test_firing_siege_excludes_dead_other_team_structure_human() -> void:
+	var alive_cat := _band_siege("a", true, 4, 5, "cat")
+	var dead_cat := _band_siege("a", false, 4, 5, "dead")     # 죽음 — 제외
+	var enemy_cat := _band_siege("b", true, 4, 5, "enemy")    # 다른 팀 — 제외
+	var wall := _structure("a", Vector2.ZERO, "wall")         # 구조물 — siege 아님, 제외
+	var human := _unit("a", true, Vector2.ZERO, "human")      # 일반 유닛 — 제외
+	var got := BattleField.firing_siege([alive_cat, dead_cat, enemy_cat, wall, human], "a", 4)
+	assert_eq(got.size(), 1, "살아있는 그 팀 siege만")
+	assert_eq(got[0]["human"], "cat", "밴드 안 아군 투석기만")
+
+func test_firing_siege_excludes_out_of_band() -> void:
+	var cat := _band_siege("a", true, 4, 5, "cat")
+	assert_eq(BattleField.firing_siege([cat], "a", 3).size(), 0, "거리 3 < min 4 → 제외")
+	assert_eq(BattleField.firing_siege([cat], "a", 6).size(), 0, "거리 6 > fire 5 → 제외")
+
+func test_firing_siege_ram_band_one() -> void:
+	# 충차(밴드 1~1)는 distance 1이면 발사, distance 4면 제외.
+	var ram := _band_siege("a", true, 1, 1, "ram")
+	assert_eq(BattleField.firing_siege([ram], "a", 1).size(), 1, "충차는 거리 1에서 발사")
+	assert_eq(BattleField.firing_siege([ram], "a", 4).size(), 0, "거리 4는 충차 밴드 밖")

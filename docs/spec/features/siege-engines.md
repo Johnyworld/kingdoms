@@ -67,10 +67,11 @@
 
 ### battle.gd 통합 전투 — 투석기·구조물 전투원
 
-성벽·유닛 대상 **모두 `battle.gd` 통합 전투**로 처리한다(별도 폭격 씬 없음 — `SiegeBombard` 제거). `[투석]`이 헥스 거리(4~5)로 전투를 개시하며 **양 부대의 `siege_units`를 전투원으로 스폰**(`include_siege`)하고, 성벽 대상이면 **성벽을 구조물 전투원**으로 방어 팀에 스폰한다. 거리 게이트([Battle](battle.md#전투-모드-교전-거리distance))로 사거리 닿는 유닛만 싸우므로 **양쪽 투석기가 있으면 자연히 상호 반격**한다.
+성벽·유닛 대상 **모두 `battle.gd` 통합 전투**로 처리한다(별도 폭격 씬 없음 — `SiegeBombard` 제거). `[투석]`이 헥스 거리(투석기 4~5·충차 1)로 전투를 개시하며 **양 부대의 `siege_units`를 전투원으로 스폰**(`include_siege`)하고, 성벽/성문 대상이면 **성벽·성문을 구조물 전투원**으로 방어 팀에 스폰한다. 이 거리에서는 사람(`members`)이 사거리 게이트·표적 부재로 행동하지 않아 **공성 유닛·구조물만** 싸운다.
 
-- **투석기 전투원**: 사거리 밴드 4~5·공격 50·**전투당 1발**. 이동·근접 없이 `min_range ≤ distance ≤ fire_range`·미발사(`fired=false`)일 때만 발사.
-- **발사 = 광역 최대 `Siege.MAX_BOMBARD_TARGETS`(5)**: `BattleField.bombard_targets(unit, units, n)`로 **적 투석기(siege) 우선 → 유닛·구조물, 거리순** 최대 5 표적. 표적별 개별 명중 — **성벽 구조물은 항상 명중**(거대·부동, 회피 없음), 유닛은 `Siege.hit_succeeds(rng, CATAPULT_HIT_CHANCE)`(**0.1**, 낮음). 명중 시 `Siege.rolled_damage(attack 50, rng)`(30~70) **flat 피해**(방어구·회피·상성 무시, `resolve_hit` 안 탐). 발사 후 대기.
+- **순차 연출(공격자 선공 → 방어자 반격)**: [투석] 통합 전투는 프레임 시뮬·전투 타이머 대신 **스크립트 시퀀스**로 진행한다([Battle 투석 순차 연출](battle.md#투석-오버레이-순차-연출)). **공격측(a) 밴드 공성 유닛이 먼저 일제 발사** → 착탄(타격 판정) → `SIEGE_COUNTER_GAP`(0.5초) 뒤 **살아남은 방어측(b) 밴드 공성 유닛이 반격** → 마지막 착탄 +1초 후 종료. 발사 대상은 `BattleField.firing_siege(_units, team, distance)`(밴드 안 살아있는 siege). 이 순차 때문에 **공격자가 선제 이점**을 가진다(선공 볼리로 방어측 투석기가 전멸하면 반격 없음). 성벽·성문(구조물)은 반격하지 않는다. *(양측 투석기가 남으면 여전히 상호 반격 — 순서만 공격자→방어자.)*
+- **투석기 전투원**: 사거리 밴드 4~5·공격 50·**전투당 1발**. 이동·근접 없이 밴드 소속(`min_range ≤ distance ≤ fire_range`)일 때만 발사하며, 순차 연출이 각 진영을 정확히 1회 발사한다(발사 판정은 `_ranged_mode`가 아니라 밴드 소속 — 충차 밴드 1도 발사).
+- **발사 = 광역 최대 `Siege.MAX_BOMBARD_TARGETS`(5)**: `BattleField.bombard_targets(unit, units, n)`로 **적 투석기(siege) 우선 → 유닛·구조물, 거리순** 최대 5 표적. 표적별 개별 명중 — **성벽 구조물은 항상 명중**(거대·부동, 회피 없음), 유닛은 `Siege.hit_succeeds(rng, CATAPULT_HIT_CHANCE)`(**0.1**, 낮음). 명중 시 `Siege.rolled_damage(attack 50, rng)`(30~70) **flat 피해**(방어구·회피·상성 무시, `resolve_hit` 안 탐). **피해는 투사체 착탄 시점에 적용**(투석 볼리 투사체는 화살의 1/3 속도 `SIEGE_PROJECTILE_TIME` 0.72초).
 
 #### 성벽 구조물 전투원 (`game.gd._bombard_wall`)
 
@@ -89,7 +90,7 @@
 
 - **표적**: `BattleField.bombard_targets`(투석 볼리)만 투석기(siege)·성벽(structure)을 표적에 포함한다. `nearest_enemy`·`survivors`는 **siege·structure 제외**(일반 유닛은 사거리 부족으로 투석기·성벽을 못 침, 생존자는 Human만).
 - **승패**: `team_wiped`는 **Human + 구조물**을 셈(siege 제외) — 성벽만 있는 방어 팀은 **성벽이 부서질 때** 전멸로 종료(안 부서지면 원거리 전투 시간까지). 부대 전멸로는 승패가 갈리지 않는다([Victory](victory.md) — 거점만). **노획은 없다**(후속).
-- **순수 로직**: `BattleField.bombard_targets(unit, units, n) -> Array`(적 siege 우선·거리순·최대 n, siege·structure 포함) · `nearest_enemy`/`survivors`(siege·structure 제외) · `team_wiped`(structure 포함) + `Party.prune_destroyed_siege() -> int` + 기존 `Siege.hit_succeeds`·`MAX_BOMBARD_TARGETS`·`rolled_damage`·`wall_broken`.
+- **순수 로직**: `BattleField.bombard_targets(unit, units, n) -> Array`(적 siege 우선·거리순·최대 n, siege·structure 포함) · `BattleField.firing_siege(units, team, distance) -> Array`(밴드 안 살아있는 siege — 발사 대상·반격 가능 판정) · `nearest_enemy`/`survivors`(siege·structure 제외) · `team_wiped`(structure 포함) + `Party.prune_destroyed_siege() -> int` + 기존 `Siege.hit_succeeds`·`MAX_BOMBARD_TARGETS`·`rolled_damage`·`wall_broken`.
 
 ## NPC 공성 AI (5c·5e·5f · `_npc_attack_phase`·`_on_turn_ended`·`_npc_targets`)
 
@@ -236,6 +237,7 @@ NPC도 투석기를 **운용·생산**한다 — **NPC 거점 주둔 수비대**
 - [정상] 적 유닛보다 뒤에 있는 적 투석기라도 **먼저** 뽑힌다(대포병 우선); [정상] 성벽 구조물도 표적에 포함
 - [경계] 적이 n보다 적으면 있는 만큼만; 적 없으면 빈 배열; 죽은 적·같은 팀 제외
 - [정상] `nearest_enemy`·`survivors`는 siege·structure 제외; `team_wiped`는 structure 포함·siege 제외(구조물만 살아있으면 미전멸, 투석기만 살아있으면 전멸)
+- [정상] `firing_siege(units, "a", 4)`는 팀 a의 살아있는 밴드 안(min 4·fire 5) 투석기만; [경계] 죽은 siege·다른 팀·밴드 밖(거리 3/6)·구조물·일반 human 제외; [정상] 충차(밴드 1~1)는 distance 1이면 포함·distance 4면 제외
 
 **부대 공성 유닛·견인 이동** — `test/unit/test_party.gd`:
 - [정상] 생성 직후 `siege_units` 빈 배열, `has_siege() == false`

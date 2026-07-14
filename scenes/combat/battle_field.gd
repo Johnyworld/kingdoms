@@ -52,3 +52,14 @@ static func survivors(units: Array, team: String) -> Array:
 ## 사거리 ≥ 2 유닛이 최근접 적과의 거리 dist가 threshold 이하이면 근접 전환(true). 근접 유닛은 항상 false.
 static func archer_should_charge(unit_range: int, dist: float, threshold: float) -> bool:
 	return unit_range >= 2 and dist <= threshold
+
+## 그 team의 살아있는 공성 전투원(siege) 중 밴드(min_range ≤ distance ≤ range) 안 유닛 목록.
+## 오버레이 투석 순차 연출이 한 진영의 발사 대상·반격 가능 여부(빈 배열이면 반격 없음)에 쓴다.
+## 구조물(structure)·일반 유닛은 제외. → docs/spec/features/battle.md 투석 순차 연출
+static func firing_siege(units: Array, team: String, distance: int) -> Array:
+	var out: Array = []
+	for u in units:
+		if u["team"] == team and u["alive"] and u.get("siege", false) \
+				and distance >= u["min_range"] and distance <= u["range"]:
+			out.append(u)
+	return out
