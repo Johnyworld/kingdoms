@@ -189,7 +189,6 @@ func _ready() -> void:
 	camp_menu.build_selected.connect(_on_build_selected)
 	camp_menu.upgrade_requested.connect(_on_upgrade_requested)
 	camp_menu.wall_requested.connect(_on_wall_requested)
-	camp_menu.siege_produced.connect(_on_siege_produced)
 	camp_menu.found_camp_requested.connect(_on_found_camp_requested)
 	camp_menu.demolish_requested.connect(_on_camp_demolish_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
@@ -318,7 +317,6 @@ func _build_faction_army(faction_id: String, reuse) -> Array:
 	var hero_col: Color = Color(0.92, 0.78, 0.35) if is_player else fcolor   # 플레이어 금색 = Party 기본
 	var troop_col: Color = hero_col.darkened(0.35)
 	var center_b := _faction_center_building(faction_id)
-	var territory = center_b.territory
 	var troop_archetypes := ["light_infantry", "light_infantry", "light_archer"]
 	var parties: Array = []
 	for hi in UnitTypes.HEROES_PER_FACTION:
@@ -343,7 +341,7 @@ func _build_faction_army(faction_id: String, reuse) -> Array:
 			if not tp.members.is_empty():
 				tp.commander = tp.members[0]
 			parties.append(tp)
-	_place_army(parties, center_b.center_cell(), territory)
+	_place_army(parties, center_b.center_cell())
 	return parties
 
 ## 세력의 거점 중심 건물(플레이어=마을회관, NPC=수도 캠프). NPC는 _setup_factions에서 NPC_IDS 순으로 채워진다.
@@ -358,17 +356,15 @@ func _new_party() -> Party:
 	add_child(p)
 	return p
 
-## 세력 부대들을 거점 주변에 배치한다. 첫 경보병 1부대를 거점 중심에 주둔(수비대),
-## 나머지는 영웅별로 부하부대를 묶어 성 안쪽 부채꼴 앵커에 각각 흩어 배치한다(그룹끼리 떨어뜨림). → parties.md
-func _place_army(parties: Array, center_cell: Vector2i, territory) -> void:
-	var garrison: Party = null
+## 세력 부대들을 거점 주변에 배치한다. 첫 경보병 1부대를 거점 중심에 세워(중심 점거 = 방어),
+## 나머지는 영웅별로 부하부대를 묶어 성 안쪽 부채꼴 앵커에 각각 흩어 배치한다(그룹끼리 떨어뜨림). → parties.md · camp-capture.md
+func _place_army(parties: Array, center_cell: Vector2i) -> void:
+	var defender: Party = null
 	for p in parties:
 		if p.kind == Party.KIND_TROOP:
-			garrison = p
+			defender = p
 			break
-	garrison.stationed = true   # 거점 수비대 → garrison.md
-	garrison.home_territory = territory
-	garrison.position = terrain.map_to_local(center_cell)
+	defender.position = terrain.map_to_local(center_cell)   # 중심 점거 = 거점 방어 → camp-capture.md
 	var occupied := {center_cell: true}
 	# 성이 모서리에 있으므로 맵 안쪽(중앙) 방향으로만 벌린다. 영웅별 앵커 4개(2×2 부채꼴).
 	var sx := signi(MAP_WIDTH / 2 - center_cell.x)
@@ -384,9 +380,9 @@ func _place_army(parties: Array, center_cell: Vector2i, territory) -> void:
 	var heroes: Array = parties.filter(func(p): return p.kind == Party.KIND_HERO)
 	for hi in heroes.size():
 		var hero: Party = heroes[hi]
-		var group: Array = [hero]   # 영웅 + 그 소속 부하부대(주둔 수비대 제외)
+		var group: Array = [hero]   # 영웅 + 그 소속 부하부대(중심 방어 부대 제외)
 		for p in parties:
-			if p != garrison and p.kind == Party.KIND_TROOP and p.lord == hero:
+			if p != defender and p.kind == Party.KIND_TROOP and p.lord == hero:
 				group.append(p)
 		var anchor: Vector2i = center_cell + (anchors[hi] if hi < anchors.size() else Vector2i(7 * sx, 7 * sy))
 		var cells := _nearby_free_cells(anchor, group.size(), occupied)
@@ -523,7 +519,7 @@ func _compute_camp_targets(start: Vector2i) -> void:
 			continue   # 미발견(안개) 거점은 대상 아님
 		if camp.is_walled() and not _breached_by(camp, party.faction_name):
 			continue   # 성벽 있는 적 거점은 진입 불가 → 점령 대상 아님. 단 준비된 사다리로 돌파했으면 열린다. → wall.md
-		# 방어됨 = 중심 타일에 그 거점 세력의 주둔 부대가 있음(일반 전투로 먼저 격파해야 함).
+		# 방어됨 = 중심 타일에 그 거점 세력 부대가 있음(일반 전투로 먼저 격파해야 함).
 		# 격파 후 플레이어 부대가 중심에 진입해 서 있으면(적 세력 아님) 방어로 치지 않아 점령할 수 있다.
 		if _camp_defender(camp) != null:
 			continue
@@ -572,7 +568,7 @@ func _update_fog() -> void:
 	fog.update_visible(visible)
 	_update_npc_visibility()
 	_update_npc_building_visibility()
-	_refresh_garrison_badges()   # 거점 위 주둔 부대 인원으로 "수비 N" 배지 갱신(이동·전투·점령 후)
+	_refresh_garrison_badges()   # 거점 중심 점거 방어 부대 인원으로 "수비 N" 배지 갱신(이동·전투·점령 후)
 	_refresh_command_buffs()     # 지휘 범위 안 부대 배지 갱신(이동/전투/턴마다 — _update_fog가 정착점). → command-range.md
 
 ## NPC 부대 토큰은 플레이어 현재 시야 안에 있을 때만 보이고, 시야 밖이면 안개에 가려 숨긴다.
@@ -610,7 +606,6 @@ func _handle_click(world_pos: Vector2) -> void:
 	var on_building := clicked != null and not BuildingTypes.is_center(clicked.building_type)
 
 	# SHOOT 모드: 사격 가능 적을 클릭하면 제자리 사격, 그 외 클릭은 MOVE 모드로 취소.
-	# 주둔 부대도 사격 가능(_can_fire) — 발사해도 주둔 유지(garrison.md 주둔 중 사격).
 	if _selected and _mode == MODE_SHOOT:
 		if _attack_targets.has(cell) and _attack_targets[cell]["shoot"] and _can_fire():
 			var e: Dictionary = _attack_targets[cell]
@@ -639,7 +634,7 @@ func _handle_click(world_pos: Vector2) -> void:
 		_open_enemy_popup(_attack_targets[cell])
 		return
 
-	# MOVE 모드: 무방비 적 거점(빨강)을 클릭하면 [흡수][파괴] 팝업. (방어된 거점은 그 주둔 부대를 일반 전투로 친다.)
+	# MOVE 모드: 무방비 적 거점(빨강)을 클릭하면 [흡수][파괴] 팝업. (방어된 거점은 중심 점거 부대를 일반 전투로 친다.)
 	if _selected and _mode == MODE_MOVE and _capture_targets.has(cell) and party.can_attack():
 		_open_capture_popup(_capture_targets[cell])
 		return
@@ -663,8 +658,7 @@ func _handle_click(world_pos: Vector2) -> void:
 			if _selected:
 				_deselect()
 			_hide_party_info()
-			# 인접한 플레이어 부대가 있으면 수비대 편성도 가능하게 넘긴다.
-			camp_menu.open(clicked, _party_at_camp(clicked), _can_demolish_camp(clicked))
+			camp_menu.open(clicked, _can_demolish_camp(clicked))
 		ClickRouter.BUILDING_INFO:
 			# 내 건물(거점 아님)은 철거 가능. 거점(캠프·마을회관·성)은 CAMP_MENU로 라우팅되므로 여기 안 온다.
 			_open_building_info(clicked, not BuildingTypes.is_center(clicked.building_type))
@@ -702,20 +696,6 @@ func _building_at(cell: Vector2i) -> Building:
 			return b
 	return null
 
-## 캠프 메뉴 대상 부대(주둔 부대·병사 구매용). 중심 타일 위 주둔 부대를 우선, 없으면 인접 부대. 없으면 null.
-func _party_at_camp(camp) -> Party:
-	for p in _units:
-		if not p.members.is_empty() and terrain.local_to_map(p.position) == camp.center_cell():
-			return p   # 중심 주둔 부대 우선(병사 구매·수비 귀속 대상)
-	for p in _units:
-		var pcell := terrain.local_to_map(p.position)
-		if pcell in camp.cells:
-			return p
-		for c in camp.cells:
-			if pcell in terrain.get_surrounding_cells(c):
-				return p
-	return null
-
 ## 그 칸에 선 플레이어 부대(멤버 있는 것)를 찾는다(없으면 null). 클릭 선택 판정에 쓴다.
 func _player_party_at(cell: Vector2i) -> Party:
 	for p in _units:
@@ -733,7 +713,7 @@ func _party_on_cell(cell: Vector2i) -> Party:
 	return null
 
 ## 거점 중심 타일을 지키는 그 거점 세력의 부대(진짜 수비대). 없으면 null(무방비 → 점령 가능).
-## 다른 세력 부대(격파 후 진입한 공격자 포함)가 서 있어도 그 거점 세력이 아니면 방어로 치지 않는다. → garrison.md
+## 다른 세력 부대(격파 후 진입한 공격자 포함)가 서 있어도 그 거점 세력이 아니면 방어로 치지 않는다. → camp-capture.md
 func _camp_defender(camp) -> Party:
 	if camp.territory == null or camp.territory.faction == null:
 		return null
@@ -860,7 +840,7 @@ func _on_upgrade_requested(b) -> void:
 	b.territory.build_pay(next_id)   # 자재 차감(거점은 필요인원 0)
 	b.upgrade_to(next_id)
 	_update_fog()                    # 티어별 시야 변화 반영
-	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
+	camp_menu.open(b, _can_demolish_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
 
 ## 성벽 건설 버튼 → 자재 지불 + wall_level 설정. 마을회관·성 + 자재 충분일 때만. → wall.md
 func _on_wall_requested(b) -> void:
@@ -871,20 +851,7 @@ func _on_wall_requested(b) -> void:
 	b.wall_hp = Siege.WALL_MAX_HP   # 성벽 내구도 만피 — 투석으로 깎이면 붕괴 → siege-engines.md
 	b.gate_hp = Siege.GATE_MAX_HP   # 성문 내구도 — 충차로 깎이면 그 면 통로 개방 → wall.md 성문
 	b.queue_redraw()   # 성벽 링 그리기
-	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
-
-## 공성 유닛 생산 버튼 → 금·자재 지불 + 주둔 부대에 편입(투석기/충차). 완성 작업장·주둔 부대·자원 충분일 때만. → siege-engines.md
-func _on_siege_produced(b, type_id: String) -> void:
-	var party = _party_at_camp(b)
-	if party == null or b.territory == null or not b.territory.has_completed_building("siege_workshop"):
-		return
-	var cost := SiegeTypes.produce_full_cost(type_id)
-	if cost.is_empty() or not b.territory.can_afford(cost):
-		return
-	b.territory.spend(cost)   # 금·자재 차감(인구 비소모)
-	party.add_siege_unit(SiegeUnit.new(type_id))
-	party_roster.set_parties(_units)   # 일람·정보 갱신
-	camp_menu.open(b, _party_at_camp(b), _can_demolish_camp(b))   # 갱신된 정보로 재오픈
+	camp_menu.open(b, _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
 
 ## 철거 버튼 → 바로 철거하지 않고 확인 다이얼로그를 띄운다(환급 미리보기 포함). [철거] 확인 시 _do_demolish(b).
 func _on_demolish_requested(b) -> void:
@@ -1445,7 +1412,7 @@ func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -
 	var dropped: Array = loser.equipment_ids()   # 전사자 장비 스냅샷(_apply_survivors 전이라 멤버 살아있음)
 	if dropped.is_empty():
 		return   # 노획할 장비 없음
-	# 승자 부대가 노획 장비를 보유한다(주둔 부대도 지속 부대라 동일 — 영지 귀속 없음). → raid.md
+	# 승자 부대가 노획 장비를 보유한다(거점 방어 부대도 지속 부대라 동일 — 영지 귀속 없음). → raid.md
 	# 플레이어 세력이면 선택 패널, NPC 세력이면 전량 자동.
 	if winner.faction_name == _player_faction.name:
 		loot_menu.open(winner, loser, dropped)
@@ -1511,19 +1478,15 @@ func _enter_bombard_mode() -> void:
 	_refresh_overlay()
 	party_action_menu.close()
 
-## 중앙 부대 메뉴를 부대 토큰 근처에 연다. 주둔 중이면 [주둔 종료], 그 외 행동 가능할 때 [사격][휴식][경계](+분할·주둔).
+## 중앙 부대 메뉴를 부대 토큰 근처에 연다. 행동 가능할 때 [사격][휴식][경계](+분할·사다리·투석·소속).
 func _open_action_menu() -> void:
 	_clear_popup_targets()
-	if party.stationed:
-		# 주둔 부대 — 사거리 안 사격 가능 적 있고 미발사면 [사격](주둔 유지), 자기 거점 겨눈 사다리 있으면 [사다리 밀기] + [주둔 종료].
-		var can_fire_now: bool = not _shoot_cells.is_empty() and _can_fire()
-		party_action_menu.open(PartyActionMenu.party_actions(false, can_fire_now, false, false, false, true, false, _can_push_ladder(party)), _screen_pos(party.position))
-		return
 	if party.can_rest():
 		var can_undo: bool = _undo_party == party
 		var can_ladder: bool = not party.moved_this_turn and not _ladder_target_for(party).is_empty()   # 성벽 적 거점 인접 + 미이동
+		var can_push: bool = party.can_attack() and _can_push_ladder(party)   # 자기 거점 중심 점거 + 겨눈 사다리(성벽 방어) → wall.md
 		var can_bombard: bool = party.has_siege() and party.can_attack() and not _bombard_cells.is_empty()   # 투석기 실음 + 사거리 안 표적(성벽/적 부대) → siege-engines.md
-		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), _on_own_center(), false, can_ladder, false, can_bombard, _can_manage_lord(party)), _screen_pos(party.position))
+		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), can_ladder, can_push, can_bombard, _can_manage_lord(party)), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
 
@@ -1552,19 +1515,9 @@ func _on_lord_changed() -> void:
 	party_roster.set_parties(_units)
 	_refresh_command_buffs()   # 소속이 바뀌면 지휘 범위 버프 배지도 즉시 갱신. → command-range.md
 
-## 이번 턴 사격 가능한지 — 일반 부대는 can_attack, 주둔 부대는 아직 발사 안 했으면 가능(주둔 유지한 채 사격). → garrison.md
+## 이번 턴 사격 가능한지 — 아직 공격을 안 했으면 사격 가능(이동만 했어도 가능).
 func _can_fire() -> bool:
-	return party.can_attack() or (party.stationed and not party.attacked_this_turn)
-
-## 활성 부대가 자기 세력 거점 중심 타일 위에 있는지([주둔] 버튼 노출 조건). → garrison.md
-func _on_own_center() -> bool:
-	if party == null:
-		return false
-	var cell := terrain.local_to_map(party.position)
-	for b in _buildings:
-		if BuildingTypes.is_center(b.building_type) and b.center_cell() == cell:
-			return true
-	return false
+	return party.can_attack()
 
 ## 부대가 인접한 성벽 적 거점의 사다리 설치 대상 {building, target_cell}. 없으면 빈 Dictionary. → wall.md
 ## 부대는 성벽 밖에 있으므로, 인접한 footprint 셀(ring)이 사다리가 걸릴 대상 면이다.
@@ -1747,7 +1700,7 @@ func _has_ladder_at(b, c: Vector2i) -> bool:
 			return true
 	return false
 
-## 주둔 방어 부대가 지키는 거점(중심 타일 위)에 겨눠진 사다리가 있는지([사다리 밀기] 노출 조건). → wall.md
+## 중심 타일을 점거한 방어 부대가 지키는 거점에 겨눠진 사다리가 있는지([사다리 밀기] 노출 조건). → wall.md
 func _can_push_ladder(p) -> bool:
 	var b = _building_garrisoned_by(p)
 	if b == null:
@@ -1903,15 +1856,6 @@ func _on_party_action(id: String) -> void:
 			_hide_party_info()
 		"split":
 			_split_party()   # 분할 — 편성(턴 소비 없음)
-		"station":
-			party.stationed = true   # 주둔 — 거점에서 대기(이동·공격 불가, 다음 턴에도 유지)
-			_undo_party = null
-			_deselect()
-			_hide_party_info()
-		"unstation":
-			party.stationed = false   # 주둔 종료 — 이번 턴부터 다시 이동·공격 가능
-			_update_ranges()
-			_open_action_menu()
 		"ladder":
 			_place_ladder(party)   # 성벽 적 거점에 사다리 설치 — 행동 종료
 			_deselect()
@@ -1919,8 +1863,8 @@ func _on_party_action(id: String) -> void:
 		"catapult":
 			_enter_bombard_mode()   # 투석 — 표적 선택 모드(성벽/적 부대 클릭 발사) → siege-engines.md
 		"push_ladder":
-			_push_ladders(_building_garrisoned_by(party))   # 성벽 사다리 밀기(15% 파괴)
-			party.mark_attacked()   # 밀기는 방어 부대 행동 종료(주둔 유지)
+			_push_ladders(_building_garrisoned_by(party))   # 성벽 사다리 밀기(15% 파괴) → wall.md
+			party.mark_attacked()   # 밀기는 방어 부대 행동 종료
 			_deselect()
 			_hide_party_info()
 		"equip":
@@ -1959,7 +1903,6 @@ func _on_turn_ended() -> void:
 	_tick_production()   # 1차 생산 건물 생산포인트 산출(1÷거리, 거리 기반) → production.md
 	_advance_ladders()   # 사다리 카운트다운 −1(0이면 통로 열림) → wall.md
 	turn_hud.set_turn(_turn.number)
-	_npc_produce_siege()   # NPC 수비대 주기 투석기 보충 생산(5e) → siege-engines.md
 	_update_fog()   # 건설 완료 농장 시야 + NPC 현재 위치 표시를 안개에 반영.
 	_update_endgame()   # 세력 소멸 유예 판정 → 소멸 시 부대 붕괴 + 정복 승리/패배
 	if _game_over:
@@ -1975,13 +1918,6 @@ func _on_turn_ended() -> void:
 func _begin_player_turn() -> void:
 	turn_banner.set_faction(_player_faction.name, _player_faction.color)
 
-## NPC 거점 수비대(stationed)가 주기(NpcAi.should_produce_siege)마다 상한 미만이면 투석기 1대 보충 생산. → siege-engines.md
-## NPC 경제 미사용이라 자원 대신 턴 주기·상한으로 추상 생산(작업장 건물 불요). 대포병 결투로 파괴된 투석기를 교체·소량 증강.
-func _npc_produce_siege() -> void:
-	for p in _npc_parties:
-		if p.stationed and NpcAi.should_produce_siege(_turn.number, p.siege_units.size()):
-			p.add_siege_unit(SiegeUnit.new())
-
 ## NPC 턴: 세력 순차 → 영웅그룹 순차. 각 그룹은 이동을 마친 뒤 곧바로 공격한다(영웅 먼저·하위 순서). → turn.md · npc-movement.md
 ## 세력 차례 시작 시 배너, 그룹·교전이 시야 안이면 카메라 포커스+하이라이트, 시야 밖이면 즉시 처리.
 func _move_npcs() -> void:
@@ -1992,7 +1928,7 @@ func _move_npcs() -> void:
 	var party_entries := _party_entries()
 	var camp_entries := _camp_entries()
 
-	# 세력 등장 순서 + 세력별 전체 NPC 부대(이동+주둔). 그룹 묶기는 hero_groups가 한다.
+	# 세력 등장 순서 + 세력별 전체 NPC 부대. 그룹 묶기는 hero_groups가 한다.
 	var factions: Array = []
 	var by_faction: Dictionary = {}
 	for p in _npc_parties:
@@ -2042,21 +1978,18 @@ func _plan_group_move(group: Array, party_entries: Array, camp_entries: Array) -
 	var hero = group[0] if not group.is_empty() and is_instance_valid(group[0]) and group[0].is_hero() else null
 	var hero_from := Vector2i(-1, -1)
 	var hero_dest := Vector2i(-1, -1)
-	# 영웅: 기존 목표지향 AI. 주둔 영웅은 제자리를 목적지로 삼아 하위부대가 곁(거점)에 대형/수비하게 한다.
+	# 영웅: 기존 목표지향 AI.
 	if hero != null:
 		hero_from = terrain.local_to_map(hero.position)
-		if hero.stationed:
-			hero_dest = hero_from   # 주둔 영웅 — 이동 없음, 하위부대는 영웅 곁에 머문다.
-		else:
-			var hocc := _blocked_for(hero)
-			hero_dest = NpcAi.choose_destination(terrain, hero_from, hero.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, hocc, _npc_targets(hero, party_entries, camp_entries))
-			plans[hero] = HexGrid.reconstruct_path(terrain, hero_from, hero_dest, hero.movement(), MAP_WIDTH, MAP_HEIGHT, hocc)
+		var hocc := _blocked_for(hero)
+		hero_dest = NpcAi.choose_destination(terrain, hero_from, hero.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, hocc, _npc_targets(hero, party_entries, camp_entries))
+		plans[hero] = HexGrid.reconstruct_path(terrain, hero_from, hero_dest, hero.movement(), MAP_WIDTH, MAP_HEIGHT, hocc)
 	# 하위부대: 영웅 추종(지휘 범위 내 적 있으면 교전). 배정 칸·영웅 칸을 예약해 겹침 방지.
 	var reserved: Dictionary = {}
 	if hero_dest != Vector2i(-1, -1):
 		reserved[hero_dest] = true
 	for p in group:
-		if not is_instance_valid(p) or p.stationed or p == hero:
+		if not is_instance_valid(p) or p == hero:
 			continue
 		var start := terrain.local_to_map(p.position)
 		var occ := _blocked_for(p)
@@ -2128,20 +2061,12 @@ func _focus_camera(world_pos: Vector2) -> void:
 
 ## NPC 한 유닛의 공격 행동(그룹 이동 직후, 영웅→하위 순으로 호출). 판정은 기존과 동일, 전투는 _npc_engage로 연출. → npc-movement.md
 func _npc_unit_act(attacker) -> void:
-	if attacker.stationed:
-		# 주둔 NPC 부대는 이동·근접 개시는 안 함. 투석기 방어 포격 → 사다리 밀기 → 사거리 안 적 제자리 사격(주둔 유지). → garrison.md · wall.md
-		if not attacker.attacked_this_turn and attacker.has_siege() and await _npc_try_bombard(attacker):
-			return
-		if not attacker.attacked_this_turn and _can_push_ladder(attacker):
-			attacker.mark_attacked()
-			_push_ladders(_building_garrisoned_by(attacker))   # NPC 자동 사다리 밀기(15%씩)
-		elif attacker.attack_range() >= 2 and not attacker.attacked_this_turn:
-			var st = _adjacent_enemy(attacker)   # 사거리(=attack_range) 안 적
-			if st != null:
-				attacker.mark_attacked()
-				await _npc_engage(attacker, st, _engagement_distance(attacker, st))   # 주둔 사격은 보통 원거리
-		return   # 사격·밀기 후에도 이동·근접 개시 없이 대기
 	if not attacker.can_attack():
+		return
+	# 자기 거점 중심을 점거한 방어 부대는 겨눈 사다리를 민다(성벽 방어, 15%씩). → wall.md
+	if _can_push_ladder(attacker):
+		attacker.mark_attacked()
+		_push_ladders(_building_garrisoned_by(attacker))
 		return
 	if attacker.has_siege() and await _npc_try_bombard(attacker):
 		return   # 로빙 NPC 투석(밴드 내 플레이어 표적) — positioning 없어 실발동은 드묾
@@ -2205,7 +2130,7 @@ func _adjacent_enemy(attacker):
 		if other == attacker or not is_instance_valid(other) or other.members.is_empty():
 			continue
 		if other.faction_name == attacker.faction_name:
-			continue   # 같은 세력(아군)은 공격 대상 아님(주둔 부대 도입 후 같은 세력 인접이 생겨 필요)
+			continue   # 같은 세력(아군)은 공격 대상 아님(거점 방어 부대로 같은 세력 인접이 생겨 필요)
 		var oc: Vector2i = terrain.local_to_map(other.position)
 		if walls.has(oc):
 			continue   # 성벽 안 수비대는 표적 아님
@@ -2527,7 +2452,7 @@ func _follow_with_lord(hero, hero_cell: Vector2i, from_cell: Vector2i) -> void:
 	var delay := 0.0
 	for f in followers:
 		if not f.can_move():
-			continue   # 이미 이동/공격했거나 주둔 중 → 그 자리에 남음
+			continue   # 이미 이동/공격했으면 → 그 자리에 남음
 		var f_cell := terrain.local_to_map(f.position)
 		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, from_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
 		if dest == f_cell:
@@ -2602,7 +2527,7 @@ func _on_party_focused(focused_party) -> void:
 func _on_members_requested() -> void:
 	members_menu.open(_player_faction_members())
 
-## 우리 세력의 모든 부대(필드 + 거점 주둔)에 속한 군인(Human)을 모은다. 모든 플레이어 부대는 _units에 있다.
+## 우리 세력의 모든 부대(필드 + 거점 방어)에 속한 군인(Human)을 모은다. 모든 플레이어 부대는 _units에 있다.
 func _player_faction_members() -> Array:
 	if _player_faction == null:
 		return []

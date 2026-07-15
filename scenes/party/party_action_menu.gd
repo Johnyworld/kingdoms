@@ -12,19 +12,9 @@ var _root: Control
 var _panel: PanelContainer
 var _list: VBoxContainer
 
-## 부대 메뉴 버튼. 주둔 중이면 [사격]?[사다리 밀기]?[주둔 종료][장비]. 그 외: 이동 전 [사격][휴식][경계](+분할·주둔·사다리 설치),
-## 이동 후 [사격][대기](+취소). 노드 비의존. → garrison.md · wall.md
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false) -> Array:
-	if stationed:
-		# 주둔 부대는 대기 상태 — 사격 가능 적이 있으면 주둔 유지한 채 제자리 사격, [사다리 밀기]로 성벽 사다리 저지, 주둔 종료로 풀어야 이동·근접.
-		var held: Array = []
-		if can_shoot_any:
-			held.append({"id": "shoot", "label": "사격", "enabled": true})   # 주둔 중 사격(발사해도 주둔 유지)
-		if can_push_ladder:
-			held.append({"id": "push_ladder", "label": "사다리 밀기", "enabled": true})   # 성벽 사다리 저지(15% 파괴) → wall.md
-		held.append({"id": "unstation", "label": "주둔 종료", "enabled": true})
-		held.append({"id": "equip", "label": "장비", "enabled": true})
-		return held
+## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계](+분할·사다리 설치/밀기·투석·소속), 이동 후 [사격][대기](+취소).
+## 노드 비의존. → wall.md · siege-engines.md · party-lord.md
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false) -> Array:
 	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
 	if moved:
 		out.append({"id": "wait", "label": "대기", "enabled": true})
@@ -35,10 +25,10 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 		out.append({"id": "alert", "label": "경계", "enabled": true})
 		if can_split:
 			out.append({"id": "split", "label": "분할", "enabled": true})
-	if on_center:
-		out.append({"id": "station", "label": "주둔", "enabled": true})   # 거점에 들어와 대기
 	if can_place_ladder:
 		out.append({"id": "ladder", "label": "사다리 설치", "enabled": true})   # 성벽 적 거점 인접 → 공성 → wall.md
+	if can_push_ladder:
+		out.append({"id": "push_ladder", "label": "사다리 밀기", "enabled": true})   # 자기 거점 중심 점거 + 겨눈 사다리 저지(15% 파괴) → wall.md
 	if can_bombard:
 		out.append({"id": "catapult", "label": "투석", "enabled": true})   # 투석기 실음 + 사거리 안 성벽 적 거점 → 투석 → siege-engines.md
 	if can_manage_lord:

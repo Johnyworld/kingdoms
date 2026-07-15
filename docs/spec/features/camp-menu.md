@@ -16,7 +16,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 
 ## 동작
 
-- `open(building: Building, party := null, can_demolish := false)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `can_demolish`가 참이면 [철거 버튼](#철거-버튼)을 보인다(재오픈 대비 매번 토글). (`party`는 [투석기 생산](siege-engines.md) 대상 주둔 부대 판정에 쓰인다.)
+- `open(building: Building, can_demolish := false)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `can_demolish`가 참이면 [철거 버튼](#철거-버튼)을 보인다(재오픈 대비 매번 토글).
   - 제목 라벨 = `territory.name`.
   - 세력 라벨 = `territory.faction.name` (색상 = `territory.faction.color`). `faction`이 `null`이면 세력 라벨은 빈 문자열.
   - `building.territory`가 `null`이거나 영지에 세력이 없으면 라벨은 빈 문자열이고, 세력 색상 오버라이드를 제거한다(다른 영지로 재오픈 대비). `territory == null`이면 자원 그리드도 비어 있다.
@@ -33,7 +33,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
   - 선행 미충족이면 라벨 뒤에 `"  (선행: <선행 라벨> 필요)"`를 덧붙여 이유를 보인다(예: `"농장  ...  (선행: 마을회관 필요)"`).
   - 항목을 누르면 `build_selected(type_id, territory)` 시그널을 방출하고 메뉴를 닫는다. 실제 배치(건설 모드)는 게임이 이 시그널을 받아 처리한다 — **건설 모드 배치(2b)는 미구현**.
 - `open`은 열 때마다 리스트를 숨기고 건축 버튼을 다시 보여 **정보 화면 상태로 초기화**한다(이전 오픈에서 리스트가 열려 있던 상태가 남지 않도록).
-- **(삭제됨) 보급(화물)·판매·구매·병사 패널** — **화물운반**(영지↔부대 자원 적재/하역)은 [화물 제거](../entities/Party.md)와 함께 삭제됐다(부대가 자원을 나르지 않음). 상거래(판매·구매·병사)도 이미 제거됨. 캠프 메뉴는 이제 자원 그리드 + 영지 정보 + 건축/업그레이드/성벽/캠프건설/철거/투석기 버튼만 띄운다.
+- **(삭제됨) 보급(화물)·판매·구매·병사 패널** — **화물운반**(영지↔부대 자원 적재/하역)은 [화물 제거](../entities/Party.md)와 함께 삭제됐다(부대가 자원을 나르지 않음). 상거래(판매·구매·병사)도 이미 제거됨. **공성 병기 생산 버튼(투석기·충차)도 제거**됐다([주둔 제거](camp-capture.md)와 함께 — 재구축 예정, [Siege Engines](siege-engines.md)). 캠프 메뉴는 이제 자원 그리드 + 영지 정보 + 건축/업그레이드/성벽/캠프건설/철거 버튼만 띄운다.
 - `signal wall_requested(building)` — 성벽 건설 버튼을 누르면 방출. `game.gd`가 받아 자재 지불 + `wall_level` 설정을 처리한다([성벽](wall.md)).
 - `signal upgrade_requested(building)` — 업그레이드 버튼을 누르면 방출. `game.gd`가 받아 거점 [업그레이드](building.md#거점-업그레이드)를 처리한다.
 - `signal found_camp_requested(territory)` — 캠프 건설 버튼을 누르면 방출. `game.gd`가 받아 [새 영지 캠프 건설](building.md#캠프-건설-새-영지-확장) 모드로 진입한다.
@@ -63,7 +63,7 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 - [경계] 자재 부족 → 성벽 건설 버튼 표시하되 **비활성**
 - [정상] 캠프 비용 감당 가능한 영지로 `open` → **캠프 건설 버튼** 활성, 텍스트에 `"캠프 건설"` 포함; 누르면 `found_camp_requested(territory)` 방출
 - [경계] 자원 부족·영지 없음 → 캠프 건설 버튼 비활성
-- [정상] `open(camp, party, true)` → **철거 버튼** 표시; `open(camp, party)`(기본 false) → 철거 버튼 숨김(재오픈 토글)
+- [정상] `open(camp, true)` → **철거 버튼** 표시; `open(camp)`(기본 false) → 철거 버튼 숨김(재오픈 토글)
 - [정상] `can_demolish=true`로 연 뒤 철거 버튼 누르면 `demolish_requested(building)` 방출
 - [경계] 보급·판매·구매·병사 패널은 **없다**(화물·상거래 제거) — `open`해도 관련 노드 미생성
 

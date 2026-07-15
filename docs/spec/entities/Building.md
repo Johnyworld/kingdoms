@@ -43,7 +43,7 @@
 | 생산포인트 | `production_points` | `int` | `0` | [1차 생산 건물](../features/production.md)의 누적 생산포인트. 매 턴 `+= 1`(거리 기반), `≥ 거리`면 자원 산출·차감 |
 | 배정 거점 | `assigned_center` | `Building` | `null` | [1차 생산](../features/production.md) 건물이 자원 입출력·거리 측정하는 대상 거점. 건설 시 자동, 변경 가능. (인원 차출은 폐지) |
 
-> **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([Garrison / 주둔](../features/garrison.md)). 예전 `Building.garrison`(Human 배열)은 폐지됐다.
+> **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([거점 방어](../features/camp-capture.md#거점-방어-창발--중심-점거)). 예전 `Building.garrison`(Human 배열)은 폐지됐다.
 
 > 자원은 건물이 아니라 [영지](Territory.md)가 보유한다. 캠프 카탈로그의 `resources`는 **건설 시 생성되는 영지의 초기 자원**으로 쓰인다.
 
@@ -77,7 +77,7 @@
 - `demolish_refund() -> Dictionary` — **완성 건물** 철거 시 돌려받는 salvage 자재(자원명→수량). 카탈로그 `demolish_refund`(없으면 빈 Dictionary). 순수 카탈로그값(건설 여부 무관).
 - `refund_on_demolish() -> Dictionary` — [철거](../features/building-info.md#철거) 시 **실제 환급** 자재. **완성**이면 `demolish_refund()`. **건설 중**이면 낸 `build_cost`를 진행도 비례로 — `floor(build_cost[자원] × remaining_turns ÷ build_turns)`(안 쓴 자재 회수, 0인 자원은 생략). `build_turns ≤ 0`이면 `build_cost` 전액(방어). `Territory.demolish`와 철거 미리보기가 이걸 쓴다.
 - `required_pop() -> int` — **폐지됨**. `인구`가 [병력 전용 예약](../data/resources.md#인구-병력-예약)이라 건물이 인구를 고용하지 않는다. 항상 `0`(카탈로그에 `required_pop` 키 없음).
-- `upgrade_to(type_id) -> void` — 거점 [인플레이스 업그레이드](../data/buildings.md#거점-업그레이드). `building_type`·`_spec`·`vision`·`cells`(footprint)를 새 티어로 교체하고 **완성 상태**로 둔다. **위치(center)·영지·`wall_level`·`wall_hp`(성벽·내구도)은 유지**. 모든 거점이 footprint 7이라 점유 셀은 그대로. 주둔 부대는 별도 부대라 업그레이드와 무관하게 그 자리에 남는다. 비용 지불(`Territory.build_pay`)은 호출부([건축](../features/building.md#거점-업그레이드))가 먼저 한다.
+- `upgrade_to(type_id) -> void` — 거점 [인플레이스 업그레이드](../data/buildings.md#거점-업그레이드). `building_type`·`_spec`·`vision`·`cells`(footprint)를 새 티어로 교체하고 **완성 상태**로 둔다. **위치(center)·영지·`wall_level`·`wall_hp`(성벽·내구도)은 유지**. 모든 거점이 footprint 7이라 점유 셀은 그대로. 방어 부대는 별도 부대라 업그레이드와 무관하게 그 자리에 남는다. 비용 지불(`Territory.build_pay`)은 호출부([건축](../features/building.md#거점-업그레이드))가 먼저 한다.
 - `map_label_lines() -> Array` — 맵에 표시할 텍스트 줄 목록. 각 원소는 `{text, color}`. **영지에서 가져온다.**
   - 영지가 없으면(`territory == null`) 빈 배열.
   - 영지 이름이 있으면 첫 줄 = `{territory.name, 흰색}`.

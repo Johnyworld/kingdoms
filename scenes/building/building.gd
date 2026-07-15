@@ -21,8 +21,8 @@ var vision := 0
 var under_construction := false   # 참이면 건설 중(생산·시야 없음).
 var remaining_turns := 0          # 완성까지 남은 턴. setup에서 build_turns로 채움.
 
-# 수비 인원 표시값(맵 "수비 N" 배지 전용). 방어 자체는 거점 중심 타일 위 주둔 부대가 맡고,
-# game.gd가 그 부대 인원으로 이 값을 채운다. 0이면 배지 없음(무방비). → docs/spec/features/garrison.md
+# 수비 인원 표시값(맵 "수비 N" 배지 전용). 방어 자체는 거점 중심 타일을 점거한 그 세력 부대가 맡고,
+# game.gd가 그 부대 인원으로 이 값을 채운다. 0이면 배지 없음(무방비). → docs/spec/features/camp-capture.md
 var defender_count := 0
 
 # 성벽 단계. 0=없음, ≥1=성벽(적 접근 차단). 마을회관·성만 [성벽 건설]로 올린다. → docs/spec/features/wall.md
@@ -171,7 +171,7 @@ func required_pop() -> int:
 	return _spec.get("required_pop", 0)
 
 ## 거점을 다음 티어(type_id)로 제자리 업그레이드한다: 종류·스펙·시야·점유 셀을 교체하고 완성 상태로 둔다.
-## 위치(중심)·영지(territory)는 그대로 유지한다. 주둔 부대는 별도 부대라 무관. 비용 지불은 호출부가 먼저 한다.
+## 위치(중심)·영지(territory)는 그대로 유지한다. 방어 부대는 별도 부대라 무관. 비용 지불은 호출부가 먼저 한다.
 func upgrade_to(type_id: String) -> void:
 	building_type = type_id
 	_spec = BuildingTypes.get_type(type_id)
@@ -273,7 +273,7 @@ func _draw_wall_ring(center: Vector2) -> void:
 	var ring_color := Color(0.85, 0.25, 0.2).lerp(Color(0.62, 0.62, 0.68), ratio)
 	draw_polyline(PackedVector2Array(pts), ring_color, 3.0, true)
 
-## 수비 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 거점, 주둔 부대 있을 때).
+## 수비 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 거점, 중심 점거 방어 부대 있을 때).
 func _draw_garrison_badge(anchor: Vector2, count: int) -> void:
 	var font := ThemeDB.fallback_font
 	var font_size := 12

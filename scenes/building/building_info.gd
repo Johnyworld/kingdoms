@@ -89,7 +89,7 @@ func open(building, can_demolish := false, distance := 0) -> void:
 		label.add_theme_color_override("font_color", line["color"])
 		_info_list.add_child(label)
 
-	# 수비(거점만): "수비대 N명"(중심 타일 주둔 부대 인원). 거점 아닌 건물(농장 등)은 표시하지 않는다.
+	# 수비(거점만): "수비대 N명"(중심 타일 점거 방어 부대 인원). 거점 아닌 건물(농장 등)은 표시하지 않는다.
 	if BuildingTypes.is_center(building.building_type):
 		var g := Label.new()
 		g.text = "수비대 %d명" % building.defender_count

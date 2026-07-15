@@ -6,7 +6,7 @@
 
 ## 진입 — `[소속]` 버튼 ([행동 메뉴](party-action-menu.md))
 
-- 플레이어가 **일반부대**를 선택하면 [행동 메뉴](party-action-menu.md)에 **[소속]**이 뜬다(장비 앞). **주둔 중**이면 뜨지 않는다(주둔 종료 후).
+- 플레이어가 **일반부대**를 선택하면 [행동 메뉴](party-action-menu.md)에 **[소속]**이 뜬다(장비 앞).
 - 노출 조건(`game.gd` `_can_manage_lord(party)`): `party.kind == KIND_TROOP` **그리고** (**인접한 아군 영웅부대가 있음** 또는 **이미 소속 보유**(`has_lord`)). 즉 붙일 영웅도 없고 뗄 소속도 없으면 버튼을 숨긴다.
 - 영웅부대(`KIND_HERO`)에는 [소속]이 없다(영웅은 소속을 갖지 않는다).
 
@@ -47,7 +47,6 @@
 **`[소속]` 버튼** — `test/unit/test_party_action_menu.gd`:
 - [정상] `can_manage_lord=true` → 버튼 목록에 `[소속]` 포함(장비 바로 앞)
 - [경계] `can_manage_lord=false` → `[소속]` 없음
-- [경계] 주둔 중이면 `can_manage_lord`와 무관하게 `[소속]` 없음(주둔 목록은 [사격]?[사다리 밀기]?[주둔 종료][장비]만)
 
 **소속 메서드** — `test/unit/test_party.gd`:
 - [정상] `set_lord(hero)`/`clear_lord()` ([Party 시나리오](../entities/Party.md#테스트-시나리오))

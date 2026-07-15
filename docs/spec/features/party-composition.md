@@ -3,7 +3,7 @@
 > 스크립트: `scenes/game/game.gd` (`_units`, `party`(활성 부대), `_player_party_at`, `_split_party`, `_merge_targets`) · `scenes/party/split_panel.gd` (`SplitPanel`) · `scenes/party/party.gd` (`merge_from`)
 
 플레이어가 **여러 부대**를 거느리고, 각각을 선택해 조작한다. 지금까지는 단일 부대(`party`) 전제였으나,
-이 기능으로 **다중 부대 + 선택** 토대를 놓고, **분할·병합**으로 부대를 재조직한다. (거점 [주둔 부대](garrison.md)도 하나의 부대라, 새 부대는 주둔 부대를 [주둔 종료] 후 **분할**해 만든다.)
+이 기능으로 **다중 부대 + 선택** 토대를 놓고, **분할·병합**으로 부대를 재조직한다. (거점 방어 부대도 하나의 부대라, 새 부대는 그 부대를 **분할**해 만든다.)
 
 ## 다중 부대 모델 (토대 리팩터)
 
@@ -72,5 +72,5 @@
 
 ## 관련
 
-- [Parties (부대 배치)](parties.md) — 초기 부대 생성. [Garrison / 주둔](garrison.md) — 거점 주둔 부대(분할로 병력을 나눠 새 부대 편성).
+- [Parties (부대 배치)](parties.md) — 초기 부대 생성. [Camp Capture](camp-capture.md#거점-방어-창발--중심-점거) — 거점 방어 부대(분할로 병력을 나눠 새 부대 편성).
 - [Selection & Movement](selection-and-movement.md) — 선택·이동(이제 활성 `party` 기준). [Party Roster](party-roster.md) · [Fog of War](fog-of-war.md).

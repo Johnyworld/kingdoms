@@ -2,7 +2,7 @@
 
 > 스크립트: `scenes/building/building.gd` (`wall_level`·`is_walled`·성벽 그리기) · `scenes/building/building_types.gd` (`WALL_COST`·`can_build_wall`) · `scenes/siege/siege.gd` (`Siege` — 사다리 상수·`push_succeeds`) · `scenes/siege/siege_overlay.gd` (사다리 마커 표시) · `scenes/camp/camp_menu.gd` (`[성벽 건설]` 버튼·`wall_requested`) · `scenes/game/game.gd` (`_on_wall_requested`·이동 차단·표적 제외·`_ladders`·사다리 설치/밀기/통로 돌파)
 
-**마을회관·성**([center](../data/buildings.md#동작) tier ≥ town_hall) 둘레에 세우는 방어 구조물. 성벽이 있으면 **적 부대가 그 거점에 접근(진입·통과)하지 못해**, 중심 [주둔 부대](garrison.md)를 공격하거나 [점령](camp-capture.md)할 수 없다. 성벽을 넘으려면 **[사다리](#사다리-공성-siege-game_gd)**(아래)를 설치해야 한다.
+**마을회관·성**([center](../data/buildings.md#동작) tier ≥ town_hall) 둘레에 세우는 방어 구조물. 성벽이 있으면 **적 부대가 그 거점에 접근(진입·통과)하지 못해**, 중심 [방어 부대](camp-capture.md#거점-방어-창발--중심-점거)를 공격하거나 [점령](camp-capture.md)할 수 없다. 성벽을 넘으려면 **[사다리](#사다리-공성-siege-game_gd)**(아래)를 설치해야 한다.
 
 캠프(tier 0)는 성벽을 지을 수 없다(무방비로 남아 점령/공격 가능).
 
@@ -23,7 +23,7 @@
 
 ## 이동 차단 (`game.gd`)
 
-- **적 세력 부대**는 성벽 있는 거점의 **footprint 7칸에 진입·통과할 수 없다**(산처럼 완전 장애물). **같은 세력 부대는 자유 통행**(수비대 주둔·출입).
+- **적 세력 부대**는 성벽 있는 거점의 **footprint 7칸에 진입·통과할 수 없다**(산처럼 완전 장애물). **같은 세력 부대는 자유 통행**(수비대 출입).
 - 세력 상대적 — 부대 P의 이동 범위·경로 계산 시, **P의 세력과 다른** walled 거점들의 footprint를 막는 칸(`blocked_cells`)에 더한다([Selection & Movement](selection-and-movement.md) 유닛 점유와 같은 `HexGrid` 인자 재사용). 플레이어·NPC 이동 모두 반영.
 
 ## 공격·점령 차단 (`game.gd`)
@@ -31,7 +31,7 @@
 성벽으로 접근이 막히므로, 성벽 있는 **적 거점**은 이번 슬라이스에서 공격·점령 대상이 아니다.
 
 - **점령 제외**: `_compute_camp_targets`가 walled 적 거점은 점령 대상에서 뺀다(무방비여도 성벽이 있으면 진입 불가).
-- **표적 제외**: walled 적 거점 footprint 안에 있는 부대(중심 주둔 수비대)는 근접·사격 표적에서 제외한다(`_compute_attack_targets`·NPC `_adjacent_enemy`) — 성벽이 안쪽을 보호한다.
+- **표적 제외**: walled 적 거점 footprint 안에 있는 부대(중심 방어 부대)는 근접·사격 표적에서 제외한다(`_compute_attack_targets`·NPC `_adjacent_enemy`) — 성벽이 안쪽을 보호한다.
 - 결과: 성벽 있는 마을회관·성은 **[사다리](#사다리-공성-siege--gamegd) 통로 돌파** 또는 **[투석](siege-engines.md#투석-공성-성벽)으로 성벽을 부수기** 전에는 함락 불가.
 
 ## 성벽 내구도 (`Building.wall_hp` · `Siege`)
@@ -89,7 +89,7 @@
 
 ### 사다리 밀기 (방어)
 
-- 성벽 안 **주둔 방어 부대**([Garrison](garrison.md))의 행동 메뉴에, 자기 거점을 겨눈 사다리가 있으면 **[사다리 밀기]**(`can_push_ladder`).
+- 성벽 안 **중심을 점거한 방어 부대**([거점 방어](camp-capture.md#거점-방어-창발--중심-점거))의 행동 메뉴에, 자기 거점을 겨눈 사다리가 있으면 **[사다리 밀기]**(`can_push_ladder`). *(예전엔 주둔 부대 전용이었으나, [주둔 제거](camp-capture.md)로 "자기 거점 중심 점거" 조건으로 바뀜.)*
 - 발동 → 그 거점의 **각 사다리를 독립 판정**: `Siege.push_succeeds(rng.randf(), markup)`. `markup`은 그 사다리가 `hooked`면 `HOOKED_PUSH_REDUCTION`(0.05, 임계 0.10), 아니면 0(임계 0.15). roll < 임계면 그 사다리 제거. 밀기는 방어 부대 **행동 종료**. **NPC 방어자는 공격 페이즈에서 자동 밀기**(사다리 있을 때).
 
 ### 통로 돌파 (breach)
@@ -98,7 +98,7 @@
 
 - **성문 통로**: `gate_broken`이면 **모든 적 세력**에게 `gate_cell` + 중심의 차단을 해제한다(성문은 물리적으로 열린 것 — 세력 무관). `_breached_by(b, faction)`는 사다리 통로 **또는** `b.gate_broken()`이면 참.
 - **준비 완료(`countdown == 0`)** 사다리는 그 `faction`에게 **`target_cell`(ring) + 거점 `center_cell()`**의 성벽 차단을 해제한다(`_wall_blocked_cells`가 그 두 칸을 그 세력엔 막지 않음). 나머지 footprint는 여전히 차단 = **방향 제한**(사다리 통로로만 진입).
-- 이후 그 세력은 통로로 진입해 중심 [주둔 수비대와 전투](battle.md)·[점령](camp-capture.md)한다 — **기존 이동·전투·점령 재사용**. 준비된 사다리가 있으면 walled 거점도 공격·점령 대상 판정에서 그 세력에겐 열린다:
+- 이후 그 세력은 통로로 진입해 중심 [방어 부대와 전투](battle.md)·[점령](camp-capture.md)한다 — **기존 이동·전투·점령 재사용**. 준비된 사다리가 있으면 walled 거점도 공격·점령 대상 판정에서 그 세력에겐 열린다:
   - 플레이어: `_compute_camp_targets`가 `_breached_by`면 점령 대상에 포함.
   - NPC: `_adjacent_enemy_camp`가 `_breached_by`면 흡수 대상에 포함(그 전엔 성벽 거점 제외).
 - 거점이 **점령·파괴**되면 그 거점의 사다리를 모두 제거한다.
@@ -154,17 +154,17 @@
 - [정상] `item_name("grapple_ladder") == "고리 사다리"`, `item_value("grapple_ladder") == 12`, `item_slot("grapple_ladder") == ""`(장착 불가)
 
 **도구 구매** — `test/unit/test_camp_menu.gd`:
-- [정상] 주둔 부대 + 금 충분 → 구매 패널 「도구」 행에서 고리 사다리 [구매] → 부대 `loot_items`에 `grapple_ladder`
+- [정상] 부대 + 금 충분 → 구매 패널 「도구」 행에서 고리 사다리 [구매] → 부대 `loot_items`에 `grapple_ladder`
 
 **사다리 메뉴 버튼** — `test/unit/test_party_action_menu.gd`:
-- [정상] `can_place_ladder=true`(비주둔) → 목록에 `{id="ladder"}` 포함([장비] 앞)
+- [정상] `can_place_ladder=true` → 목록에 `{id="ladder"}` 포함([장비] 앞)
 - [경계] `can_place_ladder=false` → `ladder` 없음
-- [정상] 주둔 + `can_push_ladder=true` → 목록에 `{id="push_ladder"}` 포함
-- [경계] 주둔 + `can_push_ladder=false` → `push_ladder` 없음
+- [정상] `can_push_ladder=true` → 목록에 `{id="push_ladder"}` 포함
+- [경계] `can_push_ladder=false` → `push_ladder` 없음
 
 `game.gd`의 자재 차감·`wall_level` 설정·적 이동 차단·표적 제외, 그리고 **사다리 설치(플레이어·NPC)·타이머(유지 판정 `_ladder_manned`)·통로 돌파·밀기·NPC 공성 AI·돌파 후 흡수 배선**(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음. 유지 카운트 순수 판정 `advance_ladder_countdown`은 유닛 테스트로 커버.)*
 
 ## 관련
 
-- [Garrison / 주둔](garrison.md) — 성벽 안 중심 주둔 부대·[사다리 밀기]. [Camp Capture](camp-capture.md) — 성벽 있으면 점령 불가(사다리 통로로만). [Building](../entities/Building.md) — `wall_level`. [Camp Menu](camp-menu.md) — [성벽 건설] 버튼. [Party Action Menu](party-action-menu.md) — [사다리 설치]/[사다리 밀기]. [Selection & Movement](selection-and-movement.md) — 이동 차단(`blocked_cells`).
+- [Camp Capture](camp-capture.md#거점-방어-창발--중심-점거) — 성벽 안 중심 방어 부대·[사다리 밀기], 성벽 있으면 점령 불가(사다리 통로로만). [Building](../entities/Building.md) — `wall_level`. [Camp Menu](camp-menu.md) — [성벽 건설] 버튼. [Party Action Menu](party-action-menu.md) — [사다리 설치]/[사다리 밀기]. [Selection & Movement](selection-and-movement.md) — 이동 차단(`blocked_cells`).
 - 기획: [건물](../../table/세력/건물.md)(벽·성벽·성문 라인) · 공성 로드맵 슬라이스 3b(NPC 공세)·4(고리 사다리 아이템).

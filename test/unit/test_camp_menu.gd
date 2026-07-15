@@ -215,7 +215,7 @@ func test_found_camp_button_emits_signal() -> void:
 # --- 캠프 철거 버튼 ---
 
 func test_demolish_button_shown_when_can() -> void:
-	menu.open(_center("camp"), null, true)
+	menu.open(_center("camp"), true)
 	assert_true(menu._demolish_btn.visible, "can_demolish=true → 철거 버튼 표시")
 
 func test_demolish_button_hidden_by_default() -> void:
@@ -223,90 +223,14 @@ func test_demolish_button_hidden_by_default() -> void:
 	assert_false(menu._demolish_btn.visible, "기본은 철거 버튼 숨김")
 
 func test_demolish_button_toggle_on_reopen() -> void:
-	menu.open(_center("camp"), null, true)
-	menu.open(_center("camp"), null, false)
+	menu.open(_center("camp"), true)
+	menu.open(_center("camp"), false)
 	assert_false(menu._demolish_btn.visible, "false로 재오픈 → 숨김(토글)")
 
 func test_demolish_button_emits_signal() -> void:
 	var c := _center("camp")
-	menu.open(c, null, true)
+	menu.open(c, true)
 	watch_signals(menu)
 	menu._demolish_btn.pressed.emit()
 	assert_signal_emitted_with_parameters(menu, "demolish_requested", [c], "철거 버튼 → demolish_requested(building)")
 
-# --- 부대 헬퍼 ---
-
-func _party_with(n: int) -> Node2D:
-	var p: Node2D = load("res://scenes/party/party.gd").new()
-	add_child_autofree(p)
-	for i in n:
-		p.add_member(load("res://scenes/human/human.gd").new("병사%d" % i))
-	if n > 0:
-		p.commander = p.members[0]
-	return p
-
-# --- 투석기·충차 생산 (_siege_btn / _ram_btn) → docs/spec/features/siege-engines.md ---
-
-## 거점 + 그 영지에 완성된 공성 작업장을 둔 거점을 반환한다.
-func _center_with_workshop(res := RES) -> Node2D:
-	var c := _center("town_hall", res)
-	var w = load("res://scenes/building/building.gd").new()
-	add_child_autofree(w)
-	w.setup(terrain, Vector2i(24, 24), "siege_workshop")   # 완성
-	c.territory.add_building(w)
-	return c
-
-func test_siege_button_shown_when_workshop_and_party() -> void:
-	var c := _center_with_workshop({"금": 100, "목재": 50, "철": 50})
-	menu.open(c, _party_with(4))
-	assert_true(menu._siege_btn.visible, "완성 작업장 + 주둔 부대 + 자원 충분 → 표시")
-	assert_string_contains(menu._siege_btn.text, "투석기", "투석기 생산 텍스트")
-	assert_false(menu._siege_btn.disabled, "자원 충분 → 활성")
-
-func test_siege_button_hidden_without_workshop() -> void:
-	var c := _center("town_hall", {"금": 100, "목재": 50, "철": 50})
-	menu.open(c, _party_with(4))
-	assert_false(menu._siege_btn.visible, "작업장 없으면 숨김")
-
-func test_siege_button_hidden_without_party() -> void:
-	var c := _center_with_workshop({"금": 100, "목재": 50, "철": 50})
-	menu.open(c)   # 주둔 부대 없음
-	assert_false(menu._siege_btn.visible, "주둔 부대 없으면 숨김")
-
-func test_siege_button_disabled_when_poor() -> void:
-	var c := _center_with_workshop({"금": 10})   # 자원 부족
-	menu.open(c, _party_with(4))
-	assert_true(menu._siege_btn.visible, "작업장 + 부대라 표시")
-	assert_true(menu._siege_btn.disabled, "자원 부족 → 비활성")
-
-func test_siege_button_emits_signal() -> void:
-	var c := _center_with_workshop({"금": 100, "목재": 50, "철": 50})
-	menu.open(c, _party_with(4))
-	watch_signals(menu)
-	menu._siege_btn.pressed.emit()
-	assert_signal_emitted_with_parameters(menu, "siege_produced", [c, "catapult"], "투석기 버튼 → siege_produced(building, \"catapult\")")
-
-func test_ram_button_shown_when_workshop_and_party() -> void:
-	var c := _center_with_workshop({"금": 100, "목재": 50, "철": 50})
-	menu.open(c, _party_with(4))
-	assert_true(menu._ram_btn.visible, "완성 작업장 + 주둔 부대 + 자원 충분 → 표시")
-	assert_string_contains(menu._ram_btn.text, "충차", "충차 생산 텍스트")
-	assert_false(menu._ram_btn.disabled, "자원 충분 → 활성")
-
-func test_ram_button_hidden_without_workshop() -> void:
-	var c := _center("town_hall", {"금": 100, "목재": 50, "철": 50})
-	menu.open(c, _party_with(4))
-	assert_false(menu._ram_btn.visible, "작업장 없으면 숨김")
-
-func test_ram_button_disabled_when_poor() -> void:
-	var c := _center_with_workshop({"금": 10})   # 자원 부족
-	menu.open(c, _party_with(4))
-	assert_true(menu._ram_btn.visible, "작업장 + 부대라 표시")
-	assert_true(menu._ram_btn.disabled, "자원 부족 → 비활성")
-
-func test_ram_button_emits_signal() -> void:
-	var c := _center_with_workshop({"금": 100, "목재": 50, "철": 50})
-	menu.open(c, _party_with(4))
-	watch_signals(menu)
-	menu._ram_btn.pressed.emit()
-	assert_signal_emitted_with_parameters(menu, "siege_produced", [c, "battering_ram"], "충차 버튼 → siege_produced(building, \"battering_ram\")")

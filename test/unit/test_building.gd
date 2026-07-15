@@ -34,7 +34,7 @@ func test_defender_count_default_zero() -> void:
 	assert_eq(building.defender_count, 0, "생성 직후 수비 인원 0")
 
 func test_defender_count_settable() -> void:
-	building.defender_count = 4   # game.gd가 중심 타일 주둔 부대 인원으로 채운다
+	building.defender_count = 4   # game.gd가 중심 타일 점거 방어 부대 인원으로 채운다
 	assert_eq(building.defender_count, 4, "수비 인원 표시값 설정 가능")
 
 # --- 성벽 (wall_level / is_walled) ---

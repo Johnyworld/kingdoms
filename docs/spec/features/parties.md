@@ -19,7 +19,7 @@
 
 각 세력 거점(모서리, [NPC Bases](npc-bases.md) `PLAYER_BASE`·`NPC_BASES`) 주변에 16부대를 **영웅 그룹별로 흩어** 배치한다.
 
-- **주둔 수비대**: 세력당 **경보병 1부대**(영웅 0의 첫 경보병)를 거점 **중심 타일**에 `stationed = true`·`home_territory = 거점 영지`로 세운다(거점 방어 — [Garrison](garrison.md)). 나머지 15부대는 자유 이동.
+- **거점 방어 부대**: 세력당 **경보병 1부대**(영웅 0의 첫 경보병)를 거점 **중심 타일**에 세운다(별도 상태 없이 그 자리를 점거해 방어 — [거점 방어](camp-capture.md#거점-방어-창발--중심-점거)). 나머지 15부대는 자유 이동.
 - **영웅 그룹 흩뿌리기**: 거점은 모서리에 있으므로 **맵 안쪽(중앙) 방향으로만** 벌린다. 영웅 4명마다 성 안쪽 **부채꼴 앵커**(2×2, 거점 기준 약 4·10칸 오프셋을 안쪽 부호 `sign(중앙−거점)`로 스케일)를 하나씩 잡고, **그 영웅 + 소속 부하부대**를 그 앵커 근처 [BFS](map-and-camera.md) 통과 가능·미점유 셀에 모아 놓는다. 그룹끼리 앵커가 떨어져 있어 **영웅 지휘부가 성 주변에 흩어진다**.
 - `_nearby_free_cells(anchor, count, occupied)`: 앵커에서 반경을 넓혀 가며 **통과 가능**(산 제외)·**미점유** 셀을 거리순으로 확보. `occupied`를 그룹 간 누적해 겹치지 않게 한다.
 - 4왕국이 네 모서리에 흩어져 있어 시작 시 세력끼리 멀다. 거점 좌표는 [NPC Bases](npc-bases.md).
@@ -48,9 +48,9 @@
 ## 테스트
 
 - 데이터 계층([UnitTypes](../data/units.md))·[Party](../entities/Party.md) `kind`/`lord`는 단위 테스트로 검증한다.
-- `game.gd`의 편성·배치·`kind`/`lord`/주둔 설정·NPC `visible` 토글은 씬 트리·터레인 의존이라 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)*
+- `game.gd`의 편성·배치·`kind`/`lord` 설정·NPC `visible` 토글은 씬 트리·터레인 의존이라 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)*
 
 ## 관련
 
 - [Party (부대)](../entities/Party.md) · [Human (사람)](../entities/Human.md) · [Faction (세력)](../entities/Faction.md) · [유닛 카탈로그](../data/units.md)
-- 선택·이동은 [Selection & Movement](selection-and-movement.md), 안개는 [Fog of War](fog-of-war.md), 부대 일람은 [Party Roster](party-roster.md), 거점 수비는 [Garrison](garrison.md).
+- 선택·이동은 [Selection & Movement](selection-and-movement.md), 안개는 [Fog of War](fog-of-war.md), 부대 일람은 [Party Roster](party-roster.md), 거점 방어는 [Camp Capture](camp-capture.md#거점-방어-창발--중심-점거).

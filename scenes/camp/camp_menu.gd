@@ -11,9 +11,6 @@ signal upgrade_requested(building: Building)
 ## 성벽 건설 버튼 클릭 시 방출. game.gd가 받아 자재 지불 + wall_level 설정을 처리한다. → wall.md
 signal wall_requested(building: Building)
 
-## 공성 유닛 생산 버튼 클릭 시 방출(종류 id 포함). game.gd가 받아 금·자재 지불 + 주둔 부대에 편입을 처리한다. → siege-engines.md
-signal siege_produced(building: Building, type_id: String)
-
 ## 캠프 건설 버튼 클릭 시 방출. game.gd가 받아 새 영지 캠프 건설 모드(부대 시야 배치)로 진입한다.
 signal found_camp_requested(territory: Territory)
 
@@ -27,15 +24,12 @@ var _faction_label: Label  # 제목 아래 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
 var _upgrade_btn: Button   # 거점 업그레이드 버튼(다음 티어 있을 때만)
 var _wall_btn: Button      # 성벽 건설 버튼(마을회관·성 + 성벽 없을 때만) → wall.md
-var _siege_btn: Button     # 투석기 생산 버튼(거점 + 주둔 부대 + 완성 공성 작업장) → siege-engines.md
-var _ram_btn: Button       # 충차 생산 버튼(같은 조건) → siege-engines.md
 var _found_camp_btn: Button  # 캠프 건설(새 영지) 버튼
 var _demolish_btn: Button    # 캠프 철거 버튼(can_demolish일 때만)
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
 var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
 
 var _building: Building            # 현재 열려 있는 거점
-var _party = null                  # 그 거점 주둔 부대(투석기 생산 대상 판정) → garrison.md · siege-engines.md
 
 func _ready() -> void:
 	layer = 64
@@ -120,17 +114,6 @@ func _build_menu_panel() -> Control:
 	_wall_btn.hide()
 	vbox.add_child(_wall_btn)
 
-	# 공성 유닛 생산 버튼(거점 + 주둔 부대 + 완성 공성 작업장일 때만 표시). open()에서 갱신. → siege-engines.md
-	_siege_btn = Button.new()
-	_siege_btn.pressed.connect(func() -> void: siege_produced.emit(_building, SiegeTypes.CATAPULT))
-	_siege_btn.hide()
-	vbox.add_child(_siege_btn)
-
-	_ram_btn = Button.new()
-	_ram_btn.pressed.connect(func() -> void: siege_produced.emit(_building, SiegeTypes.BATTERING_RAM))
-	_ram_btn.hide()
-	vbox.add_child(_ram_btn)
-
 	# 캠프 건설(새 영지) 버튼 — 활성 부대 시야에 새 캠프를 세운다. open()에서 활성 여부 갱신.
 	_found_camp_btn = Button.new()
 	_found_camp_btn.pressed.connect(func() -> void: found_camp_requested.emit(_territory))
@@ -167,10 +150,8 @@ func _build_menu_panel() -> Control:
 	return panel
 
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
-## party(그 거점 주둔 부대)는 투석기 생산 대상 판정에 쓴다. → garrison.md · siege-engines.md
-func open(building: Building, party = null, can_demolish := false) -> void:
+func open(building: Building, can_demolish := false) -> void:
 	_building = building
-	_party = party
 	var territory := building.territory
 	_territory = territory
 
@@ -179,7 +160,6 @@ func open(building: Building, party = null, can_demolish := false) -> void:
 	_build_btn.show()
 	_refresh_upgrade_button()
 	_refresh_wall_button()
-	_refresh_siege_buttons()
 	_refresh_found_camp_button()
 	_demolish_btn.visible = can_demolish   # 캠프 철거 버튼(game.gd가 조건 판정)
 
@@ -244,23 +224,6 @@ func _refresh_wall_button() -> void:
 	_wall_btn.text = "성벽 건설  %s" % _format_cost(BuildingTypes.WALL_COST)
 	_wall_btn.disabled = not BuildingTypes.can_build_wall(_territory, _building)
 	_wall_btn.show()
-
-## 공성 유닛 생산 버튼 갱신(투석기·충차): 거점 + 주둔 부대 + 영지에 완성 공성 작업장이 있을 때만 표시. → siege-engines.md
-func _refresh_siege_buttons() -> void:
-	_refresh_produce_button(_siege_btn, SiegeTypes.CATAPULT)
-	_refresh_produce_button(_ram_btn, SiegeTypes.BATTERING_RAM)
-
-## 종류 id의 생산 버튼 갱신. 라벨 = "<이름>  <금·자재>", 조건 미충족이면 숨김, 자원 부족이면 비활성. 인구 비소모.
-func _refresh_produce_button(btn: Button, type_id: String) -> void:
-	if _building == null or _party == null or _territory == null \
-			or not BuildingTypes.is_center(_building.building_type) \
-			or not _territory.has_completed_building("siege_workshop"):
-		btn.hide()
-		return
-	var cost := SiegeTypes.produce_full_cost(type_id)
-	btn.text = "%s  %s" % [SiegeTypes.type_name(type_id), _format_cost(cost)]
-	btn.disabled = not _territory.can_afford(cost)
-	btn.show()
 
 ## 캠프 건설(새 영지) 버튼 갱신: 라벨(비용)과 활성 여부(여는 영지가 캠프 비용 감당 가능한지).
 func _refresh_found_camp_button() -> void:

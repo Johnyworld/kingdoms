@@ -33,9 +33,6 @@ var lord = null
 var members: Array = []   # 이 부대에 속한 Human 목록.
 var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
 
-## 거점 주둔 부대([Garrison](../../docs/spec/features/garrison.md))가 가리키는 방어 영지(그 외 부대는 null).
-var home_territory = null
-
 # --- 노획 장비 ---
 ## 전투로 전멸시킨 패자 전사자의 장비 아이템 id 목록(무기·방어구·방패). 장착 안 된 채 보관한다.
 ## 중복 허용(같은 id 여러 개), 용량 제한 없음. 멤버에게 장착·탈착(장비 관리)하거나 캠프에서 금으로 판매할 수 있다.
@@ -59,7 +56,6 @@ var highlight := Color(0, 0, 0, 0)
 var moved_this_turn := false      # 이번 턴에 이미 이동했는지. true면 재이동 불가(공격은 아직 가능).
 var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
 var rested_this_turn := false     # 이번 턴 휴식/대기 선택했는지. 회복 연동은 미구현(party_action_menu).
-var stationed := false             # 거점에서 주둔(대기) 중인지. true면 이동·공격 불가, reset_turn에도 유지. → garrison.md
 
 ## 멤버를 부대에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다. 다시 그린다(빈→유 전환 시 토큰 부활).
 ## 지휘관이 없으면(빈 부대에 첫 멤버) 그 멤버를 지휘관으로 삼는다.
@@ -326,13 +322,13 @@ func set_selected(value: bool) -> void:
 	selected = value
 	queue_redraw()
 
-## 이번 턴에 이동 가능한지. 이동했거나 공격했거나 주둔 중이면(행동 종료·대기) 불가.
+## 이번 턴에 이동 가능한지. 이동했거나 공격했으면(행동 종료) 불가.
 func can_move() -> bool:
-	return not moved_this_turn and not attacked_this_turn and not stationed
+	return not moved_this_turn and not attacked_this_turn
 
-## 이번 턴에 공격 가능한지. 이동만 했으면 아직 가능, 공격했거나 주둔 중이면 불가.
+## 이번 턴에 공격 가능한지. 이동만 했으면 아직 가능, 공격했으면 불가.
 func can_attack() -> bool:
-	return not attacked_this_turn and not stationed
+	return not attacked_this_turn
 
 ## 이번 턴에 휴식(대기) 가능한지. 아직 행동을 끝내지 않았으면 가능.
 func can_rest() -> bool:

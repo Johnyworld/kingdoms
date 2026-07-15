@@ -8,7 +8,7 @@
 
 ## 대상 (누가 "우리 세력 군인"인가)
 
-- **우리 세력의 모든 부대의 전원**. `game.gd`가 모든 [부대](../entities/Party.md) 중 `faction_name`이 [플레이어 세력](../entities/Faction.md)(`_player_faction.name`)인 부대를 골라, 그 `members`([Human](../entities/Human.md))를 전부 모은다. 필드 부대와 거점 [주둔 부대](garrison.md)를 모두 포함한다.
+- **우리 세력의 모든 부대의 전원**. `game.gd`가 모든 [부대](../entities/Party.md) 중 `faction_name`이 [플레이어 세력](../entities/Faction.md)(`_player_faction.name`)인 부대를 골라, 그 `members`([Human](../entities/Human.md))를 전부 모은다. 필드 부대와 거점 방어 부대를 모두 포함한다.
 - 수집 로직은 재사용·테스트 가능한 **정적 헬퍼** `MembersMenu.collect_faction_members(parties: Array, faction_name: String) -> Array`로 둔다 — `parties` 중 `faction_name`이 일치하는 부대의 `members`를 순서대로 모으고 **중복을 제거**해 반환(부대 지휘관 유무·순서 무관).
 - `game.gd._player_faction_members() -> Array` — `MembersMenu.collect_faction_members(_units, _player_faction.name)`을 호출한다(모든 플레이어 부대는 `_units`에 있음). 오버레이를 **열 때** 이 스냅샷을 넘긴다.
 
