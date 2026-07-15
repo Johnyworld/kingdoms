@@ -1,9 +1,9 @@
 extends Node2D
-## 100x100 헥스 타일 맵(초원)을 그리고, 카메라를 플레이어 거점(남서 모서리)에 배치한다.
+## 50x50 헥스 타일 맵(초원)을 그리고, 카메라를 플레이어 거점(남서 모서리)에 배치한다.
 ## 카메라는 WASD 또는 마우스를 화면 가장자리에 대면 상하좌우로 이동한다.
 
-const MAP_WIDTH := 100
-const MAP_HEIGHT := 100
+const MAP_WIDTH := 50
+const MAP_HEIGHT := 50
 
 const CAM_SPEED := 900.0    # 픽셀/초
 const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)

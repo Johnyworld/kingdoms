@@ -30,11 +30,11 @@
 | 세력 | 모서리 | 캠프 중심 (`NPC_BASES`) |
 | --- | --- | --- |
 | 초원 칸국(서) | 북서 NW | `(10, 10)` |
-| 암흑 제국(북) | 북동 NE | `(89, 10)` |
-| 사막 술탄국(동) | 남동 SE | `(89, 89)` |
+| 암흑 제국(북) | 북동 NE | `(39, 10)` |
+| 사막 술탄국(동) | 남동 SE | `(39, 39)` |
 
 - 좌표는 `MARGIN`·`MAP_WIDTH`·`MAP_HEIGHT`로 계산한다(`Vector2i(MAP_WIDTH-1-MARGIN, MARGIN)` 등). 세력 군대(16부대)는 거점 주변에 영웅 그룹별로 흩어 배치된다(`_place_army` — [Parties](parties.md#배치-_place_army)).
-- (플레이어 푸른 왕국은 남서 SW `(10, 89)` = `PLAYER_BASE`. → [Map & Camera](map-and-camera.md) · [Parties](parties.md).)
+- (플레이어 푸른 왕국은 남서 SW `(10, 39)` = `PLAYER_BASE`. → [Map & Camera](map-and-camera.md) · [Parties](parties.md).)
 - 캠프는 중심 + 이웃 6칸 = 7헥스를 차지한다(모든 건물 공통 발자국).
 - 각 왕국이 서로 반대편 모서리라 시작 시엔 멀리 떨어져 있다(초기 조우 없음).
 

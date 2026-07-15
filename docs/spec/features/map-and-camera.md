@@ -5,12 +5,12 @@
 
 ## 맵
 
-- **크기**: 100 × 100 헥스 (`MAP_WIDTH`, `MAP_HEIGHT` = 10,000 셀).
+- **크기**: 50 × 50 헥스 (`MAP_WIDTH`, `MAP_HEIGHT` = 2,500 셀).
 - **타일셋**: `tiles/terrain_tileset.tres` — 지형별 단일 타일을 source id로 구분한다(모두 atlas `(0,0)`).
   - `0` 초원 · `1` 숲 · `2` 습지 · `3` 산 · `4` 사막. 상세는 [Terrain](../data/terrain.md).
   - 헥스 형태(pointy-top), 타일 크기 64×46.
 - **4왕국 모서리 배치**: 플레이어 + NPC 3세력의 거점을 맵 네 모서리 근처(안쪽 `MARGIN=10`칸)에 둔다. → [NPC Bases](npc-bases.md).
-  - 플레이어 거점(마을회관) = **남서(SW)** 모서리 `PLAYER_BASE = (MARGIN, MAP_HEIGHT-1-MARGIN) = (10, 89)`.
+  - 플레이어 거점(마을회관) = **남서(SW)** 모서리 `PLAYER_BASE = (MARGIN, MAP_HEIGHT-1-MARGIN) = (10, 39)`.
 - **생성**(`_generate_map`): 전체를 초원으로 채운 뒤, **플레이어 거점(남서 모서리)** 근처에 방향별 지형 덩어리를 배치한다(`_place_starting_terrain`).
   - **서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산**. 각 방향 씨앗 칸 + 이웃 6칸을 그 지형으로 칠한다(`_paint_patches`).
   - 캠프(중심 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다. (y 증가=남쪽, x 증가=동쪽)
