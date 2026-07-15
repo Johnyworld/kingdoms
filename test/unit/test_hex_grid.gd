@@ -273,38 +273,73 @@ func test_path_blocked_dest_returns_empty() -> void:
 func _hero_dist(hero: Vector2i) -> Dictionary:
 	return HexGrid.bfs_distances(terrain, hero, MAP + MAP, MAP, MAP, Terrain.IMPASSABLE)
 
+## 영웅 인접 링 중 월드 x가 가장 큰(동쪽) 칸 — 서→동 이동의 전방 타일.
+func _east_ring(hero: Vector2i) -> Vector2i:
+	var best: Vector2i = terrain.get_surrounding_cells(hero)[0]
+	for n in terrain.get_surrounding_cells(hero):
+		if terrain.map_to_local(n).x > terrain.map_to_local(best).x:
+			best = n
+	return best
+
 func test_follow_lands_adjacent_when_reachable() -> void:
 	var hero := _center()
-	var follower: Vector2i = hero + Vector2i(3, 0)   # 3칸 떨어짐
-	var dest := HexGrid.follow_destination(terrain, hero, follower, 3, MAP, MAP)
-	assert_true(dest in terrain.get_surrounding_cells(hero), "이동력 충분 → 영웅 인접 칸에 배치")
+	var follower: Vector2i = hero + Vector2i(3, 0)   # 3칸 떨어짐(방향 없음)
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 3, MAP, MAP)
+	assert_true(dest in terrain.get_surrounding_cells(hero), "이동력 충분 → 영웅 인접 링 칸에 배치")
 
 func test_follow_never_targets_hero_cell() -> void:
 	var hero := _center()
 	var follower: Vector2i = hero + Vector2i(2, 0)
-	var dest := HexGrid.follow_destination(terrain, hero, follower, 5, MAP, MAP)
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 5, MAP, MAP)
 	assert_ne(dest, hero, "영웅 칸 자체는 목적지가 아니다")
 
 func test_follow_stays_when_already_adjacent() -> void:
 	var hero := _center()
-	var follower: Vector2i = terrain.get_surrounding_cells(hero)[0]   # 이미 인접
-	var dest := HexGrid.follow_destination(terrain, hero, follower, 3, MAP, MAP)
-	assert_eq(dest, follower, "이미 인접이면 제자리(더 가까워질 수 없음)")
+	var follower: Vector2i = terrain.get_surrounding_cells(hero)[0]   # 이미 인접(방향 없음)
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 3, MAP, MAP)
+	assert_eq(dest, follower, "방향 없고 이미 인접이면 제자리")
+
+func test_follow_prefers_forward_tile() -> void:
+	# 서→동 이동(from=영웅 서쪽), 북쪽 하위부대가 링 전체 도달 가능 → 전방(동쪽) 링 칸 선택.
+	var hero := _center()
+	var from: Vector2i = hero + Vector2i(-1, 0)
+	var follower: Vector2i = hero + Vector2i(0, -2)
+	var dest := HexGrid.follow_destination(terrain, hero, from, follower, 5, MAP, MAP)
+	assert_true(dest in terrain.get_surrounding_cells(hero), "링 칸에 배치")
+	assert_gt(terrain.map_to_local(dest).x, terrain.map_to_local(hero).x, "진행 방향(동)쪽 전방 링 칸 선호")
+
+func test_follow_on_forwardmost_ring_stays() -> void:
+	# 이미 최전방(동쪽) 링 칸에 있으면 제자리.
+	var hero := _center()
+	var from: Vector2i = hero + Vector2i(-1, 0)
+	var follower: Vector2i = _east_ring(hero)
+	var dest := HexGrid.follow_destination(terrain, hero, from, follower, 3, MAP, MAP)
+	assert_eq(dest, follower, "이미 최전방 링 칸이면 제자리")
+
+func test_follow_forward_blocked_takes_other_ring() -> void:
+	# 최전방 링 칸이 막히면 다른 도달 가능 링 칸으로(영웅 칸·막힌 칸 아님).
+	var hero := _center()
+	var from: Vector2i = hero + Vector2i(-1, 0)
+	var follower: Vector2i = hero + Vector2i(0, -2)
+	var east: Vector2i = _east_ring(hero)
+	var dest := HexGrid.follow_destination(terrain, hero, from, follower, 5, MAP, MAP, {east: true})
+	assert_true(dest in terrain.get_surrounding_cells(hero), "남은 링 칸에 배치")
+	assert_ne(dest, east, "막힌 최전방 칸은 안 고름")
 
 func test_follow_partial_approach_when_movement_short() -> void:
 	var hero := _center()
 	var follower: Vector2i = hero + Vector2i(4, 0)   # 4칸 떨어짐
 	var d := _hero_dist(hero)
-	var dest := HexGrid.follow_destination(terrain, hero, follower, 1, MAP, MAP)   # 이동력 1
-	assert_lt(int(d[dest]), int(d[follower]), "이동력 부족해도 영웅에 더 가까워진다")
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 1, MAP, MAP)   # 이동력 1
+	assert_lt(int(d[dest]), int(d[follower]), "링 못 닿아도 영웅에 더 가까워진다")
 	assert_false(dest in terrain.get_surrounding_cells(hero), "인접까지는 못 온다")
 
 func test_follow_avoids_blocked_adjacent() -> void:
 	var hero := _center()
 	var follower: Vector2i = hero + Vector2i(2, 0)
 	var blocked := {hero + Vector2i(1, 0): true}   # 팔로워 쪽 인접 칸 하나 점유
-	var dest := HexGrid.follow_destination(terrain, hero, follower, 3, MAP, MAP, blocked)
-	assert_true(dest in terrain.get_surrounding_cells(hero), "남은 인접 빈 칸으로 배치")
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 3, MAP, MAP, blocked)
+	assert_true(dest in terrain.get_surrounding_cells(hero), "남은 인접 빈 링 칸으로 배치")
 	assert_false(blocked.has(dest), "막힌 칸은 고르지 않는다")
 
 func test_follow_all_adjacent_blocked_approaches() -> void:
@@ -314,7 +349,7 @@ func test_follow_all_adjacent_blocked_approaches() -> void:
 	for n in terrain.get_surrounding_cells(hero):
 		blocked[n] = true   # 영웅 인접 6칸 전부 점유
 	var d := _hero_dist(hero)
-	var dest := HexGrid.follow_destination(terrain, hero, follower, 5, MAP, MAP, blocked)
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 5, MAP, MAP, blocked)
 	assert_false(dest in terrain.get_surrounding_cells(hero), "인접 전부 막힘 → 인접 아님")
 	assert_lt(int(d[dest]), int(d[follower]), "그래도 최대한 접근")
 
@@ -324,7 +359,7 @@ func test_follow_trapped_stays() -> void:
 	var blocked := {}
 	for n in terrain.get_surrounding_cells(follower):
 		blocked[n] = true   # 팔로워 사방 점유 → 이동 불가
-	var dest := HexGrid.follow_destination(terrain, hero, follower, 3, MAP, MAP, blocked)
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 3, MAP, MAP, blocked)
 	assert_eq(dest, follower, "완전히 갇히면 제자리")
 
 # --- attack_move_stop (돌격 어택무브 정지 지점) ---

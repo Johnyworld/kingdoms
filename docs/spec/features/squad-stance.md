@@ -36,13 +36,15 @@
 
 ### 추종 (`st_follow`)
 
-`_follow_with_lord(hero, hero_cell)` — 하위부대들을 영웅 칸(`hero_cell`) 주변 빈 칸으로 따라오게 한다.
+`_follow_with_lord(hero, hero_cell, from_cell)` — 하위부대들을 영웅 칸(`hero_cell`) **주변 링(인접 6칸)** 으로 대형 지어 따라오게 한다. 지휘관을 한 줄로 뒤쫓지 않고 **둘러싸며**, 빠른 부대는 진행 방향 **앞**에 선다.
 
 - **대상**(`_subordinates_of(hero)`): `lord == hero`이고 멤버 있는 부대.
 - **가능한 부대만**: `can_move()`인 부대만 이동(이미 이동/공격했거나 주둔 중이면 건너뜀).
-- **목적지**: 영웅 칸에 인접한 도달 가능 빈 칸(자신에게 가장 가까운 칸). 못 닿으면 이동력 내 **최대한 접근**. 판정은 `HexGrid.follow_destination`(아래).
-- **겹침 방지**: 하나씩 순차 배정하며 배정된 목적지·영웅 칸을 예약(차단)해 서로 다른 칸으로 흩어진다.
-- **턴 소비**: 따라 움직인 부대는 `mark_moved()`. 이미 최선 위치(인접)면 이동·소모 없이 남는다.
+- **처리 순서**: 하위부대를 **이동력 큰 순**으로 정렬해 처리한다 → 빠른 부대가 **진행 방향 전방** 링 타일을 먼저 차지하고, 느린 부대가 측면·후방을 채운다("앞설 수 있으면 앞서도록"). 순차 배정하며 배정 칸·영웅 칸을 예약(차단)해 겹치지 않는다.
+- **목적지**: 영웅 칸에 인접한 도달 가능 빈 칸(**링**) 중, **진행 방향(from_cell→hero_cell)** 으로 가장 앞선 칸. 링에 못 닿으면 이동력 내 **최대한 접근**(기존 동작). 판정은 `HexGrid.follow_destination`(아래).
+- **진행 방향(`from_cell`)**: 영웅이 이번 턴 이동한 출발 칸. 이동 확정 시 `_stance_from_cell`에 저장해 넘긴다. 방향이 없으면(제자리 발동 등) 링 중 자신에게 가까운 칸(무방향 분산).
+- **앞서는 거리**: 링(인접 1칸)까지만 — 전방 인접 타일이 최대(2칸+ 과도 전진 없음).
+- **턴 소비**: 따라 움직인 부대는 `mark_moved()`. 이미 최선(가장 앞선 링) 위치면 이동·소모 없이 남는다.
 - **연출**: [이동 애니메이션](selection-and-movement.md#이동-애니메이션-gamegd-_animate_path)(`_animate_path`, 칸당 `MOVE_STEP_TIME`)으로 걸어가며 도착 칸마다 `_update_fog()`. 여러 부대는 `FOLLOW_STAGGER` 간격 순차 출발. **추종 트윈(`_follow_tweens`)이 사는 동안 좌클릭 잠금**(영웅 이동 `_player_moving`과 동일).
 - **턴 종료 스냅**: 추종 중 턴이 끝나면(`_on_turn_ended`) `_finish_pending_follow_moves()`가 트윈을 죽이고 각 부대를 목적지로 스냅.
 
@@ -82,15 +84,16 @@
 ## 추종 목적지 판정 (`HexGrid.follow_destination`)
 
 ```
-static func follow_destination(terrain, hero_cell, follower_cell, move_range, map_w, map_h, blocked_cells := {}) -> Vector2i
+static func follow_destination(terrain, hero_cell, from_cell, follower_cell, move_range, map_w, map_h, blocked_cells := {}) -> Vector2i
 ```
 
-하위부대(`follower_cell`)가 영웅(`hero_cell`)을 따라갈 **목적지 칸**을 고른다. 노드 비의존 순수 함수(테스트 용이).
+하위부대(`follower_cell`)가 영웅(`hero_cell`)을 따라갈 **목적지 칸**을 고른다. 노드 비의존 순수 함수(테스트 용이). `from_cell`은 영웅의 이번 턴 출발 칸(진행 방향 기준).
 
-- **후보**: `follower_cell`(제자리) + `movement_ranges(...).move`(이번 이동력으로 도달 가능한 칸). 지형(산)·`blocked_cells`(점유·예약 칸)는 도달 계산에서 제외.
-- **순위**: 각 후보를 **영웅으로부터의 지형 거리**(`bfs_distances(hero_cell, ...)`, 산만 제외·유닛 무관)가 **작은 순**으로. 동률이면 **하위부대로부터 가까운 순**(`movement_ranges`의 `dist`).
-- `hero_cell` 자체는 **절대 고르지 않는다**(영웅이 설 칸). 인접 빈 칸이 도달 가능하면 그 칸(거리 1), 아니면 도달 가능한 칸 중 영웅에 가장 가까운 칸.
-- 더 가까워질 수 없으면(이미 인접·완전히 갇힘) `follower_cell`(제자리)을 반환한다 → 호출부는 이동을 생략한다.
+- **후보**: `follower_cell`(제자리) + `movement_ranges(...).move`(도달 가능 칸). 지형(산)·`blocked_cells`(점유·예약 칸) 제외. `hero_cell`은 절대 목적지 아님.
+- **링 우선**: 도달 가능한 후보 중 **영웅에 인접한 칸(`get_surrounding_cells(hero_cell)`)** 이 있으면 그중에서 고른다.
+  - **전방 점수**: 각 링 타일의 월드 위치가 진행 방향(`map_to_local(hero_cell) − map_to_local(from_cell)`)과 이루는 **내적(dot)** 이 **큰 순**(가장 앞선 칸). 동률이면 **하위부대에서 가까운 순**(`movement_ranges`의 `dist`).
+  - `from_cell == hero_cell`(방향 없음)이면 전방 점수가 모두 0 → 하위부대에서 가까운 링 타일(무방향, 예약과 함께 분산).
+- **접근 폴백**: 도달 가능한 링 타일이 하나도 없으면(멀거나 갇힘) 후보 중 **영웅 지형 거리(`bfs_distances`)가 최소**인 칸(동률 시 하위부대 근접). 더 가까워질 수 없으면 `follower_cell`(제자리).
 
 ## 어택무브 정지 판정 (`HexGrid.attack_move_stop`)
 
@@ -114,7 +117,7 @@ static func attack_move_stop(terrain, path, enemy_cells, reach, map_w, map_h) ->
 - `_can_command_subordinates(hero) -> bool` — 위 목록 중 `can_move()`인 부대가 하나라도 있는지(작전 메뉴 노출 조건).
 - `_open_stance_menu(hero) -> void` — `_stance_hero`를 세우고 작전 메뉴를 연다.
 - `_resolve_stance(id) -> void`(async) — 고른 스탠스를 처리하고(교전은 시퀀스 await, 돌격은 목표 지정 모드 진입) 영웅 행동 메뉴로 복귀.
-- `_follow_with_lord(hero, hero_cell) -> void` / `_start_follow_animation(f, path, delay)` / `_finish_pending_follow_moves()` — 추종 이동·애니메이션·턴 종료 스냅.
+- `_follow_with_lord(hero, hero_cell, from_cell) -> void` — 추종(이동력 큰 순 정렬 → 전방 링 우선 배정). `from_cell`은 영웅 이동 출발 칸(`_stance_from_cell`, 이동 확정 시 저장). / `_start_follow_animation(f, path, delay)` / `_finish_pending_follow_moves()` — 애니메이션·턴 종료 스냅.
 - `_engage_with_lord(hero) -> void`(async) — 교전 시퀀스(접근→사거리 내 전투, 부대별 순차 await).
 - `_charge_with_lord(hero, target_cell) -> void`(async) — 돌격 어택무브 시퀀스(목표 방향 접근→정지 지점 교전).
 - `_pick_charge_target(world_pos) -> void`(async) — 목표 지정 모드에서 맵 클릭을 목표로 잡아 `_charge_with_lord` 실행(영웅 칸 클릭은 취소).
@@ -142,11 +145,13 @@ static func attack_move_stop(terrain, path, enemy_cells, reach, map_w, map_h) ->
 
 ### 추종 목적지 판정 — `test/unit/test_hex_grid.gd` (실제 헥스 TileMapLayer)
 
-- [정상] 하위부대가 영웅에서 3칸, 이동력 넉넉 → **영웅에 인접(거리 1)** 한 칸
+- [정상] 하위부대가 영웅에서 3칸, 이동력 넉넉(방향 없음) → **영웅에 인접(거리 1)** 한 링 칸
 - [정상] 결과 칸은 영웅 칸(`hero_cell`)이 아니다
-- [경계] 이미 영웅에 인접 → 제자리(`follower_cell`)
-- [경계] 이동력 부족(예: 이동력 1, 영웅과 4칸) → 인접 아니어도 **영웅에 더 가까워지는** 칸
-- [점유] 영웅 인접 칸 일부가 `blocked_cells`로 막힘 → 막힌 칸 회피, 남은 인접 빈 칸
+- [정상] **진행 방향(예: 서→동)** 이고 링 전체 도달 가능 → **전방(동쪽) 링 칸**을 고른다(월드 x가 영웅보다 큼)
+- [정상] 이미 최전방 링 칸에 있으면 제자리(`follower_cell`)
+- [경계] 방향 없음(`from_cell == hero_cell`)이고 이미 인접 → 제자리
+- [경계] 이동력 부족(예: 이동력 1, 영웅과 4칸) → 링 못 닿음 → **영웅에 더 가까워지는** 칸으로 접근
+- [점유] 전방 링 칸이 `blocked_cells`로 막힘 → 막힌 칸 회피, 도달 가능한 다른 링 칸
 - [점유] 영웅 인접 칸 전부 막힘 → 인접 밖이라도 도달 가능한 가장 가까운 칸으로 접근
 - [경계] 완전히 갇힘(사방 점유/산) → 제자리(`follower_cell`)
 
@@ -155,7 +160,7 @@ static func attack_move_stop(terrain, path, enemy_cells, reach, map_w, map_h) ->
 작전 메뉴 노출·`_resolve_stance`·하위부대 순회·예약·애니메이션·턴 종료 스냅·클릭 잠금은 씬 트리·터레인 의존이라 실제 실행으로 확인한다.
 
 - 하위부대 있는 영웅부대 이동 → 작전 메뉴 [추종][대기][교전][돌격].
-- [추종] → 하위부대들이 영웅 주변 빈 칸으로 흩어져 따라오고 흐리게(이동 완료) 표시. 이미 행동/주둔한 부대는 안 따라옴. 이동력 부족하면 최대 접근.
+- [추종] → 하위부대들이 영웅 **주변 링으로 대형** 지어 따라오고(한 줄 아님), 빠른 부대가 진행 방향 앞에 선다. 이미 행동/주둔한 부대는 안 따라옴. 링에 못 닿으면 최대 접근.
 - [대기] → 하위부대 제자리, 영웅 행동 메뉴([사격]/[대기])로 복귀.
 - [교전] → 하위부대들이 하나씩 가까운 적으로 접근, 사거리 안이면 근접/사격 전투(불리하면 접근만). 시퀀스 동안 맵 클릭·턴 종료 잠김, 끝나면 영웅 메뉴로 복귀.
 - [돌격] → 하위부대 도달 범위(파랑) 표시 + 목표 지정 대기. 맵 한 지점 클릭 → 하위부대들이 그 방향으로 전진하다 사거리 내 적을 만나면 정지·무조건 교전. 영웅 칸 클릭 시 취소.

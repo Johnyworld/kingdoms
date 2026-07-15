@@ -132,6 +132,8 @@ var _stance_hero = null
 var _stance_busy := false
 # 돌격 목표 지정 대기 중인 영웅부대(없으면 null). 이때 맵 좌클릭은 목표 선택으로 라우팅된다. → squad-stance.md
 var _charge_hero = null
+# 마지막 플레이어 이동의 출발 칸 — [추종] 시 진행 방향(전방) 판정에 쓴다. → squad-stance.md
+var _stance_from_cell := Vector2i(-1, -1)
 
 # 전투 오버레이가 떠 있는 동안 월드맵 좌클릭·턴 종료를 잠근다.
 var _in_battle := false
@@ -643,6 +645,7 @@ func _handle_click(world_pos: Vector2) -> void:
 			_undo_party = party   # 되돌리기용: 이동 전 칸 기록(다른 부대 이동/행동 시 갱신·소멸)
 			_undo_cell = party_cell
 			party.mark_moved()   # 부대는 한 턴에 1회만 이동.
+			_stance_from_cell = party_cell   # [추종] 진행 방향(전방) 판정용 출발 칸. → squad-stance.md
 			_deselect()
 			_hide_party_info()
 			_move_player_to(party_cell, cell)   # 이동 완료 후 _after_move가 영웅이면 작전 메뉴를 연다 → squad-stance.md
@@ -2262,7 +2265,7 @@ func _resolve_stance(id: String) -> void:
 	party_action_menu.close()
 	match id:
 		"st_follow":
-			_follow_with_lord(hero, terrain.local_to_map(hero.position))   # 하위부대가 영웅 주변으로 집결
+			_follow_with_lord(hero, terrain.local_to_map(hero.position), _stance_from_cell)   # 하위부대가 영웅 주변으로 집결
 		"st_hold":
 			pass   # 대기 — 하위부대 제자리(방어 버프 미구현)
 		"st_engage":
@@ -2387,12 +2390,14 @@ func _charge_with_lord(hero, target_cell: Vector2i) -> void:
 			await _run_battle(f, target, dist, occ)
 	_stance_busy = false
 
-## 작전(추종): hero에 소속된 하위부대들을 hero 칸(hero_cell) 주변 빈 칸으로 따라오게 한다. → squad-stance.md
-## 하나씩 순차 배정하며 목적지·영웅 칸을 예약해 서로 겹치지 않게 흩어진다. 이미 행동했거나 갇힌 부대는 건너뛴다.
-func _follow_with_lord(hero, hero_cell: Vector2i) -> void:
+## 작전(추종): hero에 소속된 하위부대들을 hero 칸(hero_cell) 주변 링으로 대형 지어 따라오게 한다. → squad-stance.md
+## from_cell(영웅 출발 칸)로 진행 방향을 알아 전방 링을 우선한다. 이동력 큰 순으로 처리해 빠른 부대가 앞을 차지하고,
+## 배정 칸·영웅 칸을 예약해 겹치지 않는다. 이미 행동했거나 갇힌 부대는 건너뛴다.
+func _follow_with_lord(hero, hero_cell: Vector2i, from_cell: Vector2i) -> void:
 	var followers := _subordinates_of(hero)
 	if followers.is_empty():
 		return
+	followers.sort_custom(func(a, b): return a.movement() > b.movement())   # 빠른 부대가 전방 링 먼저 선점
 	var blocked := _blocked_for(hero)   # 유닛 점유 + 성벽(hero 자신은 제외됨)
 	blocked[hero_cell] = true            # 영웅 칸 예약(하위부대가 밟지 않게)
 	var delay := 0.0
@@ -2400,7 +2405,7 @@ func _follow_with_lord(hero, hero_cell: Vector2i) -> void:
 		if not f.can_move():
 			continue   # 이미 이동/공격했거나 주둔 중 → 그 자리에 남음
 		var f_cell := terrain.local_to_map(f.position)
-		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, from_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
 		if dest == f_cell:
 			continue   # 이미 최선 위치(인접) → 이동·턴 소비 없음
 		var path := HexGrid.reconstruct_path(terrain, f_cell, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)

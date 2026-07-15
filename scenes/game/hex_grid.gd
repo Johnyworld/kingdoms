@@ -114,22 +114,42 @@ static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vecto
 	return path
 
 ## 하위부대(follower_cell)가 영웅(hero_cell)을 따라갈 목적지 칸을 고른다(작전 추종). → docs/spec/features/squad-stance.md
-## - 후보 = 제자리(follower_cell) + 이번 이동력으로 도달 가능한 칸(movement_ranges의 move). 산·blocked_cells는 제외.
-## - 순위: 영웅으로부터의 지형 거리(산만 제외·유닛 무관)가 작은 칸 우선, 동률이면 하위부대에서 가까운 칸 우선.
-## - hero_cell 자체는 절대 고르지 않는다(영웅이 설 칸). 인접 빈 칸이 도달 가능하면 그 칸(거리 1), 아니면 최대한 접근.
-## - 더 가까워질 수 없으면(이미 인접·완전히 갇힘) follower_cell(제자리)을 반환한다.
-static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Vector2i:
-	var hero_dist := bfs_distances(terrain, hero_cell, map_w + map_h, map_w, map_h, Terrain.IMPASSABLE)
+## from_cell = 영웅의 이번 턴 출발 칸(진행 방향 기준). 지휘관을 한 줄로 뒤쫓지 않고 주변 링에 대형 짓게 한다.
+## - 후보 = 제자리 + 도달 가능 칸(movement_ranges의 move). 산·blocked_cells·hero_cell 제외.
+## - 링 우선: 도달 가능한 영웅 인접 칸(get_surrounding_cells)이 있으면 그중 진행 방향으로 가장 앞선 칸(월드 내적 최대),
+##   동률이면 하위부대에서 가까운 칸. from_cell==hero_cell(방향 없음)이면 전방 점수 0 → 가까운 링 칸(분산).
+## - 접근 폴백: 도달 가능한 링 칸이 없으면 영웅 지형 거리(bfs) 최소 칸(동률 시 근접). 더 못 가까워지면 제자리.
+static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Vector2i:
 	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells)
 	var self_dist: Dictionary = ranges["dist"]   # 하위부대로부터의 거리(제자리 0)
-	var candidates: Array = [follower_cell]
-	candidates.append_array(ranges["move"])
 	var big := map_w * map_h + 1
+	var reachable := {follower_cell: true}
+	for c in ranges["move"]:
+		reachable[c] = true
+	reachable.erase(hero_cell)   # 영웅이 설 칸은 목적지 아님
+
+	# 진행 방향(월드 벡터). from_cell==hero_cell이면 0 → 전방 점수 모두 0.
+	var hw := terrain.map_to_local(hero_cell)
+	var fdir := hw - terrain.map_to_local(from_cell)
+
+	# 링 우선: 도달 가능한 영웅 인접 칸 중 전방 점수(내적) 최대, 동률이면 하위부대 근접.
+	var best_ring := Vector2i(-1, -1)
+	var best_score := -INF
+	for n in terrain.get_surrounding_cells(hero_cell):
+		if not reachable.has(n):
+			continue
+		var s: float = (terrain.map_to_local(n) - hw).dot(fdir)
+		if s > best_score or (is_equal_approx(s, best_score) and self_dist.get(n, big) < self_dist.get(best_ring, big)):
+			best_score = s
+			best_ring = n
+	if best_ring != Vector2i(-1, -1):
+		return best_ring
+
+	# 접근 폴백: 링에 못 닿음 → 영웅 지형 거리 최소 칸(동률 시 근접).
+	var hero_dist := bfs_distances(terrain, hero_cell, map_w + map_h, map_w, map_h, Terrain.IMPASSABLE)
 	var best := follower_cell
 	var best_h: int = hero_dist.get(follower_cell, big)
-	for c in candidates:
-		if c == hero_cell:
-			continue   # 영웅이 설 칸은 목적지 아님
+	for c in reachable:
 		var h: int = hero_dist.get(c, big)
 		if h < best_h or (h == best_h and self_dist.get(c, big) < self_dist.get(best, big)):
 			best_h = h
