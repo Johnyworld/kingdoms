@@ -29,6 +29,7 @@
 | 소속 보유 | `has_lord()` | `bool` | — | `lord != null` |
 | 소속 영웅 이름 | `lord_name()` | `String` | — | `lord`의 [`commander_name()`](#동작). `lord`가 없거나 지휘관이 없으면 `"—"` |
 | 영웅부대 여부 | `is_hero()` | `bool` | — | `kind == KIND_HERO` |
+| 인원수 배지 표시 여부 | `shows_member_count()` | `bool` | — | 토큰 우하단에 남은 인원수 배지를 그릴지. **일반부대(`KIND_TROOP`)이고 멤버가 있으면** 참. 영웅부대는 항상 1명이라 생략(거짓) |
 | 소속 지정 | `set_lord(hero)` | — | — | `lord = hero`. [소속 UI](../features/party-lord.md)의 소속(합류) 확정에 쓰는 단일 출처 |
 | 소속 해제 | `clear_lord()` | — | — | `lord = null`(독립). [소속 UI](../features/party-lord.md)의 [독립] |
 | 지휘 반경 | `command_range()` | `int` | — | 영웅부대의 [지휘 범위](../features/command-range.md) `2 + floor(commander.leadership/30)`(지휘관 없으면 0). 소속 하위부대 버프 판정에 쓴다 |
@@ -90,6 +91,7 @@
 - `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. [부대 분할](../features/party-composition.md)·전투 사상자 반영에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
 - `is_hero() -> bool` — 영웅부대인지(`kind == KIND_HERO`). 일반부대는 거짓.
+- `shows_member_count() -> bool` — 토큰에 남은 인원수 배지를 그릴지(`kind == KIND_TROOP` 그리고 멤버 있음). 영웅부대·빈 부대는 거짓. `_draw`가 이 판정으로 배지를 그린다.
 - `has_lord() -> bool` — 소속 영웅부대가 있는지(`lord != null`).
 - `lord_name() -> String` — `lord`의 `commander_name()`. `lord`가 `null`이거나 그 지휘관이 없으면 `"—"`.
 - `set_lord(hero) -> void` — 소속 영웅부대를 지정한다(`lord = hero`). [소속 UI](../features/party-lord.md)가 소속(합류) 확정에 쓴다.
@@ -118,7 +120,7 @@
 - `undo_move() -> void` — 이동 되돌리기. `moved_this_turn = false`(다시 이동 가능)로 되돌리고 불투명하게 다시 그린다. 위치 복원·시야 갱신은 `game.gd`([행동 메뉴](../features/party-action-menu.md) `[취소]`).
 - `can_rest() -> bool` — 휴식 가능 여부(`not attacked_this_turn` — 아직 행동을 끝내지 않았으면 가능).
 - `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`·`rested_this_turn`를 모두 `false`로 되돌리고 불투명하게 다시 그린다. **`stationed`는 유지**(주둔은 턴을 넘겨 지속). 단 주둔 부대는 `can_move()`/`can_attack()`이 거짓이라 리셋 후에도 대기 상태를 이어간다.
-- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다.
+- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다. [지휘 버프](../features/command-range.md) 중이면 토큰 **위**에 금색 갈매기 배지, `shows_member_count()`면 토큰 **우하단**에 남은 인원수(`members.size()`, 1~10) 배지(어두운 배경 원 + 흰 숫자)를 그린다. 플레이어·보이는 NPC 일반부대 모두에 표시(사상자로 줄어든 병력 확인).
 
 ## 테스트 시나리오
 
@@ -133,6 +135,7 @@
 - [정상] 생성 직후 `commander`는 `null`, `commander_name() == "—"`
 - [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
 - [정상] 생성 직후 `kind == "troop"`(=`KIND_TROOP`), `is_hero() == false`; `kind = KIND_HERO`로 두면 `is_hero() == true`
+- [정상] `shows_member_count()`: 멤버 있는 일반부대(`KIND_TROOP`) → 참; 멤버 있는 영웅부대(`KIND_HERO`) → 거짓; 멤버 없는 일반부대 → 거짓
 - [정상] 생성 직후 `lord == null`, `has_lord() == false`, `lord_name() == "—"`
 - [정상] `lord`에 지휘관 있는 영웅부대를 지정하면 `has_lord() == true`, `lord_name()`이 그 영웅 이름
 - [경계] `lord`에 지휘관 없는(빈) 부대를 지정하면 `has_lord() == true`이나 `lord_name() == "—"`

@@ -86,6 +86,10 @@ func commander_name() -> String:
 func is_hero() -> bool:
 	return kind == KIND_HERO
 
+## 토큰 우하단에 남은 인원수 배지를 그릴지 — 일반부대이고 멤버가 있을 때만(영웅부대는 항상 1명이라 생략). → Party.md
+func shows_member_count() -> bool:
+	return kind == KIND_TROOP and not members.is_empty()
+
 ## 소속 영웅부대가 있는지(lord != null).
 func has_lord() -> bool:
 	return lord != null
@@ -388,3 +392,14 @@ func _draw() -> void:
 			Vector2(5, ty + 3),
 			Vector2(-5, ty + 3),
 		]), gold)
+
+	# 일반부대면 토큰 우하단에 남은 인원수 배지(어두운 배경 원 + 흰 숫자). → Party.md
+	if shows_member_count():
+		var bpos := Vector2(_RADIUS * 0.75, _RADIUS * 0.75)   # 우하단
+		draw_circle(bpos, 7.0, Color(0.1, 0.08, 0.05, 0.85 * a))
+		var font := ThemeDB.fallback_font
+		var fs := 11
+		var txt := str(members.size())
+		var tw: float = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string(font, bpos + Vector2(-tw * 0.5, fs * 0.36), txt,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, a))

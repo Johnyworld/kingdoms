@@ -199,6 +199,25 @@ func test_set_and_clear_lord() -> void:
 	assert_null(troop.lord, "clear_lord로 독립")
 	assert_false(troop.has_lord(), "소속 없음")
 
+# --- 인원수 배지 표시 여부(shows_member_count) ---
+
+func test_shows_member_count_troop_with_members() -> void:
+	var p := _party()
+	p.kind = p.KIND_TROOP
+	p.add_member(_human())
+	assert_true(p.shows_member_count(), "멤버 있는 일반부대는 인원수 배지 표시")
+
+func test_shows_member_count_hero_hidden() -> void:
+	var p := _party()
+	p.kind = p.KIND_HERO
+	p.add_member(_human())
+	assert_false(p.shows_member_count(), "영웅부대는 항상 1명이라 배지 생략")
+
+func test_shows_member_count_empty_hidden() -> void:
+	var p := _party()
+	p.kind = p.KIND_TROOP
+	assert_false(p.shows_member_count(), "멤버 없는 부대는 배지 없음(토큰도 안 그림)")
+
 # --- 지휘 범위(command_range) · 지휘 버프(command_buffed) ---
 
 func test_command_range_from_leadership() -> void:
