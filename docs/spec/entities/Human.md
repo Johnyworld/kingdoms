@@ -42,6 +42,7 @@
 | 최대 스태미나 | `max_stamina` | 20 | 스태미나 상한. 유닛 생성 시 `stamina`와 같게 설정 |
 | 사기 | `morale` | 20 | |
 | 경계 버프 | `alert` | `false` | 참이면 전투 공격력·방어력 ×1.2([Combat](../features/combat.md)). [경계](../features/party-action-menu.md) 선택 시 부여, 적 턴 종료 후 해제 |
+| 지휘 버프 | `in_command` | `false` | 참이면 전투 공격력·방어력 ×1.2([지휘 범위](../features/command-range.md), alert와 곱셈 중첩). 영웅 지휘 범위 안 소속 하위부대에 전투 직전 부여, 전투 후 해제 |
 
 ### 계산·행동 (Computed / Actions)
 

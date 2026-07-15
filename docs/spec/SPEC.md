@@ -67,6 +67,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 분할·병합으로 재조직
 - [Party Lord (소속 영웅)](features/party-lord.md) — 일반부대의 소속 영웅부대 설정/해제 UI([소속] 버튼 → 모달, 소속=인접 영웅 필요·해제 자유·턴 무소비)
 - [Squad Stance (부대 작전 — 이동 후 하위부대 명령)](features/squad-stance.md) — 영웅 이동 직후 작전 메뉴 [추종][대기][교전][돌격]로 하위부대 일괄 통솔. 교전=최근접 적 접근·신중 전투, 돌격=목표 1지점 어택무브(공격적)
+- [Command Range (지휘 범위 버프)](features/command-range.md) — 소속 하위부대가 영웅(`lord`) 지휘 범위(leadership 기반, 2~4칸) 안이면 전투 공격·방어 ×1.2(alert와 중첩). 맵 배지 표시, 모든 세력
 - [Victory & Defeat (승패)](features/victory.md) — 세력 소멸(10턴 유예)로만 승패 · 정복 승리 · 결과 오버레이 · 타이틀 복귀
 
 ### 데이터 (`data/`)

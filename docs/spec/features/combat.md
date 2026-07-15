@@ -12,9 +12,11 @@
 
 | 값 | 식 | 비고 |
 | --- | --- | --- |
-| 공격력 AT | `무기 공격력 + floor(힘 / 5)` | 무기는 [ItemTypes](../data/items.md). 여러 무기 중 **그 전투에서 쓰는 무기**(근접=주무기, 원거리=활)로 계산. 맨몸이면 무기 0. **`alert`면 ×1.2(내림)** |
-| 방어력 DF | `Σ 착용 방어구 방어력 + 방패 방어력` | `ItemTypes.total_defense` + `shield_defense`. **`alert`면 ×1.2(내림)** |
+| 공격력 AT | `무기 공격력 + floor(힘 / 5)` | 무기는 [ItemTypes](../data/items.md). 여러 무기 중 **그 전투에서 쓰는 무기**(근접=주무기, 원거리=활)로 계산. 맨몸이면 무기 0. **`alert`면 ×1.2, `in_command`면 ×1.2**(중첩, 각 내림) |
+| 방어력 DF | `Σ 착용 방어구 방어력 + 방패 방어력` | `ItemTypes.total_defense` + `shield_defense`. **`alert`면 ×1.2, `in_command`면 ×1.2**(중첩) |
 | 막기(%) | 방패 `block` | 명중해도 이 확률로 피해 완전 무효 |
+
+> 배율은 곱셈 중첩: `alert`(경계, [행동 메뉴](party-action-menu.md))와 `in_command`([지휘 범위](command-range.md), 영웅 근처 소속 하위부대)가 둘 다면 ×1.44(내림). 둘 다 멤버 플래그이며 전투 직전 세팅·전투 후 해제.
 | 상성배율 | `AFFINITY[방어자 방어구분류][공격자 데미지타입]` | 방어구분류 = 방어력 최대 조각. 없으면 `1.0` |
 | 회피율(%) | `민첩 × 0.5 − 총장비무게 × 0.3` | 총장비무게 = **보유 무기 전부** + 방어구 + 방패 무게(`equip_weight`). 무기 여럿을 들면 그만큼 무겁다. 지형 보정 `미구현` |
 
@@ -68,6 +70,8 @@
 - [정상] `hit_damage(공격자, 방어자, crit)` = `floor(max(1, AT−DF) × 상성 × (1.5 if crit else 1.0))` — 최소 1
 - [정상] 상성 반영 — 마법 무기 vs 판금(1.3) > vs 맨몸(1.0); 참격 vs 사슬(0.7) 감소
 - [정상] `alert` 버프 — `alert=true`면 `attack_power`·`defense`가 ×1.2(내림), `false`면 원값 ([경계](party-action-menu.md))
+- [정상] `in_command` 버프 — `in_command=true`면 `attack_power`·`defense`가 ×1.2(내림) ([지휘 범위](command-range.md))
+- [정상] `alert`·`in_command` 둘 다면 ×1.44(내림) — 곱셈 중첩
 
 ### 1회 공방 (`resolve_hit`)
 - [경계] 회피율이 매우 높아(민첩 200 → 회피 100 → 명중 −10) 항상 빗나감 → `hit=false`, 피해 0, hp 불변

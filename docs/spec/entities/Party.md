@@ -31,6 +31,8 @@
 | 영웅부대 여부 | `is_hero()` | `bool` | — | `kind == KIND_HERO` |
 | 소속 지정 | `set_lord(hero)` | — | — | `lord = hero`. [소속 UI](../features/party-lord.md)의 소속(합류) 확정에 쓰는 단일 출처 |
 | 소속 해제 | `clear_lord()` | — | — | `lord = null`(독립). [소속 UI](../features/party-lord.md)의 [독립] |
+| 지휘 반경 | `command_range()` | `int` | — | 영웅부대의 [지휘 범위](../features/command-range.md) `2 + floor(commander.leadership/30)`(지휘관 없으면 0). 소속 하위부대 버프 판정에 쓴다 |
+| 지휘 버프 중 | `command_buffed` | `bool` | `false` | 이 부대가 영웅 지휘 범위 안이라 버프 중인지. 맵 배지·전투 배율의 출처([지휘 범위](../features/command-range.md)) |
 
 ### 멤버 (Members)
 

@@ -13,7 +13,7 @@
 | 행운 | `luck` | 8 | (미사용) |
 | 이동력 | `movement` | 3 | **이동/공격 범위 계산** — [부대](../entities/Party.md) `movement()`가 멤버 중 **최소값**으로 집계 |
 | 시야 | `vision` | 5 | **전장의 안개 밝힘 반경** — [부대](../entities/Party.md) `vision()`이 멤버 중 **최대값**으로 집계 |
-| 지휘력 | `leadership` | 7 | (미사용) |
+| 지휘력 | `leadership` | 7 | **영웅부대 지휘 범위** — [지휘 범위 버프](../features/command-range.md) `command_range() = 2 + floor(leadership/30)`. 범위 안 소속 하위부대는 전투 공격·방어 ×1.2 |
 | 화술 | `eloquence` | 9 | (미사용) |
 | 성실함 | `diligence` | 5 | (미사용) |
 | 예민함 | `sensitivity` | 8 | (미사용) |

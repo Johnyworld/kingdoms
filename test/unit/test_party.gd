@@ -199,6 +199,25 @@ func test_set_and_clear_lord() -> void:
 	assert_null(troop.lord, "clear_lord로 독립")
 	assert_false(troop.has_lord(), "소속 없음")
 
+# --- 지휘 범위(command_range) · 지휘 버프(command_buffed) ---
+
+func test_command_range_from_leadership() -> void:
+	var hero := _party()
+	var h := _human()
+	hero.add_member(h)   # 첫 멤버가 지휘관
+	h.leadership = 88
+	assert_eq(hero.command_range(), 4, "88 → 2+floor(88/30)=4")
+	h.leadership = 42
+	assert_eq(hero.command_range(), 3, "42 → 2+floor(42/30)=3")
+	h.leadership = 28
+	assert_eq(hero.command_range(), 2, "28 → 2+floor(28/30)=2")
+
+func test_command_range_no_commander() -> void:
+	assert_eq(_party().command_range(), 0, "지휘관 없으면 0")
+
+func test_command_buffed_false_by_default() -> void:
+	assert_false(_party().command_buffed, "생성 직후 지휘 버프 없음")
+
 # --- 이동력(min) · 시야(max) 집계 ---
 
 func test_movement_is_min_of_members() -> void:

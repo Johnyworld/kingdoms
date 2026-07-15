@@ -21,6 +21,10 @@ const KIND_HERO := "hero"
 const KIND_TROOP := "troop"
 var kind := KIND_TROOP
 
+# 지휘 범위 = COMMAND_RANGE_BASE + floor(지휘관 leadership / COMMAND_RANGE_PER). → docs/spec/features/command-range.md
+const COMMAND_RANGE_BASE := 2
+const COMMAND_RANGE_PER := 30
+
 ## 이 일반부대가 소속된 영웅부대(Party) 참조. 독립 부대·영웅부대 자신은 null.
 ## 소속돼도 부대는 독립 토큰으로 자유 이동한다(소속은 메타데이터 — 버프는 미구현). → Party.md 소속(Lord)
 var lord = null
@@ -48,6 +52,8 @@ const _RADIUS := 12.0
 const _MOVED_ALPHA := 0.4
 
 var selected := false
+## 이 부대가 소속 영웅(lord)의 지휘 범위 안이라 전투 버프 중인지. 맵 배지·전투 배율의 출처(game.gd가 갱신). → command-range.md
+var command_buffed := false
 var moved_this_turn := false      # 이번 턴에 이미 이동했는지. true면 재이동 불가(공격은 아직 가능).
 var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
 var rested_this_turn := false     # 이번 턴 휴식/대기 선택했는지. 회복 연동은 미구현(party_action_menu).
@@ -95,6 +101,12 @@ func set_lord(hero) -> void:
 ## 소속을 해제한다(독립). → party-lord.md
 func clear_lord() -> void:
 	lord = null
+
+## 영웅부대의 지휘 반경(헥스). 지휘관 leadership 기반. 지휘관 없으면 0. → command-range.md
+func command_range() -> int:
+	if commander == null:
+		return 0
+	return COMMAND_RANGE_BASE + int(commander.leadership) / COMMAND_RANGE_PER
 
 ## 이 부대 전 멤버가 장착한 장비 id 평탄 목록(각 멤버 weapons + armor + shield). 빈 방패("")는 제외, 중복 유지.
 ## 약탈 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
@@ -366,3 +378,13 @@ func _draw() -> void:
 	body.a *= a
 	draw_circle(Vector2.ZERO, _RADIUS, body)
 	draw_arc(Vector2.ZERO, _RADIUS, 0.0, TAU, 32, Color(0.25, 0.18, 0.08, a), 2.0, true)
+
+	# 지휘 범위 버프 중이면 토큰 위에 작은 금색 갈매기(▲) 배지. → command-range.md
+	if command_buffed:
+		var gold := Color(1.0, 0.85, 0.2, a)
+		var ty := -_RADIUS - 6.0   # 토큰 위
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(0, ty - 5),
+			Vector2(5, ty + 3),
+			Vector2(-5, ty + 3),
+		]), gold)

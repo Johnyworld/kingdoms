@@ -12,17 +12,27 @@ const AGI_SPEED_K := 0.005       # 민첩 1당 공격속도 단축 비율.
 const MIN_ATTACK_INTERVAL := 0.4 # 최소 공격 간격(초) — 민첩이 아무리 높아도 이보다 못 빨라짐.
 
 const ALERT_MULT := 1.2   # 경계(alert) 버프 배율 — 공격력·방어력.
+const COMMAND_MULT := 1.2  # 지휘 범위(in_command) 버프 배율 — 공격력·방어력. alert와 곱셈 중첩. → command-range.md
 
-## 공격력 AT = 무기 공격력 + floor(힘/5). weapon 생략 시 주무기. alert면 ×1.2(내림).
+## 공격력·방어력에 곱할 버프 배율(경계·지휘 곱셈 중첩). 둘 다면 ×1.44.
+static func _buff_mult(h) -> float:
+	var m := 1.0
+	if h.alert:
+		m *= ALERT_MULT
+	if h.in_command:
+		m *= COMMAND_MULT
+	return m
+
+## 공격력 AT = 무기 공격력 + floor(힘/5). weapon 생략 시 주무기. alert·in_command 버프면 각 ×1.2(내림).
 static func attack_power(h, weapon := "") -> int:
 	var w: String = weapon if weapon != "" else ItemTypes.primary_weapon(h.weapons)
 	var at := ItemTypes.weapon_attack(w) + int(h.strength) / 5   # 정수 나눗셈(내림)
-	return int(at * ALERT_MULT) if h.alert else at
+	return int(at * _buff_mult(h))
 
-## 방어력 DF = 착용 방어구 방어력 합 + 방패 방어력. alert면 ×1.2(내림).
+## 방어력 DF = 착용 방어구 방어력 합 + 방패 방어력. alert·in_command 버프면 각 ×1.2(내림).
 static func defense(h) -> int:
 	var df := ItemTypes.total_defense(h.armor) + ItemTypes.shield_defense(h.shield)
-	return int(df * ALERT_MULT) if h.alert else df
+	return int(df * _buff_mult(h))
 
 ## 막기 확률(%) = 방패 막기 확률. 방패 없으면 0.
 static func block_chance(h) -> int:

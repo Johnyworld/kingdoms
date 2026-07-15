@@ -39,6 +39,30 @@ func test_defense_alert_buff() -> void:
 	d.alert = true
 	assert_eq(CombatResolver.defense(d), 9, "alert면 ×1.2 → floor(9.6)=9")
 
+# --- 지휘 버프 (in_command → AT·DF ×1.2, alert와 곱셈 중첩) ---
+
+func test_attack_power_command_buff() -> void:
+	var h := _human(78)   # 맨몸 AT = 15
+	h.in_command = true
+	assert_eq(CombatResolver.attack_power(h), 18, "in_command면 ×1.2 → floor(18.0)=18")
+
+func test_defense_command_buff() -> void:
+	var d := _human(0, 0, 0, 40, "", ["leather_armor"])   # DF 8
+	d.in_command = true
+	assert_eq(CombatResolver.defense(d), 9, "in_command면 ×1.2 → floor(9.6)=9")
+
+func test_attack_power_alert_and_command_stack() -> void:
+	var h := _human(78)   # 15
+	h.alert = true
+	h.in_command = true
+	assert_eq(CombatResolver.attack_power(h), 21, "alert×in_command → floor(15*1.44)=21")
+
+func test_defense_alert_and_command_stack() -> void:
+	var d := _human(0, 0, 0, 40, "", ["leather_armor"])   # 8
+	d.alert = true
+	d.in_command = true
+	assert_eq(CombatResolver.defense(d), 11, "alert×in_command → floor(8*1.44)=11")
+
 # --- 최대 생명점 (Human.max_hp, 계산) ---
 
 func test_max_hp_base_plus_strength() -> void:

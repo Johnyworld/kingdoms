@@ -561,6 +561,7 @@ func _update_fog() -> void:
 	_update_npc_visibility()
 	_update_npc_building_visibility()
 	_refresh_garrison_badges()   # 거점 위 주둔 부대 인원으로 "수비 N" 배지 갱신(이동·전투·점령 후)
+	_refresh_command_buffs()     # 지휘 범위 안 부대 배지 갱신(이동/전투/턴마다 — _update_fog가 정착점). → command-range.md
 
 ## NPC 부대 토큰은 플레이어 현재 시야 안에 있을 때만 보이고, 시야 밖이면 안개에 가려 숨긴다.
 ## (NPC는 시야를 밝히지 않으므로 _update_fog 시야 합산에는 넣지 않는다.)
@@ -1286,6 +1287,9 @@ func _engagement_distance(a, b) -> int:
 ## occupy_cell != (-1,-1)이고 근접 승리(수비 전멸·공격 생존)면 공격 부대를 그 타일로 이동(점령).
 func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, -1), include_siege := false) -> void:
 	_in_battle = true
+	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신 → 전투 배율의 단일 출처. → command-range.md
+	_apply_command_flags(attacker, true)
+	_apply_command_flags(defender, true)
 	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
 	overlay.start(attacker, defender, distance, include_siege)
@@ -1297,6 +1301,8 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	if include_siege:   # 투석 결투로 파괴된 투석기 제거(hp≤0). → siege-engines.md
 		attacker.prune_destroyed_siege()
 		defender.prune_destroyed_siege()
+	_apply_command_flags(attacker, false)   # 지휘 버프 플래그 해제(전투 수명 종료). → command-range.md
+	_apply_command_flags(defender, false)
 	_in_battle = false
 	if occupy_cell != Vector2i(-1, -1) and defender.members.is_empty() and not attacker.members.is_empty():
 		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
@@ -1395,6 +1401,9 @@ func _on_result_dismissed() -> void:
 
 ## NPC끼리 전투를 화면 없이 즉시 결산한다(BattleSim). 사상자만 반영.
 func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
+	_refresh_command_buffs()                  # 지휘 범위 갱신 후 양측 버프 플래그 세팅(NPC끼리도 지휘 버프 적용). → command-range.md
+	_apply_command_flags(attacker, true)
+	_apply_command_flags(defender, true)
 	# 양측 공성 유닛도 넘겨 밴드(4~5)면 투석 볼리를 함께 결산(NPC↔NPC 투석기 결투 — 5g-B). → battle.md
 	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, distance, attacker.siege_units, defender.siege_units)
 	_resolve_loot(attacker, defender, result["a"], result["b"])   # NPC 승자 → 전량 자동(패널 없음)
@@ -1402,6 +1411,8 @@ func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
 	defender.prune_destroyed_siege()
 	_apply_survivors(attacker, result["a"])
 	_apply_survivors(defender, result["b"])
+	_apply_command_flags(attacker, false)     # 지휘 버프 플래그 해제. → command-range.md
+	_apply_command_flags(defender, false)
 
 ## 전투 결과(생존자)로 한쪽만 전멸했으면 승자가 패자 전사자 장비를 노획한다([약탈](../../docs/spec/features/raid.md)).
 ## _apply_survivors(패자 queue_free)보다 먼저 호출해야 패자 멤버 장비를 읽을 수 있다.
@@ -1519,6 +1530,7 @@ func _adjacent_player_heroes(troop) -> Array:
 ## 소속 변경 후 — 부대 일람을 갱신한다(소속 표시 확장 대비). 턴 소비 없음. → party-lord.md
 func _on_lord_changed() -> void:
 	party_roster.set_parties(_units)
+	_refresh_command_buffs()   # 소속이 바뀌면 지휘 범위 버프 배지도 즉시 갱신. → command-range.md
 
 ## 이번 턴 사격 가능한지 — 일반 부대는 can_attack, 주둔 부대는 아직 발사 안 했으면 가능(주둔 유지한 채 사격). → garrison.md
 func _can_fire() -> bool:
@@ -1567,11 +1579,14 @@ func _bombard_wall(building, distance: int) -> void:
 func _bombard_wall_by(attacker, building, distance: int) -> void:
 	var from_hp: int = building.wall_hp
 	_in_battle = true
+	_refresh_command_buffs()                  # 포격 부대도 지휘 범위 안이면 버프(배지=데미지 일치). → command-range.md
+	_apply_command_flags(attacker, true)
 	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
 	overlay.start(attacker, null, distance, true, building)   # 성벽=구조물 전투원, 방어 부대 없음
 	await overlay.finished
 	overlay.queue_free()
+	_apply_command_flags(attacker, false)
 	_in_battle = false
 	if _collapse_wall(building):   # battle.gd가 building.wall_hp를 반영
 		var tname: String = building.territory.name if building.territory != null else "성벽"
@@ -1595,11 +1610,14 @@ func _bombard_gate(building, distance: int) -> void:
 func _bombard_gate_by(attacker, building, distance: int) -> void:
 	var from_hp: int = building.gate_hp
 	_in_battle = true
+	_refresh_command_buffs()                  # 포격 부대도 지휘 범위 안이면 버프. → command-range.md
+	_apply_command_flags(attacker, true)
 	var overlay := BATTLE_SCENE.new()
 	add_child(overlay)
 	overlay.start(attacker, null, distance, true, building, true)   # target_gate = true → gate_hp 대상
 	await overlay.finished
 	overlay.queue_free()
+	_apply_command_flags(attacker, false)
 	_in_battle = false
 	if building.gate_broken():   # battle.gd가 building.gate_hp를 반영
 		var tname: String = building.territory.name if building.territory != null else "성문"
@@ -2180,6 +2198,33 @@ func _finish_player_move() -> void:
 	_player_moving = false
 	_player_tween = null
 	_update_fog()
+
+## 일반부대 troop이 지금 자기 영웅(lord)의 지휘 범위 안인지(전투 버프 판정). → command-range.md
+## lord가 있고 살아있어야 하며, troop 칸이 lord 칸의 command_range 헥스 이내(지형 무관 헥스 거리).
+func _in_command(troop) -> bool:
+	if troop.lord == null or troop.lord.members.is_empty():
+		return false
+	var cr: int = troop.lord.command_range()
+	var lord_cell := terrain.local_to_map(troop.lord.position)
+	var troop_cell := terrain.local_to_map(troop.position)
+	return troop_cell in HexGrid.cells_within(terrain, lord_cell, cr, MAP_WIDTH, MAP_HEIGHT)
+
+## 모든 부대의 command_buffed(지휘 범위 안 여부)를 갱신한다 — 맵 배지·전투 배율의 단일 출처. → command-range.md
+## 위치가 정착하는 지점(턴 종료·이동 완료·작전 종료·NPC 이동·소속 변경·편성)마다 부른다.
+func _refresh_command_buffs() -> void:
+	for p in _units + _npc_parties:
+		var buffed := _in_command(p)
+		if p.command_buffed != buffed:
+			p.command_buffed = buffed
+			p.queue_redraw()
+
+## 전투 직전/직후에 party 멤버의 in_command 플래그를 command_buffed 기준으로 켜고 끈다(alert와 같은 수명). → command-range.md
+func _apply_command_flags(party, on: bool) -> void:
+	if party == null:
+		return
+	var v: bool = on and party.command_buffed
+	for m in party.members:
+		m.in_command = v
 
 ## hero에 소속된(lord == hero) 멤버 있는 하위부대 목록. 작전(추종) 대상. → squad-stance.md
 func _subordinates_of(hero) -> Array:
