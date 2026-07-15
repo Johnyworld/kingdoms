@@ -202,6 +202,27 @@ func test_hero_groups_troops_only_singletons() -> void:
 func test_hero_groups_empty() -> void:
 	assert_eq(NpcAi.hero_groups([]), [], "빈 입력 → 빈 결과")
 
+# --- 지휘 범위 내 적: enemies_within (순수, 실제 헥스 맵) ---
+
+func test_enemies_within_filters_by_radius() -> void:
+	var c := _center()
+	var e1: Vector2i = c + Vector2i(1, 0)   # 거리 1
+	var e2: Vector2i = c + Vector2i(2, 0)   # 거리 2
+	var e3: Vector2i = c + Vector2i(3, 0)   # 거리 3
+	var got := NpcAi.enemies_within(terrain, c, 2, [e1, e2, e3], MAP, MAP)
+	assert_true(e1 in got and e2 in got, "거리 ≤2 적 포함")
+	assert_false(e3 in got, "거리 3 적 제외(반경 2)")
+
+func test_enemies_within_none_in_range() -> void:
+	var c := _center()
+	assert_eq(NpcAi.enemies_within(terrain, c, 2, [c + Vector2i(5, 0)], MAP, MAP), [], "범위 밖만 있으면 빈 배열")
+	assert_eq(NpcAi.enemies_within(terrain, c, 2, [], MAP, MAP), [], "적 목록 비면 빈 배열")
+
+func test_enemies_within_radius_zero() -> void:
+	var c := _center()
+	var got := NpcAi.enemies_within(terrain, c, 0, [c, c + Vector2i(1, 0)], MAP, MAP)
+	assert_eq(got, [c], "반경 0이면 center 칸 적만")
+
 # --- 전력 인식: party_power / should_engage (순수) ---
 
 func _soldier(hp: int) -> Object:

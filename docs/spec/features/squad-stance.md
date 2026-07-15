@@ -79,7 +79,7 @@
 
 ### 적용 대상
 
-- 추종 로직(`follow_destination`)은 세력 무관하게 동작하지만, **작전 메뉴·발동 배선은 현재 플레이어 이동 경로에만** 붙는다. NPC 영웅부대의 작전 발동은 `미구현`.
+- 추종 로직(`follow_destination`)은 세력 무관하게 동작한다. **작전 메뉴(플레이어가 스탠스를 고르는 UI)는 플레이어 전용**이지만, **NPC 하위부대는 자동으로 영웅을 추종**한다([NPC 편제](npc-movement.md#npc-편제--하위부대-영웅-추종-_move_npcs-이동-계획), 영웅 추종 우선·지휘 범위 내 적은 교전) — `follow_destination`을 NPC 이동 계획이 재사용한다.
 
 ## 추종 목적지 판정 (`HexGrid.follow_destination`)
 

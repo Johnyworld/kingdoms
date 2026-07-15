@@ -2020,15 +2020,8 @@ func _move_npcs() -> void:
 				return
 			if _game_over:
 				return
-			# 1) 그룹 이동(이 그룹 차례에 계획 즉석 수립 — 점유 회피(_blocked_for)만 실시간, 표적은 턴 시작 스냅샷).
-			var plans: Dictionary = {}
-			for p in group:
-				if not is_instance_valid(p) or p.stationed:
-					continue   # 해제된(앞 전투로 제거) 부대·주둔 부대는 이동 계획 없음.
-				var start := terrain.local_to_map(p.position)
-				var occ := _blocked_for(p)
-				var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p, party_entries, camp_entries))
-				plans[p] = HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
+			# 1) 그룹 이동 계획(즉석 수립, 점유만 실시간). 하위부대는 영웅을 추종하되 지휘 범위 내 적은 문다. → npc-movement.md 편제
+			var plans: Dictionary = _plan_group_move(group, party_entries, camp_entries)
 			await _move_group(group, plans)
 			# 2) 그룹 공격: 영웅 먼저, 그다음 하위부대 순서로 1유닛씩(전투 완료 후 다음).
 			for attacker in group:
@@ -2042,6 +2035,45 @@ func _move_npcs() -> void:
 				await _npc_unit_act(attacker)
 	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
 	_update_fog()
+
+## NPC 영웅그룹의 이동 계획(party → path)을 세운다. 영웅은 목표지향, 하위부대는 영웅 추종(지휘 범위 내 적은 교전). → npc-movement.md 편제
+func _plan_group_move(group: Array, party_entries: Array, camp_entries: Array) -> Dictionary:
+	var plans: Dictionary = {}
+	var hero = group[0] if not group.is_empty() and is_instance_valid(group[0]) and group[0].is_hero() else null
+	var hero_from := Vector2i(-1, -1)
+	var hero_dest := Vector2i(-1, -1)
+	# 영웅: 기존 목표지향 AI. 주둔 영웅은 제자리를 목적지로 삼아 하위부대가 곁(거점)에 대형/수비하게 한다.
+	if hero != null:
+		hero_from = terrain.local_to_map(hero.position)
+		if hero.stationed:
+			hero_dest = hero_from   # 주둔 영웅 — 이동 없음, 하위부대는 영웅 곁에 머문다.
+		else:
+			var hocc := _blocked_for(hero)
+			hero_dest = NpcAi.choose_destination(terrain, hero_from, hero.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, hocc, _npc_targets(hero, party_entries, camp_entries))
+			plans[hero] = HexGrid.reconstruct_path(terrain, hero_from, hero_dest, hero.movement(), MAP_WIDTH, MAP_HEIGHT, hocc)
+	# 하위부대: 영웅 추종(지휘 범위 내 적 있으면 교전). 배정 칸·영웅 칸을 예약해 겹침 방지.
+	var reserved: Dictionary = {}
+	if hero_dest != Vector2i(-1, -1):
+		reserved[hero_dest] = true
+	for p in group:
+		if not is_instance_valid(p) or p.stationed or p == hero:
+			continue
+		var start := terrain.local_to_map(p.position)
+		var occ := _blocked_for(p)
+		for c in reserved:
+			occ[c] = true
+		var dest: Vector2i
+		if hero != null and hero_dest != Vector2i(-1, -1):
+			var near := NpcAi.enemies_within(terrain, hero_dest, hero.command_range(), NpcAi.enemy_cells(p.faction_name, party_entries), MAP_WIDTH, MAP_HEIGHT)
+			if not near.is_empty():
+				dest = NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, near)   # 지휘 범위 내 적 → 근접 교전
+			else:
+				dest = HexGrid.follow_destination(terrain, hero_dest, hero_from, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)   # 영웅 추종(대형)
+		else:
+			dest = NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p, party_entries, camp_entries))   # 독립 부대·영웅 없음
+		plans[p] = HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
+		reserved[dest] = true
+	return plans
 
 ## NPC 영웅그룹 하나를 이동시킨다. 그룹이 플레이어 시야 안이면 카메라 포커스+정지 후 걸어가는 애니메이션,
 ## 시야 밖이면 목적지로 즉시 스냅(연출·대기 없음). 그룹원은 NPC_PARTY_STAGGER 간격 동시 이동. → npc-movement.md

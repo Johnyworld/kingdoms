@@ -46,6 +46,18 @@ static func hero_groups(parties: Array) -> Array:
 			groups.append([p])
 	return groups
 
+## center에서 radius 헥스 이내에 있는 enemy_cells의 부분집합(지형 무관 disk). → npc-movement.md
+## NPC 하위부대가 "영웅 지휘 범위 안 적"을 칠지 판정하는 근거.
+static func enemies_within(terrain: TileMapLayer, center: Vector2i, radius: int, enemy_cells: Array, map_w: int, map_h: int) -> Array:
+	var disk := {}
+	for c in HexGrid.cells_within(terrain, center, radius, map_w, map_h):
+		disk[c] = true
+	var out: Array = []
+	for e in enemy_cells:
+		if disk.has(e):
+			out.append(e)
+	return out
+
 ## 원거리 파워가 근접 파워보다 크면 원거리 교전 선호(동률·근접 우위·무장 없음은 근접). 교전 포지셔닝에 쓴다. → npc-movement.md
 static func prefers_ranged(melee_power: int, ranged_power: int) -> bool:
 	return ranged_power > melee_power
