@@ -1,6 +1,14 @@
 extends GutTest
-## 전투 오버레이(battle.gd) 스모크 — 부대 시각 집약(방식 1) 렌더 경로가 크래시 없이 돌고 종료하는지.
+## 전투 오버레이(battle.gd) 스모크 — 개별 병사(멤버당 토큰) 렌더 경로가 크래시 없이 돌고 종료하는지.
 ## 판정 로직은 test_combat_resolver·test_battle_sim·test_battle_field가 검증. 여기선 오버레이 구동만 확인.
+
+## 멤버(사람) 렌더 토큰을 가진 유닛 수 — 팀당 1개 묶음이 아니라 멤버마다 1개인지 검증용.
+func _member_token_count() -> int:
+	var count := 0
+	for u in battle._units:
+		if u.has("human") and u.has("node"):
+			count += 1
+	return count
 
 const BattleScript = preload("res://scenes/combat/battle.gd")
 const PartyScript = preload("res://scenes/party/party.gd")
@@ -43,8 +51,7 @@ func test_member_battle_finishes_without_crash() -> void:
 	var atk := _party("공격", 3, 90, "battleaxe", Color.RED)
 	var deff := _party("방어", 3, 10, "sword", Color.BLUE)
 	battle.start(atk, deff, 1)   # 근접 교전
-	assert_true(battle._squads.has("a"), "공격 팀 스쿼드 토큰 생성")
-	assert_true(battle._squads.has("b"), "방어 팀 스쿼드 토큰 생성")
+	assert_eq(_member_token_count(), 6, "멤버 6명(3+3) 각각 렌더 토큰")
 	_run()
 	assert_false(battle._running, "전멸/시간만료로 종료")
 	var a_surv: Array = BattleField.survivors(battle._units, "a")
@@ -53,12 +60,24 @@ func test_member_battle_finishes_without_crash() -> void:
 	# 강한 공격 팀이 약한 방어 팀보다 생존자가 많다(근접 10초).
 	assert_true(a_surv.size() >= b_surv.size(), "강한 공격 팀 우세")
 
-func test_squad_label_shows_count() -> void:
+func test_token_per_member_counts() -> void:
 	var atk := _party("공격", 5, 60, "sword", Color.RED)
-	var deff := _party("방어", 5, 60, "sword", Color.BLUE)
+	var deff := _party("방어", 4, 60, "sword", Color.BLUE)
 	battle.start(atk, deff, 1)
-	var info: Label = battle._squads["a"]["info"]
-	assert_string_contains(info.text, "5/5", "시작 시 스쿼드 라벨에 N/총 표시")
+	assert_eq(_member_token_count(), 9, "멤버 9명(5+4) 각각 렌더 토큰(팀 묶음 1개 아님)")
+
+func test_dead_member_shows_zero_hp() -> void:
+	# 죽은 멤버 토큰은 hp 0을 표시해야 한다(치명타 직전 값이 남으면 안 됨).
+	var atk := _party("공격", 3, 90, "battleaxe", Color.RED)
+	var deff := _party("방어", 3, 5, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	_run()
+	var checked := 0
+	for u in battle._units:
+		if u.has("human") and u.has("hp_label") and not u["alive"]:
+			assert_eq(u["hp_label"].text, "0", "죽은 멤버는 hp 0 표시")
+			checked += 1
+	assert_gt(checked, 0, "사망자가 있어야 검증에 의미가 있다")
 
 func test_ranged_battle_runs() -> void:
 	var atk := _party("궁수", 3, 60, "bow", Color.RED)
@@ -67,7 +86,7 @@ func test_ranged_battle_runs() -> void:
 	_run(0.1, 200)
 	assert_false(battle._running, "원거리 전투도 종료")
 
-func test_single_member_hero_squad_label_is_name() -> void:
+func test_single_member_hero_one_token() -> void:
 	var hero: Node2D = PartyScript.new()
 	add_child_autofree(hero)
 	hero.party_name = "아젤 부대"
@@ -79,4 +98,4 @@ func test_single_member_hero_squad_label_is_name() -> void:
 	hero.commander = h
 	var deff := _party("적", 2, 30, "sword", Color.BLUE)
 	battle.start(hero, deff, 1)
-	assert_eq(battle._squads["a"]["info"].text, "아젤", "영웅 스쿼드 라벨=지휘관 이름(수 생략)")
+	assert_eq(_member_token_count(), 3, "영웅 1명 + 적 2명 = 멤버 토큰 3개")

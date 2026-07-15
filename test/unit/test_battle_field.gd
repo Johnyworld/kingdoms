@@ -35,35 +35,6 @@ func test_survivors_returns_living_humans() -> void:
 	]
 	assert_eq(BattleField.survivors(units, "a"), ["x"], "a의 살아있는 human만")
 
-func _member(team: String, alive: bool, hp: int, strength: int) -> Dictionary:
-	var h = load("res://scenes/human/human.gd").new()
-	h.strength = strength
-	return {"team": team, "alive": alive, "pos": Vector2.ZERO, "hp": hp, "human": h}
-
-func test_squad_summary_counts_and_hp() -> void:
-	# 힘 50 → max_hp = 40 + 50/10 = 45. a팀 멤버 3명(1명 사망), b팀 1명.
-	var units := [
-		_member("a", true, 30, 50),
-		_member("a", true, 45, 50),
-		_member("a", false, 0, 50),
-		_member("b", true, 10, 50),
-	]
-	var s := BattleField.squad_summary(units, "a")
-	assert_eq(s["alive"], 2, "생존 2")
-	assert_eq(s["total"], 3, "총 3(생사 무관)")
-	assert_eq(s["hp"], 75, "생존 hp 합 30+45")
-	assert_eq(s["max_hp"], 135, "max_hp 합 45×3")
-
-func test_squad_summary_excludes_siege_structure() -> void:
-	var units := [
-		{"siege": true, "team": "a", "alive": true, "hp": 60},       # human 없음 — 제외
-		{"structure": true, "team": "a", "alive": true, "hp": 100},  # human 없음 — 제외
-		_member("b", true, 20, 50),                                   # 다른 팀 — 제외
-	]
-	var s := BattleField.squad_summary(units, "a")
-	assert_eq(s["total"], 0, "멤버 없는 팀 → 0")
-	assert_eq(s["hp"], 0, "hp 0")
-	assert_eq(s["max_hp"], 0, "max_hp 0")
 
 func test_archer_should_charge() -> void:
 	# 사거리 ≥ 2 유닛이 최근접 적과의 거리가 임계 이하이면 근접 전환.
