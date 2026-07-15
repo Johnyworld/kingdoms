@@ -46,12 +46,13 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 	out.append({"id": "equip", "label": "장비", "enabled": true})   # 항상 맨 뒤. 턴 소비 없음(장비 관리 모달).
 	return out
 
-## 작전 메뉴 버튼(영웅 이동 직후 하위부대 일괄 통솔). [추종][대기][교전]. 돌격은 Slice 2b. → squad-stance.md
+## 작전 메뉴 버튼(영웅 이동 직후 하위부대 일괄 통솔). [추종][대기][교전][돌격]. → squad-stance.md
 static func stance_actions() -> Array:
 	return [
 		{"id": "st_follow", "label": "추종", "enabled": true},   # 영웅 목적지 인접 빈 칸으로 집결
 		{"id": "st_hold", "label": "대기", "enabled": true},     # 제자리 유지(방어 버프 미구현)
 		{"id": "st_engage", "label": "교전", "enabled": true},   # 보이는 적 중 최근접 접근·사거리 내 전투(신중)
+		{"id": "st_charge", "label": "돌격", "enabled": true},   # 목표 1지점 어택무브(경로 상 적 무조건 교전)
 	]
 
 ## 적 클릭 팝업 버튼 [공격][사격]을 각 활성 조건으로(이동은 없음).

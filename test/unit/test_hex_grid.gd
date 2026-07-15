@@ -326,3 +326,44 @@ func test_follow_trapped_stays() -> void:
 		blocked[n] = true   # 팔로워 사방 점유 → 이동 불가
 	var dest := HexGrid.follow_destination(terrain, hero, follower, 3, MAP, MAP, blocked)
 	assert_eq(dest, follower, "완전히 갇히면 제자리")
+
+# --- attack_move_stop (돌격 어택무브 정지 지점) ---
+
+## 중심에서 동쪽으로 뻗는 직선 경로(같은 행 가로 이웃은 헥스 인접). 좌표계가 바뀌면
+## 이 가정이 깨지므로, 경로가 실제로 헥스 인접 사슬인지 여기서 검증해 조용히 틀리지 않게 한다.
+func _straight_path(len: int) -> Array:
+	var c := _center()
+	var path: Array = []
+	for i in len:
+		var cell: Vector2i = c + Vector2i(i, 0)
+		if i > 0:
+			assert_true(cell in terrain.get_surrounding_cells(path[i - 1]), "직선 경로 %s가 헥스 인접(좌표계 가정)" % cell)
+		path.append(cell)
+	return path
+
+func test_attack_move_stops_at_first_contact() -> void:
+	var path := _straight_path(4)   # (20,20)..(23,20)
+	var enemy: Vector2i = _center() + Vector2i(4, 0)   # (24,20) — path[3]에 인접
+	assert_true(enemy in terrain.get_surrounding_cells(path[3]), "적이 path[3]에 인접(전제)")
+	var stop := HexGrid.attack_move_stop(terrain, path, [enemy], 1, MAP, MAP)
+	assert_eq(stop, 3, "사거리 1: 적에 인접해지는 첫 칸(index 3)에서 정지")
+
+func test_attack_move_no_enemy_reaches_end() -> void:
+	var path := _straight_path(4)
+	var stop := HexGrid.attack_move_stop(terrain, path, [], 1, MAP, MAP)
+	assert_eq(stop, 3, "사거리 내 적 없으면 끝(마지막 index)까지")
+
+func test_attack_move_stop_at_start_when_already_in_reach() -> void:
+	var path := _straight_path(3)
+	# 시작 칸의 이웃(경로 밖) 하나를 적으로 — 시작부터 사거리 안.
+	var enemy := _center() + Vector2i(0, 1)
+	if enemy == path[1]:
+		enemy = _center() + Vector2i(0, -1)
+	var stop := HexGrid.attack_move_stop(terrain, path, [enemy], 1, MAP, MAP)
+	assert_eq(stop, 0, "시작 칸이 이미 사거리 내면 index 0(이동 없이 교전)")
+
+func test_attack_move_ranged_stops_earlier() -> void:
+	var path := _straight_path(4)
+	var enemies := [_center() + Vector2i(4, 0)]   # (24,20)
+	var stop := HexGrid.attack_move_stop(terrain, path, enemies, 2, MAP, MAP)
+	assert_eq(stop, 2, "사거리 2: 근접(3)보다 한 칸 일찍(index 2) 정지")

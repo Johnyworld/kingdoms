@@ -136,6 +136,21 @@ static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, follo
 			best = c
 	return best
 
+## 돌격 어택무브의 정지 지점: path를 순서대로 훑어 그 칸에서 reach 헥스 이내에 적(enemy_cells)이 있는 첫 인덱스.
+## 거기서 멈춰 교전한다("어택땅"). 시작 칸이 이미 사거리 안이면 0(이동 없이 교전),
+## 경로 내내 사거리 내 적이 없으면 마지막 인덱스(끝까지 이동), 빈 경로면 0. → docs/spec/features/squad-stance.md
+static func attack_move_stop(terrain: TileMapLayer, path: Array, enemy_cells: Array, reach: int, map_w: int, map_h: int) -> int:
+	if path.is_empty():
+		return 0
+	var enemies := {}
+	for e in enemy_cells:
+		enemies[e] = true
+	for i in path.size():
+		for c in cells_within(terrain, path[i], reach, map_w, map_h):
+			if enemies.has(c):
+				return i
+	return path.size() - 1
+
 static func _in_bounds(cell: Vector2i, map_w: int, map_h: int) -> bool:
 	return cell.x >= 0 and cell.x < map_w and cell.y >= 0 and cell.y < map_h
 

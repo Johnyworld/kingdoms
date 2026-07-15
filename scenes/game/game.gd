@@ -130,6 +130,8 @@ var _follow_targets: Dictionary = {}     # 하위부대 → 최종 목적지 칸
 var _stance_hero = null
 # 교전 스탠스 시퀀스(하위부대 순차 접근·전투)가 도는 동안 참. 맵 클릭·턴 종료를 잠근다. → squad-stance.md
 var _stance_busy := false
+# 돌격 목표 지정 대기 중인 영웅부대(없으면 null). 이때 맵 좌클릭은 목표 선택으로 라우팅된다. → squad-stance.md
+var _charge_hero = null
 
 # 전투 오버레이가 떠 있는 동안 월드맵 좌클릭·턴 종료를 잠근다.
 var _in_battle := false
@@ -1382,9 +1384,8 @@ func _trigger_game_over(title: String, subtitle: String) -> void:
 	_game_over = true
 	if _selected:
 		_deselect()
-	if _stance_hero != null:
-		_stance_hero = null          # 작전 메뉴가 떠 있었으면 정리(Slice 2의 전투 수반 스탠스 대비 방어). → squad-stance.md
-		party_action_menu.close()
+	if _stance_hero != null or _charge_hero != null:
+		_cancel_stance_pending()   # 작전 메뉴/돌격 목표 지정이 떠 있었으면 정리. → squad-stance.md
 	_hide_party_info()
 	result_overlay.show_result(title, subtitle)
 
@@ -1909,9 +1910,8 @@ func _on_turn_ended() -> void:
 		return   # 전투 관전 중·게임 오버·교전 시퀀스 진행 중에는 턴을 넘기지 않는다. → squad-stance.md
 	_finish_player_move()   # 이동 애니메이션 중이면 목적지로 스냅한 뒤 턴을 넘긴다.
 	_finish_pending_follow_moves()   # 추종 이동 중이면 하위부대도 목적지로 스냅. → squad-stance.md
-	if _stance_hero != null:
-		_stance_hero = null          # 작전 메뉴 대기 중 턴 종료 → 명령 취소(대기 취급)하고 메뉴 닫기. → squad-stance.md
-		party_action_menu.close()
+	if _stance_hero != null or _charge_hero != null:
+		_cancel_stance_pending()   # 작전 메뉴/돌격 목표 지정 대기 중 턴 종료 → 취소·정리. → squad-stance.md
 	_undo_party = null   # 턴이 바뀌면 되돌리기 초기화
 	if _selected:
 		_deselect()
@@ -2196,10 +2196,19 @@ func _can_command_subordinates(hero) -> bool:
 			return true
 	return false
 
-## 영웅 이동 직후 작전 메뉴를 연다(하위부대 일괄 통솔). _stance_hero를 세워 맵 클릭을 잠그고 버튼만 받는다. → squad-stance.md
+## 영웅 이동 직후 작전 메뉴를 연다(하위부대 일괄 통솔). _stance_hero를 세워 맵 클릭을 잠그고 버튼만 받는다.
+## (예외: 돌격 선택 후 목표 지정 중(_charge_hero)에는 맵 클릭이 목표 선택으로 라우팅된다.) → squad-stance.md
 func _open_stance_menu(hero) -> void:
 	_stance_hero = hero
 	party_action_menu.open(PartyActionMenu.stance_actions(), _screen_pos(hero.position))
+
+## 작전 메뉴/돌격 목표 지정 대기 상태를 취소·정리한다(턴 종료·게임 오버). 메뉴·힌트 오버레이를 지운다. → squad-stance.md
+func _cancel_stance_pending() -> void:
+	_stance_hero = null
+	_charge_hero = null
+	party_action_menu.close()
+	var empty: Array[Vector2i] = []
+	overlay.show_ranges(empty, empty)
 
 ## 고른 작전(스탠스)을 처리하고 영웅 자신의 이동 후 메뉴로 복귀한다. 교전은 시퀀스가 끝난 뒤 복귀. → squad-stance.md
 func _resolve_stance(id: String) -> void:
@@ -2213,6 +2222,9 @@ func _resolve_stance(id: String) -> void:
 			pass   # 대기 — 하위부대 제자리(방어 버프 미구현)
 		"st_engage":
 			await _engage_with_lord(hero)   # 하위부대 순차 접근·전투(비동기)
+		"st_charge":
+			_enter_charge_target(hero)   # 목표 지정 모드 진입 — 다음 맵 클릭이 목표. 여기서 복귀하지 않는다.
+			return
 	if _game_over:
 		return   # 교전 중 승패 확정 → 결과 오버레이 위에 메뉴·범위를 다시 띄우지 않는다.
 	# 전역 활성 부대를 영웅으로 복원하고(전투가 party를 재할당했을 수 있음), 아직 행동 가능하면(사격/대기) 메뉴 복귀.
@@ -2262,12 +2274,73 @@ func _visible_enemy_cells(faction: String) -> Array:
 		out.append(c)
 	return out
 
-## 한 부대를 경로 따라 이동시키고 애니메이션이 끝날 때까지 await한다(교전 접근용). 도착 칸마다 시야 개방.
+## 한 부대를 경로 따라 이동시키고 애니메이션이 끝날 때까지 await한다(교전·돌격 접근용). 도착 칸마다 시야 개방.
 func _move_party_await(p, path: Array) -> void:
 	var tw := _animate_path(p, path, 0.0, func(_cell: Vector2i) -> void: _update_fog())
 	if tw == null:
 		return
 	await tw.finished
+
+## 돌격 목표 지정 모드 진입: _charge_hero를 세우고 하위부대 도달 범위(파랑)를 힌트로 표시한다. → squad-stance.md
+## 다음 맵 좌클릭이 _pick_charge_target으로 라우팅된다(영웅 칸 클릭은 취소).
+func _enter_charge_target(hero) -> void:
+	_charge_hero = hero
+	var reach := {}
+	for f in _subordinates_of(hero):
+		if not f.can_move():
+			continue
+		var start := terrain.local_to_map(f.position)
+		for c in HexGrid.movement_ranges(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _blocked_for(f))["move"]:
+			reach[c] = true
+	var blue: Array[Vector2i] = []
+	for c in reach:
+		blue.append(c)
+	var none: Array[Vector2i] = []
+	overlay.show_ranges(blue, none)   # 하위부대가 돌격할 수 있는 범위 힌트
+
+## 목표 지정 모드에서 맵 클릭을 공통 돌격 목표로 잡아 어택무브를 실행한다. 영웅 칸 클릭은 취소. → squad-stance.md
+func _pick_charge_target(world_pos: Vector2) -> void:
+	var cell := terrain.local_to_map(terrain.to_local(world_pos))
+	var hero = _charge_hero
+	_charge_hero = null
+	var empty: Array[Vector2i] = []
+	overlay.show_ranges(empty, empty)   # 힌트 오버레이 제거
+	if cell != terrain.local_to_map(hero.position):
+		await _charge_with_lord(hero, cell)
+	if _game_over:
+		return
+	party = hero
+	if hero.can_rest():
+		_select()   # 영웅 자신의 이동 후 메뉴로 복귀
+
+## 돌격(어택무브): 하위부대들을 공통 목표(target_cell) 방향으로 전진시키다, 사거리 안에 적이 들어오는 첫 칸에서 멈춰 무조건 교전. → squad-stance.md
+func _charge_with_lord(hero, target_cell: Vector2i) -> void:
+	_stance_busy = true
+	for f in _subordinates_of(hero):
+		if _game_over:
+			break
+		if not f.can_move():
+			continue
+		var start := terrain.local_to_map(f.position)
+		var blocked := _blocked_for(f)
+		var reach: int = maxi(f.attack_range(), 1)
+		# 1) 목표 방향 도달 칸으로 경로를 잡고, 사거리 내 적이 들어오는 첫 지점까지만 전진.
+		var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, [target_cell])
+		if dest != start:
+			var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+			if path.size() >= 2:
+				var stop := HexGrid.attack_move_stop(terrain, path, _visible_enemy_cells(f.faction_name), reach, MAP_WIDTH, MAP_HEIGHT)
+				if stop >= 1:
+					f.mark_moved()
+					await _move_party_await(f, path.slice(0, stop + 1))   # 정지 지점까지만 이동
+		# 2) 사거리 내 적이 있으면 무조건 교전(돌격은 신중 판정 없음). 근접=점령, 원거리=제자리 사격.
+		var target = _adjacent_enemy(f)
+		if target != null:
+			f.mark_attacked()
+			var dist := _engagement_distance(f, target)
+			var occ := terrain.local_to_map(target.position) if dist == 1 else Vector2i(-1, -1)
+			await _run_battle(f, target, dist, occ)
+	_stance_busy = false
 
 ## 작전(추종): hero에 소속된 하위부대들을 hero 칸(hero_cell) 주변 빈 칸으로 따라오게 한다. → squad-stance.md
 ## 하나씩 순차 배정하며 목적지·영웅 칸을 예약해 서로 겹치지 않게 흩어진다. 이미 행동했거나 갇힌 부대는 건너뛴다.
@@ -2570,8 +2643,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			# 이동 애니메이션(영웅·하위부대 추종)·작전 메뉴 대기·전투·게임 오버 중에는 새 클릭(이동·선택·메뉴)을 무시한다. 줌은 위에서 이미 처리됨.
-			if not _player_moving and _follow_tweens.is_empty() and _stance_hero == null and not _stance_busy and not _in_battle and not _game_over:
+			# 돌격 목표 지정 대기 중이면 좌클릭은 목표 선택으로 라우팅한다. → squad-stance.md
+			if _charge_hero != null and not _stance_busy and not _in_battle and not _game_over:
+				_pick_charge_target(get_global_mouse_position())
+			# 이동 애니메이션(영웅·하위부대 추종)·작전 메뉴 대기·교전 시퀀스·전투·게임 오버 중에는 새 클릭을 무시. 줌은 위에서 처리됨.
+			elif not _player_moving and _follow_tweens.is_empty() and _stance_hero == null and not _stance_busy and not _in_battle and not _game_over:
 				_handle_click(get_global_mouse_position())
 	elif event is InputEventPanGesture:
 		# 두 손가락 스크롤: 위로(delta.y<0) = 확대, 아래로 = 축소.
