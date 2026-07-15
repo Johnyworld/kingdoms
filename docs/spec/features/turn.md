@@ -44,7 +44,26 @@
 
 - 게임 시작 시 `TurnManager`를 생성하고, 유닛 목록(맵의 모든 부대 — 플레이어 + NPC)·영지 목록(창천성)을 보유한다. 턴 종료 시 NPC 부대의 이동 상태도 함께 리셋된다.
 - 턴 종료 버튼(`ended`) → `turn_manager.end_turn(units, territories)` → **NPC 이동**(`_move_npcs`) → 안개·HUD 턴 번호 갱신. NPC 이동은 `TurnManager` 밖(`game.gd`)에서 처리한다(씬 트리·터레인 의존이라 순수 데이터 계층인 `TurnManager`에 넣지 않는다).
-- NPC 이동은 **경로를 따라가는 애니메이션(비차단)**으로 재생된다([NPC Movement](npc-movement.md)) — 재생 중에도 플레이어는 조작할 수 있다.
+
+## 턴 진행 순서 (세력 턴, `game.gd`)
+
+한 "턴"(라운드) = **플레이어 세력 행동 → 턴 종료 → NPC 세력들이 정해진 순서로 차례차례 행동 → 다시 플레이어**. 라운드 번호는 하나(`TurnManager.number`).
+
+- **플레이어 턴**: 플레이어가 부대를 조작(이동·공격·작전)하고 `[턴 종료]`로 넘긴다.
+- **NPC 턴 — 입력 잠금**: 턴 종료 후 NPC 세력들이 순서대로 이동·공격하는 **동안 플레이어 입력(맵 좌클릭·턴 종료)을 잠근다**(`_npc_turn_active`). NPC 행동이 모두 끝나야 플레이어 턴으로 돌아온다. 카메라 이동·줌은 잠그지 않는다.
+  - (기존엔 NPC 이동이 **비차단**이라 NPC가 움직이는 동안에도 플레이어가 조작할 수 있었다 — 세력 턴이 뒤섞여 보이던 문제를 막는다. 이제 `_on_turn_ended`가 NPC 페이즈를 `await`하고, 그 사이 입력 게이트가 `_npc_turn_active`로 막힌다.)
+- **세력 배너**([`turn_banner.gd`](#턴-배너-turn_bannergd)): NPC 세력이 자기 차례를 시작하면 화면 상단에 그 세력 이름을 **세력색**으로 표시한다("○○ 진행 중…"). 플레이어 차례로 돌아오면 플레이어 세력 배너로 바꾼다. **게임 오버**(`_trigger_game_over`) 시에는 배너를 `clear()`한다(결과 오버레이 위에 안 남게).
+
+**미구현(후속 슬라이스)**:
+- **NPC 유닛(영웅그룹)별 순차 이동 + 카메라 포커스**(시야 내일 때) — Slice B. 지금은 세력 단위로만 순차, 같은 세력 부대는 동시(스태거) 이동. → [NPC Movement](npc-movement.md).
+- **NPC 공격 순차 연출**(영웅→휘하 1유닛씩, 공격자·대상 카메라 포커스+하이라이트 1초, NPC↔NPC 전투는 씬 없이 "누가 누굴"만) — Slice C.
+
+## 턴 배너 (`turn_banner.gd`)
+
+> `extends CanvasLayer` — 현재 행동 중인 세력을 화면 상단 중앙에 표시(코드 구성, 입력 통과).
+
+- `set_faction(text: String, color: Color) -> void` — 배너 라벨을 그 세력 이름·색으로 채우고 보인다.
+- `clear() -> void` — 배너를 감춘다.
 
 ## 테스트 시나리오
 
@@ -56,6 +75,12 @@
 - [정상] 건설 중 농장을 가진 영지를 `end_turn` → 건설 1턴 진행(remaining −1); build_turns회 후 완성
 - [정상] 인구 상한(집 완성으로 12) > 현재 인구(10) 영지를 `end_turn` → 인구 11로 증가; 상한 도달 후엔 유지
 - (자원 생산은 `end_turn` 밖 `game.gd`가 처리 — 검증은 [production.md](production.md) 및 헤드리스)
+
+### 턴 배너 — `test/unit/test_turn_banner.gd`
+
+- [정상] `set_faction("암흑 제국", Color(0.5,0,0))` → 라벨 텍스트에 `"암흑 제국"` 포함, `visible == true`
+- [정상] `clear()` → `visible == false`
+- (입력 잠금·NPC 페이즈 await·세력 배너 전환 타이밍은 `game.gd` 배선이라 실제 실행으로 확인.)
 
 ## 관련
 

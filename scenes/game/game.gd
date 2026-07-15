@@ -145,6 +145,8 @@ var confirm_dialog: ConfirmDialog   # 확인 다이얼로그(코드 생성, _rea
 var split_panel: SplitPanel         # 부대 분할 패널(코드 생성, _ready에서 추가)
 var _split_new = null               # 분할 중 새로 만든 부대(닫을 때 비어 있으면 취소·제거)
 var toast: Toast                    # 점령/함락 알림(코드 생성, _ready에서 추가)
+var turn_banner: TurnBanner         # 현재 행동 세력 배너(코드 생성, _ready에서 추가). → turn.md
+var _npc_turn_active := false       # NPC 턴 진행 중 — 플레이어 좌클릭·턴 종료 잠금. → turn.md
 
 const BATTLE_SCENE := preload("res://scenes/combat/battle.gd")
 const TITLE_SCENE := "res://scenes/title/title.tscn"
@@ -211,6 +213,9 @@ func _ready() -> void:
 	split_panel.closed.connect(_on_split_closed)
 	toast = Toast.new()   # 점령/함락 알림(코드 생성)
 	add_child(toast)
+	turn_banner = TurnBanner.new()   # 현재 행동 세력 배너(코드 생성). → turn.md
+	add_child(turn_banner)
+	_begin_player_turn()   # 시작은 플레이어 턴 — 플레이어 세력 배너 표시. → turn.md
 
 ## 맵 전체를 초원 타일로 채운 뒤, 시작 지점 근처에 숲을 조금 배치한다.
 func _generate_map() -> void:
@@ -1397,6 +1402,7 @@ func _trigger_game_over(title: String, subtitle: String) -> void:
 		_deselect()
 	if _stance_hero != null or _charge_hero != null:
 		_cancel_stance_pending()   # 작전 메뉴/돌격 목표 지정이 떠 있었으면 정리. → squad-stance.md
+	turn_banner.clear()   # 세력 배너 정리(결과 오버레이 위에 남지 않게). → turn.md
 	_hide_party_info()
 	result_overlay.show_result(title, subtitle)
 
@@ -1933,8 +1939,8 @@ func _undo_last_move() -> void:
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
 func _on_turn_ended() -> void:
-	if _in_battle or _game_over or _stance_busy:
-		return   # 전투 관전 중·게임 오버·교전 시퀀스 진행 중에는 턴을 넘기지 않는다. → squad-stance.md
+	if _in_battle or _game_over or _stance_busy or _npc_turn_active:
+		return   # 전투·게임 오버·교전 시퀀스·NPC 턴 진행 중에는 턴을 넘기지 않는다. → squad-stance.md · turn.md
 	_finish_player_move()   # 이동 애니메이션 중이면 목적지로 스냅한 뒤 턴을 넘긴다.
 	_finish_pending_follow_moves()   # 추종 이동 중이면 하위부대도 목적지로 스냅. → squad-stance.md
 	if _stance_hero != null or _charge_hero != null:
@@ -1953,7 +1959,16 @@ func _on_turn_ended() -> void:
 	_update_endgame()   # 세력 소멸 유예 판정 → 소멸 시 부대 붕괴 + 정복 승리/패배
 	if _game_over:
 		return   # 승패 확정 → NPC 이동 생략
-	_move_npcs()    # 비차단: NPC를 경로 따라 애니메이션으로 이동(플레이어 조작 안 막음).
+	# NPC 턴: 입력을 잠그고 NPC 페이즈를 끝까지 기다린 뒤 플레이어 턴으로 돌아온다. → turn.md
+	_npc_turn_active = true
+	await _move_npcs()
+	_npc_turn_active = false
+	if not _game_over:
+		_begin_player_turn()
+
+## 플레이어 턴 시작 — 플레이어 세력 배너를 띄운다(NPC 턴 종료 후·게임 시작 시). → turn.md
+func _begin_player_turn() -> void:
+	turn_banner.set_faction(_player_faction.name, _player_faction.color)
 
 ## NPC 거점 수비대(stationed)가 주기(NpcAi.should_produce_siege)마다 상한 미만이면 투석기 1대 보충 생산. → siege-engines.md
 ## NPC 경제 미사용이라 자원 대신 턴 주기·상한으로 추상 생산(작업장 건물 불요). 대포병 결투로 파괴된 투석기를 교체·소량 증강.
@@ -1989,10 +2004,13 @@ func _move_npcs() -> void:
 			factions.append(f)
 		groups[f].append({"party": p, "path": path})
 
-	# 세력을 하나씩 순차로 애니메이션한다(한 세력이 끝나야 다음).
+	# 세력을 하나씩 순차로 애니메이션한다(한 세력이 끝나야 다음). 세력 차례 시작 시 배너 표시. → turn.md
 	for f in factions:
 		if epoch != _npc_move_epoch:
 			return   # 새 이동 라운드가 시작됨 → 이 코루틴은 중단(이중 이동 방지).
+		var fac = _faction_named(f)
+		if fac != null:
+			turn_banner.set_faction(fac.name, fac.color)
 		await _animate_faction(groups[f])
 
 	# 이동이 끝나면 공격 페이즈: 인접한 적이 있는 NPC가 차례로 전투를 건다.
@@ -2699,11 +2717,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			# 돌격 목표 지정 대기 중이면 좌클릭은 목표 선택으로 라우팅한다. → squad-stance.md
-			if _charge_hero != null and not _stance_busy and not _in_battle and not _game_over:
+			# 돌격 목표 지정 대기 중이면 좌클릭은 목표 선택으로 라우팅한다(NPC 턴 중엔 잠금). → squad-stance.md
+			if _charge_hero != null and not _stance_busy and not _in_battle and not _game_over and not _npc_turn_active:
 				_pick_charge_target(get_global_mouse_position())
-			# 이동 애니메이션(영웅·하위부대 추종)·작전 메뉴 대기·교전 시퀀스·전투·게임 오버 중에는 새 클릭을 무시. 줌은 위에서 처리됨.
-			elif not _player_moving and _follow_tweens.is_empty() and _stance_hero == null and not _stance_busy and not _in_battle and not _game_over:
+			# 이동 애니메이션·작전 대기·교전·전투·게임 오버·NPC 턴 중에는 새 클릭을 무시. 줌은 위에서 처리됨. → turn.md
+			elif not _player_moving and _follow_tweens.is_empty() and _stance_hero == null and not _stance_busy and not _in_battle and not _game_over and not _npc_turn_active:
 				_handle_click(get_global_mouse_position())
 	elif event is InputEventPanGesture:
 		# 두 손가락 스크롤: 위로(delta.y<0) = 확대, 아래로 = 축소.
