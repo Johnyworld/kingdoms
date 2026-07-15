@@ -1289,6 +1289,8 @@ func _engagement_distance(a, b) -> int:
 ## 오버레이 전투를 띄우고 관전한다(입력 잠금). 종료까지 await 후 사상자를 반영한다.
 ## occupy_cell != (-1,-1)이고 근접 승리(수비 전멸·공격 생존)면 공격 부대를 그 타일로 이동(점령).
 func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, -1), include_siege := false) -> void:
+	if not is_instance_valid(attacker) or not is_instance_valid(defender):
+		return   # 연속/중첩 전투(교전·돌격·NPC 페이즈)에서 await 사이에 한쪽이 전멸·해제됐으면 건너뛴다
 	_in_battle = true
 	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신 → 전투 배율의 단일 출처. → command-range.md
 	_apply_command_flags(attacker, true)
@@ -1307,7 +1309,7 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	_apply_command_flags(attacker, false)   # 지휘 버프 플래그 해제(전투 수명 종료). → command-range.md
 	_apply_command_flags(defender, false)
 	_in_battle = false
-	if occupy_cell != Vector2i(-1, -1) and defender.members.is_empty() and not attacker.members.is_empty():
+	if occupy_cell != Vector2i(-1, -1) and is_instance_valid(defender) and defender.members.is_empty() and is_instance_valid(attacker) and not attacker.members.is_empty():
 		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
 	_update_fog()
 	party_roster.set_parties(_units)
@@ -1421,6 +1423,8 @@ func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
 ## _apply_survivors(패자 queue_free)보다 먼저 호출해야 패자 멤버 장비를 읽을 수 있다.
 ## 승자가 NPC면 전량 자동, 플레이어 부대면 약탈 패널을 띄우고 닫힐 때까지 await한다.
 func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -> void:
+	if not is_instance_valid(attacker) or not is_instance_valid(defender):
+		return   # await 사이 한쪽이 해제됐으면 노획 생략(해제 부대 참조 방지)
 	var a_alive := not a_survivors.is_empty()
 	var b_alive := not b_survivors.is_empty()
 	if a_alive == b_alive:
@@ -1441,6 +1445,8 @@ func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -
 ## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, 전멸(생존자 0)한 부대는 NPC·플레이어 모두 맵에서 제거.
 ## 전멸한 게 활성 party였으면 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null — 부대 0이어도 패배 아님, 세력 소멸은 거점 0에서만).
 func _apply_survivors(p, survivors: Array) -> void:
+	if not is_instance_valid(p):
+		return   # await(노획 패널 등) 사이 이미 해제된 부대면 반영할 것도 없음(하드닝 일관성). → _run_battle
 	p.members = survivors
 	if not (p.commander in survivors):
 		p.commander = survivors[0] if not survivors.is_empty() else null
@@ -2066,7 +2072,7 @@ func _adjacent_enemy(attacker):
 		in_range[c] = true
 	var walls := _wall_blocked_cells(attacker.faction_name)   # 적 성벽 안 수비대는 접근 불가 → 표적 제외 → wall.md
 	for other in _units + _npc_parties:
-		if other == attacker or other.members.is_empty():
+		if other == attacker or not is_instance_valid(other) or other.members.is_empty():
 			continue
 		if other.faction_name == attacker.faction_name:
 			continue   # 같은 세력(아군)은 공격 대상 아님(주둔 부대 도입 후 같은 세력 인접이 생겨 필요)
@@ -2223,7 +2229,7 @@ func _refresh_command_buffs() -> void:
 
 ## 전투 직전/직후에 party 멤버의 in_command 플래그를 command_buffed 기준으로 켜고 끈다(alert와 같은 수명). → command-range.md
 func _apply_command_flags(party, on: bool) -> void:
-	if party == null:
+	if party == null or not is_instance_valid(party):
 		return
 	var v: bool = on and party.command_buffed
 	for m in party.members:
@@ -2287,8 +2293,8 @@ func _engage_with_lord(hero) -> void:
 	for f in _subordinates_of(hero):
 		if _game_over:
 			break
-		if not f.can_move():
-			continue
+		if not is_instance_valid(f) or not f.can_move():
+			continue   # 앞선 전투에서 이 하위부대가 전멸·해제됐으면 건너뛴다
 		var start := terrain.local_to_map(f.position)
 		var targets := _visible_enemy_cells(f.faction_name)
 		# 1) 보이는 적 중 최근접으로 접근(더 가까워질 수 없으면 제자리).
@@ -2302,7 +2308,7 @@ func _engage_with_lord(hero) -> void:
 					await _move_party_await(f, path)
 		# 2) 사거리 내 적이 있고 전력이 신중 기준 이상이면 전투(근접=붙어서, 원거리=제자리 사격).
 		var target = _adjacent_enemy(f)
-		if target != null and NpcAi.should_engage(NpcAi.party_power(f.members), NpcAi.party_power(target.members)):
+		if target != null and is_instance_valid(target) and NpcAi.should_engage(NpcAi.party_power(f.members), NpcAi.party_power(target.members)):
 			f.mark_attacked()
 			var dist := _engagement_distance(f, target)
 			var occ := terrain.local_to_map(target.position) if dist == 1 else Vector2i(-1, -1)   # 근접 승리 시만 점령
@@ -2367,8 +2373,8 @@ func _charge_with_lord(hero, target_cell: Vector2i) -> void:
 	for f in _subordinates_of(hero):
 		if _game_over:
 			break
-		if not f.can_move():
-			continue
+		if not is_instance_valid(f) or not f.can_move():
+			continue   # 앞선 전투에서 이 하위부대가 전멸·해제됐으면 건너뛴다
 		var start := terrain.local_to_map(f.position)
 		var blocked := _blocked_for(f)
 		var reach: int = maxi(f.attack_range(), 1)
@@ -2383,7 +2389,7 @@ func _charge_with_lord(hero, target_cell: Vector2i) -> void:
 					await _move_party_await(f, path.slice(0, stop + 1))   # 정지 지점까지만 이동
 		# 2) 사거리 내 적이 있으면 무조건 교전(돌격은 신중 판정 없음). 근접=점령, 원거리=제자리 사격.
 		var target = _adjacent_enemy(f)
-		if target != null:
+		if target != null and is_instance_valid(target):
 			f.mark_attacked()
 			var dist := _engagement_distance(f, target)
 			var occ := terrain.local_to_map(target.position) if dist == 1 else Vector2i(-1, -1)
