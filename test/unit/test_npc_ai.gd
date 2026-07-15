@@ -159,6 +159,49 @@ func test_select_targets_falls_back_to_advance() -> void:
 	var advance := [Vector2i(5, 5)]
 	assert_eq(NpcAi.select_targets(advance, []), advance, "방어 대상 없으면 진격 타깃")
 
+# --- 영웅그룹 묶기: hero_groups (순수) — NPC 이동을 영웅+하위 그룹 단위로 순차 진행 ---
+
+func _hero_party() -> Node2D:
+	var p: Node2D = load("res://scenes/party/party.gd").new()
+	add_child_autofree(p)
+	p.kind = p.KIND_HERO
+	return p
+
+func _troop_party(lord = null) -> Node2D:
+	var p: Node2D = load("res://scenes/party/party.gd").new()
+	add_child_autofree(p)
+	p.kind = p.KIND_TROOP
+	p.lord = lord
+	return p
+
+func test_hero_groups_hero_with_subs() -> void:
+	var h1 := _hero_party()
+	var h2 := _hero_party()
+	var t1 := _troop_party(h1)
+	var t2 := _troop_party(h1)
+	var t3 := _troop_party(h2)
+	var groups := NpcAi.hero_groups([h1, t1, t2, h2, t3])
+	assert_eq(groups.size(), 2, "영웅 2명 → 그룹 2개")
+	assert_eq(groups[0][0], h1, "그룹0 첫 원소 = H1")
+	assert_eq(groups[0].size(), 3, "H1 그룹 = 영웅 + 하위 2")
+	assert_eq(groups[1][0], h2, "그룹1 첫 원소 = H2")
+	assert_eq(groups[1].size(), 2, "H2 그룹 = 영웅 + 하위 1")
+
+func test_hero_groups_hero_no_subs() -> void:
+	var h := _hero_party()
+	var groups := NpcAi.hero_groups([h])
+	assert_eq(groups.size(), 1, "하위 없는 영웅 → 단독 그룹")
+	assert_eq(groups[0], [h], "그룹 = [영웅]")
+
+func test_hero_groups_troops_only_singletons() -> void:
+	var t1 := _troop_party()
+	var t2 := _troop_party()
+	var groups := NpcAi.hero_groups([t1, t2])
+	assert_eq(groups.size(), 2, "영웅 없으면 각 부대가 단독 그룹")
+
+func test_hero_groups_empty() -> void:
+	assert_eq(NpcAi.hero_groups([]), [], "빈 입력 → 빈 결과")
+
 # --- 전력 인식: party_power / should_engage (순수) ---
 
 func _soldier(hp: int) -> Object:

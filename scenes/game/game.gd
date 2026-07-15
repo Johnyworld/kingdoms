@@ -20,6 +20,7 @@ const PARTY_SCENE := preload("res://scenes/party/party.tscn")
 # 부대 이동 애니메이션. 칸당 이동 시간(플레이어·NPC 공유) / 같은 세력 내 NPC 부대 시작 간격(스태거).
 const MOVE_STEP_TIME := 0.12
 const NPC_PARTY_STAGGER := 0.2
+const NPC_FOCUS_PAUSE := 0.3   # 시야 내 NPC 영웅그룹으로 카메라 포커스 후 잠깐 정지(초). → turn.md · npc-movement.md
 const FOLLOW_STAGGER := 0.1   # 작전 추종 시 하위부대 출발 간격(초) → squad-stance.md
 
 # NPC가 자기 캠프를 방어하는 반경(헥스). 이 안에 적 부대가 들어오면 그 침입자를 요격 우선한다.
@@ -1988,34 +1989,80 @@ func _move_npcs() -> void:
 	var party_entries := _party_entries()
 	var camp_entries := _camp_entries()
 
-	# 세력별로 그룹핑(등장 순서 유지). 각 항목은 {party, path}.
+	# 이동 계획: 각 이동 부대의 경로(party → path). 세력 등장 순서·세력별 이동 부대 목록도 모은다.
+	var plans: Dictionary = {}
 	var factions: Array = []
-	var groups: Dictionary = {}
+	var movers: Dictionary = {}
 	for p in _npc_parties:
 		if p.stationed:
 			continue   # 주둔 NPC 부대는 이동하지 않고 거점에서 대기 → garrison.md
 		var start := terrain.local_to_map(p.position)
 		var occ := _blocked_for(p)   # 자기 외 부대 점유 + 적 세력 성벽 거점 footprint = 이동 장애물.
 		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p, party_entries, camp_entries))
-		var path := HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
+		plans[p] = HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 		var f: String = p.faction_name
-		if not groups.has(f):
-			groups[f] = []
+		if not movers.has(f):
+			movers[f] = []
 			factions.append(f)
-		groups[f].append({"party": p, "path": path})
+		movers[f].append(p)
 
-	# 세력을 하나씩 순차로 애니메이션한다(한 세력이 끝나야 다음). 세력 차례 시작 시 배너 표시. → turn.md
+	# 세력 순차 → 영웅그룹 순차. 세력 차례 시작 시 배너, 그룹이 시야 안이면 카메라 포커스. → turn.md · npc-movement.md
 	for f in factions:
 		if epoch != _npc_move_epoch:
 			return   # 새 이동 라운드가 시작됨 → 이 코루틴은 중단(이중 이동 방지).
 		var fac = _faction_named(f)
 		if fac != null:
 			turn_banner.set_faction(fac.name, fac.color)
-		await _animate_faction(groups[f])
+		for group in NpcAi.hero_groups(movers[f]):
+			if epoch != _npc_move_epoch:
+				return
+			await _move_group(group, plans)
 
 	# 이동이 끝나면 공격 페이즈: 인접한 적이 있는 NPC가 차례로 전투를 건다.
 	if epoch == _npc_move_epoch:
 		await _npc_attack_phase(epoch)
+
+## NPC 영웅그룹 하나를 이동시킨다. 그룹이 플레이어 시야 안이면 카메라 포커스+정지 후 걸어가는 애니메이션,
+## 시야 밖이면 목적지로 즉시 스냅(연출·대기 없음). 그룹원은 NPC_PARTY_STAGGER 간격 동시 이동. → npc-movement.md
+func _move_group(group: Array, plans: Dictionary) -> void:
+	var any_move := false
+	for p in group:
+		if (plans.get(p, []) as Array).size() >= 2:
+			any_move = true
+			break
+	if not any_move:
+		return   # 그룹 전원 제자리 → 아무것도 안 함(포커스도 생략)
+	# 시야 판정: 그룹 부대 중 하나라도 현재 칸/목적지가 플레이어 시야면 연출.
+	var in_view := false
+	for p in group:
+		var path: Array = plans.get(p, [])
+		var cur := terrain.local_to_map(p.position)
+		var dst: Vector2i = path[path.size() - 1] if not path.is_empty() else cur
+		if fog.is_cell_visible(cur) or fog.is_cell_visible(dst):
+			in_view = true
+			break
+	if in_view:
+		_focus_camera(group[0].position)   # 그룹 대표(영웅) 위치로 포커스
+		await get_tree().create_timer(NPC_FOCUS_PAUSE).timeout
+		var max_dur := 0.0
+		for i in group.size():
+			var path: Array = plans.get(group[i], [])
+			var delay: float = i * NPC_PARTY_STAGGER
+			_start_party_animation(group[i], path, delay)
+			var steps: int = maxi(0, path.size() - 1)
+			max_dur = maxf(max_dur, delay + steps * MOVE_STEP_TIME)
+		if max_dur > 0.0:
+			await get_tree().create_timer(max_dur).timeout
+	else:
+		for p in group:   # 시야 밖 — 즉시 스냅.
+			var path: Array = plans.get(p, [])
+			if not path.is_empty():
+				p.position = terrain.map_to_local(path[path.size() - 1])
+		_update_fog()
+
+## 카메라를 world_pos로 옮긴다(맵 범위 클램프). NPC 포커스·부대 일람 클릭이 공유. → turn.md
+func _focus_camera(world_pos: Vector2) -> void:
+	camera.position = Vector2(clampf(world_pos.x, _min_pos.x, _max_pos.x), clampf(world_pos.y, _min_pos.y, _max_pos.y))
 
 ## 각 NPC가 이동 후 인접한 적에게 전투를 건다. 플레이어가 낀 전투는 오버레이(await), NPC끼리는 헤드리스.
 func _npc_attack_phase(epoch: int) -> void:
@@ -2127,18 +2174,6 @@ func _faction_named(fname: String):
 		if f.name == fname:
 			return f
 	return null
-
-## 한 세력의 부대들을 동시에(부대마다 NPC_PARTY_STAGGER 지연) 애니메이션하고, 전부 끝날 때까지 대기한다.
-func _animate_faction(plans: Array) -> void:
-	var max_dur := 0.0
-	for i in plans.size():
-		var path: Array = plans[i]["path"]
-		var delay: float = i * NPC_PARTY_STAGGER
-		_start_party_animation(plans[i]["party"], path, delay)
-		var steps: int = maxi(0, path.size() - 1)
-		max_dur = maxf(max_dur, delay + steps * MOVE_STEP_TIME)
-	if max_dur > 0.0:
-		await get_tree().create_timer(max_dur).timeout
 
 ## 부대를 경로(path)의 칸을 차례로 지나도록 Tween으로 이동시킨다(칸당 MOVE_STEP_TIME). delay 후 시작.
 ## 각 칸에 도착할 때마다 on_arrive.call(cell)을 실행한다(도착 시점이라 party.position == 그 칸).
@@ -2496,9 +2531,7 @@ func _hide_party_info() -> void:
 
 ## 부대 일람에서 항목을 클릭하면 그 부대 위치로 카메라를 즉시 이동한다(맵 범위 클램프).
 func _on_party_focused(focused_party) -> void:
-	camera.position = focused_party.position
-	camera.position.x = clampf(camera.position.x, _min_pos.x, _max_pos.x)
-	camera.position.y = clampf(camera.position.y, _min_pos.y, _max_pos.y)
+	_focus_camera(focused_party.position)
 
 ## 좌측 하단 "구성원" 버튼 → 우리 세력 전 군인 명단 오버레이를 연다(여는 시점 스냅샷). → members-menu.md
 func _on_members_requested() -> void:

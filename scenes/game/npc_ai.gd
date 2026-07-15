@@ -25,6 +25,27 @@ static func party_power(members: Array) -> int:
 static func should_engage(my_power: int, enemy_power: int) -> bool:
 	return float(my_power) >= float(enemy_power) * CAUTION_RATIO
 
+## 부대 목록을 영웅그룹(영웅 + 그 소속 하위부대 lord==영웅) 단위로 묶어 순서대로 돌려준다. → npc-movement.md
+## 영웅은 입력 순서, 그 뒤 각 영웅의 하위(입력 순서). 영웅 없는(독립) 부대는 각자 단독 그룹으로 뒤에 붙는다.
+## NPC 이동/공격을 영웅그룹 단위로 순차 진행하는 근거(game.gd `_move_group` 등).
+static func hero_groups(parties: Array) -> Array:
+	var groups: Array = []
+	var claimed := {}
+	for h in parties:
+		if not h.is_hero():
+			continue
+		var g: Array = [h]
+		claimed[h] = true
+		for p in parties:
+			if p != h and not p.is_hero() and p.lord == h:
+				g.append(p)
+				claimed[p] = true
+		groups.append(g)
+	for p in parties:
+		if not claimed.has(p):
+			groups.append([p])
+	return groups
+
 ## 원거리 파워가 근접 파워보다 크면 원거리 교전 선호(동률·근접 우위·무장 없음은 근접). 교전 포지셔닝에 쓴다. → npc-movement.md
 static func prefers_ranged(melee_power: int, ranged_power: int) -> bool:
 	return ranged_power > melee_power
