@@ -21,6 +21,10 @@ const PARTY_SCENE := preload("res://scenes/party/party.tscn")
 const MOVE_STEP_TIME := 0.12
 const NPC_PARTY_STAGGER := 0.2
 const NPC_FOCUS_PAUSE := 0.3   # 시야 내 NPC 영웅그룹으로 카메라 포커스 후 잠깐 정지(초). → turn.md · npc-movement.md
+const NPC_ENGAGE_FOCUS := 1.0  # NPC 공격 연출: 공격자·대상 하이라이트를 보여주는 시간(초). → npc-movement.md
+const HL_ATTACKER := Color(1.0, 0.3, 0.3)   # 공격자 하이라이트(빨강)
+const HL_TARGET := Color(1.0, 1.0, 1.0)     # 대상 하이라이트(흰색 — 선택·버프 금색과 구분)
+const HL_NONE := Color(0, 0, 0, 0)          # 하이라이트 해제
 const FOLLOW_STAGGER := 0.1   # 작전 추종 시 하위부대 출발 간격(초) → squad-stance.md
 
 # NPC가 자기 캠프를 방어하는 반경(헥스). 이 안에 적 부대가 들어오면 그 침입자를 요격 우선한다.
@@ -1978,83 +1982,109 @@ func _npc_produce_siege() -> void:
 		if p.stationed and NpcAi.should_produce_siege(_turn.number, p.siege_units.size()):
 			p.add_siege_unit(SiegeUnit.new())
 
-## 각 NPC 부대를 목적지(NpcAi)까지 경로 따라 애니메이션으로 이동시킨다.
-## 세력 간 순차, 같은 세력 내 부대는 NPC_PARTY_STAGGER 간격으로 동시 이동. 비차단(await로 백그라운드 진행).
+## NPC 턴: 세력 순차 → 영웅그룹 순차. 각 그룹은 이동을 마친 뒤 곧바로 공격한다(영웅 먼저·하위 순서). → turn.md · npc-movement.md
+## 세력 차례 시작 시 배너, 그룹·교전이 시야 안이면 카메라 포커스+하이라이트, 시야 밖이면 즉시 처리.
 func _move_npcs() -> void:
 	_finish_pending_npc_moves()   # 재진입: 진행 중이던 이동을 목적지로 스냅.
 	_npc_move_epoch += 1
 	var epoch := _npc_move_epoch   # 이 라운드의 세대. 도중 새 라운드가 시작되면 아래 루프를 빠져나온다.
 
-	# 타깃 입력은 세력 무관하게 같으므로 루프 밖에서 한 번만 만든다(부대·캠프 목록).
 	var party_entries := _party_entries()
 	var camp_entries := _camp_entries()
 
-	# 이동 계획: 각 이동 부대의 경로(party → path). 세력 등장 순서·세력별 이동 부대 목록도 모은다.
-	var plans: Dictionary = {}
+	# 세력 등장 순서 + 세력별 전체 NPC 부대(이동+주둔). 그룹 묶기는 hero_groups가 한다.
 	var factions: Array = []
-	var movers: Dictionary = {}
+	var by_faction: Dictionary = {}
 	for p in _npc_parties:
-		if p.stationed:
-			continue   # 주둔 NPC 부대는 이동하지 않고 거점에서 대기 → garrison.md
-		var start := terrain.local_to_map(p.position)
-		var occ := _blocked_for(p)   # 자기 외 부대 점유 + 적 세력 성벽 거점 footprint = 이동 장애물.
-		var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p, party_entries, camp_entries))
-		plans[p] = HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 		var f: String = p.faction_name
-		if not movers.has(f):
-			movers[f] = []
+		if not by_faction.has(f):
+			by_faction[f] = []
 			factions.append(f)
-		movers[f].append(p)
+		by_faction[f].append(p)
 
-	# 세력 순차 → 영웅그룹 순차. 세력 차례 시작 시 배너, 그룹이 시야 안이면 카메라 포커스. → turn.md · npc-movement.md
 	for f in factions:
 		if epoch != _npc_move_epoch:
-			return   # 새 이동 라운드가 시작됨 → 이 코루틴은 중단(이중 이동 방지).
+			_clear_player_alert()
+			return   # 새 라운드 시작 → 중단.
 		var fac = _faction_named(f)
 		if fac != null:
 			turn_banner.set_faction(fac.name, fac.color)
-		for group in NpcAi.hero_groups(movers[f]):
+		# 앞 세력 차례의 크로스-세력 헤드리스 전투로 이 세력 부대가 해제됐을 수 있어, 살아있는 것만 그룹 묶기에 넘긴다.
+		var living: Array = []
+		for p in by_faction[f]:
+			if is_instance_valid(p):
+				living.append(p)
+		for group in NpcAi.hero_groups(living):
 			if epoch != _npc_move_epoch:
+				_clear_player_alert()
 				return
+			if _game_over:
+				return
+			# 1) 그룹 이동(이 그룹 차례에 계획 즉석 수립 — 점유 회피(_blocked_for)만 실시간, 표적은 턴 시작 스냅샷).
+			var plans: Dictionary = {}
+			for p in group:
+				if not is_instance_valid(p) or p.stationed:
+					continue   # 해제된(앞 전투로 제거) 부대·주둔 부대는 이동 계획 없음.
+				var start := terrain.local_to_map(p.position)
+				var occ := _blocked_for(p)
+				var dest := NpcAi.choose_destination(terrain, start, p.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, occ, _npc_targets(p, party_entries, camp_entries))
+				plans[p] = HexGrid.reconstruct_path(terrain, start, dest, p.movement(), MAP_WIDTH, MAP_HEIGHT, occ)
 			await _move_group(group, plans)
-
-	# 이동이 끝나면 공격 페이즈: 인접한 적이 있는 NPC가 차례로 전투를 건다.
-	if epoch == _npc_move_epoch:
-		await _npc_attack_phase(epoch)
+			# 2) 그룹 공격: 영웅 먼저, 그다음 하위부대 순서로 1유닛씩(전투 완료 후 다음).
+			for attacker in group:
+				if epoch != _npc_move_epoch:
+					_clear_player_alert()
+					return
+				if _game_over:
+					return
+				if not is_instance_valid(attacker) or not (attacker in _npc_parties):
+					continue   # 앞 전투로 제거됨.
+				await _npc_unit_act(attacker)
+	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
+	_update_fog()
 
 ## NPC 영웅그룹 하나를 이동시킨다. 그룹이 플레이어 시야 안이면 카메라 포커스+정지 후 걸어가는 애니메이션,
 ## 시야 밖이면 목적지로 즉시 스냅(연출·대기 없음). 그룹원은 NPC_PARTY_STAGGER 간격 동시 이동. → npc-movement.md
 func _move_group(group: Array, plans: Dictionary) -> void:
+	# 시야 판정 + 이동 여부 + 포커스 대상(살아있는 첫 멤버). group 스냅샷에 해제 부대가 섞일 수 있어 is_instance_valid로 거른다.
 	var any_move := false
-	for p in group:
-		if (plans.get(p, []) as Array).size() >= 2:
-			any_move = true
-			break
-	if not any_move:
-		return   # 그룹 전원 제자리 → 아무것도 안 함(포커스도 생략)
-	# 시야 판정: 그룹 부대 중 하나라도 현재 칸/목적지가 플레이어 시야면 연출.
 	var in_view := false
+	var focus_p = null
 	for p in group:
+		if not is_instance_valid(p):
+			continue
+		if focus_p == null:
+			focus_p = p
 		var path: Array = plans.get(p, [])
-		var cur := terrain.local_to_map(p.position)
-		var dst: Vector2i = path[path.size() - 1] if not path.is_empty() else cur
-		if fog.is_cell_visible(cur) or fog.is_cell_visible(dst):
+		if path.size() < 2:
+			continue
+		any_move = true
+		var dst: Vector2i = path[path.size() - 1]
+		if fog.is_cell_visible(terrain.local_to_map(p.position)) or fog.is_cell_visible(dst):
 			in_view = true
-			break
+	if not any_move:
+		return   # 그룹 전원 제자리/해제 → 아무것도 안 함(포커스도 생략)
 	if in_view:
-		_focus_camera(group[0].position)   # 그룹 대표(영웅) 위치로 포커스
+		if focus_p != null:
+			_focus_camera(focus_p.position)   # 살아있는 그룹 대표로 포커스
 		await get_tree().create_timer(NPC_FOCUS_PAUSE).timeout
 		var max_dur := 0.0
-		for i in group.size():
-			var path: Array = plans.get(group[i], [])
-			var delay: float = i * NPC_PARTY_STAGGER
-			_start_party_animation(group[i], path, delay)
+		var idx := 0
+		for p in group:
+			if not is_instance_valid(p):
+				continue
+			var path: Array = plans.get(p, [])
+			var delay: float = idx * NPC_PARTY_STAGGER
+			idx += 1
+			_start_party_animation(p, path, delay)
 			var steps: int = maxi(0, path.size() - 1)
 			max_dur = maxf(max_dur, delay + steps * MOVE_STEP_TIME)
 		if max_dur > 0.0:
 			await get_tree().create_timer(max_dur).timeout
 	else:
 		for p in group:   # 시야 밖 — 즉시 스냅.
+			if not is_instance_valid(p):
+				continue
 			var path: Array = plans.get(p, [])
 			if not path.is_empty():
 				p.position = terrain.map_to_local(path[path.size() - 1])
@@ -2064,62 +2094,65 @@ func _move_group(group: Array, plans: Dictionary) -> void:
 func _focus_camera(world_pos: Vector2) -> void:
 	camera.position = Vector2(clampf(world_pos.x, _min_pos.x, _max_pos.x), clampf(world_pos.y, _min_pos.y, _max_pos.y))
 
-## 각 NPC가 이동 후 인접한 적에게 전투를 건다. 플레이어가 낀 전투는 오버레이(await), NPC끼리는 헤드리스.
-func _npc_attack_phase(epoch: int) -> void:
-	for attacker in _npc_parties.duplicate():
-		if epoch != _npc_move_epoch:
-			_clear_player_alert()   # 중단돼도 경계 버프는 반드시 해제(다음 내 턴에 남지 않게)
+## NPC 한 유닛의 공격 행동(그룹 이동 직후, 영웅→하위 순으로 호출). 판정은 기존과 동일, 전투는 _npc_engage로 연출. → npc-movement.md
+func _npc_unit_act(attacker) -> void:
+	if attacker.stationed:
+		# 주둔 NPC 부대는 이동·근접 개시는 안 함. 투석기 방어 포격 → 사다리 밀기 → 사거리 안 적 제자리 사격(주둔 유지). → garrison.md · wall.md
+		if not attacker.attacked_this_turn and attacker.has_siege() and await _npc_try_bombard(attacker):
 			return
-		if _game_over:
-			return   # 이 전투로 게임 오버(플레이어 전멸) 확정 → 남은 NPC 공격 결산 중단
-		if not is_instance_valid(attacker) or not (attacker in _npc_parties):
-			continue   # 이전 전투로 제거됨.
-		if attacker.stationed:
-			# 주둔 NPC 부대는 이동·근접 개시는 안 함. 투석기 있으면 밴드 내 플레이어 방어 포격 우선, 그다음 사다리 밀기, 사거리 안 적 제자리 사격(주둔 유지). → garrison.md · wall.md · siege-engines.md
-			if not attacker.attacked_this_turn and attacker.has_siege() and await _npc_try_bombard(attacker):
-				continue   # 수비대 투석기 방어 포격
-			if not attacker.attacked_this_turn and _can_push_ladder(attacker):
+		if not attacker.attacked_this_turn and _can_push_ladder(attacker):
+			attacker.mark_attacked()
+			_push_ladders(_building_garrisoned_by(attacker))   # NPC 자동 사다리 밀기(15%씩)
+		elif attacker.attack_range() >= 2 and not attacker.attacked_this_turn:
+			var st = _adjacent_enemy(attacker)   # 사거리(=attack_range) 안 적
+			if st != null:
 				attacker.mark_attacked()
-				_push_ladders(_building_garrisoned_by(attacker))   # NPC 자동 사다리 밀기(15%씩)
-			elif attacker.attack_range() >= 2 and not attacker.attacked_this_turn:
-				var st = _adjacent_enemy(attacker)   # 사거리(=attack_range) 안 적
-				if st != null:
-					attacker.mark_attacked()
-					var sd := _engagement_distance(attacker, st)   # 교전 거리(주둔 사격은 보통 원거리)
-					if st in _units:
-						await _run_battle(attacker, st, sd)   # 플레이어가 방어 → 오버레이 관전
-					else:
-						_resolve_battle_headless(attacker, st, sd)   # NPC끼리 → 즉시 결산
-			continue   # 사격·밀기 후에도 이동·근접 개시 없이 대기
-		if not attacker.can_attack():
-			continue
-		if attacker.has_siege() and await _npc_try_bombard(attacker):
-			continue   # 로빙 NPC 투석(밴드 내 플레이어 표적) — positioning 없어 실발동은 드묾
-		var target = _adjacent_enemy(attacker)
-		if target != null:
-			if not NpcAi.should_engage(NpcAi.party_power(attacker.members), NpcAi.party_power(target.members)):
-				continue   # 신중한 교전: 불리하면 공격하지 않고 대기
-			attacker.mark_attacked()
-			var dist := _engagement_distance(attacker, target)
-			if target in _units:
-				await _run_battle(attacker, target, dist)   # 플레이어 부대가 방어 → 오버레이 관전
-			else:
-				_resolve_battle_headless(attacker, target, dist)   # NPC끼리 → 즉시 결산
-			continue
-		# 공격할 적 부대가 없으면 인접한 무방비 적 캠프(중심 타일에 부대 없음)를 흡수한다.
-		# 방어된 캠프의 주둔 부대는 위 부대 전투 분기(_adjacent_enemy)에서 이미 처리된다.
-		var camp = _adjacent_enemy_camp(attacker)
-		if camp != null and _party_on_cell(camp.center_cell()) == null:
-			attacker.mark_attacked()
-			_transfer_camp(camp, _faction_named(attacker.faction_name))
-			_update_fog()
-			continue
-		# 칠 적·흡수할 거점이 없으면, 인접 성벽 적 거점에 빈 면이 있으면 사다리 설치(공성). → wall.md
-		if not _ladder_target_for(attacker).is_empty():
-			_place_ladder(attacker)   # 그 NPC 세력 사다리 설치 — 행동 종료(mark_attacked)
-			continue
-	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
-	_update_fog()   # 헤드리스 전투로 바뀐 위치·제거를 안개·표시에 반영
+				await _npc_engage(attacker, st, _engagement_distance(attacker, st))   # 주둔 사격은 보통 원거리
+		return   # 사격·밀기 후에도 이동·근접 개시 없이 대기
+	if not attacker.can_attack():
+		return
+	if attacker.has_siege() and await _npc_try_bombard(attacker):
+		return   # 로빙 NPC 투석(밴드 내 플레이어 표적) — positioning 없어 실발동은 드묾
+	var target = _adjacent_enemy(attacker)
+	if target != null:
+		if not NpcAi.should_engage(NpcAi.party_power(attacker.members), NpcAi.party_power(target.members)):
+			return   # 신중한 교전: 불리하면 공격하지 않고 대기
+		attacker.mark_attacked()
+		await _npc_engage(attacker, target, _engagement_distance(attacker, target))
+		return
+	# 공격할 적 부대가 없으면 인접한 무방비 적 캠프(중심 타일에 부대 없음)를 흡수한다.
+	var camp = _adjacent_enemy_camp(attacker)
+	if camp != null and _party_on_cell(camp.center_cell()) == null:
+		attacker.mark_attacked()
+		_transfer_camp(camp, _faction_named(attacker.faction_name))
+		_update_fog()
+		return
+	# 칠 적·흡수할 거점이 없으면, 인접 성벽 적 거점에 빈 면이 있으면 사다리 설치(공성). → wall.md
+	if not _ladder_target_for(attacker).is_empty():
+		_place_ladder(attacker)   # 그 NPC 세력 사다리 설치 — 행동 종료(mark_attacked)
+
+## NPC 교전 연출: 공격자·대상이 시야 안이면 카메라 포커스 + 토큰 하이라이트(1초)로 "누가 누굴"을 보이고 결산. → npc-movement.md
+## 플레이어 대상 → 오버레이 관전(_run_battle). NPC 대상 → 씬 없이 헤드리스 즉시 결산.
+func _npc_engage(attacker, target, dist: int) -> void:
+	var in_view := _party_visible(attacker) or _party_visible(target)
+	if in_view:
+		_focus_camera(attacker.position)
+		attacker.set_highlight(HL_ATTACKER)
+		target.set_highlight(HL_TARGET)
+		await get_tree().create_timer(NPC_ENGAGE_FOCUS).timeout
+	if target in _units:
+		await _run_battle(attacker, target, dist)   # 플레이어 방어 → 오버레이 관전
+	else:
+		_resolve_battle_headless(attacker, target, dist)   # NPC끼리 → 씬 없이 즉시 결산
+	if in_view:
+		if is_instance_valid(attacker):
+			attacker.set_highlight(HL_NONE)
+		if is_instance_valid(target):
+			target.set_highlight(HL_NONE)
+
+## 부대가 플레이어 시야(안개) 안에 있는지 — NPC 이동/공격 연출을 보여줄지 판정.
+func _party_visible(p) -> bool:
+	return is_instance_valid(p) and fog.is_cell_visible(terrain.local_to_map(p.position))
 
 ## 플레이어 부대 멤버의 경계(alert) 버프를 모두 해제한다. NPC 공격 페이즈가 끝나거나 중단될 때 호출.
 func _clear_player_alert() -> void:
@@ -2340,7 +2373,7 @@ func _resolve_stance(id: String) -> void:
 		_select()
 
 ## 교전 스탠스: hero의 하위부대들을 하나씩 가까운 적으로 접근시키고, 사거리 안이면 전투를 벌인다(신중 판정). → squad-stance.md
-## 전투 오버레이가 모달이라 한 부대씩 await한다. NPC 공격 페이즈(_npc_attack_phase)와 같은 전투 경로를 재사용.
+## 전투 오버레이가 모달이라 한 부대씩 await한다. NPC 공격(_npc_unit_act)과 같은 전투 경로를 재사용.
 func _engage_with_lord(hero) -> void:
 	_stance_busy = true   # 시퀀스 동안 맵 클릭·턴 종료 잠금(전투 중은 _in_battle 병행)
 	for f in _subordinates_of(hero):

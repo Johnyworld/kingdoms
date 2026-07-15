@@ -73,7 +73,7 @@
 - 선택 → 붙은 ring 셀(사다리 없는 면) 하나를 `target_cell`로, 부대 칸을 `from_cell`로 사다리 생성(`countdown = LADDER_TURNS`). 설치는 그 부대 **행동 종료**(`mark_attacked`). 인접 면이 모두 사다리면 [사다리 설치]는 뜨지 않는다.
 - **[고리 사다리](../data/items.md#도구-itemtypestools) 소모**: 설치 부대가 `grapple_ladder`를 `loot_items`에 가지고 있으면 설치 시 **1개 소모**하고 그 사다리를 `hooked = true`로 만든다(없으면 `hooked = false`). NPC는 고리 사다리를 사지 않아 항상 `false`.
 
-### 설치 (NPC 공성 AI · `_npc_attack_phase`)
+### 설치 (NPC 공성 AI · `_npc_unit_act`)
 
 - NPC 로빙 부대는 공격 페이즈에서 **① 인접 적 부대 전투 → ② 인접 무방비/돌파 거점 흡수 → ③ 인접 성벽 적 거점에 빈 면 있으면 사다리 설치** 순으로 행동한다(`_npc_place_ladder`). 설치는 그 NPC의 **행동 종료**.
 - **전력 판단 없이** 인접 시 빈 면에 설치한다(실제 수비대 공격은 돌파 후 기존 `should_engage`가 게이트). 밀려 사라지면 다음 턴 인접 시 재설치.

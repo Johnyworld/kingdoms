@@ -34,6 +34,7 @@
 | 소속 해제 | `clear_lord()` | — | — | `lord = null`(독립). [소속 UI](../features/party-lord.md)의 [독립] |
 | 지휘 반경 | `command_range()` | `int` | — | 영웅부대의 [지휘 범위](../features/command-range.md) `2 + floor(commander.leadership/30)`(지휘관 없으면 0). 소속 하위부대 버프 판정에 쓴다 |
 | 지휘 버프 중 | `command_buffed` | `bool` | `false` | 이 부대가 영웅 지휘 범위 안이라 버프 중인지. 맵 배지·전투 배율의 출처([지휘 범위](../features/command-range.md)) |
+| 하이라이트 | `highlight` | `Color` | `Color(0,0,0,0)` | 토큰 테두리 강조색(알파 0이면 없음). NPC 공격 연출에서 공격자·대상을 잠깐 표시([NPC 공격](../features/npc-movement.md#npc-공격-그룹-이동-직후)). `set_highlight(color)`로 변경, `_draw`가 알파>0이면 링을 그린다 |
 
 ### 멤버 (Members)
 
@@ -136,6 +137,7 @@
 - [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
 - [정상] 생성 직후 `kind == "troop"`(=`KIND_TROOP`), `is_hero() == false`; `kind = KIND_HERO`로 두면 `is_hero() == true`
 - [정상] `shows_member_count()`: 멤버 있는 일반부대(`KIND_TROOP`) → 참; 멤버 있는 영웅부대(`KIND_HERO`) → 거짓; 멤버 없는 일반부대 → 거짓
+- [정상] 생성 직후 `highlight`의 알파 0(없음); `set_highlight(Color.RED)` 후 `highlight == Color.RED`([NPC 공격 연출](../features/npc-movement.md#npc-공격-그룹-이동-직후))
 - [정상] 생성 직후 `lord == null`, `has_lord() == false`, `lord_name() == "—"`
 - [정상] `lord`에 지휘관 있는 영웅부대를 지정하면 `has_lord() == true`, `lord_name()`이 그 영웅 이름
 - [경계] `lord`에 지휘관 없는(빈) 부대를 지정하면 `has_lord() == true`이나 `lord_name() == "—"`

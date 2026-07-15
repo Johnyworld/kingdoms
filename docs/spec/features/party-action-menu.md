@@ -27,7 +27,7 @@
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
 - `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, on_center := false, stationed := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false) -> Array` — **중앙 메뉴**.
-  - **주둔 중**(`stationed=true`): `[사격]?[사다리 밀기]?[주둔 종료][장비]`. 주둔 부대는 대기라 이동·근접을 못 하지만, **사격 가능 적이 있으면**(`can_shoot_any`) 맨 앞에 `{id="shoot"}`([주둔 중 사격](garrison.md#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)), **자기 거점 겨눈 사다리가 있으면**(`can_push_ladder`) `{id="push_ladder", label="사다리 밀기"}`([성벽 사다리](wall.md#사다리-밀기-방어)). `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·근접이 열린다.
+  - **주둔 중**(`stationed=true`): `[사격]?[사다리 밀기]?[주둔 종료][장비]`. 주둔 부대는 대기라 이동·근접을 못 하지만, **사격 가능 적이 있으면**(`can_shoot_any`) 맨 앞에 `{id="shoot"}`([주둔 중 사격](garrison.md#주둔-중-사격-party_action_menu--gamegd--_npc_unit_act)), **자기 거점 겨눈 사다리가 있으면**(`can_push_ladder`) `{id="push_ladder", label="사다리 밀기"}`([성벽 사다리](wall.md#사다리-밀기-방어)). `[주둔 종료]`(`{id="unstation"}`)로 풀어야 이동·근접이 열린다.
   - **그 외**(`stationed=false`): `{id="shoot", label="사격", enabled=can_shoot_any}` 가 항상 첫 버튼.
     - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
     - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.

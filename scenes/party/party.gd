@@ -54,6 +54,8 @@ const _MOVED_ALPHA := 0.4
 var selected := false
 ## 이 부대가 소속 영웅(lord)의 지휘 범위 안이라 전투 버프 중인지. 맵 배지·전투 배율의 출처(game.gd가 갱신). → command-range.md
 var command_buffed := false
+## 토큰 테두리 강조색(알파 0이면 없음). NPC 공격 연출에서 공격자·대상을 잠깐 표시(game.gd `_npc_engage`). → npc-movement.md
+var highlight := Color(0, 0, 0, 0)
 var moved_this_turn := false      # 이번 턴에 이미 이동했는지. true면 재이동 불가(공격은 아직 가능).
 var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
 var rested_this_turn := false     # 이번 턴 휴식/대기 선택했는지. 회복 연동은 미구현(party_action_menu).
@@ -310,6 +312,13 @@ func ranged_power() -> int:
 		p += ItemTypes.weapon_attack(ItemTypes.ranged_weapon(h.weapons))
 	return p
 
+## 토큰 테두리 강조색을 바꾸고 다시 그린다(알파 0 = 없음). NPC 공격 연출. → npc-movement.md
+func set_highlight(color: Color) -> void:
+	if highlight == color:
+		return
+	highlight = color
+	queue_redraw()
+
 ## 선택 상태를 바꾸고 다시 그린다.
 func set_selected(value: bool) -> void:
 	if selected == value:
@@ -371,6 +380,11 @@ func _draw() -> void:
 
 	# 이번 턴에 이동·공격 중 하나라도 했으면 전체를 반투명하게.
 	var a := _MOVED_ALPHA if (moved_this_turn or attacked_this_turn) else 1.0
+
+	# NPC 공격 연출 하이라이트(공격자·대상 테두리). 선택 링과 별개, 살짝 더 크게.
+	# 이동/공격 fade(a)를 곱하지 않는다 — 주의를 끄는 신호라 mark_attacked 후에도 선명해야 한다. → npc-movement.md
+	if highlight.a > 0.0:
+		draw_arc(Vector2.ZERO, _RADIUS * 1.6, 0.0, TAU, 40, highlight, 3.5, true)
 
 	# 선택되면 발밑에 강조 링을 먼저 그린다.
 	if selected:

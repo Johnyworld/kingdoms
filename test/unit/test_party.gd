@@ -218,6 +218,18 @@ func test_shows_member_count_empty_hidden() -> void:
 	p.kind = p.KIND_TROOP
 	assert_false(p.shows_member_count(), "멤버 없는 부대는 배지 없음(토큰도 안 그림)")
 
+# --- 하이라이트(highlight) — NPC 공격 연출용 토큰 테두리 ---
+
+func test_highlight_none_by_default() -> void:
+	assert_eq(_party().highlight.a, 0.0, "생성 직후 하이라이트 없음(알파 0)")
+
+func test_set_highlight() -> void:
+	var p := _party()
+	p.set_highlight(Color.RED)
+	assert_eq(p.highlight, Color.RED, "set_highlight로 강조색 설정")
+	p.set_highlight(Color(0, 0, 0, 0))
+	assert_eq(p.highlight.a, 0.0, "알파 0으로 해제 가능")
+
 # --- 지휘 범위(command_range) · 지휘 버프(command_buffed) ---
 
 func test_command_range_from_leadership() -> void:

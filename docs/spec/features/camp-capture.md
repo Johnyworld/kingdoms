@@ -43,7 +43,7 @@
   - `new_faction`이 **NPC**면 캠프를 `_npc_buildings`로 옮기고, 영지를 `_territories`에서 뺀다(수입 제외). 이후 표시는 탐험 기준([NPC Bases](npc-bases.md) `_update_npc_building_visibility`).
 - 라벨색이 새 세력색으로 바뀐다(`map_label_lines`는 `territory.faction.color` 사용). 이전 직후 `visible = true`, `_update_fog`가 최종 표시를 정한다.
 
-## NPC 점령 (`game.gd` `_npc_attack_phase`)
+## NPC 점령 (`game.gd` `_npc_unit_act`)
 
 NPC도 이동 뒤 **공격 페이즈**에서 적 캠프를 점령한다 → [NPC Movement](npc-movement.md).
 

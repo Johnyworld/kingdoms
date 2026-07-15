@@ -10,7 +10,7 @@
 
 - `Party.stationed: bool` — 기본 `false`. 부대가 거점에서 **주둔(대기)** 중인지. 명령(주둔 종료) 전까지 유지되며 [턴](turn.md) 리셋(`reset_turn`)에도 남는다.
 - 주둔은 그 부대의 이번 턴 행동을 끝낸 것으로 본다(`stationed`이면 `can_move()`·`can_attack()` 거짓 — 이동·근접 개시 불가). 공격받으면 일반 부대로 방어한다(자동).
-- 단 **원거리 무기가 있으면 주둔을 유지한 채 제자리 사격**은 가능하다(턴당 1회) → [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase).
+- 단 **원거리 무기가 있으면 주둔을 유지한 채 제자리 사격**은 가능하다(턴당 1회) → [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_unit_act).
 
 ## 초기 주둔 부대 (`game.gd` `_place_army` — [시작 편제](parties.md))
 
@@ -24,7 +24,7 @@
 
 - 거점 수비대는 이제 **경보병 일반부대**(10명 동일 능력치)다. 예전의 소집병(`make_garrison`·`GARRISON_*`)은 **폐지**되고 [병종 아키타입](../data/units.md#병종-아키타입-troops-세력-공용) `light_infantry`로 대체됐다.
   - 경보병: **장창(근접·리치 2)** + 가죽 방어구 + 라운드 실드. 근접 방어대라 접근하는 적을 요격한다. 이동력·시야 인간 기본값, 생성 시 풀피·풀 스태미나. → [Units](../data/units.md).
-  - *(경보병은 근접이라 활 주무기였던 소집병과 달리 [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)은 안 한다. 원거리 수비가 필요하면 경궁병 부대를 주둔시킨다.)*
+  - *(경보병은 근접이라 활 주무기였던 소집병과 달리 [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_unit_act)은 안 한다. 원거리 수비가 필요하면 경궁병 부대를 주둔시킨다.)*
 
 ## 주둔 / 주둔 종료 (`party_action_menu` + `game.gd`)
 
@@ -34,7 +34,7 @@
 - **[주둔 종료]** — 부대가 **주둔 중** + 이번 턴 미행동일 때. 선택 → `stationed = false`. 이번 턴부터 다시 이동·공격 가능.
 - 두 항목은 조건이 맞을 때만 목록에 넣는다(거점 밖이면 없음). 주둔 종료는 `mark_moved`/`mark_attacked` 전에만 가능(이미 움직였으면 없음).
 
-## 주둔 중 사격 (`party_action_menu` · `game.gd` · `_npc_attack_phase`)
+## 주둔 중 사격 (`party_action_menu` · `game.gd` · `_npc_unit_act`)
 
 주둔 부대는 대기하되(이동·근접 개시 불가), **원거리 무기가 있으면 주둔을 풀지 않고 사거리 안 적을 사격**한다. 성벽 없이도 수비대가 접근하는 적을 견제하는 방어 이점.
 
@@ -65,7 +65,7 @@
 
 ## NPC의 주둔 (`game.gd`)
 
-- NPC 주둔 부대(`stationed`)는 **이동 페이즈에서 제외**(대기)한다 → [NPC Movement](npc-movement.md). 근접 개시는 안 하되, **사거리 안 적이 있으면 [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_attack_phase)한다**. 공격받으면 일반 부대로 방어한다.
+- NPC 주둔 부대(`stationed`)는 **이동 페이즈에서 제외**(대기)한다 → [NPC Movement](npc-movement.md). 근접 개시는 안 하되, **사거리 안 적이 있으면 [주둔 중 사격](#주둔-중-사격-party_action_menu--gamegd--_npc_unit_act)한다**. 공격받으면 일반 부대로 방어한다.
 - NPC의 **수비대 자동 보충은 `미구현`**(개발 안 함) — 주둔 부대가 곧 수비라 별도 보충 로직을 두지 않는다.
 
 ## 이번 슬라이스 제외 (미구현)

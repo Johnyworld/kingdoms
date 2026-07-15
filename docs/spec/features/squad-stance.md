@@ -50,7 +50,7 @@
 
 ### 교전 (`st_engage`)
 
-`_engage_with_lord(hero)`(async) — 하위부대들을 **하나씩 순차로** 가까운 적에게 접근시키고, 사거리 안이면 전투를 벌인다. 전투 오버레이가 모달(`_run_battle`의 `_in_battle`)이라 한 부대씩 `await`한다. 기존 NPC 공격 페이즈(`_npc_attack_phase`)와 같은 원리·같은 전투 경로를 재사용한다.
+`_engage_with_lord(hero)`(async) — 하위부대들을 **하나씩 순차로** 가까운 적에게 접근시키고, 사거리 안이면 전투를 벌인다. 전투 오버레이가 모달(`_run_battle`의 `_in_battle`)이라 한 부대씩 `await`한다. 기존 NPC 공격 페이즈(`_npc_unit_act`)와 같은 원리·같은 전투 경로를 재사용한다.
 
 각 하위부대(`can_move()`)에 대해:
 1. **대상**: 보이는 적 부대 칸(`_visible_enemy_cells(hero.faction_name)` — 세력 다르고 멤버 있고 `visible`, 적 세력 성벽 안 수비대 제외).

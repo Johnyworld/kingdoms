@@ -46,7 +46,7 @@
 - 각 세력(소멸 안 된 것)에 대해 `faction.grace_turns = GameResult.advance_grace(거점 수 > 0, faction.grace_turns)`.
   - `GameResult.grace_eliminated(faction.grace_turns)`면 `eliminated = true` + `_eliminate_faction`(그 세력 소속 NPC 부대를 맵에서 제거).
 - 이어서 `_check_endgame`: `GameResult.endgame(플레이어 세력 소멸, 모든 NPC 세력 소멸)` → `VICTORY`면 `_trigger_game_over("정복 승리", "모든 적 세력을 물리쳤다")`, `DEFEAT`면 `_trigger_game_over("패배", "세력이 소멸했다")`.
-- **거점 소멸→유예 진입 경로**: 어떤 세력이 거점을 모두 잃으면(플레이어가 [흡수/파괴](camp-capture.md), 또는 NPC가 [흡수](camp-capture.md#npc-점령-gamegd-_npc_attack_phase)) 그 세력의 거점 수가 0이 된다 → 다음 턴 종료부터 카운트다운.
+- **거점 소멸→유예 진입 경로**: 어떤 세력이 거점을 모두 잃으면(플레이어가 [흡수/파괴](camp-capture.md), 또는 NPC가 [흡수](camp-capture.md#npc-점령-gamegd-_npc_unit_act)) 그 세력의 거점 수가 0이 된다 → 다음 턴 종료부터 카운트다운.
 - **양방향 도달**: 플레이어는 NPC 거점을 점령해 **정복 승리**, NPC는 플레이어 거점을 점령해 **플레이어 세력 소멸(패배)** 을 만들 수 있다. 거점을 잃어도 10턴 안에 재점령하면 소멸을 면한다. (현재 NPC 거점은 캠프뿐 — 마을회관/성 거점은 인플레이스 업그레이드 도입 시 등장.)
 
 ### 유예 표시 (`turn_hud.set_grace`)
@@ -62,7 +62,7 @@
 - 배경/패널 아무 곳이나 클릭하면 `dismissed` 시그널을 방출한다.
 - `game.gd` `_trigger_game_over(title, subtitle)`가 `_game_over`를 세우고(중복 방지) 진행 중 선택·메뉴를 정리한 뒤 `show_result`를 호출한다.
 - `dismissed` → `game.gd` `_on_result_dismissed`가 `SceneManager.change_scene("res://scenes/title/title.tscn")`로 타이틀 복귀(페이드 전환).
-- 게임 오버 상태(`_game_over`)에서는 월드맵 좌클릭·턴 종료를 잠근다(`_in_battle`과 같은 방식). 진행 중이던 NPC 공격 페이즈(`_npc_attack_phase`)도 남은 결산을 중단한다.
+- 게임 오버 상태(`_game_over`)에서는 월드맵 좌클릭·턴 종료를 잠근다(`_in_battle`과 같은 방식). 진행 중이던 NPC 공격 페이즈(`_npc_unit_act`)도 남은 결산을 중단한다.
 
 ## 미구현
 
