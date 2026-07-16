@@ -33,12 +33,13 @@ func test_dominant_side_wipes_other() -> void:
 	assert_eq(r["a"].size(), 2, "A는 전원 생존(선공으로 반격 전에 처치)")
 
 func test_hero_beats_ten_infantry() -> void:
-	# 밸런스: 회피형 반신 영웅 1기 vs 경보병 10명 → 영웅 생존, 보병 전멸(지휘관 > 보병). → units.md 영웅 전투 배율
+	# 밸런스: 회피형 영웅 1기 vs 경보병 10명 → 영웅 생존, 보병 과반 전사.
+	# 회피 너프(배율 1.6 + 명중 하한) 후 영웅이 10명을 혼자 전멸시키진 못하지만 우세는 유지(다수 정리·불사 아님). → units.md 영웅 전투 배율
 	var hero = UnitTypes.make_hero("azel", 0)
 	var troops: Array = UnitTypes.make_troop("light_infantry")
 	var r := BattleSim.resolve_battle([hero], troops, _rng(1))
 	assert_eq(r["a"].size(), 1, "회피형 영웅 생존")
-	assert_eq(r["b"].size(), 0, "경보병 10명 전멸")
+	assert_lte(r["b"].size(), 5, "경보병 과반 전사(영웅이 다수 정리)")
 
 func test_survivors_subset_of_members() -> void:
 	var a := [_human(60, 20), _human(60, 20)]
@@ -48,14 +49,6 @@ func test_survivors_subset_of_members() -> void:
 		assert_true(h in a, "A 생존자는 원래 A 멤버")
 	for h in r["b"]:
 		assert_true(h in b, "B 생존자는 원래 B 멤버")
-
-func test_all_miss_no_deaths() -> void:
-	# 양측 모두 회피 200(항상 빗나감) → 10초간 계속 공격해도 아무도 안 죽는다.
-	var a := [_human(60, 200), _human(60, 200)]
-	var b := [_human(60, 200)]
-	var r := BattleSim.resolve_battle(a, b, _rng())
-	assert_eq(r["a"].size(), 2, "A 전원 생존")
-	assert_eq(r["b"].size(), 1, "B 전원 생존")
 
 func test_empty_side_leaves_other_intact() -> void:
 	var a := [_human(60, 20), _human(60, 20)]
@@ -204,10 +197,11 @@ func test_survivor_hp_persists() -> void:
 	assert_true(b.hit_points >= 1 and b.hit_points <= b.max_hp(), "1 ≤ hp ≤ max_hp()")
 
 func test_unharmed_survivor_hp_unchanged() -> void:
-	# 양측 회피 200 → 아무도 못 맞힘 → 피해 0 → 생존자 hp 불변.
-	var a := [_full_hp(60, 200, 0, 40, "sword")]
-	var b := _full_hp(60, 200, 0, 40, "sword")
-	var r := BattleSim.resolve_battle(a, [b], _rng())
+	# 아무도 공격 못 하는 확정 셋업(원거리 교전 distance=2 + 양팀 근접무기만 → 사격 불가)에서 생존자 hp 불변.
+	# (명중 하한 도입 후 '회피 200 → 무피해'는 더는 성립하지 않아, 공격 불가로 무피해를 보장한다.)
+	var a := [_full_hp(60, 60, 0, 40, "sword")]
+	var b := _full_hp(60, 60, 0, 40, "sword")
+	var r := BattleSim.resolve_battle(a, [b], _rng(), 2)
 	assert_eq(r["b"].size(), 1, "B 생존")
 	assert_eq(b.hit_points, 40, "피해를 안 받은 생존자는 hp 불변")
 

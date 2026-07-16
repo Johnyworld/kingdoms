@@ -20,7 +20,7 @@ const HEROES_PER_FACTION := 4
 # 세부 수치는 추후 튜닝. 힘 = HP·AT↑, 민첩 = 회피·공격속도↑, 행운 = 치명↑.
 const HERO_STR_MULT := 3.0
 const HERO_LUCK_MULT := 3.0
-const HERO_AGI_MULT := 2.5
+const HERO_AGI_MULT := 1.6
 
 # 이동력·시야는 유닛.md에 개별값이 없어 종족(인간) 기본값을 모든 유닛에 적용한다.
 const HUMAN_MOVEMENT := 4

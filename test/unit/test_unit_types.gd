@@ -48,11 +48,11 @@ func test_make_heroes_each_faction_four() -> void:
 		assert_eq(heroes[0].human_name, types.get_faction(id)["heroes"][0]["name"], "%s 첫 영웅=지휘관" % id)
 
 func test_hero_stats_mapping() -> void:
-	# 영웅 전투 배율: 힘·행운 ×3, 민첩 ×2.5(내림). 비전투 스탯(지휘력·사기)은 그대로. → units.md
+	# 영웅 전투 배율: 힘·행운 ×3, 민첩 ×1.6(내림). 비전투 스탯(지휘력·사기)은 그대로. → units.md
 	var azel = types.make_hero("azel", 0)
 	assert_eq(azel.strength, 78 * 3, "힘 78×3 배율")
 	assert_eq(azel.luck, 55 * 3, "행운 55×3 배율")
-	assert_eq(azel.agility, int(65 * 2.5), "민첩 65×2.5 배율(내림)")
+	assert_eq(azel.agility, int(65 * 1.6), "민첩 65×1.6 배율(내림)")
 	assert_eq(azel.leadership, 88, "지휘력 88 (비전투 스탯 불변)")
 	assert_eq(azel.morale, 90, "사기 90 (불변)")
 

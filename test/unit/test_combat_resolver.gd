@@ -141,6 +141,12 @@ func test_hit_chance_ninety_minus_evasion() -> void:
 	var defender := _human(0, 40)   # 회피 20
 	assert_eq(CombatResolver.hit_chance(attacker, defender), 70.0, "명중 = 90 − 20 = 70")
 
+func test_hit_chance_floored_at_min_hit() -> void:
+	var attacker := _human()
+	var defender := _human(0, 200)   # 회피 100 → 90−100 = −10 → 하한 적용
+	assert_eq(CombatResolver.MIN_HIT, 10.0, "명중 하한은 10%")
+	assert_eq(CombatResolver.hit_chance(attacker, defender), CombatResolver.MIN_HIT, "명중은 하한 MIN_HIT 아래로 안 내려감")
+
 func test_crit_chance_half_luck() -> void:
 	assert_eq(CombatResolver.crit_chance(_human(0, 0, 60)), 30.0, "행운 60 → 치명 30")
 
@@ -168,13 +174,22 @@ func test_hit_damage_affinity() -> void:
 
 # --- 1회 공방 (resolve_hit) ---
 
-func test_hit_always_misses_when_evasion_maxed() -> void:
+func test_high_evasion_not_immortal_due_to_min_hit() -> void:
+	# 회피가 매우 높아도(회피 100 → 명중 −10 → 하한 10%) 불사가 아니다:
+	# 여러 시드를 돌리면 명중(피해>0)과 빗나감이 모두 나온다.
 	var attacker := _human(78)
-	var defender := _human(0, 200)   # 회피 100 → 명중 −10 → 항상 빗나감
-	var r := CombatResolver.resolve_hit(attacker, defender, 40, _rng())
-	assert_false(r["hit"], "회피 100이면 빗나감")
-	assert_eq(r["damage"], 0, "빗나가면 피해 0")
-	assert_eq(r["hp"], 40, "빗나가면 hp 불변")
+	var any_hit := false
+	var any_miss := false
+	for s in range(1, 60):
+		var defender := _human(0, 200)   # 회피 100
+		var r := CombatResolver.resolve_hit(attacker, defender, 40, _rng(s))
+		if r["hit"]:
+			any_hit = true
+			assert_gt(r["damage"], 0, "명중이면 피해 > 0")
+		else:
+			any_miss = true
+	assert_true(any_hit, "명중 하한 10% 덕에 가끔 맞는다(불사 아님)")
+	assert_true(any_miss, "회피 높아 대부분은 빗나간다")
 
 func test_hit_applies_damage_and_updates_hp() -> void:
 	var attacker := _human(78)          # AT 15

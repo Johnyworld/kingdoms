@@ -7,6 +7,7 @@ extends RefCounted
 ## 마법 전용 위력 공식·지형 보정은 미구현.
 
 const BASE_HIT := 90.0    # 기본 명중률(%). 대상 회피율을 뺀다.
+const MIN_HIT := 10.0     # 명중 하한(%). 회피가 아무리 높아도 최소 이만큼은 맞는다(회피형 영웅 불사 방지). → combat.md
 const CRIT_MULT := 1.5    # 치명타 피해 배율.
 const AGI_SPEED_K := 0.005       # 민첩 1당 공격속도 단축 비율.
 const MIN_ATTACK_INTERVAL := 0.4 # 최소 공격 간격(초) — 민첩이 아무리 높아도 이보다 못 빨라짐.
@@ -51,9 +52,9 @@ static func equip_weight(h) -> int:
 static func evasion(h) -> float:
 	return h.agility * 0.5 - equip_weight(h) * 0.3
 
-## 명중(%) = 90 − 대상 회피율. 상한 clamp 없음(0 이하면 무조건 빗나감).
+## 명중(%) = max(MIN_HIT, 90 − 대상 회피율). 하한 MIN_HIT(회피 높아도 최소 10% 명중). 상한 clamp는 없음.
 static func hit_chance(attacker, defender) -> float:
-	return BASE_HIT - evasion(defender)
+	return maxf(MIN_HIT, BASE_HIT - evasion(defender))
 
 ## 치명타(%) = 행운 × 0.5.
 static func crit_chance(h) -> float:
