@@ -32,6 +32,14 @@ func test_dominant_side_wipes_other() -> void:
 	assert_eq(r["b"].size(), 0, "압도적인 A에게 B 전멸")
 	assert_eq(r["a"].size(), 2, "A는 전원 생존(선공으로 반격 전에 처치)")
 
+func test_hero_beats_ten_infantry() -> void:
+	# 밸런스: 회피형 반신 영웅 1기 vs 경보병 10명 → 영웅 생존, 보병 전멸(지휘관 > 보병). → units.md 영웅 전투 배율
+	var hero = UnitTypes.make_hero("azel", 0)
+	var troops: Array = UnitTypes.make_troop("light_infantry")
+	var r := BattleSim.resolve_battle([hero], troops, _rng(1))
+	assert_eq(r["a"].size(), 1, "회피형 영웅 생존")
+	assert_eq(r["b"].size(), 0, "경보병 10명 전멸")
+
 func test_survivors_subset_of_members() -> void:
 	var a := [_human(60, 20), _human(60, 20)]
 	var b := [_human(60, 20)]
@@ -189,7 +197,7 @@ func test_survivor_hp_persists() -> void:
 	# A: 검(참격), 힘0(AT14), 민첩0(간격2.0 → 10초에 5타), 행운0(치명 없음), hp 거대(반격에 안 죽음).
 	# B: 가죽갑옷(DF8), hp40, 회피 음수(A가 항상 명중). 참격 vs 가죽 0.9 → 타당 = floor(6×0.9)=5. 5타 = 25.
 	var a := [_full_hp(0, 0, 0, 100000, "sword")]
-	var b := _full_hp(0, -100, 0, 40, "sword", ["leather_armor"])
+	var b := _full_hp(80, -100, 0, 40, "sword", ["leather_armor"])   # 힘80 → max_hp 40(hp<=max_hp 성립), DF·피해엔 무관
 	var r := BattleSim.resolve_battle(a, [b], _rng())
 	assert_eq(r["b"].size(), 1, "B 생존")
 	assert_eq(b.hit_points, 15, "생존자 hp가 전투 후 감소해 지속(40 − 5×5 = 15)")

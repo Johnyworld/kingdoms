@@ -50,7 +50,8 @@
 - 능력치 매핑: `strength`(힘) `wisdom`(지혜) `agility`(민첩) `charm`(매력) `luck`(행운) `leadership`(지휘력) `diligence`(성실함) `sensitivity`(예민함) `stamina`(스태미나) `morale`(사기). 생명점은 `max_hp()`로 계산해 채운다.
 - **이동력·시야**: 유닛.md에 개별값이 없어 종족(인간) 기본값 `movement = 4`, `vision = 7`을 모든 유닛에 적용한다.
 - **멤버별 장비 override**: 영웅 dict에 `weapons`/`armor`/`shield`가 있으면 세력 기본값을 **덮어쓴다**. 예: 아젤 하르윈은 `weapons: ["longsword", "bow"]`(검+보조 활 — 근접은 장검, 원거리는 활 반격), 자밀라는 `weapons: ["scimitar", "javelin"]`(곡도+투창).
-- 예시 앵커값 — 아젤 하르윈: `strength = 78`, `leadership = 88`, `morale = 90`.
+- 예시 앵커값(카탈로그 원본, 배율 적용 전) — 아젤 하르윈: `strength = 78`, `leadership = 88`, `morale = 90`.
+- **영웅 전투 배율(회피형 반신)**: `make_hero`/`make_heroes`가 영웅 Human 생성 시 **전투 능력치에 배율을 적용**한다 — `힘 × HERO_STR_MULT(3)`, `행운 × HERO_LUCK_MULT(3)`, `민첩 × HERO_AGI_MULT(2.5)`(내림). **지휘력·지혜·매력 등 비전투 스탯과 장비는 그대로**(지휘범위 폭증 등 전략 부작용 방지). 배율 적용 후 `hit_points = max_hp()`로 재계산해 풀피. 결과: 영웅은 얇은 보병과 달리 **HP 100+·회피율 매우 높음(가끔만 맞음)·치명 잦음·공격간격 최소치**라, 수적 열세에서도 다수를 정리한다. 병종(`make_troop`)에는 배율을 적용하지 않는다. 세부 수치는 추후 튜닝.
 
 ## 병종 아키타입 (`TROOPS`, 세력 공용)
 
@@ -58,11 +59,12 @@
 
 | 병종 | id | 무기 | 방어구 | 방패 | 주요 능력치 |
 | --- | --- | --- | --- | --- | --- |
-| 경보병 | `light_infantry` | `["spear"]`(장창·근접·리치 2) | `[leather_helm, leather_armor]` | `round_shield` | str 62 · agi 55 · luck 48 · morale 58 |
-| 경궁병 | `light_archer` | `["bow"]`(활·공격거리 3) | `[leather_helm, leather_armor]` | `""`(없음) | str 55 · agi 62 · luck 52 · morale 55 |
+| 경보병 | `light_infantry` | `["spear"]`(장창·근접·리치 2) | `[leather_helm, leather_armor]` | `""`(없음) | str 46 · agi 55 · luck 48 · morale 58 |
+| 경궁병 | `light_archer` | `["bow"]`(활·공격거리 3) | `[leather_helm, leather_armor]` | `""`(없음) | str 46 · agi 62 · luck 52 · morale 55 |
 
 - 공통 능력치: `wisdom 40` · `charm 40` · `leadership 20` · `diligence 55` · `sensitivity 40` · `stamina 40`, `movement 4` · `vision 7`. 영웅보다 약한 보통 병사 수준(기존 소집병 대체).
 - 경보병은 근접(장창 리치 2로 선제 유리), 경궁병은 원거리(활 사거리 3 → 부대 [공격거리](../entities/Party.md) 3).
+- **밸런스(회피형 영웅 축)**: 보병은 얇게(`힘 46` → `max_hp() = 23`), 경보병은 방패를 뺀다(회피형 영웅에게 어차피 잘 안 맞으니 방어보다 수를 소모품으로). 지휘관(영웅)이 다수 보병을 상대로 우위에 서도록 한 밸런스다. → 아래 영웅 전투 배율.
 
 ## API
 
@@ -87,14 +89,15 @@
 - [정상] `get_faction("azel")` — 세력 "푸른 왕국", 영지 "창천성"
 - [정상] `make_heroes("azel")` 크기 4, 이름 순서 아젤 하르윈·로엔 카스터·미라 벨포드·가레스 던 (**엘윈 사수 없음**)
 - [정상] `make_heroes` 각 세력 크기 4, 첫 명이 그 세력 지휘관(`get_faction`의 첫 영웅)
-- [정상] `make_hero("azel", 0)`의 `strength == 78`, `leadership == 88`, `morale == 90` (유닛.md 매핑 확인)
+- [정상] `make_hero("azel", 0)`의 `strength == 78*3`(힘 배율), `agility == int(65*2.5)`(민첩 배율), `luck == 55*3`(행운 배율), `leadership == 88`·`morale == 90`(비전투 스탯 불변)
+- [정상] `make_hero("azel", 0)` `hit_points == max_hp()` 이고 `hit_points >= 100`(영웅은 두껍다), 회피율(`CombatResolver.evasion`)이 보병보다 크고 공격간격이 보병보다 짧다
 - [정상] `make_hero("azel", 0)` `weapons == ["longsword", "bow"]`(검+보조 활), `shield == "round_shield"`
 - [정상] `make_hero("balthazar", 0)` `weapons == ["wand"]`(마법), 방어구에 세력 방어구 포함
 - [정상] `make_hero("qasim", 1)`(자밀라) `weapons == ["scimitar", "javelin"]`(투척 무기 보유)
 - [정상] `hero_party_name("azel", 0) == "아젤 하르윈 부대"`
 - [정상] 모든 영웅·병사 `movement == 4`, `vision == 7`, `hit_points == max_hp()`
 - [경계] 없는 세력 id → `get_faction` 빈 Dictionary, `make_heroes` 빈 배열; 범위 밖 index → `make_hero == null`, `hero_party_name == ""`
-- [정상] `make_troop("light_infantry")` 크기 10, 전원 동일 능력치(str 62)·장비(`weapons==["spear"]`·`shield=="round_shield"`)
+- [정상] `make_troop("light_infantry")` 크기 10, 전원 동일 능력치(str 46)·장비(`weapons==["spear"]`·`shield==""` 방패 없음), `hit_points == max_hp() == 23`
 - [정상] `make_troop("light_archer")` 크기 10, 전원 `weapons==["bow"]`·`shield==""`·`vision==7`
 - [경계] `make_troop("light_archer")` 각 멤버가 **독립 배열**(한 명의 `weapons`를 바꿔도 다른 멤버 불변 — `.duplicate()`)
 - [경계] 없는 병종 id → `make_troop` 빈 배열, `troop_name` 빈 문자열

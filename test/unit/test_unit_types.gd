@@ -48,10 +48,23 @@ func test_make_heroes_each_faction_four() -> void:
 		assert_eq(heroes[0].human_name, types.get_faction(id)["heroes"][0]["name"], "%s 첫 영웅=지휘관" % id)
 
 func test_hero_stats_mapping() -> void:
+	# 영웅 전투 배율: 힘·행운 ×3, 민첩 ×2.5(내림). 비전투 스탯(지휘력·사기)은 그대로. → units.md
 	var azel = types.make_hero("azel", 0)
-	assert_eq(azel.strength, 78, "힘 78 (유닛.md 매핑)")
-	assert_eq(azel.leadership, 88, "지휘력 88")
-	assert_eq(azel.morale, 90, "사기 90")
+	assert_eq(azel.strength, 78 * 3, "힘 78×3 배율")
+	assert_eq(azel.luck, 55 * 3, "행운 55×3 배율")
+	assert_eq(azel.agility, int(65 * 2.5), "민첩 65×2.5 배율(내림)")
+	assert_eq(azel.leadership, 88, "지휘력 88 (비전투 스탯 불변)")
+	assert_eq(azel.morale, 90, "사기 90 (불변)")
+
+func test_hero_is_demigod() -> void:
+	# 영웅은 두껍고(HP 100+) 보병보다 회피율↑·공격간격↓(회피형 반신). → units.md
+	var azel = types.make_hero("azel", 0)
+	assert_eq(azel.hit_points, azel.max_hp(), "시작 풀피")
+	assert_gte(azel.hit_points, 100, "영웅 HP 100 이상")
+	var inf: Array = types.make_troop("light_infantry")
+	var foot = inf[0]
+	assert_gt(CombatResolver.evasion(azel), CombatResolver.evasion(foot), "영웅 회피율 > 보병")
+	assert_lt(CombatResolver.attack_interval(azel), CombatResolver.attack_interval(foot), "영웅 공격간격 < 보병(더 빠름)")
 
 func test_hero_faction_equipment() -> void:
 	var azel = types.make_hero("azel", 0)
@@ -87,10 +100,11 @@ func test_make_troop_light_infantry() -> void:
 	assert_eq(t.size(), 10, "경보병 10명")
 	for h in t:
 		assert_true(h is Human, "병사는 Human")
-		assert_eq(h.strength, 62, "경보병 힘 62 (동일)")
+		assert_eq(h.strength, 46, "경보병 힘 46 (하향)")
 		assert_eq(h.weapons, ["spear"], "장창")
-		assert_eq(h.shield, "round_shield", "라운드 실드")
+		assert_eq(h.shield, "", "방패 없음(하향)")
 		assert_eq(h.hit_points, h.max_hp(), "풀피")
+		assert_eq(h.hit_points, 23, "경보병 HP 23")
 
 func test_make_troop_light_archer() -> void:
 	var t: Array = types.make_troop("light_archer")

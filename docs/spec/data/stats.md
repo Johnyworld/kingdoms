@@ -30,7 +30,7 @@
 | 최대 스태미나 | `max_stamina` | 20 | 상한 |
 | 사기 | `morale` | 20 | |
 
-- **최대 생명점(계산)**: `Human.max_hp() = 40 + floor(힘/10) × level`. 상세는 [Human](../entities/Human.md).
+- **최대 생명점(계산)**: `Human.max_hp() = floor(힘/2) × level`. 힘에 비례(고정 바탕 없음) — 힘 낮은 보병은 얇고, 힘 높은 영웅은 두껍다. 상세는 [Human](../entities/Human.md).
 
 ## 건물 능력치 (종류: 캠프)
 

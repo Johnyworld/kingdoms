@@ -65,19 +65,19 @@ func test_defense_alert_and_command_stack() -> void:
 
 # --- 최대 생명점 (Human.max_hp, 계산) ---
 
-func test_max_hp_base_plus_strength() -> void:
-	# max_hp = 40 + floor(힘/10) × level(기본 1).
-	assert_eq(_human(78).max_hp(), 47, "힘 78 → 40 + floor(7.8)=7 = 47")
-	assert_eq(_human(52).max_hp(), 45, "힘 52 → 40 + 5 = 45")
+func test_max_hp_scales_with_strength() -> void:
+	# max_hp = floor(힘/2) × level(기본 1). 힘 비례(고정 바탕 없음). → stats.md
+	assert_eq(_human(78).max_hp(), 39, "힘 78 → floor(78/2) = 39")
+	assert_eq(_human(52).max_hp(), 26, "힘 52 → 26")
 
-func test_max_hp_min_at_low_strength() -> void:
-	assert_eq(_human(8).max_hp(), 40, "힘 8 → floor(0.8)=0 → 40")
-	assert_eq(_human(0).max_hp(), 40, "힘 0 → 40")
+func test_max_hp_low_strength() -> void:
+	assert_eq(_human(8).max_hp(), 4, "힘 8 → floor(8/2) = 4")
+	assert_eq(_human(0).max_hp(), 0, "힘 0 → 0")
 
 func test_max_hp_scales_with_level() -> void:
 	var h := _human(78)
 	h.level = 2
-	assert_eq(h.max_hp(), 54, "힘 78 lvl2 → 40 + 7×2 = 54")
+	assert_eq(h.max_hp(), 78, "힘 78 lvl2 → 39 × 2 = 78")
 
 # --- 계산 스탯 (결정적) ---
 

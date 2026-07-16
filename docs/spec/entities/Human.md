@@ -48,7 +48,7 @@
 
 | 함수 | 설명 |
 | --- | --- |
-| `max_hp()` | `BASE_HIT_POINTS(40) + floor(힘/10) × level` — 최대 생명점(상한). 민첩 등 다른 스탯 기여 `미구현` |
+| `max_hp()` | `floor(힘/2) × level` — 최대 생명점(상한). 힘에 비례(고정 바탕 없음). 민첩 등 다른 스탯 기여 `미구현` |
 | `apply_rest()` | 휴식 — `hit_points`·`stamina`를 각각 최대의 **25%(반올림)** 만큼 회복(상한 clamp) |
 | `apply_alert()` | 경계 — `stamina`를 최대의 **10%(반올림)** 회복 + `alert = true` |
 

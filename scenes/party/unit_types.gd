@@ -16,6 +16,12 @@ const TROOP_SIZE := 10
 # 세력당 영웅 수.
 const HEROES_PER_FACTION := 4
 
+# 영웅 전투 배율(회피형 반신). 생성 시 전투 능력치에만 적용 — 비전투 스탯(지휘력 등)·장비는 불변. → units.md
+# 세부 수치는 추후 튜닝. 힘 = HP·AT↑, 민첩 = 회피·공격속도↑, 행운 = 치명↑.
+const HERO_STR_MULT := 3.0
+const HERO_LUCK_MULT := 3.0
+const HERO_AGI_MULT := 2.5
+
 # 이동력·시야는 유닛.md에 개별값이 없어 종족(인간) 기본값을 모든 유닛에 적용한다.
 const HUMAN_MOVEMENT := 4
 const HUMAN_VISION := 7
@@ -97,15 +103,15 @@ const TROOPS := {
 		"name": "경보병",
 		"weapons": ["spear"],
 		"armor": ["leather_helm", "leather_armor"],
-		"shield": "round_shield",
-		"stats": {"strength": 62, "wisdom": 40, "agility": 55, "charm": 40, "luck": 48, "leadership": 20, "diligence": 55, "sensitivity": 40, "stamina": 40, "morale": 58},
+		"shield": "",
+		"stats": {"strength": 46, "wisdom": 40, "agility": 55, "charm": 40, "luck": 48, "leadership": 20, "diligence": 55, "sensitivity": 40, "stamina": 40, "morale": 58},
 	},
 	"light_archer": {
 		"name": "경궁병",
 		"weapons": ["bow"],
 		"armor": ["leather_helm", "leather_armor"],
 		"shield": "",
-		"stats": {"strength": 55, "wisdom": 40, "agility": 62, "charm": 40, "luck": 52, "leadership": 20, "diligence": 55, "sensitivity": 45, "stamina": 40, "morale": 55},
+		"stats": {"strength": 46, "wisdom": 40, "agility": 62, "charm": 40, "luck": 52, "leadership": 20, "diligence": 55, "sensitivity": 45, "stamina": 40, "morale": 55},
 	},
 }
 
@@ -119,15 +125,24 @@ static func make_hero(faction: String, index: int):
 	var heroes: Array = spec.get("heroes", [])
 	if index < 0 or index >= heroes.size():
 		return null
-	return _build_human(heroes[index], spec.get("weapons", []), spec.get("armor", []), spec.get("shield", ""))
+	return _apply_hero_boost(_build_human(heroes[index], spec.get("weapons", []), spec.get("armor", []), spec.get("shield", "")))
 
 ## 세력 영웅 4명 전부를 Human 배열로 생성한다. 없는 세력이면 빈 배열.
 static func make_heroes(faction: String) -> Array:
 	var spec := get_faction(faction)
 	var result: Array = []
 	for h in spec.get("heroes", []):
-		result.append(_build_human(h, spec.get("weapons", []), spec.get("armor", []), spec.get("shield", "")))
+		result.append(_apply_hero_boost(_build_human(h, spec.get("weapons", []), spec.get("armor", []), spec.get("shield", ""))))
 	return result
+
+## 영웅 전투 배율(회피형 반신) 적용 — 힘·행운 ×3, 민첩 ×2.5(내림). 비전투 스탯·장비 불변.
+## 배율 후 힘이 바뀌므로 max_hp() 재계산해 풀피로 채운다. 병종(make_troop)에는 적용 안 함. → units.md
+static func _apply_hero_boost(h: Human) -> Human:
+	h.strength = int(h.strength * HERO_STR_MULT)
+	h.luck = int(h.luck * HERO_LUCK_MULT)
+	h.agility = int(h.agility * HERO_AGI_MULT)
+	h.hit_points = h.max_hp()   # 강화된 힘 기준 최대 생명점으로 풀피
+	return h
 
 ## "{영웅 이름} 부대". 범위 밖이면 빈 문자열.
 static func hero_party_name(faction: String, index: int) -> String:
