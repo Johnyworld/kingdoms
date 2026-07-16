@@ -41,7 +41,9 @@ const Z_FLOAT := 4000
 const FLOAT_RISE := 40.0      # 떠오르는 텍스트 상승 높이(px)
 const FLOAT_TIME := 0.7       # 떠오름·페이드 시간(초)
 const FLASH_TIME := 0.12      # 피격 흰 반짝임 시간(초)
-const HIT_PUSH_PX := 10.0     # 근접 타격 시 피격자가 밀리고 공격자가 같이 전진하는 거리(px). 되돌아오지 않는 실제 위치 이동(달라붙기). → battle.md
+const HIT_PUSH_PX := TOKEN_R * 2.0   # 근접 타격 시 밀림 거리(px) = 병사 폭(TOKEN_R×2). 피격자 밀림 + 공격자 같이 전진(달라붙기), 되돌아오지 않는 실제 위치 이동. → battle.md
+const PUSH_SLIDE_SPEED := 500.0      # 밀림 시각 오프셋(voff)이 0으로 감쇠하는 속도(px/s). 낮을수록 천천히 슬라이드. 일반 이동은 pos 직행(무관). → battle.md
+const ADVANCE_DELAY := 0.5           # 근접 타격 후 공격자가 다시 붙으러 접근하기까지 멈추는 시간(초, 실시간). 펜싱식 리듬. → battle.md
 const LUNGE_PX := 10.0        # 공격 돌진 거리(px)
 const LUNGE_TIME := 0.12      # 공격 돌진 왕복 시간(초)
 const KNOCKBACK_PX := 60.0    # 사망 시 뒤로 날아가는 거리(px)
@@ -81,9 +83,9 @@ func start(attacker, defender, distance := 1, include_siege := false, wall = nul
 	var vp := get_viewport().get_visible_rect().size
 	_arena_h = vp.y * ARENA_FRACTION   # 상단 전장 높이 — 토큰은 이 안에만, 아래는 HUD
 	_build_bg(vp)
-	_spawn_team(attacker, "a", vp.x * 0.25, vp)
+	_spawn_team(attacker, "a", vp)
 	if defender != null:
-		_spawn_team(defender, "b", vp.x * 0.75, vp)
+		_spawn_team(defender, "b", vp)
 	_assign_duels()   # 각 병사에 상대 짝 배정 — 전장에 퍼져 1:1 난투(뭉침 방지). → battle.md
 	if include_siege:
 		_spawn_siege(attacker, "a", vp.x * 0.1, vp)
@@ -214,10 +216,10 @@ func _build_bg(vp: Vector2) -> void:
 	add_child(_view)
 
 ## 한 팀 멤버를 세로 열로 스폰한다 — 멤버마다 개별 토큰 1개(랑그릿사식 10:10 렌더). → battle.md
-func _spawn_team(party, team: String, x: float, vp: Vector2) -> void:
+func _spawn_team(party, team: String, vp: Vector2) -> void:
 	var members: Array = party.members
 	var n := members.size()
-	# 근접 공격자 화면 밖 스폰 x — 팀 a는 왼쪽 밖, b는 오른쪽 밖. 라인 x(0.25/0.75 열)는 인자로 받은 x.
+	# 화면 밖 스폰 x — 팀 a는 왼쪽 밖, b는 오른쪽 밖.
 	var side := -1.0 if team == "a" else 1.0
 	var charge_x := -CHARGE_OFFSET if team == "a" else vp.x + CHARGE_OFFSET
 	for i in n:
@@ -229,11 +231,10 @@ func _spawn_team(party, team: String, x: float, vp: Vector2) -> void:
 		# 이 전투에서 쓸 무기(근접=주무기, 원거리=활). range는 그 무기의 공격거리.
 		var w: String = ItemTypes.active_weapon(members[i].weapons, _ranged_mode)
 		var rng_w := ItemTypes.weapon_range(w)
-		var holds := rng_w >= 2                          # 궁수·완드 — 화면 밖 진입 → 대열 자리잡기 → 사격. → battle.md
-		var charges := rng_w < 2 and not _ranged_mode    # 근접 유닛 — 화면 밖에서 중앙으로 돌격
-		# 돌격·궁수 모두 화면 밖에서 index마다 x를 크게 벌려 스폰(한 명씩 트리클 진입 — 한꺼번에 안 몰림). 원거리 교전의 근접 유닛(대기)만 라인 x에 소량 지터.
-		var offscreen := charges or holds
-		var pos := Vector2(charge_x + side * i * ENTRY_STAGGER_PX, y) if offscreen else Vector2(x + _rng.randf_range(-vp.x * 0.03, vp.x * 0.03), y)
+		# 대열로 자리잡는 유닛: 궁수·완드(사거리 ≥ 2)는 항상, 원거리 교전(distance ≥ 2)에선 근접 유닛도(사거리 미달로 대기 → 대형으로 정렬해 사격당함). 나머지(근접 교전의 근접)는 중앙으로 돌격. → battle.md
+		var holds := rng_w >= 2 or _ranged_mode
+		# 전원 화면 밖에서 index마다 x를 크게 벌려 스폰(한 명씩 트리클 진입 — 한꺼번에 안 몰림).
+		var pos := Vector2(charge_x + side * i * ENTRY_STAGGER_PX, y)
 		var thrw: String = ItemTypes.throwing_weapon(members[i].weapons)
 		var melee_reach: float = ItemTypes.weapon_reach(w) * MELEE_REACH_PX
 		var node := _make_token(party.token_color)
@@ -241,7 +242,7 @@ func _spawn_team(party, team: String, x: float, vp: Vector2) -> void:
 		_view.add_child(node)
 		var unit := {
 			"human": members[i], "team": team, "hp": int(members[i].hit_points),
-			"max_hp": int(members[i].max_hp()), "alive": true, "pos": pos, "cooldown": 0.0,
+			"max_hp": int(members[i].max_hp()), "alive": true, "pos": pos, "voff": Vector2.ZERO, "cooldown": 0.0, "approach_hold": 0.0,
 			"speed": UNIT_SPEED * _rng.randf_range(1.0 - SPEED_JITTER, 1.0 + SPEED_JITTER),   # 이동속도 ±20% 랜덤 보정. → battle.md
 			"node": node, "body": node.get_node("body"), "hp_label": node.get_node("hp"),
 			"hp_fill": node.get_node("hpfill"), "color": party.token_color,
@@ -294,11 +295,14 @@ func _refresh_hp_bar(u: Dictionary) -> void:
 	(u["hp_fill"] as ColorRect).size.x = TOKEN_R * 2.0 * frac
 
 ## 살아있는 멤버 토큰을 시뮬 상태에 맞춰 갱신 — 위치(pos)·hp 숫자·HP 바·상태이상 tint(기절 회색·출혈 빨강).
-func _sync_node(u: Dictionary) -> void:
+func _sync_node(u: Dictionary, delta: float) -> void:
 	# 지면 밴드 하한으로 y를 가둔다 — 토큰·HP 바가 하단 HUD를 침범하지 않게. → battle.md
 	u["pos"].y = clampf(u["pos"].y, _arena_h * (GROUND_FRACTION + 0.05), _arena_h - TOKEN_R * 1.5)
-	u["node"].position = u["pos"] - Vector2(TOKEN_R, TOKEN_R)
+	# 시각 오프셋(voff): 밀림 순간 노드를 이전 위치에 두고, 0으로 감쇠하며 sim pos로 슬라이드. 일반 이동은 voff=0이라 pos 직행. → battle.md
+	var voff: Vector2 = u["voff"]
+	u["node"].position = (u["pos"] - voff) - Vector2(TOKEN_R, TOKEN_R)
 	u["node"].z_index = int(u["pos"].y)   # y가 아래일수록 앞에 그림(2.5D 깊이 정렬). → battle.md
+	u["voff"] = voff.move_toward(Vector2.ZERO, PUSH_SLIDE_SPEED * delta)
 	u["hp_label"].text = str(maxi(0, u["hp"]))
 	_refresh_hp_bar(u)
 	if StatusEffects.is_stunned(u["effects"]):
@@ -557,35 +561,41 @@ func _process(delta: float) -> void:
 			continue
 		if u.get("structure", false) or u.get("siege", false):
 			continue   # 성벽 구조물·공성 전투원 — 비투석 전투엔 없고, 투석 전투는 위에서 조기 반환
-		if _ranged_mode and u["range"] < _distance:
-			continue   # 원거리 교전: 사거리가 거리에 못 미치는 유닛(근접 무기 포함)은 닿지 않아 정지
 		if StatusEffects.is_stunned(u["effects"]):
 			continue   # 기절: 이번 프레임 이동·공격 안 함
+		# 대열 진입 — 슬롯이 있고 도착 전이면, 사거리 게이트·공격보다 먼저 슬롯으로 이동(도착 전엔 이동만).
+		# 원거리 교전에서 사거리 미달로 대기하는 근접 유닛도 대형으로 정렬시키려 게이트 앞에 둔다. → battle.md
+		if u.get("formation") != null and not u["formed"]:
+			var slot: Vector2 = u["formation"]
+			var to_slot: Vector2 = slot - u["pos"]
+			# 근접 돌격과 동일한 화면 속도 — raw delta에 MELEE_PLAYBACK을 곱해 재생 배속(원거리 1.0)을 상쇄. → battle.md
+			var step: float = u["speed"] * MELEE_PLAYBACK * delta
+			# 한 스텝 안(또는 도착 거리 안)에 들면 슬롯에 스냅 — 스텝이 커도 오버슈트로 진동하지 않게.
+			if to_slot.length() <= maxf(step, FORMATION_ARRIVE_PX):
+				u["pos"] = slot
+				u["formed"] = true
+			else:
+				u["pos"] += to_slot.normalized() * step
+			continue   # 형성 중엔 다른 행동 안 함
+		if _ranged_mode and u["range"] < _distance:
+			continue   # 원거리 교전: 사거리 미달 유닛은 대형에 자리잡은 뒤 대기(공격 못 함)
 		u["cooldown"] = maxf(0.0, u["cooldown"] - d)
 		var t: Dictionary = _target_for(u)   # 배정된 짝(살아있으면) → 없으면 최근접 적
 		if t.is_empty():
 			continue
 		var dist: float = u["pos"].distance_to(t["pos"])
 		if u["range"] >= 2:
-			if u.get("formation") != null and not u["formed"]:
-				# 대열 진입 — 슬롯으로 이동, 도착 전엔 사격 안 함. 도착하면 스냅·정지 후 다음 프레임부터 사격. → battle.md
-				var slot: Vector2 = u["formation"]
-				var to_slot: Vector2 = slot - u["pos"]
-				# 근접 돌격과 동일한 화면 속도 — raw delta에 MELEE_PLAYBACK을 곱해 재생 배속(원거리 1.0)을 상쇄. → battle.md
-				var step: float = u["speed"] * MELEE_PLAYBACK * delta
-				# 한 스텝 안(또는 도착 거리 안)에 들면 슬롯에 스냅 — 스텝이 커도 오버슈트로 진동하지 않게.
-				if to_slot.length() <= maxf(step, FORMATION_ARRIVE_PX):
-					u["pos"] = slot
-					u["formed"] = true
-				else:
-					u["pos"] += to_slot.normalized() * step
 			# 근접 모드: 적이 임계거리 안에 들면 근접 전환(다음 프레임부터 돌격). 활만 있으면 활 든 채.
-			elif not _ranged_mode and BattleField.archer_should_charge(u["range"], dist, CHARGE_RANGE_PX):
+			if not _ranged_mode and BattleField.archer_should_charge(u["range"], dist, CHARGE_RANGE_PX):
 				_engage_melee(u)
 			elif u["cooldown"] <= 0.0:
 				# 원거리(활·완드): 자리잡은 뒤 제자리에서 공격속도마다 사격.
 				_attack(u, t, u["weapon"])
 		else:
+			# 타격 후 회복 홀드 — 잠깐 제자리에 멈췄다가(공격자가 바로 안 붙음) 시간이 지나면 다시 접근·공격. 실시간 delta로 감쇠. → battle.md
+			if u.get("approach_hold", 0.0) > 0.0:
+				u["approach_hold"] = maxf(0.0, u["approach_hold"] - delta)
+				continue
 			# 근접/투척: 접근하며 투척 사거리에서 투척(최대 MAX_THROWS), 근접거리에서 근접 공격.
 			if u["throw"] != "" and u["throws"] < MAX_THROWS and dist > u["melee_reach"] and dist <= u["throw_reach"]:
 				if u["cooldown"] <= 0.0:
@@ -602,7 +612,7 @@ func _process(delta: float) -> void:
 	# 살아있는 각 멤버 토큰을 프레임 끝에 갱신(위치·hp·바·tint). 죽은 유닛은 _kill이 페이드/넉백 처리.
 	for u in _units:
 		if u.get("human") != null and u.has("node") and u["alive"]:
-			_sync_node(u)
+			_sync_node(u, delta)
 
 	_update_hud()   # 하단 지휘관 HUD 병력 수·바 실시간 갱신. → battle.md
 
@@ -628,12 +638,14 @@ func _attack(u: Dictionary, t: Dictionary, weapon: String) -> void:
 	_spawn_float(t["pos"], ht["text"], ht["color"], ht["big"])   # 대미지 숫자/빗나감/막기(표적 멤버)
 	if r["hit"] and not r["blocked"] and r["damage"] > 0:
 		if ItemTypes.weapon_range(weapon) < 2 and ItemTypes.weapon_throw_range(weapon) == 0:
-			# 근접 타격 — 피격자 뒤로 밀림 + 공격자 같은 방향으로 전진(달라붙기). 되돌아오지 않는 실제 위치 이동. → battle.md
+			# 근접 타격 — 피격자만 뒤로 밀린다(공격자는 즉시 안 붙음). 공격자는 ADVANCE_DELAY 뒤 다시 접근해 붙는다(펜싱 리듬). → battle.md
 			var away: Vector2 = t["pos"] - u["pos"]
 			if away.length() > 0.001:
 				var push := away.normalized() * HIT_PUSH_PX
 				t["pos"] += push
-				u["pos"] += push
+				# 노드는 이전 위치에서 시작해 slide로 밀림 — voff에 밀린 만큼 얹고 _sync_node가 감쇠. → battle.md
+				t["voff"] = (t["voff"] as Vector2) + push
+			u["approach_hold"] = ADVANCE_DELAY   # 공격 후 잠깐 멈췄다가(회복) 다시 붙으러 접근
 		_flash(t)                                             # 표적 반짝임(밀림은 위치로 표현)
 	if r["inflict"] != "":
 		_spawn_float(t["pos"] + Vector2(0, -18), HitFeedback.status_text(r["inflict"]), HitFeedback.STATUS_COLOR, false)
