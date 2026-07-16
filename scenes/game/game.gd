@@ -1428,6 +1428,7 @@ func _apply_survivors(p, survivors: Array) -> void:
 	p.members = survivors
 	if not (p.commander in survivors):
 		p.commander = survivors[0] if not survivors.is_empty() else null
+	p.queue_redraw()   # 사상 반영 후 토큰 다시 그림 — 인원수 배지가 갱신되도록(누락 시 초기값 고착). → battle.md
 	if not survivors.is_empty():
 		return
 	# 전멸 — 부대를 맵에서 제거한다(NPC·플레이어 모두 껍데기 안 남김).

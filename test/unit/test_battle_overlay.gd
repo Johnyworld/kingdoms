@@ -86,6 +86,145 @@ func test_ranged_battle_runs() -> void:
 	_run(0.1, 200)
 	assert_false(battle._running, "원거리 전투도 종료")
 
+func test_melee_spawns_offscreen_and_charges() -> void:
+	# 근접 공격자는 화면 밖(팀 a는 x<0)에서 스폰해 라인 정지 없이 돌격. 이동속도 ±20% 보정.
+	var atk := _party("공격", 3, 60, "sword", Color.RED)
+	var deff := _party("방어", 3, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)   # 근접 교전
+	assert_true(battle._running, "근접 교전은 지연 없이 즉시 시뮬 시작")
+	for u in battle._units:
+		if u.has("human"):
+			assert_between(u["speed"], battle.UNIT_SPEED * 0.8, battle.UNIT_SPEED * 1.2, "이동속도 ±20% 보정")
+		if u.has("human") and u["team"] == "a":
+			assert_lt(u["pos"].x, 0.0, "근접 공격자(팀 a)는 화면 왼쪽 밖에서 스폰")
+	_run()
+	assert_false(battle._running, "전멸/시간만료로 종료")
+
+func test_archer_enters_offscreen_then_forms_up() -> void:
+	# 궁수(원거리)는 화면 밖에서 진입해 대열 슬롯으로 이동한 뒤 자리잡고(정지) 사격한다.
+	var atk := _party("궁수", 3, 60, "bow", Color.RED)
+	var deff := _party("궁수2", 3, 60, "bow", Color.BLUE)
+	battle.start(atk, deff, 3)   # 원거리 교전
+	# 진입 시작 = 화면 밖(팀 a는 왼쪽 밖), 아직 대열 미형성
+	for u in battle._units:
+		if u.has("human") and u["team"] == "a":
+			assert_lt(u["pos"].x, 0.0, "궁수도 화면 밖에서 진입")
+			assert_false(u["formed"], "진입 직후엔 아직 대열 미형성")
+			assert_ne(u["formation"], null, "궁수는 대열 슬롯을 가진다")
+	# 여러 프레임 펌프 → 슬롯 도착(formed)
+	for i in 40:
+		if not battle._running:
+			break
+		battle._process(0.1)
+	var checked := 0
+	for u in battle._units:
+		if u.has("human") and u["alive"] and u["formed"]:
+			assert_almost_eq(u["pos"].x, u["formation"].x, 0.01, "자리잡은 궁수는 슬롯 x에 스냅")
+			var p: Vector2 = u["pos"]
+			for j in 5:
+				if not battle._running:
+					break
+				battle._process(0.1)
+			if u["alive"]:
+				assert_eq(u["pos"], p, "자리잡은 궁수는 제자리 사격(이동 없음)")
+			checked += 1
+			break
+	assert_gt(checked, 0, "자리잡은 궁수가 있어야 검증에 의미")
+
+## --- 랑그릿사1식 연출: 액자 · HUD · 템포 (battle.md) ---
+
+func test_tokens_spawn_within_arena() -> void:
+	# 모든 멤버 토큰은 상단 전장(arena) 높이 안에 스폰된다(하단 HUD 영역 침범 금지).
+	var atk := _party("공격", 4, 60, "sword", Color.RED)
+	var deff := _party("방어", 4, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	assert_gt(battle._arena_h, 0.0, "arena 높이가 설정된다")
+	for u in battle._units:
+		if u.has("human"):
+			assert_lte(u["pos"].y, battle._arena_h, "멤버 토큰은 arena 높이 안에 있다")
+
+func test_hud_count_initial() -> void:
+	var atk := _party("공격", 3, 60, "sword", Color.RED)
+	var deff := _party("방어", 5, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	assert_eq(battle._hud_count("a"), 3, "좌 패널 병력 수 = 초기 멤버 수")
+	assert_eq(battle._hud_count("b"), 5, "우 패널 병력 수 = 초기 멤버 수")
+
+func test_hud_count_decreases_on_death() -> void:
+	# 압도적인 공격 팀 → 방어 팀 병력 수가 줄어든다.
+	var atk := _party("공격", 3, 90, "battleaxe", Color.RED)
+	var deff := _party("방어", 3, 5, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	_run()
+	assert_lt(battle._hud_count("b"), 3, "사망으로 방어 팀 병력 수 감소")
+
+func test_playback_melee_vs_ranged() -> void:
+	var atk := _party("공격", 2, 60, "sword", Color.RED)
+	var deff := _party("방어", 2, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)   # 근접
+	assert_eq(battle._playback, battle.MELEE_PLAYBACK, "근접은 2배속 재생")
+
+	var b2 = BattleScript.new()
+	add_child_autofree(b2)
+	var atk2 := _party("궁수", 2, 60, "bow", Color.RED)
+	var deff2 := _party("궁수2", 2, 60, "bow", Color.BLUE)
+	b2.start(atk2, deff2, 3)      # 원거리
+	assert_eq(b2._playback, 1.0, "원거리는 1배속(기존 5초 방식)")
+	b2._running = false
+
+func test_playback_advances_elapsed_double() -> void:
+	# 근접 _process 1회가 _elapsed를 delta × MELEE_PLAYBACK만큼 진행한다(즉시 전멸 안 하게 회피 세팅).
+	var atk := _party("공격", 5, 60, "sword", Color.RED)
+	var deff := _party("방어", 5, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	battle._process(0.1)
+	assert_almost_eq(battle._elapsed, 0.1 * battle.MELEE_PLAYBACK, 0.001, "근접 sim은 delta×2로 진행")
+
+func test_panel_at_df_matches_commander() -> void:
+	var atk := _party("공격", 3, 60, "sword", Color.RED)
+	var deff := _party("방어", 3, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	assert_eq(battle._panel_at("a"), CombatResolver.attack_power(atk.commander), "좌 패널 AT = 지휘관 실효 AT")
+	assert_eq(battle._panel_df("a"), CombatResolver.defense(atk.commander), "좌 패널 DF = 지휘관 실효 DF")
+	assert_eq(battle._panel_at("b"), CombatResolver.attack_power(deff.commander), "우 패널 AT = 지휘관 실효 AT")
+
+func test_modifier_labels_no_buff() -> void:
+	var atk := _party("공격", 2, 60, "sword", Color.RED)
+	var deff := _party("방어", 2, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	assert_eq(battle._modifier_labels(), ["기본능력"], "버프 없으면 기본능력만")
+
+func test_modifier_labels_with_command_buff() -> void:
+	var atk := _party("공격", 2, 60, "sword", Color.RED)
+	var deff := _party("방어", 2, 60, "sword", Color.BLUE)
+	atk.commander.in_command = true   # 지휘 버프 상태
+	battle.start(atk, deff, 1)
+	assert_eq(battle._modifier_labels(), ["기본능력", "지휘보정"], "한쪽이라도 지휘 버프면 지휘보정 추가")
+
+func test_duel_partners_assigned() -> void:
+	# 각 멤버는 상대 팀 유닛을 duel 짝으로 배정받는다.
+	var atk := _party("공격", 3, 60, "sword", Color.RED)
+	var deff := _party("방어", 3, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	for u in battle._units:
+		if u.has("human"):
+			assert_true(u.has("duel"), "멤버는 duel 짝을 가진다")
+			assert_ne(u["duel"]["team"], u["team"], "짝은 상대 팀 유닛")
+
+func test_spawn_scattered_not_single_column() -> void:
+	# 같은 팀 근접 유닛들의 y가 서로 달라야 한다(한 줄로 겹치지 않음 — 분산 난투).
+	var atk := _party("공격", 5, 60, "sword", Color.RED)
+	var deff := _party("방어", 5, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	var ys: Array = []
+	for u in battle._units:
+		if u.has("human") and u["team"] == "a":
+			ys.append(u["pos"].y)
+	var unique := {}
+	for y in ys:
+		unique[y] = true
+	assert_gt(unique.size(), 1, "팀 a 유닛 y가 여러 값(산포)")
+
 func test_single_member_hero_one_token() -> void:
 	var hero: Node2D = PartyScript.new()
 	add_child_autofree(hero)
