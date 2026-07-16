@@ -88,6 +88,13 @@ func is_hero() -> bool:
 func shows_member_count() -> bool:
 	return kind == KIND_TROOP and not members.is_empty()
 
+## 이 부대 병종이 원거리인지 — 지휘관(없으면 첫 멤버) 주무기 사거리 ≥ 2면 true. 월드맵 좌하단 병종 아이콘(활/검) 판별. → Party.md
+func is_ranged() -> bool:
+	var lead = commander if commander != null else (members[0] if not members.is_empty() else null)
+	if lead == null:
+		return false
+	return ItemTypes.weapon_range(ItemTypes.primary_weapon(lead.weapons)) >= 2
+
 ## 소속 영웅부대가 있는지(lord != null).
 func has_lord() -> bool:
 	return lord != null
@@ -413,3 +420,23 @@ func _draw() -> void:
 		var tw: float = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(font, bpos + Vector2(-tw * 0.5, fs * 0.36), txt,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, a))
+
+	# 토큰 좌하단 병종 아이콘 — 근접=검, 원거리=활(플레이스홀더, 코드 도형). 지휘관 주무기로 판별. → Party.md
+	_draw_class_icon(a)
+
+## 좌하단에 병종 아이콘(어두운 배경 원 + 검/활 도형)을 그린다. 에셋 없이 코드 도형 플레이스홀더. → Party.md
+func _draw_class_icon(a: float) -> void:
+	var ipos := Vector2(-_RADIUS * 0.8, _RADIUS * 0.8)   # 좌하단(인원수 배지 반대편)
+	draw_circle(ipos, 8.0, Color(0.1, 0.08, 0.05, 0.9 * a))
+	var col := Color(0.95, 0.92, 0.8, a)
+	if is_ranged():
+		# 활: 왼쪽으로 휜 호(활대) + 시위(직선) + 화살(오른쪽)
+		draw_arc(ipos + Vector2(1.0, 0), 5.0, PI * 0.5, PI * 1.5, 12, col, 1.4, true)
+		draw_line(ipos + Vector2(1.0, -4.6), ipos + Vector2(1.0, 4.6), col, 1.0)   # 시위
+		draw_line(ipos + Vector2(-3.0, 0), ipos + Vector2(5.0, 0), col, 1.2)       # 화살
+	else:
+		# 검: 위=날, 아래=손잡이(가드+그립+폼멜). 손잡이가 보이도록 아래로 뺀다.
+		draw_line(ipos + Vector2(0, -5.5), ipos + Vector2(0, 1.0), col, 1.8)       # 날(위)
+		draw_line(ipos + Vector2(-3.2, 1.4), ipos + Vector2(3.2, 1.4), col, 1.6)   # 가드(가로)
+		draw_line(ipos + Vector2(0, 1.4), ipos + Vector2(0, 4.6), col, 1.6)        # 손잡이(그립)
+		draw_circle(ipos + Vector2(0, 5.2), 1.2, col)                              # 폼멜

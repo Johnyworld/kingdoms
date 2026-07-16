@@ -26,6 +26,30 @@ func test_party_name_settable() -> void:
 	p.party_name = "주인공 부대"
 	assert_eq(p.party_name, "주인공 부대", "이름을 설정할 수 있다")
 
+# --- 병종(월드맵 아이콘 판별) ---
+
+func _armed_human(weapon: String) -> Object:
+	var h := _human()
+	h.weapons = [weapon]
+	return h
+
+func test_is_ranged_true_for_bow_commander() -> void:
+	var p := _party()
+	var archer := _armed_human("bow")
+	p.add_member(archer)
+	p.commander = archer
+	assert_true(p.is_ranged(), "지휘관 활(사거리 3) → 원거리 병종")
+
+func test_is_ranged_false_for_melee_commander() -> void:
+	var p := _party()
+	var foot := _armed_human("spear")
+	p.add_member(foot)
+	p.commander = foot
+	assert_false(p.is_ranged(), "지휘관 창(근접) → 근접 병종")
+
+func test_is_ranged_empty_party_defaults_false() -> void:
+	assert_false(_party().is_ranged(), "빈 부대는 근접(기본)")
+
 # --- 소속 세력 ---
 
 func test_faction_name_defaults_empty() -> void:

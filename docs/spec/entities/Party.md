@@ -91,6 +91,7 @@
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
 - `is_hero() -> bool` — 영웅부대인지(`kind == KIND_HERO`). 일반부대는 거짓.
 - `shows_member_count() -> bool` — 토큰에 남은 인원수 배지를 그릴지(`kind == KIND_TROOP` 그리고 멤버 있음). 영웅부대·빈 부대는 거짓. `_draw`가 이 판정으로 배지를 그린다.
+- `is_ranged() -> bool` — 이 부대 병종이 원거리인지: **지휘관(없으면 첫 멤버) 주무기 사거리 ≥ 2**면 참. 월드맵 토큰 **좌하단 병종 아이콘**(원거리=활 / 근접=검) 판별에 쓴다(`_draw` → `_draw_class_icon`). 빈 부대는 거짓(근접 기본). 모든 부대(영웅 포함)에 아이콘을 그린다 — 인원수 배지와 달리 종류 제한 없음. 아이콘은 에셋 없이 **코드 도형 플레이스홀더**(검=날+가드+손잡이 그립+폼멜, 활=휜 활대+시위+화살).
 - `has_lord() -> bool` — 소속 영웅부대가 있는지(`lord != null`).
 - `lord_name() -> String` — `lord`의 `commander_name()`. `lord`가 `null`이거나 그 지휘관이 없으면 `"—"`.
 - `set_lord(hero) -> void` — 소속 영웅부대를 지정한다(`lord = hero`). [소속 UI](../features/party-lord.md)가 소속(합류) 확정에 쓴다.
@@ -119,7 +120,7 @@
 - `undo_move() -> void` — 이동 되돌리기. `moved_this_turn = false`(다시 이동 가능)로 되돌리고 불투명하게 다시 그린다. 위치 복원·시야 갱신은 `game.gd`([행동 메뉴](../features/party-action-menu.md) `[취소]`).
 - `can_rest() -> bool` — 휴식 가능 여부(`not attacked_this_turn` — 아직 행동을 끝내지 않았으면 가능).
 - `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`·`rested_this_turn`를 모두 `false`로 되돌리고 불투명하게 다시 그린다.
-- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다. [지휘 버프](../features/command-range.md) 중이면 토큰 **위**에 금색 갈매기 배지, `shows_member_count()`면 토큰 **우하단**에 남은 인원수(`members.size()`, 1~10) 배지(어두운 배경 원 + 흰 숫자)를 그린다. 플레이어·보이는 NPC 일반부대 모두에 표시(사상자로 줄어든 병력 확인).
+- `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다. [지휘 버프](../features/command-range.md) 중이면 토큰 **위**에 금색 갈매기 배지, `shows_member_count()`면 토큰 **우하단**에 남은 인원수(`members.size()`, 1~10) 배지(어두운 배경 원 + 흰 숫자)를 그린다. 플레이어·보이는 NPC 일반부대 모두에 표시(사상자로 줄어든 병력 확인). 그리고 토큰 **좌하단**에 **병종 아이콘**(`_draw_class_icon` — `is_ranged()`면 활, 아니면 검)을 그린다(멤버 있는 모든 부대, 영웅 포함).
 
 ## 테스트 시나리오
 
@@ -135,6 +136,7 @@
 - [정상] `commander`를 멤버로 지정하면 `commander_name()`이 그 멤버의 `human_name`
 - [정상] 생성 직후 `kind == "troop"`(=`KIND_TROOP`), `is_hero() == false`; `kind = KIND_HERO`로 두면 `is_hero() == true`
 - [정상] `shows_member_count()`: 멤버 있는 일반부대(`KIND_TROOP`) → 참; 멤버 있는 영웅부대(`KIND_HERO`) → 거짓; 멤버 없는 일반부대 → 거짓
+- [정상] `is_ranged()`: 지휘관 활(`bow`, 사거리 3) → 참(원거리 병종=활 아이콘); 지휘관 창(`spear`, 근접) → 거짓(근접 병종=검 아이콘); 빈 부대 → 거짓(근접 기본)
 - [정상] 생성 직후 `highlight`의 알파 0(없음); `set_highlight(Color.RED)` 후 `highlight == Color.RED`([NPC 공격 연출](../features/npc-movement.md#npc-공격-그룹-이동-직후))
 - [정상] 생성 직후 `lord == null`, `has_lord() == false`, `lord_name() == "—"`
 - [정상] `lord`에 지휘관 있는 영웅부대를 지정하면 `has_lord() == true`, `lord_name()`이 그 영웅 이름
