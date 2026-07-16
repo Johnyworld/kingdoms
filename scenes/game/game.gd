@@ -219,7 +219,7 @@ func _ready() -> void:
 	add_child(toast)
 	turn_banner = TurnBanner.new()   # 현재 행동 세력 배너(코드 생성). → turn.md
 	add_child(turn_banner)
-	_begin_player_turn()   # 시작은 플레이어 턴 — 플레이어 세력 배너 표시. → turn.md
+	_begin_player_turn()   # 시작은 플레이어 턴 — 배너는 감춰 둔다(NPC 차례에만 표시). → turn.md
 
 ## 맵 전체를 초원 타일로 채운 뒤, 시작 지점 근처에 숲을 조금 배치한다.
 func _generate_map() -> void:
@@ -1914,9 +1914,9 @@ func _on_turn_ended() -> void:
 	if not _game_over:
 		_begin_player_turn()
 
-## 플레이어 턴 시작 — 플레이어 세력 배너를 띄운다(NPC 턴 종료 후·게임 시작 시). → turn.md
+## 플레이어 턴 시작 — 배너를 감춘다(플레이어 차례엔 "○○ 진행 중…"을 띄우지 않음). → turn.md
 func _begin_player_turn() -> void:
-	turn_banner.set_faction(_player_faction.name, _player_faction.color)
+	turn_banner.clear()
 
 ## NPC 턴: 세력 순차 → 영웅그룹 순차. 각 그룹은 이동을 마친 뒤 곧바로 공격한다(영웅 먼저·하위 순서). → turn.md · npc-movement.md
 ## 세력 차례 시작 시 배너, 그룹·교전이 시야 안이면 카메라 포커스+하이라이트, 시야 밖이면 즉시 처리.
