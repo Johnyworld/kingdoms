@@ -334,6 +334,7 @@ func _build_faction_army(faction_id: String, reuse) -> Array:
 			tp.party_name = "%s %s" % [hero.human_name, UnitTypes.troop_name(arche)]
 			tp.faction_name = fname
 			tp.kind = Party.KIND_TROOP
+			tp.troop_type = arche   # 병종 → 병합 가능 판정(같은 병종끼리만). → party-composition.md
 			tp.lord = hp   # 소속 영웅부대 → Party.md 소속(Lord)
 			tp.token_color = troop_col   # 일반부대는 약간 어두운 색
 			for m in UnitTypes.make_troop(arche):
@@ -426,12 +427,12 @@ func _update_ranges() -> void:
 	_compute_bombard_targets(start)
 	_refresh_overlay()
 
-## 활성 부대 칸에 인접한 다른 플레이어 부대(멤버 있는 것)를 병합 대상으로 분류한다. cell → party.
+## 활성 부대 칸에 인접하고 병합 가능한(같은 병종·일반부대) 다른 플레이어 부대를 병합 대상으로 분류한다. cell → party.
 func _compute_merge_targets(start: Vector2i) -> void:
 	_merge_targets = {}
 	var neighbors := terrain.get_surrounding_cells(start)
 	for p in _units:
-		if p == party or p.members.is_empty():
+		if p == party or p.members.is_empty() or not party.can_merge_with(p):
 			continue
 		var pcell := terrain.local_to_map(p.position)
 		if pcell in neighbors:
@@ -763,6 +764,7 @@ func _split_party() -> void:
 	if cell == Vector2i(-1, -1):
 		return
 	_split_new = _make_player_party("분할 부대", cell)
+	_split_new.troop_type = party.troop_type   # 병종 물려받음(동질 — 분할 후 다시 병합 가능). → party-composition.md
 	_units.append(_split_new)
 	party_action_menu.close()
 	split_panel.open(party, _split_new)

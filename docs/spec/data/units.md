@@ -55,7 +55,7 @@
 
 ## 병종 아키타입 (`TROOPS`, 세력 공용)
 
-일반부대 병종. id → 스펙(`name`·`weapons`·`armor`·`shield`·능력치). 한 부대는 이 아키타입으로 **10명 동일** 생성된다.
+일반부대 병종. id → 스펙(`name`·`weapons`·`armor`·`shield`·능력치). 한 부대는 이 아키타입으로 **10명 동일** 생성된다. 이 **archetype id는 부대에 [`Party.troop_type`](../entities/Party.md#정체-identity)으로 저장**되어 [병합 가능 판정](../features/party-composition.md)(같은 병종끼리만)의 기준이 된다.
 
 | 병종 | id | 무기 | 방어구 | 방패 | 주요 능력치 |
 | --- | --- | --- | --- | --- | --- |

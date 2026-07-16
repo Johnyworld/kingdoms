@@ -21,6 +21,11 @@ const KIND_HERO := "hero"
 const KIND_TROOP := "troop"
 var kind := KIND_TROOP
 
+## 병종(아키타입) id. UnitTypes.TROOPS의 id("light_infantry"/"light_archer" …). 일반부대 생성·분할 시 설정.
+## 한 부대는 하나의 병종으로 동질하며(병합은 같은 병종끼리만), 병합 가능 판정(can_merge_with)의 기준이다.
+## 영웅부대는 설정하지 않아 "". is_ranged()(아이콘 전용)와 별개인 명시 필드. → docs/spec/entities/Party.md 병종
+var troop_type := ""
+
 # 지휘 범위 = COMMAND_RANGE_BASE + floor(지휘관 leadership / COMMAND_RANGE_PER). → docs/spec/features/command-range.md
 const COMMAND_RANGE_BASE := 2
 const COMMAND_RANGE_PER := 30
@@ -87,6 +92,18 @@ func is_hero() -> bool:
 ## 토큰 우하단에 남은 인원수 배지를 그릴지 — 일반부대이고 멤버가 있을 때만(영웅부대는 항상 1명이라 생략). → Party.md
 func shows_member_count() -> bool:
 	return kind == KIND_TROOP and not members.is_empty()
+
+## other를 이 부대에 병합할 수 있는지 — 병합 가능 판정의 단일 출처. → party-composition.md
+## 둘 다 일반부대(KIND_TROOP)이고(영웅부대는 어느 쪽이든 병합 없음) 같은 병종(troop_type)이며,
+## 합쳐도 인원 상한(UnitTypes.TROOP_SIZE, 10)을 넘지 않을 때만 참(예: 4+6·5+5 가능, 6+5 불가).
+func can_merge_with(other) -> bool:
+	if other == null:
+		return false
+	if kind != KIND_TROOP or other.kind != KIND_TROOP:
+		return false
+	if troop_type != other.troop_type:
+		return false
+	return members.size() + other.members.size() <= UnitTypes.TROOP_SIZE
 
 ## 이 부대 병종이 원거리인지 — 지휘관(없으면 첫 멤버) 주무기 사거리 ≥ 2면 true. 월드맵 좌하단 병종 아이콘(활/검) 판별. → Party.md
 func is_ranged() -> bool:

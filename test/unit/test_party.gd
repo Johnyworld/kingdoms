@@ -50,6 +50,14 @@ func test_is_ranged_false_for_melee_commander() -> void:
 func test_is_ranged_empty_party_defaults_false() -> void:
 	assert_false(_party().is_ranged(), "빈 부대는 근접(기본)")
 
+func test_troop_type_defaults_empty() -> void:
+	assert_eq(_party().troop_type, "", "생성 직후 병종은 빈 문자열")
+
+func test_troop_type_settable() -> void:
+	var p := _party()
+	p.troop_type = "light_infantry"
+	assert_eq(p.troop_type, "light_infantry", "병종을 설정할 수 있다")
+
 # --- 소속 세력 ---
 
 func test_faction_name_defaults_empty() -> void:
@@ -164,6 +172,57 @@ func test_merge_from_combines_loot() -> void:
 	a.merge_from(b)
 	assert_eq(a.loot_items, ["sword", "bow", "buckler"], "노획 장비 합쳐짐")
 	assert_true(b.loot_items.is_empty(), "b 노획 장비는 비워짐(이관)")
+
+# --- 병합 가능 판정 (can_merge_with) ---
+
+func _troop(archetype: String, count := 1) -> Node2D:
+	# 지정 병종·인원의 일반부대. 같은/다른 병종·인원 상한 병합 판정용.
+	var p := _party()
+	p.kind = p.KIND_TROOP
+	p.troop_type = archetype
+	for i in count:
+		p.add_member(_human())
+	return p
+
+func test_can_merge_same_troop_type() -> void:
+	var a := _troop("light_infantry")
+	var b := _troop("light_infantry")
+	assert_true(a.can_merge_with(b), "같은 병종 일반부대끼리 → 병합 가능")
+
+func test_cannot_merge_different_troop_type() -> void:
+	var a := _troop("light_infantry")
+	var b := _troop("light_archer")
+	assert_false(a.can_merge_with(b), "다른 병종끼리 → 병합 불가")
+
+func test_cannot_merge_when_self_is_hero() -> void:
+	var a := _troop("light_infantry")
+	a.kind = a.KIND_HERO
+	var b := _troop("light_infantry")
+	assert_false(a.can_merge_with(b), "자신이 영웅부대면 → 병합 불가(병종 같아도)")
+
+func test_cannot_merge_when_other_is_hero() -> void:
+	var a := _troop("light_infantry")
+	var b := _troop("light_infantry")
+	b.kind = b.KIND_HERO
+	assert_false(a.can_merge_with(b), "상대가 영웅부대면 → 병합 불가(병종 같아도)")
+
+func test_can_merge_within_capacity() -> void:
+	var a := _troop("light_infantry", 4)
+	var b := _troop("light_infantry", 6)
+	assert_true(a.can_merge_with(b), "합계 4+6=10(상한 이하) → 병합 가능")
+
+func test_can_merge_exactly_capacity() -> void:
+	var a := _troop("light_infantry", 5)
+	var b := _troop("light_infantry", 5)
+	assert_true(a.can_merge_with(b), "합계 5+5=10(상한) → 병합 가능")
+
+func test_cannot_merge_over_capacity() -> void:
+	var a := _troop("light_infantry", 6)
+	var b := _troop("light_infantry", 5)
+	assert_false(a.can_merge_with(b), "합계 6+5=11(상한 초과) → 병합 불가")
+
+func test_cannot_merge_with_null() -> void:
+	assert_false(_troop("light_infantry").can_merge_with(null), "null 대상 → 병합 불가")
 
 # --- 지휘관(commander) ---
 

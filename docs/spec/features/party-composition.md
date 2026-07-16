@@ -24,22 +24,24 @@
 선택한 부대의 멤버 일부를 인접 칸의 **새 부대**로 나눈다(재조직 — 턴 소비 없음).
 
 - **[분할]** — 부대 [행동 메뉴](party-action-menu.md)의 버튼. 활성 부대의 **멤버가 2명 이상**이고 **인접 빈 칸**이 있을 때만 활성.
-- `game.gd` `_split_party()`: 활성 부대 인접 빈 칸(`_empty_adjacent_cell` 재사용, 캠프가 아니라 부대 기준)에 **빈 새 부대**를 만들어 `_units`에 넣고, **분할 패널**(`SplitPanel`)을 연다.
+- `game.gd` `_split_party()`: 활성 부대 인접 빈 칸(`_empty_adjacent_cell` 재사용, 캠프가 아니라 부대 기준)에 **빈 새 부대**를 만들어 `_units`에 넣고, **분할 패널**(`SplitPanel`)을 연다. 새 부대는 원 부대의 **병종([`troop_type`](../entities/Party.md#정체-identity))을 물려받는다**(같은 부대를 나눈 것이므로 동질 — 분할 후 다시 병합할 수 있다).
 - **분할 패널**(`scenes/party/split_panel.gd`, 코드 UI CanvasLayer — 두 목록 패턴): 왼쪽 **원 부대**·오른쪽 **새 부대**. 멤버 버튼 클릭으로 양쪽을 오간다(`Party.add_member`/`remove_member`). 변경 시 `changed` 시그널 → `game.gd`가 일람·안개 갱신.
 - **노획 장비 분배**: 멤버 목록 아래 **장비** 섹션 — 아이템별(이름 묶음) 행 `이름 · 원N [→][←] 새M`. `[→]`/`[←]`가 **1개씩** 원↔새로 옮긴다(`Party.transfer_loot_to`). 용량 제한 없음. 두 부대 장비의 합집합으로 행을 만들고, 옮길 때마다 목록을 재구성한다. (화물 제거로 자원 분배 섹션은 폐지.)
 - **닫을 때**: 새 부대가 **비어 있으면**(멤버 0명 — 분할 취소) 그 새 부대를 제거하되, **새 부대로 옮겨둔 노획 장비는 원 부대로 회수**한다(소실 방지). `_units`에서 빼고 free, **소비 없음**. 멤버가 있으면 분할 확정 — **원 부대·새 부대 둘 다 이번 턴 행동을 끝낸다**(`mark_attacked`, 재조직 비용). 다음 턴 리셋.
 
 ## 부대 병합 (`_merge_targets` + `Party.merge_from`)
 
-선택한 부대에 **인접한 아군 부대**를 합친다(재조직 — 턴 소비 없음).
+선택한 부대에 **인접한 같은 병종의 아군 일반부대**를 합친다(재조직 — 턴 소비 없음).
 
-- **대상 판정**(`_update_ranges` → `_merge_targets`): 활성 부대 칸에 **인접**하고 멤버가 있는 **다른 플레이어 부대**. cell → party.
+- **병합 제약**: **같은 병종([`troop_type`](../entities/Party.md#정체-identity))끼리만**, **일반부대(`KIND_TROOP`)끼리만**, 그리고 **합쳐도 인원 상한([`TROOP_SIZE`](../data/units.md#상수), 10)을 넘지 않을 때만** 병합할 수 있다(예: 4+6·5+5 가능, 6+5 불가). 영웅부대는 지휘관 1인 단독이라 **병합 자체가 없다**(대상도, 개시도 불가). 판정은 [`Party.can_merge_with(other)`](../entities/Party.md#동작)이 단일 출처.
+- **대상 판정**(`_update_ranges` → `_compute_merge_targets`): 활성 부대 칸에 **인접**하고 멤버가 있는 **다른 플레이어 부대** 중 [`party.can_merge_with(p)`](../entities/Party.md#동작)이 참인 것만. cell → party. (병합 불가한 부대는 대상에서 빠져 **[병합] 팝업이 뜨지 않는다**.)
 - **클릭**: 활성 부대 선택 상태에서 인접 아군 부대 칸을 클릭 → **[병합] 팝업**([공격] 팝업과 같은 `PartyActionMenu`). (선택 중 인접 아군 클릭은 전환 대신 병합 팝업 — 전환하려면 먼저 선택 해제.)
-- **[병합]**: `Party.merge_from(other)` — 그 아군 부대(other)의 멤버를 **활성 부대로 흡수**하고, other는 `_units`에서 빼고 free한다. 활성 부대는 자리를 지키고 병력이 합쳐진다. 병합 후 활성 부대는 **이번 턴 행동을 끝낸다**(`mark_attacked`).
+- **[병합]**: `Party.merge_from(other)` — 그 아군 부대(other)의 멤버를 **활성 부대로 흡수**하고, other는 `_units`에서 빼고 free한다. 활성 부대는 자리를 지키고 병력이 합쳐진다. 병합 후 활성 부대는 **이번 턴 행동을 끝낸다**(`mark_attacked`). 대상이 같은 병종으로 걸러졌으므로 병합 후에도 부대는 **하나의 병종으로 동질**하게 유지된다.
 
 ## 새 동작 (엔티티)
 
-- `Party.merge_from(other) -> void` — `other.members`를 모두 자신에게 `add_member`로 옮기고, `other.loot_items`(노획 장비)도 합친 뒤 `other`를 비운다(other는 빈 부대가 됨 → 호출부가 제거). 자신의 지휘관은 유지(없으면 첫 합류 멤버).
+- `Party.can_merge_with(other) -> bool` — `other`를 자신에게 병합할 수 있는지(같은 병종·둘 다 일반부대). **병합 가능 판정의 단일 출처**. ([Party](../entities/Party.md#동작))
+- `Party.merge_from(other) -> void` — `other.members`를 모두 자신에게 `add_member`로 옮기고, `other.loot_items`(노획 장비)도 합친 뒤 `other`를 비운다(other는 빈 부대가 됨 → 호출부가 제거). 자신의 지휘관은 유지(없으면 첫 합류 멤버). *(병종 검사는 호출부가 `can_merge_with`로 이미 거른다 — 이 함수는 흡수만 수행)*
 - `Party.transfer_loot_to(other, id) -> bool` — 노획 장비 1개를 `other`로 옮긴다(분할 분배). 미보유면 `false`. ([Party](../entities/Party.md#동작))
 
 ## 이번 슬라이스 제외 (미구현)
@@ -56,6 +58,8 @@
 **부대 병합** — `test/unit/test_party.gd`:
 - [정상] `a.merge_from(b)` 후 a에 b 멤버가 합쳐지고 b는 빈 배열, a 지휘관 유지
 - [경계] 빈 부대를 `merge_from` → a 변화 없음
+- [정상] `can_merge_with`: 같은 병종 일반부대끼리(인원 합계 ≤ 10) → 참 ([Party 시나리오](../entities/Party.md#테스트-시나리오) 참조)
+- [예외] `can_merge_with`: 다른 병종 / 영웅부대 포함 / 인원 합계 > 10 / `null` → 거짓 ([Party 시나리오](../entities/Party.md#테스트-시나리오) 참조)
 
 **부대 분할 분배(transfer)** — `test/unit/test_party.gd`:
 - [정상] `transfer_loot_to`(이동·미보유) — [Party 시나리오](../entities/Party.md#테스트-시나리오) 참조.

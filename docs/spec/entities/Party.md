@@ -18,6 +18,7 @@
 | 소속 세력 | `faction_name` | `""` | 부대가 속한 [세력](Faction.md) 이름. 정보 패널에 표시해 아군/적을 구분한다. 카탈로그 생성 시 설정 |
 | 토큰 색 | `token_color` | `Color(0.92, 0.78, 0.35)` (금색) | 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다 |
 | 종류 | `kind` | `"troop"` | 부대 종류(랑그릿사식 이분화). `KIND_HERO`(`"hero"`, 영웅부대 — 지휘관 1명 단독) / `KIND_TROOP`(`"troop"`, 일반부대 — 동일 능력치 병사 다수, 기본 [10명](../data/units.md)). **멤버 수로 파생하지 않고 명시 저장**(전투 사상으로 인원이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → [Units](../data/units.md) |
+| 병종 | `troop_type` | `""` | 이 부대의 **병종**(아키타입) id. 값은 [병종 카탈로그](../data/units.md)의 archetype id(`"light_infantry"` 경보병 / `"light_archer"` 경궁병 …). 일반부대 생성·[분할](../features/party-composition.md) 시 설정하며(분할된 새 부대는 원 부대 병종을 물려받음), 한 부대는 **하나의 병종으로 동질**하다(병합은 같은 병종끼리만 → 혼합 안 됨). **[병합 가능 판정](../features/party-composition.md)의 기준**. 영웅부대는 설정하지 않아 `""`(병합 없음). `is_ranged()`(무기 기반 근접/원거리 아이콘 판별)와는 별개 — 그쪽은 표시 전용이고, 병종은 창병/검병처럼 더 세분화될 수 있는 명시 필드다 |
 
 ### 소속 (Lord)
 
@@ -91,6 +92,7 @@
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
 - `is_hero() -> bool` — 영웅부대인지(`kind == KIND_HERO`). 일반부대는 거짓.
 - `shows_member_count() -> bool` — 토큰에 남은 인원수 배지를 그릴지(`kind == KIND_TROOP` 그리고 멤버 있음). 영웅부대·빈 부대는 거짓. `_draw`가 이 판정으로 배지를 그린다.
+- `can_merge_with(other) -> bool` — `other` 부대를 이 부대에 [병합](../features/party-composition.md)할 수 있는지. **병합 가능 판정의 단일 출처**. 참 조건: `other`가 `null`이 아니고, **양쪽 모두 일반부대**(`kind == KIND_TROOP` 그리고 `other.kind == KIND_TROOP` — 영웅부대는 어느 쪽이든 병합 불가), **같은 병종**(`troop_type == other.troop_type`), 그리고 **합쳐도 인원 상한을 넘지 않을 것**(`members.size() + other.members.size() <= UnitTypes.TROOP_SIZE`(10) — 예: 4+6·5+5 가능, 6+5 불가). `game.gd`의 병합 대상 판정([Party Composition](../features/party-composition.md))이 이 메서드로 인접 아군을 거른다.
 - `is_ranged() -> bool` — 이 부대 병종이 원거리인지: **지휘관(없으면 첫 멤버) 주무기 사거리 ≥ 2**면 참. 월드맵 토큰 **좌하단 병종 아이콘**(원거리=활 / 근접=검) 판별에 쓴다(`_draw` → `_draw_class_icon`). 빈 부대는 거짓(근접 기본). 모든 부대(영웅 포함)에 아이콘을 그린다 — 인원수 배지와 달리 종류 제한 없음. 아이콘은 에셋 없이 **코드 도형 플레이스홀더**(검=날+가드+손잡이 그립+폼멜, 활=휜 활대+시위+화살).
 - `has_lord() -> bool` — 소속 영웅부대가 있는지(`lord != null`).
 - `lord_name() -> String` — `lord`의 `commander_name()`. `lord`가 `null`이거나 그 지휘관이 없으면 `"—"`.
@@ -137,6 +139,12 @@
 - [정상] 생성 직후 `kind == "troop"`(=`KIND_TROOP`), `is_hero() == false`; `kind = KIND_HERO`로 두면 `is_hero() == true`
 - [정상] `shows_member_count()`: 멤버 있는 일반부대(`KIND_TROOP`) → 참; 멤버 있는 영웅부대(`KIND_HERO`) → 거짓; 멤버 없는 일반부대 → 거짓
 - [정상] `is_ranged()`: 지휘관 활(`bow`, 사거리 3) → 참(원거리 병종=활 아이콘); 지휘관 창(`spear`, 근접) → 거짓(근접 병종=검 아이콘); 빈 부대 → 거짓(근접 기본)
+- [정상] 생성 직후 `troop_type == ""`, 설정 가능
+- [정상] `can_merge_with`: 둘 다 `KIND_TROOP`이고 `troop_type`이 같으면(`"light_infantry"`끼리) → 참
+- [예외] `can_merge_with`: `troop_type`이 다르면(`"light_infantry"` vs `"light_archer"`) → 거짓(다른 병종)
+- [예외] `can_merge_with`: 어느 한쪽이라도 영웅부대(`KIND_HERO`)면 → 거짓(영웅은 병합 없음, `troop_type`이 같아도)
+- [경계] `can_merge_with`: 인원 합계가 상한(10) 이하면(5+5, 4+6) → 참; 상한을 넘으면(6+5=11) → 거짓
+- [예외] `can_merge_with(null)` → 거짓
 - [정상] 생성 직후 `highlight`의 알파 0(없음); `set_highlight(Color.RED)` 후 `highlight == Color.RED`([NPC 공격 연출](../features/npc-movement.md#npc-공격-그룹-이동-직후))
 - [정상] 생성 직후 `lord == null`, `has_lord() == false`, `lord_name() == "—"`
 - [정상] `lord`에 지휘관 있는 영웅부대를 지정하면 `has_lord() == true`, `lord_name()`이 그 영웅 이름
