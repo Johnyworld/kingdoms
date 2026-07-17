@@ -63,3 +63,27 @@ static func firing_siege(units: Array, team: String, distance: int) -> Array:
 				and distance >= u["min_range"] and distance <= u["range"]:
 			out.append(u)
 	return out
+
+## 발 겹침 분리(separation)용 순수 계산 — 서로 radius보다 가까운 점 쌍을 겹침량 비례로 밀어내는 유닛별 오프셋.
+## 유효거리는 세로 성분을 y_scale배로 부풀려 잰다(다리 footprint만 판정 — 가로 근접은 강하게, 세로 깊이는 약하게).
+## 밀림 방향은 실제 방향(주로 가로), 쌍마다 절반씩 대칭. 유닛별 총 오프셋은 max_push로 클램프. 겹침 없으면 영벡터.
+## 같은 위치(유효거리 0)는 크래시 없이 건너뛴다. RNG·상태 없이 결정적. → docs/spec/features/battle.md 발 겹침 분리
+static func separation_offsets(points: Array, radius: float, max_push: float, y_scale: float) -> Array:
+	var n := points.size()
+	var offs: Array = []
+	offs.resize(n)
+	for i in n:
+		offs[i] = Vector2.ZERO
+	for i in n:
+		for j in range(i + 1, n):
+			var delta: Vector2 = points[i] - points[j]
+			var d: float = Vector2(delta.x, delta.y * y_scale).length()   # 세로 부풀린 유효거리
+			if d <= 0.0 or d >= radius:
+				continue
+			var push: Vector2 = delta.normalized() * ((radius - d) * 0.5)   # 겹침량 절반씩 양쪽에
+			offs[i] += push
+			offs[j] -= push
+	for i in n:
+		if offs[i].length() > max_push:
+			offs[i] = offs[i].normalized() * max_push
+	return offs

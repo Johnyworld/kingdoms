@@ -42,6 +42,9 @@ const FLOAT_RISE := 40.0      # 떠오르는 텍스트 상승 높이(px)
 const FLOAT_TIME := 0.7       # 떠오름·페이드 시간(초)
 const FLASH_TIME := 0.12      # 피격 흰 반짝임 시간(초)
 const HIT_PUSH_PX := TOKEN_R * 2.0   # 근접 타격 시 밀림 거리(px) = 병사 폭(TOKEN_R×2). 피격자 밀림 + 공격자 같이 전진(달라붙기), 되돌아오지 않는 실제 위치 이동. → battle.md
+const SEP_RADIUS := TOKEN_R * 2.0    # 발 겹침 분리 반경(px) — 이 안에 들면 밀어낸다(병사 폭). → battle.md
+const SEP_SPEED := 900.0             # 분리 밀림 최대 속도(px/s) — 프레임당 max_push = SEP_SPEED×d(재생 배속). 접근(UNIT_SPEED)보다 빨라 파일업을 풀되, 겹침 비례항이라 가장자리(타격 중)는 약해 타격을 막지 않는다. 추후 튜닝.
+const SEP_Y_SCALE := 2.0             # 분리 세로(깊이) 거리 부풀림 배수 — 다리 footprint만 판정(가로만 강하게, 앞뒤 겹침 허용). 추후 튜닝. → battle.md
 const PUSH_SLIDE_SPEED := 500.0      # 밀림 시각 오프셋(voff)이 0으로 감쇠하는 속도(px/s). 낮을수록 천천히 슬라이드. 일반 이동은 pos 직행(무관). → battle.md
 const ADVANCE_DELAY := 0.5           # 근접 타격 후 공격자가 다시 붙으러 접근하기까지 멈추는 시간(초, 실시간). 펜싱식 리듬. → battle.md
 const LUNGE_PX := 10.0        # 공격 돌진 거리(px)
@@ -609,6 +612,19 @@ func _process(delta: float) -> void:
 				var dest: Vector2 = t["pos"] + u.get("engage_off", Vector2.ZERO)
 				u["pos"] += (dest - u["pos"]).normalized() * u["speed"] * d
 
+	# 발 겹침 분리 — 이동·공격 이후, 살아있는 유닛끼리 겹치면 밀어낸다(연출 전용, 판정·생존 결과 불변). → battle.md
+	# 공격 판정이 위에서 먼저 끝났으므로 리치 안 유닛은 이미 타격을 마쳐 전투 진행은 안 막힌다.
+	var sep_units: Array = []
+	var sep_points: Array = []
+	for u in _units:
+		if u["alive"] and not u.get("siege", false) and not u.get("structure", false):
+			sep_units.append(u)
+			sep_points.append(u["pos"])
+	if sep_units.size() > 1:
+		var offs := BattleField.separation_offsets(sep_points, SEP_RADIUS, SEP_SPEED * d, SEP_Y_SCALE)
+		for i in sep_units.size():
+			sep_units[i]["pos"] += offs[i]
+
 	# 살아있는 각 멤버 토큰을 프레임 끝에 갱신(위치·hp·바·tint). 죽은 유닛은 _kill이 페이드/넉백 처리.
 	for u in _units:
 		if u.get("human") != null and u.has("node") and u["alive"]:
@@ -631,13 +647,17 @@ func _attack(u: Dictionary, t: Dictionary, weapon: String) -> void:
 	var speed := RANGED_SPEED if _ranged_mode else 1.0
 	u["cooldown"] = CombatResolver.attack_interval(u["human"], weapon) / speed
 	# --- 타격 연출(combat-feedback.md) — 공격자·표적 모두 개별 멤버(사람). ---
-	# 근접 공격만 돌진(lunge). 궁수·투척은 제자리에서 발사 — 자리잡은 대열이 좌우로 흔들리지 않게. → battle.md
-	if ItemTypes.weapon_range(weapon) < 2 and ItemTypes.weapon_throw_range(weapon) == 0:
+	# 근접 공격만 돌진(lunge)·밀림. 궁수·투척은 제자리 발사(투사체). 근접 전환한 궁수(melee_engaged)는
+	# 무기 사거리와 무관하게 근접 연출로 처리한다 — 붙으면 근접대근접과 동일. → battle.md
+	# 투척(throw_range>0)은 항상 투사체 — melee_engaged라도 근접 연출로 처리하지 않는다.
+	var is_melee: bool = ItemTypes.weapon_throw_range(weapon) == 0 \
+			and (u.get("melee_engaged", false) or ItemTypes.weapon_range(weapon) < 2)
+	if is_melee:
 		_lunge(u, t["pos"])                                   # 공격 멤버가 표적 쪽으로 돌진
 	var ht := HitFeedback.hit_text(r)
 	_spawn_float(t["pos"], ht["text"], ht["color"], ht["big"])   # 대미지 숫자/빗나감/막기(표적 멤버)
 	if r["hit"] and not r["blocked"] and r["damage"] > 0:
-		if ItemTypes.weapon_range(weapon) < 2 and ItemTypes.weapon_throw_range(weapon) == 0:
+		if is_melee:
 			# 근접 타격 — 피격자만 뒤로 밀린다(공격자는 즉시 안 붙음). 공격자는 ADVANCE_DELAY 뒤 다시 접근해 붙는다(펜싱 리듬). → battle.md
 			var away: Vector2 = t["pos"] - u["pos"]
 			if away.length() > 0.001:
@@ -649,8 +669,8 @@ func _attack(u: Dictionary, t: Dictionary, weapon: String) -> void:
 		_flash(t)                                             # 표적 반짝임(밀림은 위치로 표현)
 	if r["inflict"] != "":
 		_spawn_float(t["pos"] + Vector2(0, -18), HitFeedback.status_text(r["inflict"]), HitFeedback.STATUS_COLOR, false)
-	if ItemTypes.weapon_range(weapon) >= 2 or ItemTypes.weapon_throw_range(weapon) > 0:
-		_spawn_projectile(u["pos"], t["pos"])   # 원거리·투척 연출(멤버→멤버)
+	if not is_melee and (ItemTypes.weapon_range(weapon) >= 2 or ItemTypes.weapon_throw_range(weapon) > 0):
+		_spawn_projectile(u["pos"], t["pos"])   # 원거리·투척 연출(멤버→멤버). 근접 전환 궁수는 투사체 없이 근접 타격.
 	if t["hp"] <= 0:
 		_kill(t, u["pos"])   # 멤버 사망: 공격자 반대쪽으로 넉백(랑그릿사1식)
 
@@ -727,13 +747,16 @@ func _reset_flash(u: Dictionary, body: ColorRect) -> void:
 	body.color = u["color"]
 
 ## 근접 모드 궁수를 근접 교전으로 전환(한 번 전환되면 유지). 근접무기 없으면 활 든 채 돌격.
+## 전환 후엔 근접대근접과 동일 거동 — melee_engaged로 공격 연출을 근접(_attack)으로 강제하고,
+## melee_reach를 근접 유닛 수준(≥1.2×MELEE_REACH_PX)으로 바닥 보정한다(활 리치 32px면 분리 반경 안쪽까지 파고들어 상대를 밀고 다님). → battle.md
 func _engage_melee(u: Dictionary) -> void:
 	var mw: String = ItemTypes.melee_weapon(u["human"].weapons)
 	if mw == "":
 		mw = u["weapon"]   # 순수 궁수: 활을 근접 무기처럼
 	u["weapon"] = mw
 	u["range"] = 1   # 이후 프레임부터 근접(접근·근접 공격) 거동
-	u["melee_reach"] = ItemTypes.weapon_reach(mw) * MELEE_REACH_PX
+	u["melee_engaged"] = true
+	u["melee_reach"] = maxf(ItemTypes.weapon_reach(mw), 1.2) * MELEE_REACH_PX
 
 ## 전투불능 처리. from_pos가 주어지면 그 반대쪽으로 껑충 뛰어(아치) 날아가며 흐려진다(랑그릿사1식).
 ## from_pos가 없으면(출혈 도트 등) 넉백 없이 흐려지기만 한다.

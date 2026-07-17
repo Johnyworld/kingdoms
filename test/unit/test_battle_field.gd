@@ -171,3 +171,45 @@ func test_firing_siege_ram_band_one() -> void:
 	var ram := _band_siege("a", true, 1, 1, "ram")
 	assert_eq(BattleField.firing_siege([ram], "a", 1).size(), 1, "충차는 거리 1에서 발사")
 	assert_eq(BattleField.firing_siege([ram], "a", 4).size(), 0, "거리 4는 충차 밴드 밖")
+
+# --- 발 겹침 분리 (separation_offsets) ---
+
+func test_separation_horizontal_symmetric_push() -> void:
+	# 가로로 radius(60)보다 가까운 두 점 → 서로 반대 방향으로 밀리고 합은 ≈영벡터.
+	var off := BattleField.separation_offsets([Vector2(0, 0), Vector2(30, 0)], 60.0, 1000.0, 2.0)
+	assert_lt(off[0].x, 0.0, "왼쪽 점은 -x로 밀림")
+	assert_gt(off[1].x, 0.0, "오른쪽 점은 +x로 밀림")
+	assert_almost_eq(off[0].x + off[1].x, 0.0, 0.001, "대칭(합 ≈ 0)")
+
+func test_separation_far_apart_zero() -> void:
+	var off := BattleField.separation_offsets([Vector2(0, 0), Vector2(200, 0)], 60.0, 1000.0, 2.0)
+	assert_almost_eq(off[0].length(), 0.0, 0.001, "radius 밖 → 영벡터")
+	assert_almost_eq(off[1].length(), 0.0, 0.001, "radius 밖 → 영벡터")
+
+func test_separation_more_overlap_bigger_until_clamp() -> void:
+	var close := BattleField.separation_offsets([Vector2(0, 0), Vector2(10, 0)], 60.0, 1000.0, 2.0)
+	var loose := BattleField.separation_offsets([Vector2(0, 0), Vector2(40, 0)], 60.0, 1000.0, 2.0)
+	assert_gt(close[0].length(), loose[0].length(), "더 깊이 겹칠수록 오프셋 큼")
+	var clamped := BattleField.separation_offsets([Vector2(0, 0), Vector2(10, 0)], 60.0, 5.0, 2.0)
+	assert_almost_eq(clamped[0].length(), 5.0, 0.001, "max_push로 상한 클램프")
+
+func test_separation_anisotropic_vertical_less_than_horizontal() -> void:
+	# 같은 실제 거리 40이라도 세로는 y_scale(2)로 유효거리가 커져 덜/안 밀린다(다리 footprint만).
+	var horiz := BattleField.separation_offsets([Vector2(0, 0), Vector2(40, 0)], 60.0, 1000.0, 2.0)
+	var vert := BattleField.separation_offsets([Vector2(0, 0), Vector2(0, 40)], 60.0, 1000.0, 2.0)
+	assert_lt(vert[0].length(), horiz[0].length(), "세로 근접은 가로보다 덜 밀린다")
+
+func test_separation_three_in_row_middle_cancels() -> void:
+	var off := BattleField.separation_offsets([Vector2(-40, 0), Vector2(0, 0), Vector2(40, 0)], 60.0, 1000.0, 2.0)
+	assert_almost_eq(off[1].length(), 0.0, 0.001, "가운데는 양쪽서 밀려 상쇄")
+	assert_lt(off[0].x, 0.0, "왼끝은 바깥(-x)")
+	assert_gt(off[2].x, 0.0, "오른끝은 바깥(+x)")
+
+func test_separation_coincident_skipped_no_crash() -> void:
+	var off := BattleField.separation_offsets([Vector2(0, 0), Vector2(0, 0)], 60.0, 1000.0, 2.0)
+	assert_almost_eq(off[0].length(), 0.0, 0.001, "같은 위치 쌍은 영벡터로 건너뜀")
+	assert_almost_eq(off[1].length(), 0.0, 0.001, "같은 위치 쌍은 영벡터로 건너뜀")
+
+func test_separation_returns_same_length() -> void:
+	var pts := [Vector2(0, 0), Vector2(10, 0), Vector2(20, 0)]
+	assert_eq(BattleField.separation_offsets(pts, 60.0, 1000.0, 2.0).size(), 3, "반환 길이 = 입력 길이")

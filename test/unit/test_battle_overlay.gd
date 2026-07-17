@@ -211,6 +211,91 @@ func test_duel_partners_assigned() -> void:
 			assert_true(u.has("duel"), "멤버는 duel 짝을 가진다")
 			assert_ne(u["duel"]["team"], u["team"], "짝은 상대 팀 유닛")
 
+func test_separation_pushes_overlapping_units_apart() -> void:
+	# 발 겹침 분리 — 같은 팀 두 유닛을 가로로 바짝 붙여두고 _process 1프레임 → 서로 밀려 가로 간격이 벌어진다.
+	var atk := _party("공격", 3, 3, "sword", Color.RED)   # 약하게(str 3) — 한 프레임에 안 죽게
+	var deff := _party("방어", 3, 3, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	var a_units: Array = []
+	for u in battle._units:
+		if u["team"] == "a" and u["alive"] and u.has("human"):
+			a_units.append(u)
+	assert_gt(a_units.size(), 1, "팀 a 멤버 2명 이상")
+	a_units[0]["pos"] = Vector2(400, 300)
+	a_units[1]["pos"] = Vector2(406, 300)   # 가로 6px 겹침(반경 60 안)
+	var before: float = absf(a_units[0]["pos"].x - a_units[1]["pos"].x)
+	# 실제 프레임 delta(≈1/60)로 여러 프레임 펌프 — 분리가 이동을 이길 만큼 실효적인지 검증(큰 delta로 약함을 가리지 않게).
+	for i in 8:
+		battle._process(1.0 / 60.0)
+	var after: float = absf(a_units[0]["pos"].x - a_units[1]["pos"].x)
+	assert_gt(after, before + 30.0, "겹친 두 유닛이 가로로 크게 밀려 간격이 벌어진다(반경 60 쪽으로)")
+
+func test_archer_engage_melee_floors_reach() -> void:
+	# 순수 궁수가 근접 전환하면 melee_engaged·range 1, melee_reach가 근접 수준으로 바닥 보정(활 32px보다 큼).
+	var atk := _party("궁수", 1, 60, "bow", Color.RED)
+	var deff := _party("보병", 1, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	var archer: Dictionary = {}
+	for u in battle._units:
+		if u["team"] == "a":
+			archer = u
+	battle._engage_melee(archer)
+	assert_true(archer.get("melee_engaged", false), "근접 전환 플래그 설정")
+	assert_eq(archer["range"], 1, "근접 거동(range 1)")
+	assert_gte(archer["melee_reach"], 1.2 * battle.MELEE_REACH_PX, "근접 리치로 바닥 보정(활 32px보다 큼)")
+
+func test_archer_melee_hit_pushes_victim() -> void:
+	# 근접 전환한 궁수의 명중은 근접대근접처럼 피격자를 HIT_PUSH만큼 밀어낸다(투사체 아님).
+	var atk := _party("궁수", 1, 60, "bow", Color.RED)
+	var deff := _party("보병", 1, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	var archer: Dictionary = {}
+	var foot: Dictionary = {}
+	for u in battle._units:
+		if u["team"] == "a":
+			archer = u
+		elif u["team"] == "b":
+			foot = u
+	battle._engage_melee(archer)
+	archer["pos"] = Vector2(300, 300)
+	var pushed := false
+	for s in range(1, 40):
+		foot["pos"] = Vector2(320, 300)   # 공격자 오른쪽에 붙음
+		foot["voff"] = Vector2.ZERO
+		foot["hp"] = 999                  # 안 죽게(밀림만 관찰)
+		battle._rng.seed = s
+		battle._attack(archer, foot, archer["weapon"])
+		if foot["pos"].x > 320.5:         # 공격자 반대쪽(+x)으로 밀림
+			pushed = true
+			break
+	assert_true(pushed, "근접 전환 궁수 명중 → 피격자 밀림(근접 연출)")
+
+func test_engaged_thrower_javelin_stays_projectile() -> void:
+	# melee_engaged 유닛이라도 투척(javelin)은 근접 밀림이 아니라 투사체로 처리(연출 일관성).
+	var atk := _party("궁수", 1, 60, "bow", Color.RED)
+	var deff := _party("보병", 1, 60, "sword", Color.BLUE)
+	battle.start(atk, deff, 1)
+	var archer: Dictionary = {}
+	var foot: Dictionary = {}
+	for u in battle._units:
+		if u["team"] == "a":
+			archer = u
+		elif u["team"] == "b":
+			foot = u
+	battle._engage_melee(archer)   # melee_engaged = true
+	archer["pos"] = Vector2(300, 300)
+	var pushed := false
+	for s in range(1, 40):
+		foot["pos"] = Vector2(320, 300)
+		foot["voff"] = Vector2.ZERO
+		foot["hp"] = 999
+		battle._rng.seed = s
+		battle._attack(archer, foot, "javelin")   # 투척 무기로 공격
+		if foot["pos"].x > 320.5:
+			pushed = true
+			break
+	assert_false(pushed, "melee_engaged라도 투척은 밀림 없음(투사체)")
+
 func test_spawn_scattered_not_single_column() -> void:
 	# 같은 팀 근접 유닛들의 y가 서로 달라야 한다(한 줄로 겹치지 않음 — 분산 난투).
 	var atk := _party("공격", 5, 60, "sword", Color.RED)
