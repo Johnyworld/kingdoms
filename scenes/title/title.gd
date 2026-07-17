@@ -2,11 +2,13 @@ extends Control
 ## 타이틀(메인) 메뉴. 시작 / 설정 / 종료 버튼을 제공한다.
 ## 게임플레이 씬과 설정 씬은 아직 없으므로 시작/설정은 임시 동작.
 
+@onready var _new_game_button: Button = $Menu/NewGameButton
 @onready var _start_button: Button = $Menu/StartButton
 @onready var _settings_button: Button = $Menu/SettingsButton
 @onready var _quit_button: Button = $Menu/QuitButton
 
 func _ready() -> void:
+	_new_game_button.pressed.connect(_on_new_game_pressed)
 	_start_button.pressed.connect(_on_start_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
@@ -17,7 +19,11 @@ func _ready() -> void:
 		_quit_button.hide()
 
 	# 게임패드/키보드 기본 포커스
-	_start_button.grab_focus()
+	_new_game_button.grab_focus()
+
+## 격리 테스트: 랑그릿사 1(MD) 오마주 전투 씬으로 바로 진입 (10:10 더미 교전).
+func _on_new_game_pressed() -> void:
+	SceneManager.change_scene("res://scenes/lang_battle/lang_battle.tscn")
 
 func _on_start_pressed() -> void:
 	SceneManager.change_scene("res://scenes/game/game.tscn")

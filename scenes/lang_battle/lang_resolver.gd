@@ -1,0 +1,146 @@
+class_name LangResolver
+extends RefCounted
+## 물리 전투 계산 (Resolver) — 스펙 §2. 순수 함수: 렌더링 없음.
+## 교전 입력 → 라운드별 히트/전사 시퀀스 + 최종 병력을 결정론적으로 계산한다.
+## 이 분리 덕분에 "전투 애니 스킵"이 결과를 바꾸지 않는다(원작 동작, 스펙 §0).
+
+const SUBUNITS_PER_SOLDIER := 8  # 병사 1명 = 8 세부단위 (스펙 §4)
+const ACC_BASE := 30             # 명중 기본 (스펙 §2.1 accBase)
+
+# 히트 이벤트 종류 (스펙 §2.7 HitEvent.kind)
+enum Hit { HIT, MISS, SPECIAL, NO_KILL }
+
+## Unit 팩토리 — 런타임 유닛 구조체 (스펙 §1.2).
+## commander 는 다른 Unit(Dictionary) 또는 null(=본인이 지휘관).
+static func make_unit(class_id: int, side: int, soldiers: int,
+		gx: int = 0, gy: int = 0, item_id: int = 0,
+		level: int = 1, acc_mod: int = 0) -> Dictionary:
+	return {
+		"class_id": class_id,
+		"level": level,
+		"item_id": item_id,
+		"side": side,
+		"gx": gx,
+		"gy": gy,
+		"max_soldiers": soldiers,
+		"strength": soldiers * SUBUNITS_PER_SOLDIER,  # 1/8 병사 단위
+		"attack_count": soldiers,   # 이 교전의 공격 횟수(각 병사 1회) — 스펙 §1.2 근사
+		"acc_mod": acc_mod,         # 방어측 회피 보정(지형 등)
+		"commander": null,          # null 이면 self (거리 0 → 항상 자기 지휘보정)
+	}
+
+static func soldier_count(u: Dictionary) -> int:
+	return int(u["strength"]) / SUBUNITS_PER_SOLDIER
+
+# ── 스탯 조립 (스펙 §2.1) ────────────────────────────────────────────────
+
+## 상대를 고려한 최종 at/df 를 조립한다. {at, df} 반환.
+static func assemble_stats(u: Dictionary, opp: Dictionary) -> Dictionary:
+	var base := LangData.get_class_stat(u["class_id"])
+	var at: int = base["at"]
+	var df: int = base["df"]
+	# 병종 상성 (§2.3)
+	var tb := _type_bonus(u, opp)
+	at += tb.x
+	df += tb.y
+	# 지휘범위 보정 (§2.4)
+	var cb := _cmd_bonus(u)
+	at += cb.x
+	df += cb.y
+	return {"at": at, "df": df, "base_at": int(base["at"]), "base_df": int(base["df"])}
+
+## 병종 상성 (스펙 §2.3, 원본 0xDBBA). 상대의 magicTier 로 조회.
+static func _type_bonus(u: Dictionary, opp: Dictionary) -> Vector2i:
+	var self_stat := LangData.get_class_stat(u["class_id"])
+	var opp_stat := LangData.get_class_stat(opp["class_id"])
+	var opp_tier: int = opp_stat["magic_tier"]
+	opp_tier = clampi(opp_tier, 0, 4)
+	var row: Array = self_stat["matchup"][opp_tier]
+	return Vector2i(int(row[0]), int(row[1]))
+
+## 지휘범위 보정 (스펙 §2.4, 원본 0xDC7C). 맨해튼 거리 ≤ range 면 지휘관 보너스.
+static func _cmd_bonus(u: Dictionary) -> Vector2i:
+	var cmdr: Variant = u["commander"]
+	if cmdr == null:
+		cmdr = u  # 본인이 지휘관 (거리 0)
+	var cmdr_stat := LangData.get_class_stat(cmdr["class_id"])
+	var dist: int = abs(int(u["gx"]) - int(cmdr["gx"])) + abs(int(u["gy"]) - int(cmdr["gy"]))
+	var rng_range: int = cmdr_stat["cmd_range"]
+	if int(cmdr["item_id"]) == 9:  # 지휘범위+5 아이템
+		rng_range += 5
+	if dist <= rng_range:
+		return Vector2i(int(cmdr_stat["cmd_at"]), int(cmdr_stat["cmd_df"]))
+	return Vector2i.ZERO
+
+## 표시용 명중률(%) 근사 — 방어측 회피 반영 (스펙 §2.1).
+static func hit_chance_pct(_attacker: Dictionary, defender: Dictionary) -> int:
+	return clampi(100 - (ACC_BASE + int(defender["acc_mod"])), 0, 100)
+
+# ── 교전 (스펙 §2.2, 원본 0xEC96/0xED60) ─────────────────────────────────
+
+## 1회 명중 판정. attacker/defender 의 조립된 스탯(at/df)을 미리 넣어 호출한다.
+static func _attempt_hit(rng: LangRng, atk_stat: Dictionary, def_unit: Dictionary,
+		atk_soldiers: int) -> int:
+	if rng.next_mod(100) < (ACC_BASE + int(def_unit["acc_mod"])):
+		return Hit.MISS  # 회피
+	if rng.next_mod(36) == 0:
+		return Hit.SPECIAL  # 특수(효과 미확정, 부록A) — 우선 데미지 없음 처리
+	if rng.next_mod(36) == 0:
+		return Hit.MISS
+
+	var atk: int = atk_stat["at"]
+	var troops := atk_soldiers  # 병사 많을수록 강함
+	var base := troops * 3 + 50
+	var span: int = 100 - base
+	var factor := base + 10
+	if span > 0:
+		factor += rng.next_mod(span)
+	var raw := int(atk * factor / 100.0)
+	var def_df: int = atk_stat["_opp_df"]
+	if raw >= def_df:
+		return Hit.HIT  # 방어측 병사 1명 전사
+	return Hit.NO_KILL
+
+## 양방향 교전 실행. 결정론적 시퀀스 + 최종 병력 반환 (스펙 §2.2/§2.7).
+## 반환:
+## {
+##   rounds: [ {attacker_side, target_side, kind}, ... ],
+##   final_a_soldiers, final_d_soldiers,
+##   stats_a: {at,df,base_at,base_df,hit}, stats_d: {...},
+## }
+static func resolve_engagement(rng: LangRng, a: Dictionary, d: Dictionary) -> Dictionary:
+	var sa := assemble_stats(a, d)
+	var sd := assemble_stats(d, a)
+	sa["_opp_df"] = sd["df"]
+	sd["_opp_df"] = sa["df"]
+	sa["hit"] = hit_chance_pct(a, d)
+	sd["hit"] = hit_chance_pct(d, a)
+
+	var a_soldiers := soldier_count(a)
+	var d_soldiers := soldier_count(d)
+	var rounds: Array = []
+
+	# 공격자 -> 방어자
+	var surv_d := d_soldiers
+	for i in int(a["attack_count"]):
+		var ev := _attempt_hit(rng, sa, d, a_soldiers)
+		if ev == Hit.HIT:
+			surv_d -= 1
+		rounds.append({"attacker_side": int(a["side"]), "target_side": int(d["side"]), "kind": ev})
+
+	# 방어자 -> 공격자 (반격): defender.attackCount > 0 일 때만 (스펙 §2.2)
+	var surv_a := a_soldiers
+	if int(d["attack_count"]) > 0:
+		for i in int(d["attack_count"]):
+			var ev := _attempt_hit(rng, sd, a, d_soldiers)
+			if ev == Hit.HIT:
+				surv_a -= 1
+			rounds.append({"attacker_side": int(d["side"]), "target_side": int(a["side"]), "kind": ev})
+
+	return {
+		"rounds": rounds,
+		"final_a_soldiers": maxi(surv_a, 0),
+		"final_d_soldiers": maxi(surv_d, 0),
+		"stats_a": sa,
+		"stats_d": sd,
+	}

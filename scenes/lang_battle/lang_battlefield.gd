@@ -1,0 +1,492 @@
+extends Node2D
+## 전장 렌더러 (픽셀아트) — 384×216 논리 공간에 안티앨리어싱 없는 사각형 픽셀로만 그린다.
+## 노드 scale=×5(씬 지정)로 확대 → 1920×1080. draw_rect 는 하드엣지라 확대해도 도트가 선명.
+##
+## 연출은 랑그릿사 1(MD) 롬 디스어셈블 결과를 그대로 재현한다(연출 전용, Resolver 무관):
+##  - 병사는 개별 스프라이트. 진영 기준 X(원본 56/264, center 160)에서 스폰.       [0x156E/0xF4C2]
+##  - 각 병사는 적 병사(타겟)를 향해 **등속** 접근. **X를 먼저 좁히고(≤36px) → Y 접근**. [0xE30E]
+##  - 속도 X=3.0 / Y=2.0 px/frame (원본 16.16 고정소수 0x30000/0x20000).             [0x156E]
+##  - 근접하면 공격(찌르기/타격 이펙트). 병력 감소는 하단 패널에서 별도.
+##  - 병사 색/도형은 플레이스홀더(원본 스프라이트 재배포 지양).
+
+const FIELD_W := 384.0
+const FIELD_H := 216.0
+const ACTION_TOP := 44.0
+const ACTION_BOT := 158.0
+
+# 스폰은 화면 밖(양옆)에서 → 돌격해 들어온다. (원본도 화면 밖에서 등장)
+const LEFT_X := -16.0    # 화면 왼쪽 밖 (앞 열)
+const RIGHT_X := 400.0   # 화면 오른쪽 밖 (앞 열, 384+16)
+const BASE_Y := 96.0
+
+# 원본 등속 이동 속도 (px/frame @60fps) → 초당으로 환산(×60, ×1.2 스케일)
+const VX := 3.0 * 1.2 * 60.0   # ≈ 216 px/s
+const VY := 2.0 * 1.2 * 60.0   # ≈ 144 px/s
+const CLOSE_X := 36.0 * 1.2    # X가 이 안이면 Y 접근 시작 (원본 0x240000=36px)
+const GAP_X := 13.0            # 근접 시 좌우 간격(마주섬)
+const GAP_Y := 5.0
+
+const STRIKE_DUR := 0.22
+# 사망: 원본 0x1976/0x19EA — 위로+뒤로 포물선 넉백 점프 → 착지 후 눕기+점멸 소멸(0x1B24)
+const DEATH_GRAV := 540.0            # 중력 px/s² (원본 +0x2000/frame ×1.2×3600)
+const DEATH_VX := Vector2(40.0, 105.0)   # 뒤로 넉백 속도 범위 px/s (원본 0.5~1.5px/f ×1.2×60)
+const DEATH_VY := Vector2(175.0, 250.0)  # 위로 launch 속도 범위 px/s (원본 2.5~3.5px/f ×1.2×60)
+const DEATH_LIE := 0.6               # 착지 후 눕기+점멸 시간
+
+# 병사 상태
+enum { CHARGE, MELEE, DYING }
+
+# ── 팔레트 (16비트풍) ─────────────────────────────────────────────────────
+const OUTLINE := Color8(16, 18, 26)
+const STEEL := Color8(150, 160, 178)
+const STEEL_HI := Color8(214, 224, 238)
+const STEEL_DK := Color8(84, 92, 108)
+const SKIN := Color8(214, 164, 118)
+const BOOT := Color8(58, 42, 28)
+const WOOD := Color8(126, 84, 42)
+const TEAM := {
+	0: [Color8(58, 108, 196), Color8(34, 66, 128), Color8(110, 170, 250)],
+	1: [Color8(196, 62, 58), Color8(128, 36, 34), Color8(250, 118, 104)],
+}
+const FLOOR := Color8(58, 84, 50)
+const FLOOR_HI := Color8(74, 104, 62)
+const FLOOR_DK := Color8(40, 60, 36)
+const MORTAR := Color8(34, 50, 32)
+const MOSS := Color8(96, 132, 66)
+const WALL := Color8(70, 66, 58)
+const WALL_HI := Color8(96, 90, 78)
+const WALL_DK := Color8(44, 40, 34)
+const PIT := Color8(24, 22, 20)
+
+var _soldiers := {0: [], 1: []}
+var _flashes: Array = []
+var _effects: Array = []  # 전방으로 날아가는 공격 이펙트 [0x1860]
+var _shake := 0.0
+var _t := 0.0
+var _charging := false
+var _next_id := 0
+var _rng := RandomNumberGenerator.new()
+
+func _ready() -> void:
+	_rng.randomize()
+
+func setup(a_count: int, b_count: int) -> void:
+	_soldiers = {0: [], 1: []}
+	_effects = []
+	_spawn_side(0, a_count)
+	_spawn_side(1, b_count)
+	_retarget_all()
+	queue_redraw()
+
+const COLS := 3          # 원본 대형: 3열
+const COL_GAP := 33.0    # 열 간격(적 반대 방향으로 뒤로) — X 간격 3배로 넓힘
+const ROW_GAP := 15.0    # 같은 열 내 세로 간격
+
+# 분리(separation): 원본 16px 충돌 박스(0xE87A)를 근사 — 겹치면 서로 밀어내 부피를 만든다.
+const SEP_DIST := 11.0   # 이 거리보다 가까우면 밀어냄
+const SEP_STR := 0.4     # 밀어내는 강도(프레임당)
+
+func _spawn_side(side: int, n: int) -> void:
+	# 3열 종대 스태거 대형(원본 확인). 앞 열이 적을 향함, 뒷 열은 진영 쪽으로.
+	var front_x := LEFT_X if side == 0 else RIGHT_X
+	var back_dir := -1.0 if side == 0 else 1.0   # 열이 뒤로 쌓이는 방향(적 반대)
+	var rows_total: int = int(ceil(n / float(COLS)))
+	for i in range(n):
+		var col := i % COLS
+		var row := i / COLS
+		var x := front_x + back_dir * col * COL_GAP + _rng.randf_range(-2.0, 2.0)
+		var y := BASE_Y + (row - (rows_total - 1) * 0.5) * ROW_GAP + col * 3.0 + _rng.randf_range(-2.0, 2.0)
+		y = clampf(y, ACTION_TOP + 8, ACTION_BOT - 6)
+		_soldiers[side].append({
+			"id": _next_id,
+			"side": side,
+			"pos": Vector2(x, y),
+			"target": null,       # 적 병사 dict
+			"state": CHARGE,
+			"strike_t": 0.0,
+			"death_t": 0.0,
+			"airborne": false,
+			"dvx": 0.0,
+			"dvy": 0.0,
+			"land_y": 0.0,
+			"alpha": 1.0,
+			"seed": _rng.randf() * TAU,
+			"face": 1.0 if side == 0 else -1.0,
+		})
+		_next_id += 1
+
+## 타겟 선택 (원본 0xE5DA 재현): 미교전 적 우선 + 최근접 → 병사들이 1:1로 분산.
+func _retarget_all() -> void:
+	for side in [0, 1]:
+		var foes: Array = _soldiers[1 - side].filter(func(f): return f["state"] != DYING)
+		if foes.is_empty():
+			continue
+		var claimed := {}  # foe id -> true (이미 다른 아군이 물고 있음)
+		for s in _soldiers[side]:
+			if s["state"] == DYING:
+				continue
+			var sp: Vector2 = s["pos"]
+			var best: Variant = null
+			var best_d := 1.0e9
+			var best_un := false  # 미교전(unclaimed) 여부
+			for f in foes:
+				var fp: Vector2 = f["pos"]
+				var d: float = absf(sp.x - fp.x) + absf(sp.y - fp.y)  # 맨해튼
+				var un: bool = not claimed.has(f["id"])
+				var better := false
+				if best == null:
+					better = true
+				elif un and not best_un:      # 미교전 적 우선
+					better = true
+				elif un == best_un and d < best_d:  # 동순위는 최근접
+					better = true
+				if better:
+					best = f
+					best_d = d
+					best_un = un
+			s["target"] = best
+			if best != null:
+				claimed[best["id"]] = true
+
+# ── 연출 트리거 ────────────────────────────────────────────────────────────
+func begin_advance() -> void:
+	_charging = true
+
+func all_engaged() -> bool:
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			if s["state"] == CHARGE:
+				return false
+	return true
+
+## 공격측 한 병사가 적 위치로 찌르기 + 전방 이펙트 스폰 [0x1782].
+func strike(side: int, toward: Vector2) -> void:
+	var s: Variant = _pick_living(side)
+	if s != null:
+		s["strike_t"] = STRIKE_DUR
+		s["_lunge_to"] = toward
+		var from: Vector2 = s["pos"]
+		var dir := signf(toward.x - from.x)
+		if dir == 0.0:
+			dir = s["face"]
+		_effects.append({"pos": from + Vector2(dir * 6.0, -6.0), "vx": dir * 3.0 * 1.2 * 60.0,
+			"life": 0.22, "side": side})
+	_shake = maxf(_shake, 1.5)
+
+func kill(side: int) -> Variant:
+	var s: Variant = _pick_living(side)
+	if s == null:
+		return null
+	s["state"] = DYING
+	s["death_t"] = 0.0
+	# 위로+뒤로 포물선 넉백 점프 (원본 0x1976/0x19EA)
+	s["airborne"] = true
+	s["land_y"] = s["pos"].y
+	var back: float = -float(s["face"])  # 적 반대 방향(뒤)
+	s["dvx"] = back * _rng.randf_range(DEATH_VX.x, DEATH_VX.y)
+	s["dvy"] = -_rng.randf_range(DEATH_VY.x, DEATH_VY.y)  # 위로 launch
+	var pos: Vector2 = s["pos"]
+	_flashes.append({"pos": pos, "life": 0.24, "max": 0.24, "big": true})
+	_shake = maxf(_shake, 2.5)
+	return pos
+
+func spark(side: int) -> void:
+	var s: Variant = _pick_living(side)
+	if s == null:
+		return
+	_flashes.append({"pos": s["pos"], "life": 0.16, "max": 0.16, "big": false})
+
+func dodge(_side: int) -> void:
+	pass
+
+func remaining(side: int) -> int:
+	var c := 0
+	for s in _soldiers[side]:
+		if s["state"] != DYING:
+			c += 1
+	return c
+
+func focus(side: int) -> Vector2:
+	var s: Variant = _pick_living(side)
+	if s != null:
+		return s["pos"]
+	return Vector2(FIELD_W * 0.5, BASE_Y)
+
+func force_result(a_final: int, b_final: int) -> void:
+	_reduce_to(0, a_final)
+	_reduce_to(1, b_final)
+	queue_redraw()
+
+func _reduce_to(side: int, final_n: int) -> void:
+	var alive: Array = _soldiers[side].filter(func(s): return s["state"] != DYING)
+	while alive.size() > final_n:
+		alive.pop_back()
+	_soldiers[side] = alive
+
+func _pick_living(side: int) -> Variant:
+	var pool: Array = _soldiers[side].filter(func(s): return s["state"] != DYING)
+	if pool.is_empty():
+		return null
+	return pool[_rng.randi() % pool.size()]
+
+# ── 업데이트 ───────────────────────────────────────────────────────────────
+func _process(delta: float) -> void:
+	delta = minf(delta, 0.05)
+	_t += delta
+
+	if _charging:
+		_retarget_all()  # 매 프레임 1:1 미교전 우선 타겟팅(원본 0xE5DA)
+
+	for side in [0, 1]:
+		var keep: Array = []
+		for s in _soldiers[side]:
+			if s["strike_t"] > 0.0:
+				s["strike_t"] = maxf(0.0, s["strike_t"] - delta)
+			if s["state"] == DYING:
+				if s["airborne"]:
+					# 포물선 넉백: 중력 가속 + 등속 뒤로. 착지하면 눕기 단계로.
+					s["dvy"] += DEATH_GRAV * delta
+					var p: Vector2 = s["pos"]
+					p.x += s["dvx"] * delta
+					p.y += s["dvy"] * delta
+					if p.y >= s["land_y"]:
+						p.y = s["land_y"]
+						s["airborne"] = false
+						s["death_t"] = 0.0
+					s["pos"] = p
+				else:
+					s["death_t"] += delta
+					if s["death_t"] >= DEATH_LIE:
+						continue  # 제거
+			elif _charging:
+				_move_step(s, delta)
+			keep.append(s)
+		_soldiers[side] = keep
+
+	if _charging:
+		_separate()  # 겹침 방지 → 난전에 부피 생김(원본 충돌 박스 0xE87A 근사)
+
+	# 공격 이펙트 전진
+	for e in _effects:
+		e["pos"].x += e["vx"] * delta
+		e["life"] -= delta
+	_effects = _effects.filter(func(e): return e["life"] > 0.0)
+
+	for fl in _flashes:
+		fl["life"] -= delta
+	_flashes = _flashes.filter(func(f): return f["life"] > 0.0)
+	if _shake > 0.0:
+		_shake = maxf(0.0, _shake - delta * 12.0)
+
+	queue_redraw()
+
+## 적 타겟을 향해 등속 접근 — X를 먼저 좁히고 → Y 접근 [원본 0xE30E]. CHARGE↔MELEE 동적 전환.
+func _move_step(s: Dictionary, delta: float) -> void:
+	var tgt: Variant = s["target"]
+	if tgt == null or tgt["state"] == DYING:
+		s["state"] = MELEE  # 적 없음(다음 프레임 retarget 대기)
+		return
+	var pos: Vector2 = s["pos"]
+	var tp: Vector2 = tgt["pos"]
+	var dx := tp.x - pos.x
+	var dy := tp.y - pos.y
+	var adx := absf(dx)
+	var ady := absf(dy)
+	if adx > GAP_X:
+		pos.x += signf(dx) * minf(VX * delta, adx - GAP_X)
+	if dx != 0.0:
+		s["face"] = signf(dx)
+	if adx <= CLOSE_X and ady > GAP_Y:
+		pos.y += signf(dy) * minf(VY * delta, ady - GAP_Y)
+	s["pos"] = pos
+	s["state"] = MELEE if (adx <= GAP_X + 2.0 and ady <= GAP_Y + 2.0) else CHARGE
+
+## 겹치는 병사끼리 서로 밀어냄(원본 16px 충돌 박스 근사). 난전이 한 점에 뭉치지 않게 함.
+func _separate() -> void:
+	var all: Array = []
+	all.append_array(_soldiers[0])
+	all.append_array(_soldiers[1])
+	var n := all.size()
+	for i in range(n):
+		var s: Dictionary = all[i]
+		if s["state"] == DYING:
+			continue
+		var sp: Vector2 = s["pos"]
+		var push := Vector2.ZERO
+		for j in range(n):
+			if i == j:
+				continue
+			var o: Dictionary = all[j]
+			if o["state"] == DYING:
+				continue
+			var diff: Vector2 = sp - o["pos"]
+			var dist := diff.length()
+			if dist < SEP_DIST:
+				if dist > 0.05:
+					push += diff / dist * (SEP_DIST - dist)
+				else:
+					push += Vector2(cos(s["seed"]), sin(s["seed"]))
+		if push != Vector2.ZERO:
+			s["pos"] = sp + push * SEP_STR
+
+# ── 위치(그리기용) ─────────────────────────────────────────────────────────
+func _draw_pos(s: Dictionary) -> Vector2:
+	var base: Vector2 = s["pos"]
+	var strike_t: float = s["strike_t"]
+	var face: float = s["face"]
+	# 근접 중 미세 몸싸움(제자리 흔들림)
+	if s["state"] == MELEE:
+		base += Vector2(sin(_t * 6.0 + s["seed"]) * 1.5, cos(_t * 5.0 + s["seed"]) * 1.0)
+	# 찌르기 런지(적 방향으로 나갔다 복귀)
+	if strike_t > 0.0 and s.has("_lunge_to"):
+		var lunge_to: Vector2 = s["_lunge_to"]
+		var p: float = 1.0 - strike_t / STRIKE_DUR
+		base = base.lerp(lunge_to, 0.3 * sin(p * PI))
+	# 사망 중엔 pos 를 직접 적분(넉백 점프)하므로 여기선 그대로 사용.
+	return base
+
+# ── 그리기 (사각형 픽셀 전용, 정수 좌표) ──────────────────────────────────
+func _draw() -> void:
+	var sh := Vector2.ZERO
+	if _shake > 0.0:
+		sh = Vector2(round(sin(_t * 60.0) * _shake), 0)
+
+	_draw_terrain(sh)
+
+	var all: Array = []
+	all.append_array(_soldiers[0])
+	all.append_array(_soldiers[1])
+	all.sort_custom(func(a, b): return _draw_pos(a).y < _draw_pos(b).y)
+	for s in all:
+		_draw_soldier(_draw_pos(s) + sh, s)
+
+	for e in _effects:
+		_draw_effect(e["pos"] + sh, e["side"], e["life"])
+	for fl in _flashes:
+		_draw_impact(fl["pos"] + sh, fl["life"] / fl["max"], fl["big"])
+
+func _px(x: float, y: float, w: float, h: float, c: Color) -> void:
+	draw_rect(Rect2(round(x), round(y), round(w), round(h)), c)
+
+func _draw_terrain(sh: Vector2) -> void:
+	var ox := sh.x
+	_px(-4 + ox, 0, FIELD_W + 8, FIELD_H, FLOOR)
+	var tile := 16
+	for ry in range(0, int(FIELD_H) + tile, tile):
+		for rx in range(-tile, int(FIELD_W) + tile, tile):
+			var hsh := int(abs(sin((rx + 1) * 12.9 + (ry + 1) * 78.2) * 1000.0)) % 5
+			var stagger := (tile / 2) if (ry / tile) % 2 == 0 else 0
+			var bx := rx + stagger + ox
+			var base := FLOOR
+			if hsh == 0:
+				base = FLOOR_HI
+			elif hsh == 1:
+				base = FLOOR_DK
+			_px(bx, ry, tile, tile, base)
+			_px(bx, ry + tile - 1, tile, 1, MORTAR)
+			_px(bx + tile - 1, ry, 1, tile, MORTAR)
+			_px(bx, ry, tile, 1, FLOOR_HI)
+			if hsh == 2:
+				_px(bx + 3, ry + 5, 3, 2, MOSS)
+			elif hsh == 3:
+				_px(bx + 9, ry + 9, 2, 2, MOSS)
+	_px(-4 + ox, 0, FIELD_W + 8, 40, WALL)
+	for rx in range(-tile, int(FIELD_W) + tile, tile):
+		var bx2 := rx + ox
+		_px(bx2, 0, tile, 20, WALL_DK)
+		_px(bx2, 0, tile, 1, WALL_HI)
+		_px(bx2 + tile - 1, 0, 1, 20, WALL_DK)
+	_px(-4 + ox, 20, FIELD_W + 8, 8, PIT)
+	for lx in [40, 150, 300]:
+		var x: float = float(lx) + ox
+		_px(x, 6, 2, 30, WOOD)
+		_px(x + 8, 6, 2, 30, WOOD)
+		for yy in range(9, 34, 5):
+			_px(x, yy, 10, 2, WOOD)
+	_px(-4 + ox, 38, FIELD_W + 8, 2, WALL_HI)
+
+func _draw_soldier(pos: Vector2, s: Dictionary) -> void:
+	var side: int = s["side"]
+	var a: float = s["alpha"]
+	var strike_t: float = s["strike_t"]
+	var face: float = s["face"]
+	var dying: bool = s["state"] == DYING
+	var base: Color = TEAM[side][0]
+	var dark: Color = TEAM[side][1]
+	var lite: Color = TEAM[side][2]
+	base.a = a; dark.a = a; lite.a = a
+	var steel := STEEL; steel.a = a
+	var steel_hi := STEEL_HI; steel_hi.a = a
+	var steel_dk := STEEL_DK; steel_dk.a = a
+	var skin := SKIN; skin.a = a
+	var boot := BOOT; boot.a = a
+	var wood := WOOD; wood.a = a
+	var outl := OUTLINE; outl.a = a
+
+	var x: float = round(pos.x)
+	var y: float = round(pos.y)
+
+	# 착지 후: 시체 → 후반 절반 점멸 → 소멸 (원본 0x1B24). 공중(넉백 점프) 중이면 아래 일반 그리기.
+	if dying and not s["airborne"]:
+		var dt: float = s["death_t"]
+		if dt >= DEATH_LIE * 0.5 and int(dt * 20.0) % 2 == 1:
+			return  # 점멸 off 프레임
+		var hx: float = (x + 5.0) if face > 0.0 else (x - 8.0)  # 머리는 바라보던 쪽
+		_px(x - 7, y + 4, 14, 4, dark)
+		_px(x - 7, y + 4, 14, 1, lite)
+		_px(x - 7, y + 7, 14, 1, OUTLINE)
+		_px(hx, y + 2, 4, 4, skin)
+		_px(hx, y + 2, 4, 1, steel)
+		return
+
+	var reach := 0.0
+	if strike_t > 0.0:
+		reach = 3.0 * sin((1.0 - strike_t / STRIKE_DUR) * PI)
+
+	_px(x - 5, y + 8, 10, 2, Color(0, 0, 0, 0.28 * a))
+	_px(x - 3, y + 2, 2, 6, dark)
+	_px(x + 1, y + 2, 2, 6, dark)
+	_px(x - 3, y + 7, 3, 2, boot)
+	_px(x + 1, y + 7, 3, 2, boot)
+	_px(x - 5, y - 5, 10, 9, outl)
+	_px(x - 4, y - 5, 8, 8, base)
+	_px(x - 4, y - 5, 2, 8, lite)
+	_px(x + 2, y - 5, 2, 8, dark)
+	_px(x - 4, y - 1, 8, 1, dark)
+	_px(x - 5, y - 5, 2, 2, steel)
+	_px(x + 3, y - 5, 2, 2, steel_dk)
+	_px(x - 4, y - 12, 8, 7, outl)
+	_px(x - 3, y - 12, 6, 6, steel)
+	_px(x - 3, y - 12, 6, 2, steel_hi)
+	_px(x - 3, y - 10, 6, 1, steel_dk)
+	_px(x - 2 + int(face), y - 8, 4, 3, skin)
+	_px(x - 2 + int(face), y - 7, 1, 1, outl)
+	_px(x - 1, y - 14, 2, 3, lite)
+	_px(x + int(face) * 4, y - 3, 2, 5, base)
+	_px(x + int(face) * 4, y - 3, 2, 1, lite)
+	var sx: float = x + face * (6 + reach)
+	_px(sx - 0.5, y - 13, 1, 18, wood)
+	_px(sx - 0.5, y - 15, 1, 3, steel_hi)
+
+func _draw_effect(pos: Vector2, side: int, life: float) -> void:
+	var a := clampf(life / 0.22, 0.0, 1.0)
+	var c := Color(1, 1, 0.8, a)
+	var x: float = round(pos.x)
+	var y: float = round(pos.y)
+	# 짧은 사선 슬래시
+	_px(x - 1, y - 2, 3, 1, c)
+	_px(x, y - 1, 3, 1, c)
+	_px(x + 1, y, 3, 1, c)
+
+func _draw_impact(pos: Vector2, t: float, big: bool) -> void:
+	var a := clampf(t, 0.0, 1.0)
+	var x: float = round(pos.x)
+	var y: float = round(pos.y)
+	var col := Color(1, 1, 0.85, a)
+	var r := (5.0 if big else 3.0) * t + 1.0
+	_px(x - r, y - 1, r * 2, 2, col)
+	_px(x - 1, y - r, 2, r * 2, col)
+	if big:
+		_px(x - 2, y - 2, 4, 4, Color(1, 0.95, 0.7, a))
+		_px(x - r, y - r, 2, 2, Color(1, 0.8, 0.4, a))
+		_px(x + r - 2, y + r - 2, 2, 2, Color(1, 0.8, 0.4, a))

@@ -15,8 +15,9 @@
 ## 씬 흐름
 
 ```
-Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
-                                  └──(설정)──▶ (준비 중)
+Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶ Game
+                                  ├──(새 게임)──▶ Lang Battle (격리 실험, test/lang1battle)
+                                  └──(설정)─────▶ (준비 중)
 ```
 
 ## 문서 목차
@@ -58,6 +59,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)──▶ Game
 - [Equipment (장비 관리)](features/equipment.md) — 노획 장비를 멤버에게 장착·탈착(무기3·방어구4·방패1 슬롯, 스왑 없음). 행동 메뉴 [장비]로 여는 모달
 - [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
 - [Combat Feedback (전투 연출)](features/combat-feedback.md) — 대미지 숫자·타격 반짝임·흔들림·돌진·상태이상 텍스트·사망 넉백
+- [Lang Battle (랑그릿사 1 오마주 전투 — 격리 실험)](features/lang-battle.md) — 브랜치 `test/lang1battle`. 기존 게임과 분리된 별도 전투 씬(더미 10:10). Resolver(순수 계산)/Presenter(연출) 분리, 원본 RNG·상성·지휘보정·병력바 재현
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 - [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(농장·식량 / 벌목소·목재 / 철광·철 / 금광·금). 생산포인트(1÷거리, 거리 기반) 모델 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 자원 4종 체제
 - [Camp Capture (캠프 점령·방어)](features/camp-capture.md) — 거점 방어=중심 타일 점거 부대(창발, 별도 상태 없음)·"수비 N" 배지 / 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
