@@ -9,13 +9,15 @@ extends Node2D
 @onready var _hud: Control = $HudLayer/Hud
 @onready var _hint: Label = $HudLayer/Hint
 
-# 상태 전이 — 원본: 스폰 즉시 돌격, 하단 숫자는 동시에 표시(두 레이어 병렬).
-enum St { CHARGE, CLASH, POST, DONE }
+# 상태 전이 — 스폰 즉시 돌격 → 접촉 즉시 교전 → 결과 → 본인 진영 복귀.
+enum St { CHARGE, CLASH, POST, RETREAT, DONE }
 
 # 타이밍
 const STEP := 0.75          # AT/DF 지휘보정 틱업 시간(돌격과 동시 진행)
 const ADVANCE_TIME := 2.2   # 돌격 최대 시간(상한). 실제로는 접전 도달 시 전환
 const CLASH_STEP := 0.11    # 히트 1회당 간격
+const POST_PAUSE := 0.5     # 결과 표시 후 복귀 시작까지
+const RETREAT_MAX := 2.6    # 복귀 최대 시간(상한)
 
 const START_SOLDIERS := 10
 
@@ -85,6 +87,8 @@ func _enter(s: int) -> void:
 			_hud.set_count(0, _a_cur)
 			_hud.set_count(1, _b_cur)
 			_field.call("force_result", _a_cur, _b_cur)
+		St.RETREAT:
+			_field.call("begin_retreat")  # 생존자 본인 진영으로 복귀
 		St.DONE:
 			var win: String
 			if _a_cur > _b_cur:
@@ -102,16 +106,21 @@ func _process(delta: float) -> void:
 	_timer += delta
 	match _state:
 		St.CHARGE:
-			# 돌격과 동시에 AT/DF 지휘보정 틱업(스펙 §4.2). 접전 도달 시 교전 시작.
+			# 돌격과 동시에 AT/DF 지휘보정 틱업(스펙 §4.2).
+			# 첫 충돌(양쪽 접전 시작)이 생기면 바로 교전 시작 — 전원 도착을 기다리지 않는다.
 			var t := clampf(_timer / STEP, 0.0, 1.0)
 			_tick_atdf(0, _result["stats_a"], t)
 			_tick_atdf(1, _result["stats_d"], t)
-			if _field.call("all_engaged") or _timer >= ADVANCE_TIME:
+			if _field.call("any_engaged") or _timer >= ADVANCE_TIME:
 				_enter(St.CLASH)
 		St.CLASH:
 			_process_clash(delta)
 		St.POST:
-			if _timer >= 1.1:
+			if _timer >= POST_PAUSE:
+				_enter(St.RETREAT)
+		St.RETREAT:
+			# 생존자가 진영에 복귀하면(또는 상한) 종료
+			if _field.call("all_returned") or _timer >= RETREAT_MAX:
 				_enter(St.DONE)
 		St.DONE:
 			pass
@@ -168,7 +177,7 @@ func _skip() -> void:
 			_tick_atdf(0, _result["stats_a"], 1.0)
 			_tick_atdf(1, _result["stats_d"], 1.0)
 			_enter(St.POST)
-		St.POST:
+		St.POST, St.RETREAT:
 			_enter(St.DONE)
 		St.DONE:
 			# 다시 전투 (씬 리로드)
