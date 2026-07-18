@@ -14,14 +14,17 @@ const FIELD_H := 216.0
 const ACTION_TOP := 44.0
 const ACTION_BOT := 158.0
 
-# 스폰은 화면 밖(양옆)에서 → 돌격해 들어온다. (원본도 화면 밖에서 등장)
-const LEFT_X := -16.0    # 화면 왼쪽 밖 (앞 열)
-const RIGHT_X := 400.0   # 화면 오른쪽 밖 (앞 열, 384+16)
 const BASE_Y := 96.0
-# 전투 후 복귀 진형: 진영 끝(가장자리)에 앵커 → 중앙 방향으로 균일한 열. 화면 안.
-const RETREAT_EDGE_X := 40.0  # 진영 끝에서 이만큼 안쪽에 뒷 열
-const RETREAT_DEPTH := 28.0   # 열 간격(균일)
-const DIAG_STEP := 13.0  # 기본 진형의 약간 대각선(에셜론) 오프셋
+# 진형: 각 병사의 복귀 위치. 진영 끝(가장자리)에 앵커 → 중앙 방향으로 균일한 3행 [3,3,4] 열. 화면 안.
+# 전투 후 각자 이 자리로 그대로 복귀한다(죽은 자리는 비워짐). 스폰은 화면 밖(_spawn_slots).
+const FORM_EDGE_X := 40.0  # 진영 끝에서 이만큼 안쪽에 뒷 열
+const FORM_DEPTH := 28.0   # 열 간격(균일)
+const DIAG_STEP := 13.0    # 가운데 행이 중앙 쪽으로 튀어나오는 쐐기 오프셋
+# 스폰: 화면 밖(진영 바깥)에서 좌우 간격을 3배로 넓게 → 여기서 돌격해 들어온다.
+const SPAWN_EDGE_X := 8.0               # 진영 바깥 가장자리 여백
+const SPAWN_DEPTH := FORM_DEPTH * 3.0   # 스폰 시 좌우(열) 간격 = 진형의 3배
+const UNIT_W := 10.0                    # 병사 스프라이트 대략 너비(px)
+const SPAWN_XJIT := UNIT_W * 2.5        # 스폰 X 지터 진폭(±) → 좌우 합 500% width
 
 # 원본 등속 이동 속도 (px/frame @60fps) → 초당으로 환산(×60, ×1.2 스케일)
 const VX := 3.0 * 1.2 * 60.0   # ≈ 216 px/s (원본 등속 3px/frame)
@@ -83,13 +86,8 @@ func setup(a_count: int, b_count: int) -> void:
 	_retarget_all()
 	queue_redraw()
 
-# 대형: 위→아래 3행 [3,3,4]. 가로(X) 간격을 넓게(3배), 행마다 어긋나게 흩뿌린다.
-const ROW_SPACE := 24.0   # 3행 사이 세로 간격 (기존 34의 70%)
-const DEPTH_GAP := 46.0   # 같은 행 내 병사 가로(X) 간격 — 3배로 넓힘
-const S_JIT := 6.0        # 병사별 미세 지터
-# 병사별 돌격 속도 배수(등속이 어색해서 제각각으로)
-const SPD_MIN := 0.72
-const SPD_MAX := 1.34
+# 대형: 위→아래 3행 [3,3,4]. 진영 끝에서 중앙 방향으로 열을 쌓는다.
+const ROW_SPACE := 16.8   # 3행 사이 세로(상하) 간격 (24의 70%)
 
 # 분리(separation): 원본 16px 충돌 박스(0xE87A)를 근사 — 겹치면 서로 밀어내 부피를 만든다.
 const SEP_DIST := 11.0   # 이 거리보다 가까우면 밀어냄
@@ -106,35 +104,16 @@ func _row_counts(n: int) -> Array:
 		rem -= 1
 	return rows
 
-## 3/3/4 약간 대각선 진형의 좌표 목록(n명). base_x 를 진영 기준으로 앵커.
-##   ㅇ ㅇ ㅇ      (위 행 3, 앞으로)
-##    ㅇ ㅇ ㅇ     (가운데 3)
-##   ㅇ ㅇ ㅇ ㅇ   (아래 행 4, 넓게)
-func _formation_slots(side: int, n: int, base_x: float) -> Array:
-	var back_dir := -1.0 if side == 0 else 1.0   # 가로가 뒤로(적 반대) 쌓이는 방향
-	var to_foe := -back_dir                        # 적 쪽 방향
-	var rows := _row_counts(n)
-	var out: Array = []
-	for r in range(3):
-		var ry := BASE_Y + (float(r) - 1.0) * ROW_SPACE
-		var diag := (1.0 - float(r)) * DIAG_STEP   # 위 행일수록 적 쪽으로(약간 대각선)
-		var sz: int = rows[r]
-		for k in range(sz):
-			var x := base_x + back_dir * float(k) * DEPTH_GAP + to_foe * diag + _rng.randf_range(-S_JIT, S_JIT)
-			var y := clampf(ry + _rng.randf_range(-S_JIT, S_JIT), ACTION_TOP + 8.0, ACTION_BOT - 6.0)
-			out.append(Vector2(x, y))
-	return out
-
 func _spawn_side(side: int, n: int) -> void:
-	# 화면 밖(진영 뒤편)에서 3/3/4 약간 대각선 진형으로 스폰. 병사마다 돌격 속도 제각각.
-	var base_x := LEFT_X if side == 0 else RIGHT_X
-	var slots := _formation_slots(side, n, base_x)
-	for p in slots:
+	# 스폰은 화면 밖에서 넓게(_spawn_slots) → 돌격해 들어온다. 복귀 위치(home)는 화면 안 진형 자리.
+	var homes := _formation_slots(side, n)
+	var spawns := _spawn_slots(side, n)
+	for i in range(n):
 		_soldiers[side].append({
 			"id": _next_id,
 			"side": side,
-			"pos": p,
-			"home": p,            # 복귀 목표(전투 후 begin_retreat 에서 재지정)
+			"pos": spawns[i],
+			"home": homes[i],     # 복귀 목표 = 화면 안 진형 자리. 죽으면 그 자리는 비워짐.
 			"target": null,
 			"state": CHARGE,
 			"strike_t": 0.0,
@@ -146,7 +125,6 @@ func _spawn_side(side: int, n: int) -> void:
 			"alpha": 1.0,
 			"seed": _rng.randf() * TAU,
 			"face": 1.0 if side == 0 else -1.0,
-			"spd": _rng.randf_range(SPD_MIN, SPD_MAX),
 		})
 		_next_id += 1
 
@@ -187,29 +165,45 @@ func _retarget_all() -> void:
 func begin_advance() -> void:
 	_charging = true
 
-## 전투 종료: 생존자를 본인 진영(화면 안) 3/3/4 진형으로 복귀시킨다.
+## 전투 종료: 생존자를 각자 처음 있던 자리(home)로 그대로 복귀시킨다. 죽은 자리는 비워진다.
 func begin_retreat() -> void:
 	_retreating = true
 	for side in [0, 1]:
-		var living: Array = _soldiers[side].filter(func(s): return s["state"] != DYING)
-		var slots := _retreat_slots(side, living.size())
-		for i in range(living.size()):
-			living[i]["home"] = slots[i]
-			living[i]["state"] = RETURN
-			living[i]["target"] = null
+		for s in _soldiers[side]:
+			if s["state"] == DYING:
+				continue
+			s["state"] = RETURN
+			s["target"] = null
 
-## 복귀 진형: 진영 끝에 앵커, 중앙 방향으로 균일한 3행 [3,3,4] 열(대각선·지터 없음).
-func _retreat_slots(side: int, n: int) -> Array:
-	var anchor_x := RETREAT_EDGE_X if side == 0 else (FIELD_W - RETREAT_EDGE_X)
+## 진형 좌표: 진영 끝에 앵커, 중앙 방향으로 균일한 3행 [3,3,4] 열(가운데 행 쐐기). 각 병사의 복귀 위치.
+func _formation_slots(side: int, n: int) -> Array:
+	var anchor_x := FORM_EDGE_X if side == 0 else (FIELD_W - FORM_EDGE_X)
 	var to_center := 1.0 if side == 0 else -1.0
 	var rows := _row_counts(n)
 	var out: Array = []
 	for r in range(3):
 		var ry := BASE_Y + (float(r) - 1.0) * ROW_SPACE
-		var diag := (1.0 - float(r)) * DIAG_STEP   # 위 행일수록 중앙 쪽 → 약간 비스듬(에셜론)
+		var diag := DIAG_STEP if r == 1 else 0.0   # 가운데 행만 중앙 쪽으로 튀어나온 쐐기
 		var sz: int = rows[r]
 		for k in range(sz):
-			out.append(Vector2(anchor_x + to_center * (float(k) * RETREAT_DEPTH + diag), ry))
+			out.append(Vector2(anchor_x + to_center * (float(k) * FORM_DEPTH + diag), ry))
+	return out
+
+## 스폰 좌표: 화면 밖(진영 바깥)에서 좌우 간격 3배로 넓게. 뒤 열일수록 더 바깥 → 돌격해 들어온다.
+## _formation_slots 와 같은 (r, k) 순서라 index 가 1:1 대응 → 각 병사가 자기 진형 자리로 복귀.
+func _spawn_slots(side: int, n: int) -> Array:
+	var edge_x := -SPAWN_EDGE_X if side == 0 else (FIELD_W + SPAWN_EDGE_X)
+	var to_center := 1.0 if side == 0 else -1.0
+	var to_out := -to_center                       # 화면 바깥 방향
+	var rows := _row_counts(n)
+	var out: Array = []
+	for r in range(3):
+		var ry := BASE_Y + (float(r) - 1.0) * ROW_SPACE
+		var diag := DIAG_STEP if r == 1 else 0.0   # 가운데 행만 중앙 쪽으로 튀어나온 쐐기
+		var sz: int = rows[r]
+		for k in range(sz):
+			var jx := _rng.randf_range(-SPAWN_XJIT, SPAWN_XJIT)  # 유닛별 X 좌우 지터
+			out.append(Vector2(edge_x + to_out * float(k) * SPAWN_DEPTH + to_center * diag + jx, ry))
 	return out
 
 ## 복귀가 끝났는가(RETURN 상태 없음).
@@ -388,13 +382,12 @@ func _move_step(s: Dictionary, delta: float) -> void:
 	var dy := tp.y - pos.y
 	var adx := absf(dx)
 	var ady := absf(dy)
-	var spd: float = s["spd"]  # 병사별 속도 배수(등속 X)
 	if adx > GAP_X:
-		pos.x += signf(dx) * minf(VX * spd * delta, adx - GAP_X)
+		pos.x += signf(dx) * minf(VX * delta, adx - GAP_X)
 	if dx != 0.0:
 		s["face"] = signf(dx)
 	if adx <= CLOSE_X and ady > GAP_Y:
-		pos.y += signf(dy) * minf(VY * spd * delta, ady - GAP_Y)
+		pos.y += signf(dy) * minf(VY * delta, ady - GAP_Y)
 	s["pos"] = pos
 	s["state"] = MELEE if (adx <= GAP_X + 2.0 and ady <= GAP_Y + 2.0) else CHARGE
 
@@ -409,8 +402,7 @@ func _return_step(s: Dictionary, delta: float) -> void:
 		s["state"] = IDLE
 		s["face"] = 1.0 if s["side"] == 0 else -1.0  # 정렬 후 적(중앙)을 바라봄
 		return
-	var spd: float = s["spd"]
-	var step := minf(VX * spd * delta, dist)
+	var step := minf(VX * delta, dist)
 	s["pos"] = pos + d / dist * step
 	if absf(d.x) > 0.5:
 		s["face"] = signf(d.x)
