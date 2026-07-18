@@ -128,38 +128,49 @@ func _spawn_side(side: int, n: int) -> void:
 		})
 		_next_id += 1
 
-## 타겟 선택 (원본 0xE5DA 재현): 미교전 적 우선 + 최근접 → 병사들이 1:1로 분산.
+## 타겟 선택 (원본 0xE5DA 재현): 상대 적의 타겟 상태로 3단계 우선순위 → 동순위 최근접(맨해튼).
+##  P3: 그 적이 '나'를 노림(상호 락) > P2: 미교전 적 > P1: 딴 아군과 교전 중인 적.
+##  높은 순위 우선, 같으면 맨해튼 최근접(동거리는 먼저 만난=인덱스 낮은 적). 상호 락(P3)+교전 회피(P1)로
+##  1:1 레인 대치가 창발한다 — 마주 선 진형에선 같은 행 적이 최근접이라 "정면 적 최우선"이 된다.
+##  양쪽이 같은 프레임 상태를 보도록 직전 target을 읽어 new_targets에 모은 뒤 일괄 커밋.
 func _retarget_all() -> void:
+	var new_targets := {}  # soldier id -> foe(Dictionary) or null
 	for side in [0, 1]:
-		var foes: Array = _soldiers[1 - side].filter(func(f): return f["state"] != DYING)
-		if foes.is_empty():
-			continue
-		var claimed := {}  # foe id -> true (이미 다른 아군이 물고 있음)
+		var foes: Array = _soldiers[1 - side]
 		for s in _soldiers[side]:
 			if s["state"] == DYING:
+				new_targets[s["id"]] = null
 				continue
 			var sp: Vector2 = s["pos"]
 			var best: Variant = null
+			var best_pri := 0
 			var best_d := 1.0e9
-			var best_un := false  # 미교전(unclaimed) 여부
 			for f in foes:
+				if f["state"] == DYING:
+					continue
+				var ft: Variant = f["target"]  # 그 적이 직전 프레임에 노리던 대상
+				var pri := 1                    # 딴 놈과 교전 중
+				if ft == null:
+					pri = 2                     # 미교전
+				elif ft["id"] == s["id"]:
+					pri = 3                     # 나를 노림(상호 락)
 				var fp: Vector2 = f["pos"]
 				var d: float = absf(sp.x - fp.x) + absf(sp.y - fp.y)  # 맨해튼
-				var un: bool = not claimed.has(f["id"])
 				var better := false
 				if best == null:
 					better = true
-				elif un and not best_un:      # 미교전 적 우선
+				elif pri > best_pri:            # 높은 우선순위 우선
 					better = true
-				elif un == best_un and d < best_d:  # 동순위는 최근접
+				elif pri == best_pri and d < best_d:  # 동순위는 최근접(strict → 낮은 인덱스 승)
 					better = true
 				if better:
 					best = f
+					best_pri = pri
 					best_d = d
-					best_un = un
-			s["target"] = best
-			if best != null:
-				claimed[best["id"]] = true
+			new_targets[s["id"]] = best
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			s["target"] = new_targets[s["id"]]
 
 # ── 연출 트리거 ────────────────────────────────────────────────────────────
 func begin_advance() -> void:
@@ -311,7 +322,7 @@ func _process(delta: float) -> void:
 	_t += delta
 
 	if _charging and not _retreating:
-		_retarget_all()  # 매 프레임 1:1 미교전 우선 타겟팅(원본 0xE5DA)
+		_retarget_all()  # 매 프레임 3단계 우선순위 타겟팅(원본 0xE5DA: 상호 락>미교전>교전 중, 동순위 최근접)
 
 	for side in [0, 1]:
 		var keep: Array = []
