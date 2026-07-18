@@ -91,7 +91,7 @@ const ROW_SPACE := 16.8   # 3행 사이 세로(상하) 간격 (24의 70%)
 
 # 분리(separation): 원본 16px 충돌 박스(0xE87A)를 근사 — 겹치면 서로 밀어내 부피를 만든다.
 const SEP_DIST := 11.0   # 이 거리보다 가까우면 밀어냄
-const SEP_STR := 0.4     # 밀어내는 강도(프레임당)
+const SEP_RATE := 9.0    # 분리 속도 계수(초당) — delta 기반으로 부드럽게 수렴(옛 프레임상수 0.4 대체, 미끄러짐 완화)
 
 ## 3행 분배: 남는 인원은 아래 행부터 → n=10 이면 [3,3,4].
 func _row_counts(n: int) -> Array:
@@ -250,12 +250,13 @@ func strike(side: int, toward: Vector2) -> void:
 	if s != null:
 		s["strike_t"] = STRIKE_DUR
 		s["_lunge_to"] = toward
-		var from: Vector2 = s["pos"]
-		var dir := signf(toward.x - from.x)
-		if dir == 0.0:
-			dir = s["face"]
-		_effects.append({"pos": from + Vector2(dir * 6.0, -6.0), "vx": dir * 3.0 * 1.2 * 60.0,
-			"life": 0.22, "side": side})
+		# [임시 비활성] ③ 전방 슬래시 이펙트
+		#var from: Vector2 = s["pos"]
+		#var dir := signf(toward.x - from.x)
+		#if dir == 0.0:
+		#	dir = s["face"]
+		#_effects.append({"pos": from + Vector2(dir * 6.0, -6.0), "vx": dir * 3.0 * 1.2 * 60.0,
+		#	"life": 0.22, "side": side})
 	_shake = maxf(_shake, 1.5)
 
 func kill(side: int) -> Variant:
@@ -353,7 +354,7 @@ func _process(delta: float) -> void:
 		_soldiers[side] = keep
 
 	if _charging and not _retreating:
-		_separate()  # 겹침 방지 → 난전에 부피 생김(원본 충돌 박스 0xE87A 근사)
+		_separate(delta)  # 겹침 방지 → 난전에 부피 생김(원본 충돌 박스 0xE87A 근사). MELEE 제외로 제자리 교전.
 
 	# 살아있는 병사는 보이는 전장 안으로 클램프(원본 0xE48E). 화면 밖(특히 아래 HUD 뒤)으로 안 나가게.
 	# 단, 돌격 중(CHARGE)은 화면 밖 스폰→진입이라 X는 클램프하지 않는다.
@@ -419,15 +420,17 @@ func _return_step(s: Dictionary, delta: float) -> void:
 		s["face"] = signf(d.x)
 
 ## 겹치는 병사끼리 서로 밀어냄(원본 16px 충돌 박스 근사). 난전이 한 점에 뭉치지 않게 함.
-func _separate() -> void:
+## 접전(MELEE) 병사는 밀리지 않고 제자리에서 교전 — 미끄러짐 방지. 단 obstacle(부피)로는 남아 CHARGE가 피해간다.
+## delta 기반이라 프레임레이트와 무관하게 부드럽게 수렴한다.
+func _separate(delta: float) -> void:
 	var all: Array = []
 	all.append_array(_soldiers[0])
 	all.append_array(_soldiers[1])
 	var n := all.size()
 	for i in range(n):
 		var s: Dictionary = all[i]
-		if s["state"] == DYING:
-			continue
+		if s["state"] == DYING or s["state"] == MELEE:
+			continue  # 죽는 중/접전 중은 밀지 않음(접전은 제자리)
 		var sp: Vector2 = s["pos"]
 		var push := Vector2.ZERO
 		for j in range(n):
@@ -444,21 +447,19 @@ func _separate() -> void:
 				else:
 					push += Vector2(cos(s["seed"]), sin(s["seed"]))
 		if push != Vector2.ZERO:
-			s["pos"] = sp + push * SEP_STR
+			s["pos"] = sp + push * SEP_RATE * delta
 
 # ── 위치(그리기용) ─────────────────────────────────────────────────────────
 func _draw_pos(s: Dictionary) -> Vector2:
 	var base: Vector2 = s["pos"]
-	var strike_t: float = s["strike_t"]
-	var face: float = s["face"]
-	# 근접 중 미세 몸싸움(제자리 흔들림)
+	# 근접 중 미세 몸싸움(제자리 흔들림) — 미끄러짐 인상 줄이려 진폭 축소
 	if s["state"] == MELEE:
-		base += Vector2(sin(_t * 6.0 + s["seed"]) * 1.5, cos(_t * 5.0 + s["seed"]) * 1.0)
-	# 찌르기 런지(적 방향으로 나갔다 복귀)
-	if strike_t > 0.0 and s.has("_lunge_to"):
-		var lunge_to: Vector2 = s["_lunge_to"]
-		var p: float = 1.0 - strike_t / STRIKE_DUR
-		base = base.lerp(lunge_to, 0.3 * sin(p * PI))
+		base += Vector2(sin(_t * 6.0 + s["seed"]) * 0.6, cos(_t * 5.0 + s["seed"]) * 0.4)
+	# [임시 비활성] ① 찌르기 런지(적 방향으로 나갔다 복귀) — 재활성 시 아래 블록 주석 해제
+	#if s["strike_t"] > 0.0 and s.has("_lunge_to"):
+	#	var lunge_to: Vector2 = s["_lunge_to"]
+	#	var p: float = 1.0 - s["strike_t"] / STRIKE_DUR
+	#	base = base.lerp(lunge_to, 0.3 * sin(p * PI))
 	# 사망 중엔 pos 를 직접 적분(넉백 점프)하므로 여기선 그대로 사용.
 	return base
 
@@ -525,7 +526,6 @@ func _draw_terrain(sh: Vector2) -> void:
 func _draw_soldier(pos: Vector2, s: Dictionary) -> void:
 	var side: int = s["side"]
 	var a: float = s["alpha"]
-	var strike_t: float = s["strike_t"]
 	var face: float = s["face"]
 	var dying: bool = s["state"] == DYING
 	var base: Color = TEAM[side][0]
@@ -557,8 +557,9 @@ func _draw_soldier(pos: Vector2, s: Dictionary) -> void:
 		return
 
 	var reach := 0.0
-	if strike_t > 0.0:
-		reach = 3.0 * sin((1.0 - strike_t / STRIKE_DUR) * PI)
+	# [임시 비활성] ② 창 뻗기(공격 시 창끝 전방 연장) — 재활성 시 아래 블록 주석 해제
+	#if s["strike_t"] > 0.0:
+	#	reach = 3.0 * sin((1.0 - s["strike_t"] / STRIKE_DUR) * PI)
 
 	_px(x - 5, y + 8, 10, 2, Color(0, 0, 0, 0.28 * a))
 	_px(x - 3, y + 2, 2, 6, dark)

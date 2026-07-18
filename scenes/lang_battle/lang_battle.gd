@@ -15,7 +15,8 @@ enum St { CHARGE, CLASH, POST, RETREAT, DONE }
 # 타이밍
 const STEP := 0.75          # AT/DF 지휘보정 틱업 시간(돌격과 동시 진행)
 const ADVANCE_TIME := 2.2   # 돌격 최대 시간(상한). 실제로는 접전 도달 시 전환
-const CLASH_STEP := 0.11    # 히트 1회당 간격
+const CLASH_STEP := 0.09      # 유효 타격(킬) 1회당 간격
+const CLASH_STEP_SOFT := 0.04 # 비살상 타격(MISS/SPECIAL/NO_KILL)은 빨리 넘김 — 빈 대치 압축
 const POST_PAUSE := 0.5     # 결과 표시 후 복귀 시작까지
 const RETREAT_MAX := 2.6    # 복귀 최대 시간(상한)
 
@@ -130,10 +131,17 @@ func _tick_atdf(side: int, st: Dictionary, t: float) -> void:
 	var df := int(round(lerpf(st["base_df"], st["df"], t)))
 	_hud.set_at_df(side, at, df)
 
+## 킬은 CLASH_STEP, 비살상 타격은 CLASH_STEP_SOFT로 재생 — 결과 불변, 빈 대치만 압축.
+func _clash_step(ev: Dictionary) -> float:
+	return CLASH_STEP if ev["kind"] == LangResolver.Hit.HIT else CLASH_STEP_SOFT
+
 func _process_clash(delta: float) -> void:
 	_clash_acc += delta
-	while _clash_acc >= CLASH_STEP and _event_i < _events.size():
-		_clash_acc -= CLASH_STEP
+	while _event_i < _events.size():
+		var step: float = _clash_step(_events[_event_i])
+		if _clash_acc < step:
+			break
+		_clash_acc -= step
 		_apply_event(_events[_event_i])
 		_event_i += 1
 	if _event_i >= _events.size():

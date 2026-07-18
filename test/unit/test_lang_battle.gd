@@ -133,3 +133,19 @@ func test_target_priority_uses_previous_frame_snapshot() -> void:
 	assert_eq(a0_t, 3, "A0의 최근접은 F")
 	assert_eq(a1_t, 4, "A1의 최근접은 G")
 	assert_eq(f_t, 2, "F는 직전 스냅샷(전원 미교전) 기준 최근접 A1을 고른다 — in-place면 P3인 A0로 어긋남")
+
+# ── 분리(_separate): 접전 중 병사는 밀리지 않고 제자리 교전, CHARGE만 겹침 분리 ──────────
+func test_separate_skips_melee_but_moves_charging() -> void:
+	var bf = Battlefield.new()
+	# 겹쳐 있는(거리 3 < SEP_DIST 11) CHARGE·MELEE 한 쌍.
+	var charging := {"id": 1, "side": 0, "pos": Vector2(0, 0), "state": Battlefield.CHARGE, "seed": 0.0}
+	var melee := {"id": 2, "side": 1, "pos": Vector2(3, 0), "state": Battlefield.MELEE, "seed": 0.0}
+	bf._soldiers = {0: [charging], 1: [melee]}
+	var charge_before: Vector2 = charging["pos"]
+	var melee_before: Vector2 = melee["pos"]
+	bf._separate(0.016)
+	var charge_after: Vector2 = charging["pos"]
+	var melee_after: Vector2 = melee["pos"]
+	bf.free()
+	assert_ne(charge_after, charge_before, "CHARGE 병사는 겹치면 밀려난다")
+	assert_eq(melee_after, melee_before, "MELEE 병사는 분리로 밀리지 않는다(제자리 교전)")
