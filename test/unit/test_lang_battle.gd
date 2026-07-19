@@ -138,7 +138,7 @@ func test_target_priority_uses_previous_frame_snapshot() -> void:
 # ── 분리(_separate): 접전 중 병사는 밀리지 않고 제자리 교전, CHARGE만 겹침 분리 ──────────
 func test_separate_skips_melee_but_moves_charging() -> void:
 	var bf = Battlefield.new()
-	# 겹쳐 있는(거리 3 < SEP_DIST 11) CHARGE·MELEE 한 쌍.
+	# 겹쳐 있는(거리 3 < SEP_DIST) CHARGE·MELEE 한 쌍.
 	var charging := {"id": 1, "side": 0, "pos": Vector2(0, 0), "state": Battlefield.CHARGE, "seed": 0.0}
 	var melee := {"id": 2, "side": 1, "pos": Vector2(3, 0), "state": Battlefield.MELEE, "seed": 0.0}
 	bf._soldiers = {0: [charging], 1: [melee]}
