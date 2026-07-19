@@ -32,6 +32,8 @@ const VY := 2.0 * 1.2 * 60.0   # ≈ 144 px/s (원본 2px/frame)
 const CLOSE_X := 36.0 * 1.2    # X가 이 안이면 Y 접근 시작 (원본 0x240000=36px)
 const GAP_X := 13.0            # 근접 시 좌우 간격(마주섬)
 const GAP_Y := 5.0
+const STRIKE_INTERVAL := 0.42  # 접전 중 자동 공방 주기(초) — 전투 내내 계속 주고받게(idle 방지)
+const STRIKE_JITTER := 0.18    # 공방 주기 무작위 편차(위상차)
 
 const STRIKE_DUR := 0.22
 # 사망: 원본 0x1976/0x19EA — 위로+뒤로 포물선 넉백 점프 → 착지 후 눕기+점멸 소멸(0x1B24)
@@ -117,6 +119,7 @@ func _spawn_side(side: int, n: int) -> void:
 			"target": null,
 			"state": CHARGE,
 			"strike_t": 0.0,
+			"strike_cd": _rng.randf_range(0.0, STRIKE_INTERVAL),  # 자동 공방 쿨다운(위상 분산)
 			"death_t": 0.0,
 			"airborne": false,
 			"dvx": 0.0,
@@ -138,16 +141,16 @@ func _retarget_all() -> void:
 	for side in [0, 1]:
 		var foes: Array = _soldiers[1 - side]
 		for s in _soldiers[side]:
-			if s["state"] == DYING:
-				new_targets[s["id"]] = null
+			if s["state"] == DYING or s["state"] == RETURN or s["state"] == IDLE:
+				new_targets[s["id"]] = null  # 죽는 중/복귀 중/정렬 완료 병사는 교전 안 함
 				continue
 			var sp: Vector2 = s["pos"]
 			var best: Variant = null
 			var best_pri := 0
 			var best_d := 1.0e9
 			for f in foes:
-				if f["state"] == DYING:
-					continue
+				if f["state"] == DYING or f["state"] == RETURN or f["state"] == IDLE:
+					continue  # 전장에서 빠지는 적은 타겟 후보에서 제외
 				var ft: Variant = f["target"]  # 그 적이 직전 프레임에 노리던 대상
 				var pri := 1                    # 딴 놈과 교전 중
 				if ft == null:
@@ -176,15 +179,14 @@ func _retarget_all() -> void:
 func begin_advance() -> void:
 	_charging = true
 
-## 전투 종료: 생존자를 각자 처음 있던 자리(home)로 그대로 복귀시킨다. 죽은 자리는 비워진다.
+## 전투 종료: 이후 각 전투(MELEE/CHARGE) 병사는 진행 중이던 공방을 마치면 home으로 복귀(RETURN)한다.
+## 전원이 "마지막에 한 번" 돌아가는 그림 — 전투 중 이탈은 없다(재교전으로 끝까지 싸운 뒤 복귀).
 func begin_retreat() -> void:
 	_retreating = true
-	for side in [0, 1]:
-		for s in _soldiers[side]:
-			if s["state"] == DYING:
-				continue
-			s["state"] = RETURN
-			s["target"] = null
+
+## 전투 종료 후, 전투 병사가 진행 중 공방(strike_t)까지 마쳤으면 복귀 시작 가능.
+func _retreat_ready(s: Dictionary) -> bool:
+	return _retreating and (s["state"] == MELEE or s["state"] == CHARGE) and s["strike_t"] <= 0.0
 
 ## 진형 좌표: 진영 끝에 앵커, 중앙 방향으로 균일한 3행 [3,3,4] 열(가운데 행 쐐기). 각 병사의 복귀 위치.
 func _formation_slots(side: int, n: int) -> Array:
@@ -217,11 +219,11 @@ func _spawn_slots(side: int, n: int) -> Array:
 			out.append(Vector2(edge_x + to_out * float(k) * SPAWN_DEPTH + to_center * diag + jx, ry))
 	return out
 
-## 복귀가 끝났는가(RETURN 상태 없음).
+## 복귀가 끝났는가 — 생존자가 모두 제자리(IDLE)인가. 대기(peel off 전)·이동(RETURN) 중이면 아직.
 func all_returned() -> bool:
 	for side in [0, 1]:
 		for s in _soldiers[side]:
-			if s["state"] == RETURN:
+			if s["state"] != IDLE and s["state"] != DYING:
 				return false
 	return true
 
@@ -239,25 +241,29 @@ func _has_melee(side: int) -> bool:
 func _pick_engaged(side: int) -> Variant:
 	var pool: Array = _soldiers[side].filter(func(s): return s["state"] == MELEE)
 	if pool.is_empty():
-		pool = _soldiers[side].filter(func(s): return s["state"] != DYING)
+		pool = _soldiers[side].filter(func(s): return s["state"] == MELEE or s["state"] == CHARGE)
 	if pool.is_empty():
 		return null
 	return pool[_rng.randi() % pool.size()]
 
-## 공격측 한 병사가 적 위치로 찌르기 + 전방 이펙트 스폰 [0x1782].
-func strike(side: int, toward: Vector2) -> void:
-	var s: Variant = _pick_engaged(side)
-	if s != null:
-		s["strike_t"] = STRIKE_DUR
-		s["_lunge_to"] = toward
-		# [임시 비활성] ③ 전방 슬래시 이펙트
-		#var from: Vector2 = s["pos"]
-		#var dir := signf(toward.x - from.x)
-		#if dir == 0.0:
-		#	dir = s["face"]
-		#_effects.append({"pos": from + Vector2(dir * 6.0, -6.0), "vx": dir * 3.0 * 1.2 * 60.0,
-		#	"life": 0.22, "side": side})
-	_shake = maxf(_shake, 1.5)
+## 접전 중 병사가 자기 타겟(없으면 앞쪽)을 향해 자동 공방(연출). 데미지는 presenter의 kill이 별도 처리.
+## 모션이 꺼져 있어도 보이도록 접점에 작은 섬광 + 약한 흔들림. strike_t는 찌르기/창 뻗기 재활성 시 사용.
+func _auto_strike(s: Dictionary) -> void:
+	var tgt: Variant = s["target"]
+	var toward: Vector2 = s["pos"] + Vector2(s["face"] * 10.0, 0.0)
+	if tgt != null and tgt["state"] != DYING:
+		toward = tgt["pos"]
+		if toward.x != s["pos"].x:
+			s["face"] = signf(toward.x - s["pos"].x)
+	s["strike_t"] = STRIKE_DUR
+	s["_lunge_to"] = toward
+	# [임시 비활성] ③ 전방 슬래시 이펙트 [0x1860] — 재활성 시 아래 블록 주석 해제
+	#var dir: float = s["face"]
+	#_effects.append({"pos": s["pos"] + Vector2(dir * 6.0, -6.0), "vx": dir * 3.0 * 1.2 * 60.0,
+	#	"life": 0.22, "side": s["side"]})
+	var hit: Vector2 = (s["pos"] + toward) * 0.5
+	_flashes.append({"pos": hit, "life": 0.1, "max": 0.1, "big": false})
+	_shake = maxf(_shake, 0.8)
 
 func kill(side: int) -> Variant:
 	var s: Variant = _pick_engaged(side)
@@ -276,28 +282,6 @@ func kill(side: int) -> Variant:
 	_shake = maxf(_shake, 2.5)
 	return pos
 
-func spark(side: int) -> void:
-	var s: Variant = _pick_engaged(side)
-	if s == null:
-		return
-	_flashes.append({"pos": s["pos"], "life": 0.16, "max": 0.16, "big": false})
-
-func dodge(_side: int) -> void:
-	pass
-
-func remaining(side: int) -> int:
-	var c := 0
-	for s in _soldiers[side]:
-		if s["state"] != DYING:
-			c += 1
-	return c
-
-func focus(side: int) -> Vector2:
-	var s: Variant = _pick_living(side)
-	if s != null:
-		return s["pos"]
-	return Vector2(FIELD_W * 0.5, BASE_Y)
-
 func force_result(a_final: int, b_final: int) -> void:
 	_reduce_to(0, a_final)
 	_reduce_to(1, b_final)
@@ -310,12 +294,6 @@ func _reduce_to(side: int, final_n: int) -> void:
 		alive.pop_back()
 	alive.append_array(dying)  # 죽는 중인 병사는 애니 끝날 때까지 유지
 	_soldiers[side] = alive
-
-func _pick_living(side: int) -> Variant:
-	var pool: Array = _soldiers[side].filter(func(s): return s["state"] != DYING)
-	if pool.is_empty():
-		return null
-	return pool[_rng.randi() % pool.size()]
 
 # ── 업데이트 ───────────────────────────────────────────────────────────────
 func _process(delta: float) -> void:
@@ -330,6 +308,12 @@ func _process(delta: float) -> void:
 		for s in _soldiers[side]:
 			if s["strike_t"] > 0.0:
 				s["strike_t"] = maxf(0.0, s["strike_t"] - delta)
+			# 접전(MELEE) 병사 자동 공방: 계속 주고받게(idle 방지). 전투 종료(_retreating) 후엔 새 공방 안 시작.
+			if s["state"] == MELEE and not _retreating:
+				s["strike_cd"] = s.get("strike_cd", 0.0) - delta
+				if s["strike_cd"] <= 0.0:
+					_auto_strike(s)
+					s["strike_cd"] = STRIKE_INTERVAL + _rng.randf_range(0.0, STRIKE_JITTER)
 			if s["state"] == DYING:
 				if s["airborne"]:
 					# 포물선 넉백: 중력 가속 + 등속 뒤로. 착지하면 눕기 단계로.
@@ -348,6 +332,10 @@ func _process(delta: float) -> void:
 						continue  # 제거
 			elif s["state"] == RETURN:
 				_return_step(s, delta)  # 본인 진영으로 복귀
+			elif _retreat_ready(s):
+				# 전투 종료: 진행 중이던 공방(strike_t)을 마치면 그때 복귀 시작 → 마지막에 한 번, idle 없이.
+				s["state"] = RETURN
+				s["target"] = null
 			elif _charging and not _retreating:
 				_move_step(s, delta)
 			keep.append(s)

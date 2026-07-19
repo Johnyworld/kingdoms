@@ -15,10 +15,9 @@ enum St { CHARGE, CLASH, POST, RETREAT, DONE }
 # 타이밍
 const STEP := 0.75          # AT/DF 지휘보정 틱업 시간(돌격과 동시 진행)
 const ADVANCE_TIME := 2.2   # 돌격 최대 시간(상한). 실제로는 접전 도달 시 전환
-const CLASH_STEP := 0.09      # 유효 타격(킬) 1회당 간격
-const CLASH_STEP_SOFT := 0.04 # 비살상 타격(MISS/SPECIAL/NO_KILL)은 빨리 넘김 — 빈 대치 압축
-const POST_PAUSE := 0.5     # 결과 표시 후 복귀 시작까지
-const RETREAT_MAX := 2.6    # 복귀 최대 시간(상한)
+const CLASH_STEP := 0.2       # 킬(사망) 이벤트 간격 — 전 구간에 퍼뜨려 뒷부분도 안 심심하게
+const POST_PAUSE := 0.0     # 결과 표시 후 복귀 시작까지 — 0=마지막 킬 직후 바로 순차 복귀(얼음 구간 제거)
+const RETREAT_MAX := 4.0    # 복귀 최대 시간(상한) — 스커미시 대기 + 순차 peel-off 감안
 
 const START_SOLDIERS := 10
 
@@ -31,7 +30,7 @@ var _state: int = St.CHARGE
 var _timer := 0.0
 var _a_cur := START_SOLDIERS
 var _b_cur := START_SOLDIERS
-var _events: Array = []  # 재생용(양측 볼리 교차)
+var _events: Array = []  # 킬 스케줄(전 구간 분산) — _build_plan
 var _event_i := 0
 var _clash_acc := 0.0
 
@@ -47,7 +46,7 @@ func _ready() -> void:
 	_d = LangResolver.make_unit(27, 1, START_SOLDIERS, 9, 5, 0, 3, 5)
 
 	_result = LangResolver.resolve_engagement(_rng, _a, _d)
-	_events = _interleave(_result["rounds"])
+	_events = _build_plan()
 
 	# 스폰 즉시: 병력·명중률 표시 + 돌격 시작 (숫자와 돌격을 동시에 — 원본 병렬 레이어)
 	var sa: Dictionary = _result["stats_a"]
@@ -60,17 +59,26 @@ func _ready() -> void:
 	_field.call("begin_advance")  # 스폰하자마자 바로 돌격
 	_enter(St.CHARGE)
 
-## 공격 볼리와 반격 볼리를 교차해 "동시 난투"로 보이게 한다(결과 불변, 연출만).
-func _interleave(rounds: Array) -> Array:
-	var a_vol: Array = rounds.filter(func(e): return e["attacker_side"] == 0)
-	var d_vol: Array = rounds.filter(func(e): return e["attacker_side"] == 1)
+## 킬(사망) 이벤트만 스케줄에 넣고 `CLASH_STEP` 간격으로 전 구간에 퍼뜨린다 — 죽음이 앞으로 쏠려
+## 뒷부분이 비는 문제 제거. 생존자 복귀는 스케줄 소진 후 begin_retreat로 "마지막에 한 번" 일괄(전투 중 이탈 없음).
+## 총합은 Resolver 결과 그대로: 사망 = 10 - 생존.
+func _build_plan() -> Array:
+	var da: int = START_SOLDIERS - _result["final_a_soldiers"]  # 공격측 사망
+	var dd: int = START_SOLDIERS - _result["final_d_soldiers"]  # 방어측 사망
+	return _side_list(da, dd, "kill")  # 양쪽 번갈아 → 사망이 한쪽으로 안 쏠림
+
+## side 0 n0개 + side 1 n1개 이벤트를 양쪽 번갈아 만든다(한쪽으로 안 쏠리게).
+func _side_list(n0: int, n1: int, kind: String) -> Array:
 	var out: Array = []
-	var n: int = maxi(a_vol.size(), d_vol.size())
-	for i in range(n):
-		if i < a_vol.size():
-			out.append(a_vol[i])
-		if i < d_vol.size():
-			out.append(d_vol[i])
+	var i0 := 0
+	var i1 := 0
+	while i0 < n0 or i1 < n1:
+		if i0 < n0:
+			out.append({"kind": kind, "side": 0})
+			i0 += 1
+		if i1 < n1:
+			out.append({"kind": kind, "side": 1})
+			i1 += 1
 	return out
 
 func _enter(s: int) -> void:
@@ -131,44 +139,25 @@ func _tick_atdf(side: int, st: Dictionary, t: float) -> void:
 	var df := int(round(lerpf(st["base_df"], st["df"], t)))
 	_hud.set_at_df(side, at, df)
 
-## 킬은 CLASH_STEP, 비살상 타격은 CLASH_STEP_SOFT로 재생 — 결과 불변, 빈 대치만 압축.
-func _clash_step(ev: Dictionary) -> float:
-	return CLASH_STEP if ev["kind"] == LangResolver.Hit.HIT else CLASH_STEP_SOFT
-
 func _process_clash(delta: float) -> void:
 	_clash_acc += delta
-	while _event_i < _events.size():
-		var step: float = _clash_step(_events[_event_i])
-		if _clash_acc < step:
-			break
-		_clash_acc -= step
+	while _clash_acc >= CLASH_STEP and _event_i < _events.size():
+		_clash_acc -= CLASH_STEP
 		_apply_event(_events[_event_i])
 		_event_i += 1
 	if _event_i >= _events.size():
 		_enter(St.POST)
 
+## 스케줄은 전부 킬 이벤트 — 접전 병사 1명 전사 + 병력 카운트 갱신.
 func _apply_event(ev: Dictionary) -> void:
-	var atk: int = ev["attacker_side"]
-	var tgt: int = ev["target_side"]
-	match ev["kind"]:
-		LangResolver.Hit.HIT:
-			var pos: Variant = _field.call("kill", tgt)
-			if pos != null:
-				_field.call("strike", atk, pos)
-			if tgt == 1:
-				_b_cur = maxi(0, _b_cur - 1)
-			else:
-				_a_cur = maxi(0, _a_cur - 1)
-			_hud.set_count(0, _a_cur)
-			_hud.set_count(1, _b_cur)
-		LangResolver.Hit.NO_KILL:
-			_field.call("strike", atk, _field.call("focus", tgt))
-			_field.call("spark", tgt)
-		LangResolver.Hit.MISS:
-			_field.call("strike", atk, _field.call("focus", tgt))
-			_field.call("dodge", tgt)
-		LangResolver.Hit.SPECIAL:
-			_field.call("strike", atk, _field.call("focus", tgt))
+	var side: int = ev["side"]
+	_field.call("kill", side)  # 넉백+섬광+흔들림
+	if side == 1:
+		_b_cur = maxi(0, _b_cur - 1)
+	else:
+		_a_cur = maxi(0, _a_cur - 1)
+	_hud.set_count(0, _a_cur)
+	_hud.set_count(1, _b_cur)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event.is_pressed() and not event.is_echo()):

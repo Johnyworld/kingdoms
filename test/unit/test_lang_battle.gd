@@ -3,6 +3,7 @@ extends GutTest
 ## RNG 재현성(§2.5) + 교전 결정론(§2.2) + 전장 타겟팅 우선순위(§106, 원본 0xE5DA)를 확인한다.
 
 const Battlefield = preload("res://scenes/lang_battle/lang_battlefield.gd")
+const Presenter = preload("res://scenes/lang_battle/lang_battle.gd")
 
 func test_rng_reference_sequence() -> void:
 	# 스펙 §2.5 검증 수열: 상태 0에서 next()%100.
@@ -149,3 +150,46 @@ func test_separate_skips_melee_but_moves_charging() -> void:
 	bf.free()
 	assert_ne(charge_after, charge_before, "CHARGE 병사는 겹치면 밀려난다")
 	assert_eq(melee_after, melee_before, "MELEE 병사는 분리로 밀리지 않는다(제자리 교전)")
+
+# ── 순차 복귀(begin_retreat/all_returned): 홈에서 먼 병사부터 하나씩 peel off ──────────
+func test_retreat_ready_waits_for_strike() -> void:
+	# 전투 종료 후, 진행 중이던 공방(strike_t>0)이면 아직 복귀 대기, 끝나면 복귀 시작 가능.
+	var bf = Battlefield.new()
+	bf._retreating = true
+	var mid := {"state": Battlefield.MELEE, "strike_t": 0.15}
+	var done := {"state": Battlefield.MELEE, "strike_t": 0.0}
+	var charging := {"state": Battlefield.CHARGE, "strike_t": 0.0}
+	var r_mid := bf._retreat_ready(mid)
+	var r_done := bf._retreat_ready(done)
+	var r_charge := bf._retreat_ready(charging)
+	bf.free()
+	assert_false(r_mid, "공방 중(strike_t>0)엔 복귀 대기")
+	assert_true(r_done, "공방 끝난 접전 병사는 복귀 시작")
+	assert_true(r_charge, "아직 접근 중(CHARGE)이던 병사도 복귀")
+
+# ── 킬 스케줄(_build_plan): 킬 총합이 Resolver 사망 수와 정확히 일치(결과 보존) ──────────
+func test_build_plan_matches_result_deaths() -> void:
+	# 생존 A5/D3 → 사망 A5/D7. 킬 이벤트만, 총 12개.
+	var p = Presenter.new()
+	p._result = {"final_a_soldiers": 5, "final_d_soldiers": 3}
+	var plan: Array = p._build_plan()
+	var kills := {0: 0, 1: 0}
+	for ev in plan:
+		assert_eq(ev["kind"], "kill", "스케줄은 전부 킬 이벤트")
+		kills[ev["side"]] += 1
+	p.free()
+	assert_eq(kills[0], 5, "공격측 사망 = 10 - 생존5")
+	assert_eq(kills[1], 7, "방어측 사망 = 10 - 생존3")
+	assert_eq(plan.size(), 12, "총 12 킬 이벤트")
+
+func test_all_returned_only_when_all_idle() -> void:
+	var bf = Battlefield.new()
+	var idle := {"id": 1, "side": 0, "pos": Vector2.ZERO, "home": Vector2.ZERO, "state": Battlefield.IDLE}
+	var returning := {"id": 2, "side": 1, "pos": Vector2(50, 0), "home": Vector2.ZERO, "state": Battlefield.RETURN}
+	bf._soldiers = {0: [idle], 1: [returning]}
+	var mixed := bf.all_returned()
+	returning["state"] = Battlefield.IDLE
+	var all_idle := bf.all_returned()
+	bf.free()
+	assert_false(mixed, "아직 이동 중(RETURN)인 병사가 있으면 미완료")
+	assert_true(all_idle, "생존자 전원 IDLE이면 복귀 완료")
