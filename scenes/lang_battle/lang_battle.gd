@@ -173,8 +173,9 @@ func _process_clash(_delta: float) -> void:
 	while _event_i < _events.size() and _timer >= _event_times[_event_i]:
 		_apply_event(_events[_event_i])
 		_event_i += 1
-	# 킬을 전부 재생했고 최소 전투시간을 채웠을 때 종료 — 남는 시간은 전장 스커미시가 채움.
-	if _event_i >= _events.size() and _timer >= _melee_dur:
+	# 킬 전부 재생 + 최소 전투시간 채움 + **진행 중 듀얼 없음**일 때 종료(복귀 중 사망 방지).
+	# 남는 시간은 전장 스커미시가 채우고, 마지막 듀얼이 사망까지 끝난 뒤에야 복귀 시작.
+	if _event_i >= _events.size() and _timer >= _melee_dur and not _field.call("duels_active"):
 		_enter(St.POST)
 
 ## 스케줄은 전부 킬 이벤트 — 접전 병사 1명 전사 + 병력 카운트 갱신.

@@ -36,6 +36,9 @@ const STRIKE_INTERVAL := 0.34  # 접전 중 자동 공방 주기(초) — 전투
 const STRIKE_JITTER := 0.18    # 공방 주기 무작위 편차(위상차)
 
 const STRIKE_DUR := 0.22
+const FENCE_PUSH := 8.0        # 공방 1회당 실제 밀림(px) — 찌르는 쪽 전진 + 맞는 쪽 뒤로(거리 유지, 좌우 밀림)
+const PUSH_SMOOTH := 15.0      # 밀림 이징 계수(초당) — push_rem을 매 프레임 이 비율로 소진(순간이동 대신 슬라이드)
+const DUEL_STEP := 0.18        # 듀얼 밀림 스텝 간격(초)
 # 사망: 원본 0x1976/0x19EA — 위로+뒤로 포물선 넉백 점프 → 착지 후 눕기+점멸 소멸(0x1B24)
 const DEATH_GRAV := 540.0            # 중력 px/s² (원본 +0x2000/frame ×1.2×3600)
 const DEATH_VX := Vector2(40.0, 105.0)   # 뒤로 넉백 속도 범위 px/s (원본 0.5~1.5px/f ×1.2×60)
@@ -43,7 +46,9 @@ const DEATH_VY := Vector2(175.0, 250.0)  # 위로 launch 속도 범위 px/s (원
 const DEATH_LIE := 0.6               # 착지 후 눕기+점멸 시간
 
 # 병사 상태
-enum { CHARGE, MELEE, DYING, RETURN, IDLE }
+enum { CHARGE, MELEE, DYING, RETURN, IDLE, DUEL }
+# 듀얼 밀당 스텝 결과: 60% 무이동 / 30% 패자 밀림 / 10% 승자 밀림
+enum { PUSH_NONE, PUSH_LOSER, PUSH_WINNER }
 
 # ── 팔레트 (16비트풍) ─────────────────────────────────────────────────────
 const OUTLINE := Color8(16, 18, 26)
@@ -120,6 +125,7 @@ func _spawn_side(side: int, n: int) -> void:
 			"state": CHARGE,
 			"strike_t": 0.0,
 			"strike_cd": _rng.randf_range(0.0, STRIKE_INTERVAL),  # 자동 공방 쿨다운(위상 분산)
+			"push_rem": 0.0,  # 펜싱 밀림 잔여(X, 애니메이션으로 소진)
 			"death_t": 0.0,
 			"airborne": false,
 			"dvx": 0.0,
@@ -141,15 +147,15 @@ func _retarget_all() -> void:
 	for side in [0, 1]:
 		var foes: Array = _soldiers[1 - side]
 		for s in _soldiers[side]:
-			if s["state"] == DYING or s["state"] == RETURN or s["state"] == IDLE:
-				new_targets[s["id"]] = null  # 죽는 중/복귀 중/정렬 완료 병사는 교전 안 함
+			if s["state"] == DYING or s["state"] == RETURN or s["state"] == IDLE or s["state"] == DUEL:
+				new_targets[s["id"]] = null  # 죽는 중/복귀 중/정렬 완료/듀얼 중 병사는 교전 안 함
 				continue
 			var sp: Vector2 = s["pos"]
 			var best: Variant = null
 			var best_pri := 0
 			var best_d := 1.0e9
 			for f in foes:
-				if f["state"] == DYING or f["state"] == RETURN or f["state"] == IDLE:
+				if f["state"] == DYING or f["state"] == RETURN or f["state"] == IDLE or f["state"] == DUEL:
 					continue  # 전장에서 빠지는 적은 타겟 후보에서 제외
 				var ft: Variant = f["target"]  # 그 적이 직전 프레임에 노리던 대상
 				var pri := 1                    # 딴 놈과 교전 중
@@ -227,6 +233,14 @@ func all_returned() -> bool:
 				return false
 	return true
 
+## 진행 중인 듀얼(밀당→사망)이 있는가. 복귀는 이게 다 끝난 뒤 시작해야 "복귀 중 사망"이 안 생긴다.
+func duels_active() -> bool:
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			if s["state"] == DUEL:
+				return true
+	return false
+
 ## 양쪽 모두 최소 1명씩 접전에 들어갔는가(첫 충돌). 이때부터 바로 교전 시작.
 func any_engaged() -> bool:
 	return _has_melee(0) and _has_melee(1)
@@ -251,10 +265,16 @@ func _pick_engaged(side: int) -> Variant:
 func _auto_strike(s: Dictionary) -> void:
 	var tgt: Variant = s["target"]
 	var toward: Vector2 = s["pos"] + Vector2(s["face"] * 10.0, 0.0)
-	if tgt != null and tgt["state"] != DYING:
+	# DUEL 중인 적은 이미 죽는 중(밀당 시퀀스) — 앰비언트 밀림을 얹지 않는다(듀얼 정렬 흐트러짐 방지).
+	if tgt != null and tgt["state"] != DYING and tgt["state"] != DUEL:
 		toward = tgt["pos"]
 		if toward.x != s["pos"].x:
 			s["face"] = signf(toward.x - s["pos"].x)
+		# 펜싱 밀림 예약: 찌르는 쪽 전진 + 맞는 쪽 뒤로(같은 벡터 → 거리 유지). 실제 이동은 _process가
+		# push_rem을 이징으로 소진(순간이동 대신 슬라이드).
+		var push: float = s["face"] * FENCE_PUSH
+		s["push_rem"] = s.get("push_rem", 0.0) + push
+		tgt["push_rem"] = tgt.get("push_rem", 0.0) + push
 	s["strike_t"] = STRIKE_DUR
 	s["_lunge_to"] = toward
 	# [임시 비활성] ③ 전방 슬래시 이펙트 [0x1860] — 재활성 시 아래 블록 주석 해제
@@ -265,22 +285,59 @@ func _auto_strike(s: Dictionary) -> void:
 	_flashes.append({"pos": hit, "life": 0.1, "max": 0.1, "big": false})
 	_shake = maxf(_shake, 0.8)
 
-func kill(side: int) -> Variant:
-	var s: Variant = _pick_engaged(side)
-	if s == null:
-		return null
+## Presenter가 결과대로 지정하는 킬 → 즉사 대신 **듀얼**을 연다. 패자 V(접전 병사) + 승자 W(=V의 타겟 적).
+## 공방 N=randi(1..3)회 → N-1번 밀림 스텝(_process) 후 V 사망(_die). W 없으면 즉사.
+func kill(side: int) -> void:
+	var v: Variant = _pick_engaged(side)
+	if v == null:
+		return
+	var w: Variant = v["target"]
+	if w != null and (w["state"] == MELEE or w["state"] == CHARGE):
+		v["state"] = DUEL
+		v["duel_winner"] = w
+		v["duel_steps"] = _duel_count() - 1  # N-1 밀림 후 사망
+		v["duel_timer"] = DUEL_STEP
+	else:
+		_die(v)  # 승자 없음 → 즉사 fallback
+
+## 실제 전사: 위로+뒤로 포물선 넉백 점프(원본 0x1976/0x19EA) → 시체 눕기 → 점멸 소멸.
+func _die(s: Dictionary) -> void:
 	s["state"] = DYING
 	s["death_t"] = 0.0
-	# 위로+뒤로 포물선 넉백 점프 (원본 0x1976/0x19EA)
 	s["airborne"] = true
 	s["land_y"] = s["pos"].y
 	var back: float = -float(s["face"])  # 적 반대 방향(뒤)
 	s["dvx"] = back * _rng.randf_range(DEATH_VX.x, DEATH_VX.y)
 	s["dvy"] = -_rng.randf_range(DEATH_VY.x, DEATH_VY.y)  # 위로 launch
-	var pos: Vector2 = s["pos"]
-	_flashes.append({"pos": pos, "life": 0.24, "max": 0.24, "big": true})
+	_flashes.append({"pos": s["pos"], "life": 0.24, "max": 0.24, "big": true})
 	_shake = maxf(_shake, 2.5)
-	return pos
+
+## 듀얼 공방 횟수 N (1~3). N-1이 밀림 스텝 수.
+func _duel_count() -> int:
+	return _rng.randi_range(1, 3)
+
+## 밀림 스텝 결과: r<0.6 무이동 / <0.9 패자 밀림 / else 승자 밀림.
+func _push_kind_for(r: float) -> int:
+	if r < 0.6:
+		return PUSH_NONE
+	if r < 0.9:
+		return PUSH_LOSER
+	return PUSH_WINNER
+
+## 한 스텝 밀림 적용: 밀리는 쪽이 상대 반대로 물러나고 상대가 따라감(같은 벡터 → 거리 유지). push_rem 재사용.
+func _apply_duel_push(v: Dictionary, w: Variant, kind: int) -> void:
+	if kind == PUSH_NONE or w == null or w["state"] == DYING:
+		return
+	var dir: float
+	if kind == PUSH_LOSER:   # 패자 v 뒤로(w 반대), 승자 w 따라감
+		dir = signf(v["pos"].x - w["pos"].x)
+	else:                    # PUSH_WINNER: 승자 w 뒤로(v 반대), 패자 v 따라감
+		dir = signf(w["pos"].x - v["pos"].x)
+	if dir == 0.0:
+		dir = 1.0
+	var push: float = dir * FENCE_PUSH
+	v["push_rem"] = v.get("push_rem", 0.0) + push
+	w["push_rem"] = w.get("push_rem", 0.0) + push
 
 func force_result(a_final: int, b_final: int) -> void:
 	_reduce_to(0, a_final)
@@ -288,11 +345,12 @@ func force_result(a_final: int, b_final: int) -> void:
 	queue_redraw()
 
 func _reduce_to(side: int, final_n: int) -> void:
-	var alive: Array = _soldiers[side].filter(func(s): return s["state"] != DYING)
-	var dying: Array = _soldiers[side].filter(func(s): return s["state"] == DYING)
+	# 죽는 중(DYING)·듀얼 중(DUEL) 병사는 이미 사망 예정 → 생존 트림 대상에서 빼고 유지(애니 끝까지).
+	var alive: Array = _soldiers[side].filter(func(s): return s["state"] != DYING and s["state"] != DUEL)
+	var dying: Array = _soldiers[side].filter(func(s): return s["state"] == DYING or s["state"] == DUEL)
 	while alive.size() > final_n:
 		alive.pop_back()
-	alive.append_array(dying)  # 죽는 중인 병사는 애니 끝날 때까지 유지
+	alive.append_array(dying)
 	_soldiers[side] = alive
 
 # ── 업데이트 ───────────────────────────────────────────────────────────────
@@ -309,6 +367,16 @@ func _process(delta: float) -> void:
 			if s["strike_t"] > 0.0:
 				s["strike_t"] = maxf(0.0, s["strike_t"] - delta)
 			# 접전(MELEE) 병사 자동 공방: 계속 주고받게(idle 방지). 전투 종료(_retreating) 후엔 새 공방 안 시작.
+			# 펜싱 밀림 애니메이션: 예약된 push_rem을 이징으로 소진(순간이동 대신 슬라이드). 사망 중 제외.
+			var pr: float = s.get("push_rem", 0.0)
+			if s["state"] != DYING and pr != 0.0:
+				var mv: float = pr * (1.0 - exp(-PUSH_SMOOTH * delta))
+				if absf(pr) < 0.1:  # 잔여가 작으면 한 번에 소진 → 잔량 누적 드리프트 방지
+					mv = pr
+				var pp: Vector2 = s["pos"]
+				pp.x += mv
+				s["pos"] = pp
+				s["push_rem"] = pr - mv
 			if s["state"] == MELEE and not _retreating:
 				s["strike_cd"] = s.get("strike_cd", 0.0) - delta
 				if s["strike_cd"] <= 0.0:
@@ -330,6 +398,16 @@ func _process(delta: float) -> void:
 					s["death_t"] += delta
 					if s["death_t"] >= DEATH_LIE:
 						continue  # 제거
+			elif s["state"] == DUEL:
+				# 듀얼 밀당: 스텝마다 확률 밀림(60/30/10), N-1 스텝 뒤 실제 사망(_die).
+				s["duel_timer"] = s.get("duel_timer", DUEL_STEP) - delta
+				if s["duel_timer"] <= 0.0:
+					if s.get("duel_steps", 0) > 0:
+						_apply_duel_push(s, s["duel_winner"], _push_kind_for(_rng.randf()))
+						s["duel_steps"] -= 1
+						s["duel_timer"] = DUEL_STEP
+					else:
+						_die(s)
 			elif s["state"] == RETURN:
 				_return_step(s, delta)  # 본인 진영으로 복귀
 			elif _retreat_ready(s):
@@ -443,11 +521,6 @@ func _draw_pos(s: Dictionary) -> Vector2:
 	# 근접 중 미세 몸싸움(제자리 흔들림) — 미끄러짐 인상 줄이려 진폭 축소
 	if s["state"] == MELEE:
 		base += Vector2(sin(_t * 6.0 + s["seed"]) * 0.6, cos(_t * 5.0 + s["seed"]) * 0.4)
-	# [임시 비활성] ① 찌르기 런지(적 방향으로 나갔다 복귀) — 재활성 시 아래 블록 주석 해제
-	#if s["strike_t"] > 0.0 and s.has("_lunge_to"):
-	#	var lunge_to: Vector2 = s["_lunge_to"]
-	#	var p: float = 1.0 - s["strike_t"] / STRIKE_DUR
-	#	base = base.lerp(lunge_to, 0.3 * sin(p * PI))
 	# 사망 중엔 pos 를 직접 적분(넉백 점프)하므로 여기선 그대로 사용.
 	return base
 

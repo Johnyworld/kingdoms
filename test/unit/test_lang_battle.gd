@@ -221,6 +221,57 @@ func test_schedule_times_bounded_and_sorted() -> void:
 	assert_true(in_range, "모든 시각이 [0, melee_dur] 안")
 	assert_true(sorted, "시각이 오름차순 정렬(순서대로 재생)")
 
+# ── 펜싱 밀림(_auto_strike): 공방 시 찌르는 쪽·맞는 쪽에 같은 밀림 예약(즉시이동 아님, 거리 유지) ──
+func test_auto_strike_queues_fence_push() -> void:
+	var bf = Battlefield.new()
+	var b := {"id": 2, "side": 1, "pos": Vector2(110, 0), "face": -1.0, "state": Battlefield.MELEE, "target": null, "push_rem": 0.0, "strike_t": 0.0}
+	var a := {"id": 1, "side": 0, "pos": Vector2(100, 0), "face": 1.0, "state": Battlefield.MELEE, "target": b, "push_rem": 0.0, "strike_t": 0.0}
+	bf._auto_strike(a)  # a가 오른쪽(face +1) 타겟 b를 침
+	bf.free()
+	assert_almost_eq(a["push_rem"], Battlefield.FENCE_PUSH, 0.001, "찌르는 쪽 전진 밀림 예약")
+	assert_almost_eq(b["push_rem"], Battlefield.FENCE_PUSH, 0.001, "맞는 쪽 뒤로 밀림 예약(같은 벡터→거리 유지)")
+	assert_eq(a["pos"], Vector2(100, 0), "즉시 이동 아님 — 애니메이션은 _process가 push_rem 소진")
+
+# ── 듀얼 밀당(_push_kind_for): 60% 무이동 / 30% 패자 / 10% 승자 (임계 0.6/0.9) ──────────
+# 반환: 0=PUSH_NONE, 1=PUSH_LOSER, 2=PUSH_WINNER
+func test_push_kind_thresholds() -> void:
+	var bf = Battlefield.new()
+	var r_none_lo := bf._push_kind_for(0.0)
+	var r_none_hi := bf._push_kind_for(0.59)
+	var r_loser_lo := bf._push_kind_for(0.6)
+	var r_loser_hi := bf._push_kind_for(0.89)
+	var r_winner_lo := bf._push_kind_for(0.9)
+	var r_winner_hi := bf._push_kind_for(0.99)
+	bf.free()
+	assert_eq(r_none_lo, 0, "r=0.0 → 무이동")
+	assert_eq(r_none_hi, 0, "r=0.59 → 무이동")
+	assert_eq(r_loser_lo, 1, "r=0.6 → 패자 밀림")
+	assert_eq(r_loser_hi, 1, "r=0.89 → 패자 밀림")
+	assert_eq(r_winner_lo, 2, "r=0.9 → 승자 밀림")
+	assert_eq(r_winner_hi, 2, "r=0.99 → 승자 밀림")
+
+func test_duel_count_in_range() -> void:
+	var bf = Battlefield.new()
+	var ok := true
+	for i in range(50):
+		var n: int = bf._duel_count()
+		if n < 1 or n > 3:
+			ok = false
+	bf.free()
+	assert_true(ok, "공방 횟수는 [1,3] 범위")
+
+func test_duels_active_flag() -> void:
+	# 복귀는 duels_active()가 false여야 시작 → "복귀 중 사망" 방지.
+	var bf = Battlefield.new()
+	var s := {"id": 1, "side": 0, "state": Battlefield.MELEE}
+	bf._soldiers = {0: [s], 1: []}
+	var before := bf.duels_active()
+	s["state"] = Battlefield.DUEL
+	var during := bf.duels_active()
+	bf.free()
+	assert_false(before, "DUEL 병사 없으면 false")
+	assert_true(during, "DUEL 병사 있으면 true")
+
 func test_all_returned_only_when_all_idle() -> void:
 	var bf = Battlefield.new()
 	var idle := {"id": 1, "side": 0, "pos": Vector2.ZERO, "home": Vector2.ZERO, "state": Battlefield.IDLE}
