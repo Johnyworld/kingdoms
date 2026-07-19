@@ -15,7 +15,12 @@ enum St { CHARGE, CLASH, POST, RETREAT, DONE }
 # 타이밍
 const STEP := 0.75          # AT/DF 지휘보정 틱업 시간(돌격과 동시 진행)
 const ADVANCE_TIME := 2.2   # 돌격 최대 시간(상한). 실제로는 접전 도달 시 전환
-const CLASH_STEP := 0.2       # 킬(사망) 이벤트 간격 — 전 구간에 퍼뜨려 뒷부분도 안 심심하게
+# 최소 전투시간: CLASH 길이 = clamp(MELEE_PER_UNIT × basis, MELEE_FLOOR, MELEE_CAP),
+#   basis = max(min(a_start,b_start), deaths_a, deaths_b). 킬은 그 안에 분산, 남는 시간은 스커미시가 채움.
+const MELEE_PER_UNIT := 0.22 # 기준값당 전투시간(초)
+const MELEE_FLOOR := 0.5     # 최소 전투시간(초)
+const MELEE_CAP := 2.2       # 최대 전투시간(초)
+const KILL_JITTER := 0.65    # 킬 타이밍 지터(±, 간격 비율) — 등간격 깨서 리듬 만들기
 const POST_PAUSE := 0.0     # 결과 표시 후 복귀 시작까지 — 0=마지막 킬 직후 바로 순차 복귀(얼음 구간 제거)
 const RETREAT_MAX := 4.0    # 복귀 최대 시간(상한) — 스커미시 대기 + 순차 peel-off 감안
 
@@ -32,11 +37,14 @@ var _a_cur := START_SOLDIERS
 var _b_cur := START_SOLDIERS
 var _events: Array = []  # 킬 스케줄(전 구간 분산) — _build_plan
 var _event_i := 0
-var _clash_acc := 0.0
+var _melee_dur := 0.0        # 이번 CLASH 목표 길이(_melee_duration)
+var _event_times: Array = [] # 각 킬의 재생 시각(CLASH 시작 기준, 지터 적용·정렬)
+var _fx_rng := RandomNumberGenerator.new()  # 연출용(킬 타이밍 지터) — 결과와 무관
 
 func _ready() -> void:
 	# 시드는 씬 진입 시각 기반(매 판 다른 전개). 계산 자체는 이 시드에서 결정론적.
 	_rng = LangRng.new(Time.get_ticks_msec() * 2654435761 & 0xFFFFFFFF)
+	_fx_rng.randomize()  # 킬 타이밍 지터(연출) — 결과에는 영향 없음
 
 	# 더미 부대 — 기존 캐릭터와 무관한 격리 데이터.
 	# 공격측: 고화력 창기병(classId 9), 방어측: 유리대포 습격대(classId 27).
@@ -59,13 +67,21 @@ func _ready() -> void:
 	_field.call("begin_advance")  # 스폰하자마자 바로 돌격
 	_enter(St.CHARGE)
 
-## 킬(사망) 이벤트만 스케줄에 넣고 `CLASH_STEP` 간격으로 전 구간에 퍼뜨린다 — 죽음이 앞으로 쏠려
-## 뒷부분이 비는 문제 제거. 생존자 복귀는 스케줄 소진 후 begin_retreat로 "마지막에 한 번" 일괄(전투 중 이탈 없음).
-## 총합은 Resolver 결과 그대로: 사망 = 10 - 생존.
+## 킬(사망) 이벤트만 스케줄에 넣는다. 재생 시각은 `_schedule_times`(melee_dur 안에 지터 분산, `_enter(CLASH)`)로
+## 최소 전투시간 전 구간에 퍼뜨린다 — 죽음 쏠림·뒷부분 빔 제거. 복귀는 스케줄 소진 후 begin_retreat로 마지막에 일괄.
+## 총합은 Resolver 결과 그대로: 사망 = 시작 - 생존.
 func _build_plan() -> Array:
 	var da: int = START_SOLDIERS - _result["final_a_soldiers"]  # 공격측 사망
 	var dd: int = START_SOLDIERS - _result["final_d_soldiers"]  # 방어측 사망
 	return _side_list(da, dd, "kill")  # 양쪽 번갈아 → 사망이 한쪽으로 안 쏠림
+
+## 최소 전투시간: CLASH 길이를 킬 수에서 분리 — 적게 죽어도 안 빨리 끝나게.
+## basis = max(동시 듀얼 수 min(a,b), 소수가 다수를 잡은 max(deaths)) → clamp(×PER_UNIT, FLOOR, CAP).
+func _melee_duration(a_start: int, b_start: int, a_final: int, b_final: int) -> float:
+	var deaths_a := a_start - a_final
+	var deaths_b := b_start - b_final
+	var basis := maxi(mini(a_start, b_start), maxi(deaths_a, deaths_b))
+	return clampf(MELEE_PER_UNIT * float(basis), MELEE_FLOOR, MELEE_CAP)
 
 ## side 0 n0개 + side 1 n1개 이벤트를 양쪽 번갈아 만든다(한쪽으로 안 쏠리게).
 func _side_list(n0: int, n1: int, kind: String) -> Array:
@@ -89,7 +105,8 @@ func _enter(s: int) -> void:
 			_hint.text = "[격리 테스트: 랑그릿사 1 전투]   아무 키 = 스킵 / ESC = 타이틀"
 		St.CLASH:
 			_event_i = 0
-			_clash_acc = 0.0
+			_melee_dur = _melee_duration(START_SOLDIERS, START_SOLDIERS, _result["final_a_soldiers"], _result["final_d_soldiers"])
+			_event_times = _schedule_times(_events.size(), _melee_dur)
 		St.POST:
 			_a_cur = _result["final_a_soldiers"]
 			_b_cur = _result["final_d_soldiers"]
@@ -139,13 +156,25 @@ func _tick_atdf(side: int, st: Dictionary, t: float) -> void:
 	var df := int(round(lerpf(st["base_df"], st["df"], t)))
 	_hud.set_at_df(side, at, df)
 
-func _process_clash(delta: float) -> void:
-	_clash_acc += delta
-	while _clash_acc >= CLASH_STEP and _event_i < _events.size():
-		_clash_acc -= CLASH_STEP
+## 킬 재생 시각을 melee_dur 안에 고르게 깔되 **지터를 줘 등간격을 깬다**(버스트·소강 → 덜 기계적).
+## base 위치에서 ±KILL_JITTER×interval 흔들고 정렬. 킬 수·총 길이는 불변.
+func _schedule_times(count: int, dur: float) -> Array:
+	var interval := dur / maxf(1.0, float(count))
+	var times: Array = []
+	for i in range(count):
+		var base := (float(i) + 0.5) * interval
+		var t := base + _fx_rng.randf_range(-KILL_JITTER, KILL_JITTER) * interval
+		times.append(clampf(t, 0.0, dur))
+	times.sort()
+	return times
+
+func _process_clash(_delta: float) -> void:
+	# 예정 시각이 된 킬을 순서대로 재생(_event_times 오름차순).
+	while _event_i < _events.size() and _timer >= _event_times[_event_i]:
 		_apply_event(_events[_event_i])
 		_event_i += 1
-	if _event_i >= _events.size():
+	# 킬을 전부 재생했고 최소 전투시간을 채웠을 때 종료 — 남는 시간은 전장 스커미시가 채움.
+	if _event_i >= _events.size() and _timer >= _melee_dur:
 		_enter(St.POST)
 
 ## 스케줄은 전부 킬 이벤트 — 접전 병사 1명 전사 + 병력 카운트 갱신.

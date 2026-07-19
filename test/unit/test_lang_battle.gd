@@ -182,6 +182,45 @@ func test_build_plan_matches_result_deaths() -> void:
 	assert_eq(kills[1], 7, "방어측 사망 = 10 - 생존3")
 	assert_eq(plan.size(), 12, "총 12 킬 이벤트")
 
+# ── 최소 전투시간(_melee_duration): basis = max(min(a,b), deaths_a, deaths_b), clamp(0.22×basis, 0.5, 2.2) ──
+func test_melee_duration_min_battle_time() -> void:
+	var p = Presenter.new()
+	# [a_start, b_start, a_final, b_final, expected_sec]
+	# 0.22 × basis, clamp(0.5, 2.2)
+	var cases := [
+		[10, 10, 8, 8, 2.2],   # 저데미지 → min 지배, cap
+		[10, 10, 5, 3, 2.2],   # 고데미지 → min 지배
+		[4, 5, 1, 2, 0.88],    # 4:5 → basis 4
+		[1, 10, 0, 10, 0.5],   # 1 즉패 → floor
+		[1, 10, 0, 5, 1.1],    # 1이 5킬 후 사망 → basis 5
+		[1, 10, 1, 0, 2.2],    # 1이 전멸 → basis 10, cap
+		[1, 1, 1, 1, 0.5],     # 무사망 → floor
+	]
+	for c in cases:
+		var got: float = p._melee_duration(c[0], c[1], c[2], c[3])
+		assert_almost_eq(got, c[4], 0.001, "melee_dur(%d:%d, 생존 %d/%d)" % [c[0], c[1], c[2], c[3]])
+	p.free()
+
+# ── 킬 타이밍 스케줄(_schedule_times): 지터 있어도 개수·범위·정렬 불변 ──────────────
+func test_schedule_times_bounded_and_sorted() -> void:
+	var p = Presenter.new()
+	var times: Array = p._schedule_times(8, 2.4)  # dur=2.4는 임의값(_schedule_times는 dur 무관, 계약만 검증)
+	var empty: Array = p._schedule_times(0, 0.6)  # 킬 0개 → 빈 배열
+	p.free()
+	assert_eq(times.size(), 8, "킬 수만큼 재생 시각 생성")
+	assert_eq(empty.size(), 0, "킬 0개면 빈 스케줄")
+	var prev := -1.0
+	var in_range := true
+	var sorted := true
+	for t in times:
+		if t < 0.0 or t > 2.4:
+			in_range = false
+		if t < prev:
+			sorted = false
+		prev = t
+	assert_true(in_range, "모든 시각이 [0, melee_dur] 안")
+	assert_true(sorted, "시각이 오름차순 정렬(순서대로 재생)")
+
 func test_all_returned_only_when_all_idle() -> void:
 	var bf = Battlefield.new()
 	var idle := {"id": 1, "side": 0, "pos": Vector2.ZERO, "home": Vector2.ZERO, "state": Battlefield.IDLE}

@@ -32,7 +32,7 @@ const VY := 2.0 * 1.2 * 60.0   # ≈ 144 px/s (원본 2px/frame)
 const CLOSE_X := 36.0 * 1.2    # X가 이 안이면 Y 접근 시작 (원본 0x240000=36px)
 const GAP_X := 13.0            # 근접 시 좌우 간격(마주섬)
 const GAP_Y := 5.0
-const STRIKE_INTERVAL := 0.42  # 접전 중 자동 공방 주기(초) — 전투 내내 계속 주고받게(idle 방지)
+const STRIKE_INTERVAL := 0.34  # 접전 중 자동 공방 주기(초) — 전투 내내 계속 주고받게(idle 방지)
 const STRIKE_JITTER := 0.18    # 공방 주기 무작위 편차(위상차)
 
 const STRIKE_DUR := 0.22
