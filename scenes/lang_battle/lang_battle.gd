@@ -47,6 +47,10 @@ const SCENARIO2_CHARGE_EVASION := 25  # 시나리오2 볼리: 돌격 중 보병 
 
 # 영웅 병종: classId 4(지휘관, base at27/df24). 단독 영웅은 자기 지휘보정 없이 27/24 유지.
 const HERO_CLASS := 4
+# 영웅이 사격 표적일 때 주는 화살 회피(순수 사격 + 스커미시 볼리 공통) — 근접 탱킹(DF/HP)이
+# 사격엔 안 통해 영웅이 볼리에 녹는 문제 보정. 40=호각(스커미시 영웅 ~30% 승, 순수사격 ~8/10 생존).
+# 근접 resolve엔 미적용(사격 resolve에서만) → 영웅 근접 밸런스(vs 보병 69%)는 불변.
+const HERO_ARROW_EVASION := 40
 
 var _rng: LangRng
 var _a: Dictionary
@@ -183,6 +187,11 @@ func _load_custom_pure_ranged(a: Dictionary, b: Dictionary, archer_side: int) ->
 	_rng = _fresh_rng()
 	_a = _mk_custom_unit(a, 0)
 	_d = _mk_custom_unit(b, 1)
+	# 영웅 표적은 화살 회피 부여(제자리 피격이라 근접 탱킹이 안 통함). 근접 없는 순수 사격이라 회피만 조정.
+	if String(a["kind"]) == "hero":
+		_a["acc_mod"] = HERO_ARROW_EVASION
+	if String(b["kind"]) == "hero":
+		_d["acc_mod"] = HERO_ARROW_EVASION
 	_name_a = _kind_label(String(a["kind"]))
 	_name_b = _kind_label(String(b["kind"]))
 	# 궁병 side만 1볼리, 상대 side 0라운드(반격 없음).
@@ -211,7 +220,9 @@ func _load_custom_skirmish(a: Dictionary, b: Dictionary, archer_side: int) -> vo
 	# side0/side1 유닛 조립(궁병은 archer_side에, 돌격유닛은 charger_side에).
 	_a = _mk_custom_unit(a, 0)
 	_d = _mk_custom_unit(b, 1)
-	(_a if charger_side == 0 else _d)["acc_mod"] = SCENARIO2_CHARGE_EVASION  # 돌격 중 화살 회피↑(균형)
+	# 볼리 중 돌격측 화살 회피↑(근접 도달 늘려 균형). 영웅은 전용 회피(HERO_ARROW_EVASION), 보병은 돌격 회피.
+	var charge_evasion := HERO_ARROW_EVASION if _sk_charger_kind == "hero" else SCENARIO2_CHARGE_EVASION
+	(_a if charger_side == 0 else _d)["acc_mod"] = charge_evasion
 	_name_a = _kind_label(String(a["kind"]))
 	_name_b = _kind_label(String(b["kind"]))
 	# 궁병 side만 1볼리, 돌격 side 0라운드(반격 없음).

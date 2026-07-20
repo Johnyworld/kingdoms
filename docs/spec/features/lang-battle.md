@@ -40,6 +40,7 @@
   - **근접** → `_load_custom_skirmish`: 궁병 사격 오프닝(1볼리) → 상대가 접근하면 근접 전환. 궁병이 side0/side1 어느 쪽이든 대응(`_sk_archer_side`).
     - 돌격측이 **영웅**이면 `setup_skirmish(..., charger_kind="hero")`로 1스프라이트 영웅 돌격, 볼리는 영웅 HP를 깎되(살상 화살 착탄마다 −1, `_update_arrows` 영웅 분기·`doomed` 예약 생략) 즉사 안 함. `_begin_skirmish_melee`가 생존 HP로 영웅 근접 유닛 조립.
     - 돌격측이 **경보병**이면 사격 생존 인원으로 근접(기존 스커미시).
+  - **영웅 화살 회피(`HERO_ARROW_EVASION=40`)**: 영웅이 사격 표적이면 순수 사격·스커미시 볼리 모두에 회피 40 부여(경보병 돌격 회피는 `SCENARIO2_CHARGE_EVASION=25` 유지). 근접 탱킹(DF/HP)이 사격엔 안 통해 영웅이 볼리에 녹던 문제 보정 — **사격 resolve에서만** 적용해 영웅 근접 밸런스(vs 보병 69%)는 불변. 결과: 스커미시 궁병10 vs 영웅10 ≈ 영웅 30%(호각), 순수 사격 영웅 ~8/10 생존.
 - **경궁병 없음(경보병/영웅끼리)** → `_load_custom_melee`: `resolve_engagement` + CHARGE→CLASH→RETREAT + `setup_custom`. (이 조합은 원거리 선택 자체가 비활성 → 항상 근접.)
 - 병종별 유닛: 영웅=지휘관 클래스(classId 4, 27/24, `self_cmd=false`, count=HP/몫, 1스프라이트), 경보병=classId 1·`kind="infantry"`, 경궁병=classId 1·`kind="archer"`(근접 시 병종 상성 페널티).
 - 인원은 side별 임의(1~10). HUD 병력·킬 스케줄·최소 전투시간 모두 side별 시작 값 기준(영웅은 HP=병력, `alive_count`도 영웅은 HP 반환).
