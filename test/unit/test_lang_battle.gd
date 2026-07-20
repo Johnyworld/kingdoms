@@ -567,6 +567,32 @@ func test_clear_arrows_removes_stuck() -> void:
 	bf._clear_arrows()
 	assert_eq(bf._stuck_arrows.size(), 0, "_clear_arrows가 박힌 화살도 비운다")
 
+func test_kill_arrow_on_hero_decrements_hp() -> void:
+	# 영웅 vs 궁병 스커미시 볼리: 살상 화살이 영웅에 착탄해도 즉사가 아니라 HP만 −1(마지막 발에서 사망).
+	var bf = Battlefield.new()
+	add_child_autofree(bf)
+	var hero := {"id": 0, "side": 1, "hero": true, "hp": 5, "state": Battlefield.MELEE,
+		"pos": Vector2(200, 100), "hit_t": 0.0}
+	var ar := _make_landing_arrow(true, Vector2(120, 60), bf._arrows_node)
+	ar["target"] = hero
+	bf._arrows = [ar]
+	bf._update_arrows(0.016)
+	assert_eq(int(hero["hp"]), 4, "영웅 살상 화살 착탄 → HP −1")
+	assert_ne(int(hero["state"]), Battlefield.DYING, "HP 남으면 사망하지 않고 계속 교전")
+
+func test_kill_arrow_kills_hero_on_last_hp() -> void:
+	# HP 1인 영웅에 살상 화살 → 실제 사망(DYING).
+	var bf = Battlefield.new()
+	add_child_autofree(bf)
+	var hero := {"id": 0, "side": 1, "hero": true, "hp": 1, "state": Battlefield.MELEE,
+		"pos": Vector2(200, 100), "hit_t": 0.0, "face": -1.0, "attack_t": 0.0, "push_rem": 0.0}
+	var ar := _make_landing_arrow(true, Vector2(120, 60), bf._arrows_node)
+	ar["target"] = hero
+	bf._arrows = [ar]
+	bf._update_arrows(0.016)
+	assert_eq(int(hero["hp"]), 0, "마지막 HP → 0")
+	assert_eq(int(hero["state"]), Battlefield.DYING, "HP 0 → 실제 사망")
+
 func test_stuck_rotation_points_downward() -> void:
 	var bf = Battlefield.new()
 	var r: float = bf._stuck_rotation(Vector2(100, 40))
@@ -779,4 +805,26 @@ func test_setup_custom_infantry_default_kind() -> void:
 	assert_eq(bf._soldiers[0].size(), 3, "side A 인원")
 	assert_eq(bf._soldiers[1].size(), 9, "side B 인원")
 	assert_eq(String(bf._soldiers[0][0]["kind"]), "infantry", "경보병 기본 kind")
+	bf.free()
+
+func test_setup_ranged_hero_target_stands_passive() -> void:
+	# 궁병 vs 영웅 원거리: 영웅은 진형에 1스프라이트(HP)로 제자리(IDLE) 대기, 궁병 n명.
+	var bf = Battlefield.new()
+	bf.setup_ranged("archer", "hero", 10, 8)
+	assert_eq(bf._soldiers[0].size(), 10, "궁병 10 진형 배치")
+	assert_eq(bf._soldiers[1].size(), 1, "영웅 표적은 1스프라이트")
+	assert_true(bf._soldiers[1][0]["hero"], "영웅 플래그")
+	assert_eq(int(bf._soldiers[1][0]["hp"]), 8, "영웅 HP=count")
+	assert_eq(int(bf._soldiers[1][0]["state"]), Battlefield.IDLE, "제자리 대기(돌격 없음)")
+	bf.free()
+
+func test_setup_skirmish_hero_charger() -> void:
+	# 영웅 vs 궁병 스커미시: 돌격측(영웅)은 1스프라이트(HP), 슈터측은 궁병 n명.
+	var bf = Battlefield.new()
+	bf.setup_skirmish(0, 1, 10, 8, "hero")  # side0 궁병 10, side1 영웅(HP8) 돌격
+	assert_eq(bf._soldiers[0].size(), 10, "궁병(슈터) 10 스폰")
+	assert_eq(String(bf._soldiers[0][0]["kind"]), "archer", "슈터는 궁병")
+	assert_eq(bf._soldiers[1].size(), 1, "영웅 돌격측은 1스프라이트")
+	assert_true(bf._soldiers[1][0]["hero"], "영웅 플래그")
+	assert_eq(int(bf._soldiers[1][0]["hp"]), 8, "영웅 HP=돌격 count")
 	bf.free()

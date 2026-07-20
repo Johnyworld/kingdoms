@@ -271,7 +271,8 @@ func setup_ranged(a_kind: String, b_kind: String, a_count: int, b_count: int) ->
 	queue_redraw()
 
 ## 스커미시(시나리오 2): 궁병은 진형에 서서 대기(aiming), 근접 유닛은 화면 밖에서 즉시 돌격 — 실시간 동시.
-func setup_skirmish(shooter_side: int, charger_side: int, n_shoot: int, n_charge: int) -> void:
+## charger_kind="hero"면 돌격측을 1스프라이트 영웅(HP=n_charge)으로 스폰(영웅 vs 궁병 근접).
+func setup_skirmish(shooter_side: int, charger_side: int, n_shoot: int, n_charge: int, charger_kind := "infantry") -> void:
 	_soldiers = {0: [], 1: []}
 	_effects = []
 	_final_victims = []
@@ -289,8 +290,11 @@ func setup_skirmish(shooter_side: int, charger_side: int, n_shoot: int, n_charge
 		s["kind"] = "archer"
 		s["aiming"] = true
 		_soldiers[shooter_side].append(s)
-	# 근접 유닛: 화면 밖 스폰 → 즉시 돌격(근접 vs 근접과 동일)
-	_spawn_side(charger_side, n_charge)
+	# 근접 유닛: 화면 밖 스폰 → 즉시 돌격(근접 vs 근접과 동일). 영웅이면 1스프라이트(HP).
+	if charger_kind == "hero":
+		_spawn_hero(charger_side, n_charge)
+	else:
+		_spawn_side(charger_side, n_charge)
 	_retarget_all()
 	queue_redraw()
 
@@ -301,6 +305,16 @@ func clear_aiming() -> void:
 			s["aiming"] = false
 
 func _spawn_ranged_side(side: int, n: int, kind: String) -> void:
+	# 영웅: 진형 중앙에 1스프라이트(HP=n)로 제자리 대기(사격 표적). 화살 착탄마다 HP 감소.
+	if kind == "hero":
+		var anchor_x := FORM_EDGE_X if side == 0 else (FIELD_W - FORM_EDGE_X)
+		var home := Vector2(anchor_x, BASE_Y)
+		var h := _make_soldier(side, home, home)
+		h["state"] = IDLE
+		h["hero"] = true
+		h["hp"] = n
+		_soldiers[side].append(h)
+		return
 	var homes := _formation_slots(side, n)
 	for i in range(n):
 		var s := _make_soldier(side, homes[i], homes[i])
@@ -343,7 +357,8 @@ func shoot(shooter_side: int, is_kill: bool) -> bool:
 	shooter["arrow_release"] = BOW_RELEASE
 	shooter["arrow_target"] = target
 	shooter["arrow_kill"] = is_kill
-	if is_kill:
+	# 영웅(1스프라이트 다HP)은 여러 살상 화살이 반복해서 노려 HP를 깎아야 하므로 doomed 예약 안 함.
+	if is_kill and not target.get("hero", false):
 		target["doomed"] = true           # 살상 화살 예약 → 다른 살상 화살은 다른 적을 고름
 	return true
 
@@ -450,12 +465,18 @@ func _update_arrows(delta: float) -> void:
 			# 착탄: 임팩트 섬광 + 살상이면 사망(그 순간).
 			_flashes.append({"pos": ar["pos"], "life": 0.12, "max": 0.12, "big": ar["is_kill"]})
 			if ar["is_kill"] and tgt["state"] != DYING:
-				if tgt in _round_shooters[int(tgt["side"])]:
+				if tgt.get("hero", false) and int(tgt.get("hp", 0)) > 1:
+					# 영웅: 화살 착탄마다 HP만 −1(피격 리액션), 마지막 발에서 실제 사망(kill 참조).
+					tgt["hp"] = int(tgt["hp"]) - 1
+					_hero_recoil(tgt)
+				elif tgt in _round_shooters[int(tgt["side"])]:
 					# 아직 이번 라운드 발사 전인 슈터 → 발사 마친 뒤 사망(deferral). 지금은 피격 플래시만.
 					tgt["death_queued"] = true
 					tgt["hit_t"] = HIT_FLASH_DUR
 				else:
-					_die(tgt)                # 사격 안 하는 side(경보병 등)는 착탄 즉시 사망
+					if tgt.get("hero", false):
+						tgt["hp"] = 0        # 마지막 HP → 실제 사망
+					_die(tgt)                # 사격 안 하는 side(경보병·영웅 등)는 착탄 즉시 사망
 				_shake = maxf(_shake, 1.6)
 			else:
 				_shake = maxf(_shake, 0.5)
@@ -524,7 +545,11 @@ func _stuck_region_rect() -> Rect2:
 func alive_count(side: int) -> int:
 	var n := 0
 	for s in _soldiers[side]:
-		if s["state"] != DYING:
+		if s["state"] == DYING:
+			continue
+		if s.get("hero", false):
+			n += maxi(0, int(s.get("hp", 0)))   # 영웅은 HP가 곧 병력(스커미시 볼리 HUD 반영)
+		else:
 			n += 1
 	return n
 
