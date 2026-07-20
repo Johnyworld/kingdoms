@@ -65,6 +65,20 @@ const TEX_DEATH := {
 	0: preload("res://assets/units/soldier_death.png"),
 	1: preload("res://assets/units/orc_death.png"),
 }
+# 경궁병 활 당기기(Soldier_Attack03, 900×100 = 9프레임) — 병사(soldier) 세트에만 추가.
+const TEX_BOW := preload("res://assets/units/archer_bow.png")
+const BOW_FRAMES := 9
+const BOW_FPS := 18.0
+const BOW_DUR := BOW_FRAMES / BOW_FPS       # 활 당기기 1회 길이(≈0.5s)
+const BOW_RELEASE := 6.0 / BOW_FPS          # 발사 시작 후 화살 loose 까지(≈6/9 프레임)
+# 화살 발사체(Arrow01 32×32)
+const TEX_ARROW := preload("res://assets/units/arrow.png")
+const ARROW_PX := 32
+const ARROW_SCALE := 0.45                   # 32px → ~14px(필드 좌표)
+const ARROW_SPEED := 300.0                  # px/s (필드 좌표) 등속 직선 비행
+const ARROW_HIT_DIST := 6.0                 # 타겟 근접 이 안이면 착탄
+# 팀1 경궁병 색조(임시 플레이스홀더 — 병사 스프라이트 공유하되 색으로 구분)
+const ARCHER_TINT_1 := Color(1.0, 0.62, 0.55)
 
 # 원본 등속 이동 속도 (px/frame @60fps) → 초당으로 환산(×60, ×1.2 스케일)
 const VX := 3.0 * 1.2 * 60.0   # ≈ 216 px/s (원본 등속 3px/frame)
@@ -114,28 +128,36 @@ var _next_id := 0
 var _rng := RandomNumberGenerator.new()
 var _final_victims: Array = []  # 최후 전투에서 처형될 victim(V) 목록 — fire_final_duel에서 소비
 
-# 스프라이트 렌더: 병사 id → AnimatedSprite2D. 팀별 SpriteFrames 공유. _units 아래 y-sort로 정렬.
+# 스프라이트 렌더: 병사 id → AnimatedSprite2D. 스프라이트 세트("soldier"/"orc") 공유. _units 아래 y-sort로 정렬.
 var _units: Node2D
-var _frames := {}          # side -> SpriteFrames("walk"/"idle")
+var _arrows_node: Node2D   # 화살 발사체(병사 위에 그림)
+var _frames := {}          # "soldier"/"orc" -> SpriteFrames. soldier 세트만 "bow"(활) 포함.
 var _sprites := {}         # soldier id -> AnimatedSprite2D
+var _arrows: Array = []    # 비행 중 화살 [{spr, pos, vel, target, is_kill}]
+var _round_shooters := {0: [], 1: []}  # 이번 사격 라운드의 슈터 스냅샷(라운드 시작 생존자)
 
 func _ready() -> void:
 	_rng.randomize()
 	_units = Node2D.new()
 	_units.y_sort_enabled = true   # 병사 스프라이트끼리 y로 정렬(뒤→앞). 지형(_draw)은 항상 뒤.
 	add_child(_units)
-	for side in [0, 1]:
-		_frames[side] = _build_frames(side)
+	_arrows_node = Node2D.new()     # _units 뒤에 추가 → 화살이 병사 위에 렌더
+	add_child(_arrows_node)
+	# 병사(soldier)=활 포함, 오크(orc)=근접 전용. 경궁병은 양 팀 모두 soldier 세트를 색조로 구분해 쓴다.
+	_frames["soldier"] = _build_frames(0, true)
+	_frames["orc"] = _build_frames(1, false)
 
-## 시트(가로 나열)로 SpriteFrames 구성. walk/idle=루프, attack/death=1회(마지막 프레임 유지).
-func _build_frames(side: int) -> SpriteFrames:
+## 시트(가로 나열)로 SpriteFrames 구성. walk/idle=루프, attack/death/bow=1회(마지막 프레임 유지).
+func _build_frames(tex_side: int, with_bow: bool) -> SpriteFrames:
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
-	_add_anim(sf, TEX_WALK[side], "walk", WALK_FRAMES, WALK_FPS, true)
-	_add_anim(sf, TEX_IDLE[side], "idle", IDLE_FRAMES, IDLE_FPS, true)
-	_add_anim(sf, TEX_ATTACK[side], "attack", ATTACK_FRAMES, ATTACK_FPS, false)
-	_add_anim(sf, TEX_HURT[side], "hurt", HURT_FRAMES, HURT_FPS, false)
-	_add_anim(sf, TEX_DEATH[side], "death", DEATH_FRAMES, DEATH_FPS, false)
+	_add_anim(sf, TEX_WALK[tex_side], "walk", WALK_FRAMES, WALK_FPS, true)
+	_add_anim(sf, TEX_IDLE[tex_side], "idle", IDLE_FRAMES, IDLE_FPS, true)
+	_add_anim(sf, TEX_ATTACK[tex_side], "attack", ATTACK_FRAMES, ATTACK_FPS, false)
+	_add_anim(sf, TEX_HURT[tex_side], "hurt", HURT_FRAMES, HURT_FPS, false)
+	_add_anim(sf, TEX_DEATH[tex_side], "death", DEATH_FRAMES, DEATH_FPS, false)
+	if with_bow:
+		_add_anim(sf, TEX_BOW, "bow", BOW_FRAMES, BOW_FPS, false)
 	return sf
 
 func _add_anim(sf: SpriteFrames, tex: Texture2D, anim_name: String, count: int, fps: float, loop: bool) -> void:
@@ -152,11 +174,175 @@ func setup(a_count: int, b_count: int) -> void:
 	_soldiers = {0: [], 1: []}
 	_effects = []
 	_final_victims = []
+	_round_shooters = {0: [], 1: []}
+	_clear_arrows()
+	_charging = false
 	_retreating = false
 	_spawn_side(0, a_count)
 	_spawn_side(1, b_count)
 	_retarget_all()
 	queue_redraw()
+
+# ── 사격 전투(원거리) — 스펙 "경궁병 사격 전투" ───────────────────────────────
+## 양측을 진형(home)에 바로 배치하고 중앙(적)을 바라본 채 대기. 돌격·분리·복귀 없음(진형 유지).
+func setup_ranged(a_kind: String, b_kind: String, a_count: int, b_count: int) -> void:
+	_soldiers = {0: [], 1: []}
+	_effects = []
+	_final_victims = []
+	_charging = false
+	_retreating = false
+	_round_shooters = {0: [], 1: []}
+	_clear_arrows()
+	_spawn_ranged_side(0, a_count, a_kind)
+	_spawn_ranged_side(1, b_count, b_kind)
+	queue_redraw()
+
+func _spawn_ranged_side(side: int, n: int, kind: String) -> void:
+	var homes := _formation_slots(side, n)
+	for i in range(n):
+		var s := _make_soldier(side, homes[i], homes[i])
+		s["state"] = IDLE   # 제자리 대기(사격 중에도 이동 안 함)
+		s["kind"] = kind
+		_soldiers[side].append(s)
+
+## 새 사격 라운드 시작 — 슈터를 라운드 시작 시점 생존자로 스냅샷(Resolver 의 "슈터=라운드 시작 생존자"와 일치).
+## 라운드 중 사망해도 슈터 풀이 줄지 않게(스냅샷) → 자기 라운드 화살에 죽는 병사도 먼저 발사 후 사망(deferral).
+func begin_shot_round() -> void:
+	_round_shooters = {0: [], 1: []}
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			# 지난 라운드에 발사하지 못하고 남은 예약 사망 정리 — 발사 못 한 슈터도 반드시 사망시켜
+			# 킬 유실 방지(사망 수 = Resolver 결과 보존). 정상 흐름(볼리 완주)에선 발생 안 함.
+			if s.get("death_queued", false) and s["state"] != DYING:
+				_die(s)
+			s["death_queued"] = false
+			if s["state"] != DYING:
+				_round_shooters[side].append(s)
+
+## 한 발 발사: shooter_side 슈터 스냅샷에서 하나 꺼내 상대 하나를 향해 활을 쏜다.
+## is_kill 이면 서로 다른 생존 적(doomed 배정)을 노려 착탄 시 사망시킨다.
+## 항상 이 발을 "소진"(true) — 쏠 적이 전멸했으면 연출 없이 스킵(무한 재시도 방지).
+func shoot(shooter_side: int, is_kill: bool) -> bool:
+	var target: Variant = _pick_target(1 - shooter_side, is_kill)
+	if target == null:
+		return true   # 전멸한 적 → 이 화살은 스킵
+	var shooter: Variant = _pick_shooter(shooter_side)
+	if shooter == null:
+		return true   # 슈터 소진(방어적) → 스킵
+	shooter["face"] = signf(target["pos"].x - shooter["pos"].x)
+	if shooter["face"] == 0.0:
+		shooter["face"] = 1.0 if shooter_side == 0 else -1.0
+	shooter["bow_t"] = BOW_DUR
+	shooter["bow_fire"] = true            # 스프라이트가 활 애니 0프레임부터 재생
+	shooter["arrow_release"] = BOW_RELEASE
+	shooter["arrow_target"] = target
+	shooter["arrow_kill"] = is_kill
+	if is_kill:
+		target["doomed"] = true           # 살상 화살 예약 → 다른 살상 화살은 다른 적을 고름
+	return true
+
+## 슈터: 이번 라운드 스냅샷 큐에서 무작위로 꺼낸다(1인 1발). 큐가 비면 null(정상 흐름에선 없음).
+func _pick_shooter(side: int) -> Variant:
+	var q: Array = _round_shooters[side]
+	if q.is_empty():
+		return null
+	return q.pop_at(_rng.randi() % q.size())
+
+## 타겟: 살상 화살이면 아직 예약 안 된(비-doomed) 생존 적, 논킬이면 아무 생존 적.
+func _pick_target(side: int, need_kill: bool) -> Variant:
+	var pool: Array
+	if need_kill:
+		pool = _soldiers[side].filter(func(s): return s["state"] != DYING and not s.get("doomed", false))
+	else:
+		pool = _soldiers[side].filter(func(s): return s["state"] != DYING)
+	if pool.is_empty():
+		return null
+	return pool[_rng.randi() % pool.size()]
+
+## 활 릴리스 프레임에 호출 — 슈터 활 위치에서 타겟을 향해 등속 화살 발사체 생성.
+func _spawn_arrow(shooter: Dictionary) -> void:
+	var tgt: Variant = shooter["arrow_target"]
+	if tgt == null:
+		return
+	var from: Vector2 = shooter["pos"] + Vector2(shooter["face"] * 5.0, -6.0)
+	var to: Vector2 = tgt["pos"] + Vector2(0.0, -4.0)
+	var dir: Vector2 = (to - from)
+	if dir.length() < 0.01:
+		dir = Vector2(shooter["face"], 0.0)
+	dir = dir.normalized()
+	var spr := Sprite2D.new()
+	spr.texture = TEX_ARROW
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	spr.scale = Vector2(ARROW_SCALE, ARROW_SCALE)
+	spr.position = from
+	spr.rotation = dir.angle()
+	_arrows_node.add_child(spr)
+	_arrows.append({
+		"spr": spr, "pos": from, "vel": dir * ARROW_SPEED,
+		"target": tgt, "is_kill": bool(shooter["arrow_kill"]),
+	})
+	shooter["arrow_target"] = null
+	shooter["arrow_kill"] = false
+
+## 화살 비행·착탄 갱신. 타겟 근접(ARROW_HIT_DIST) 시 임팩트 + 살상 화살이면 _die.
+func _update_arrows(delta: float) -> void:
+	var keep: Array = []
+	for ar in _arrows:
+		ar["pos"] += ar["vel"] * delta
+		var tgt: Dictionary = ar["target"]
+		var to: Vector2 = tgt["pos"] + Vector2(0.0, -4.0)
+		if ar["pos"].distance_to(to) <= ARROW_HIT_DIST or ar["pos"].distance_to(to) > 600.0:
+			# 착탄(또는 안전 이탈): 임팩트 + 살상이면 사망.
+			_flashes.append({"pos": ar["pos"], "life": 0.12, "max": 0.12, "big": ar["is_kill"]})
+			if ar["is_kill"] and tgt["state"] != DYING:
+				if tgt in _round_shooters[int(tgt["side"])]:
+					# 아직 이번 라운드 발사 전인 슈터 → 발사 마친 뒤 사망(deferral). 지금은 피격 플래시만.
+					tgt["death_queued"] = true
+					tgt["hit_t"] = HIT_FLASH_DUR
+				else:
+					_die(tgt)
+				_shake = maxf(_shake, 1.6)
+			else:
+				_shake = maxf(_shake, 0.5)
+			ar["spr"].queue_free()
+		else:
+			ar["spr"].position = ar["pos"]
+			ar["spr"].rotation = ar["vel"].angle()
+			keep.append(ar)
+	_arrows = keep
+
+func _clear_arrows() -> void:
+	for ar in _arrows:
+		ar["spr"].queue_free()
+	_arrows = []
+
+## 생존 병력(사망 애니 중=DYING 제외) — 사격 중 HUD 병력 폴링용.
+func alive_count(side: int) -> int:
+	var n := 0
+	for s in _soldiers[side]:
+		if s["state"] != DYING:
+			n += 1
+	return n
+
+## 비행 중 화살 또는 발사 중(활 당기기/릴리스 대기) 병사가 있는가 — 라운드 진행 게이트.
+func arrows_in_flight() -> bool:
+	if not _arrows.is_empty():
+		return true
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			if s.get("bow_t", 0.0) > 0.0:
+				return true
+	return false
+
+## 화살·발사·사망 애니 중 무엇이든 진행 중인가 — 사격 종료(DONE) 판정.
+func arrows_active() -> bool:
+	if arrows_in_flight():
+		return true
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			if s["state"] == DYING:
+				return true
+	return false
 
 # 대형: 위→아래 3행 [3,3,4]. 진영 끝에서 중앙 방향으로 열을 쌓는다.
 const ROW_SPACE := 16.8   # 3행 사이 세로(상하) 간격 (24의 70%)
@@ -181,31 +367,45 @@ func _spawn_side(side: int, n: int) -> void:
 	var homes := _formation_slots(side, n)
 	var spawns := _spawn_slots(side, n)
 	for i in range(n):
-		_soldiers[side].append({
-			"id": _next_id,
-			"side": side,
-			"pos": spawns[i],
-			"home": homes[i],     # 복귀 목표 = 화면 안 진형 자리. 죽으면 그 자리는 비워짐.
-			"target": null,
-			"state": CHARGE,
-			"strike_t": 0.0,
-			"strike_cd": _rng.randf_range(0.0, STRIKE_INTERVAL),  # 자동 공방 쿨다운(위상 분산)
-			"push_rem": 0.0,  # 펜싱 밀림 잔여(X, 애니메이션으로 소진)
-			"attack_t": 0.0,  # 공격 애니 잔여 시간(>0이면 attack 재생)
-			"atk_fire": false,  # 이번 프레임 공격 시작 신호(스프라이트가 소비 → attack 0프레임부터 재생)
-			"hit_t": 0.0,  # 피격 흰색 플래시 잔여(>0이면 셰이더 flash>0)
-			"retreat_swings": -1,  # 복귀 시작 후 남은 마지막 교전 횟수(-1=미배정)
-			"final": false,        # 최후 전투 쌍(V/W) — 복귀 제외, 필드에 남아 1:1 지속
-			"death_t": 0.0,
-			"airborne": false,  # 사망 넉백 비행 중(Hurt 자세) — 착지하면 Death로 전환
-			"dvx": 0.0,
-			"dvy": 0.0,
-			"land_y": 0.0,
-			"alpha": 1.0,
-			"seed": _rng.randf() * TAU,
-			"face": 1.0 if side == 0 else -1.0,
-		})
-		_next_id += 1
+		_soldiers[side].append(_make_soldier(side, spawns[i], homes[i]))
+
+## 병사 dict 팩토리 — 근접 스폰(_spawn_side)·사격 스폰(_spawn_ranged_side) 공용.
+func _make_soldier(side: int, pos: Vector2, home: Vector2) -> Dictionary:
+	var s := {
+		"id": _next_id,
+		"side": side,
+		"pos": pos,
+		"home": home,         # 복귀 목표 = 화면 안 진형 자리. 죽으면 그 자리는 비워짐.
+		"target": null,
+		"state": CHARGE,
+		"kind": "infantry",   # "infantry"(근접) / "archer"(경궁병, 활+색조)
+		"strike_t": 0.0,
+		"strike_cd": _rng.randf_range(0.0, STRIKE_INTERVAL),  # 자동 공방 쿨다운(위상 분산)
+		"push_rem": 0.0,  # 펜싱 밀림 잔여(X, 애니메이션으로 소진)
+		"attack_t": 0.0,  # 공격 애니 잔여 시간(>0이면 attack 재생)
+		"atk_fire": false,  # 이번 프레임 공격 시작 신호(스프라이트가 소비 → attack 0프레임부터 재생)
+		"hit_t": 0.0,  # 피격 흰색 플래시 잔여(>0이면 셰이더 flash>0)
+		"retreat_swings": -1,  # 복귀 시작 후 남은 마지막 교전 횟수(-1=미배정)
+		"final": false,        # 최후 전투 쌍(V/W) — 복귀 제외, 필드에 남아 1:1 지속
+		"death_t": 0.0,
+		"airborne": false,  # 사망 넉백 비행 중(Hurt 자세) — 착지하면 Death로 전환
+		"dvx": 0.0,
+		"dvy": 0.0,
+		"land_y": 0.0,
+		"alpha": 1.0,
+		"seed": _rng.randf() * TAU,
+		"face": 1.0 if side == 0 else -1.0,
+		# ── 사격(경궁병) 전용 ──
+		"bow_t": 0.0,          # 활 당기기 애니 잔여(>0이면 발사 중)
+		"bow_fire": false,     # 이번 프레임 활 애니 시작 신호(스프라이트가 소비)
+		"arrow_release": -1.0, # 화살 loose 까지 남은 시간(-1=예약 없음)
+		"arrow_target": null,  # 이 발사가 노리는 적 병사
+		"arrow_kill": false,   # 이 화살이 살상 화살인가
+		"doomed": false,       # 살상 화살이 배정됨(중복 배정·중복 사망 방지)
+		"death_queued": false, # 자기 라운드 화살에 맞음 → 발사 마친 뒤 사망(deferral)
+	}
+	_next_id += 1
+	return s
 
 ## 타겟 선택 (원본 0xE5DA 재현): 상대 적의 타겟 상태로 3단계 우선순위 → 동순위 최근접(맨해튼).
 ##  P3: 그 적이 '나'를 노림(상호 락) > P2: 미교전 적 > P1: 딴 아군과 교전 중인 적.
@@ -545,6 +745,18 @@ func _process(delta: float) -> void:
 				s["attack_t"] = maxf(0.0, s["attack_t"] - delta)
 			if s.get("hit_t", 0.0) > 0.0:
 				s["hit_t"] = maxf(0.0, s["hit_t"] - delta)
+			# 사격(경궁병): 활 당기기 진행 → 릴리스 프레임에 화살 발사체 생성.
+			if s.get("bow_t", 0.0) > 0.0:
+				s["bow_t"] = maxf(0.0, s["bow_t"] - delta)
+				if s.get("arrow_release", -1.0) > 0.0:
+					s["arrow_release"] -= delta
+					if s["arrow_release"] <= 0.0:
+						_spawn_arrow(s)
+						s["arrow_release"] = -1.0
+				# 발사(활 당기기) 끝난 뒤 예약된 사망 처리 — 자기 라운드 화살에 맞은 슈터는 쏘고 나서 쓰러짐.
+				if s["bow_t"] <= 0.0 and s.get("death_queued", false):
+					s["death_queued"] = false
+					_die(s)
 			# 접전(MELEE) 병사 자동 공방: 계속 주고받게(idle 방지). 전투 종료(_retreating) 후엔 새 공방 안 시작.
 			# 펜싱 밀림 애니메이션: 예약된 push_rem을 이징으로 소진(순간이동 대신 슬라이드). 사망 중 제외.
 			var pr: float = s.get("push_rem", 0.0)
@@ -635,6 +847,8 @@ func _process(delta: float) -> void:
 				p.x = clampf(p.x, 16.0, 368.0)
 			s["pos"] = p
 
+	_update_arrows(delta)  # 화살 비행·착탄(사격 전투)
+
 	# 공격 이펙트 전진
 	for e in _effects:
 		e["pos"].x += e["vx"] * delta
@@ -660,6 +874,7 @@ func _shake_offset() -> Vector2:
 ##  DYING=hurt(넉백 비행)→death(착지 주저앉기), 이동(CHARGE/RETURN)=walk, 공격(attack_t>0)=attack, 그 외=idle.
 func _sync_sprites() -> void:
 	_units.position = _shake_offset()
+	_arrows_node.position = _shake_offset()   # 화살도 지형·병사와 같이 흔들림
 	var live := {}
 	for side in [0, 1]:
 		for s in _soldiers[side]:
@@ -668,7 +883,7 @@ func _sync_sprites() -> void:
 			var spr: AnimatedSprite2D = _sprites.get(id)
 			if spr == null:
 				spr = AnimatedSprite2D.new()
-				spr.sprite_frames = _frames[side]
+				spr.sprite_frames = _frames[_sprite_set(s)]
 				spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # 픽셀 선명하게
 				spr.scale = Vector2(SPRITE_SCALE, SPRITE_SCALE)
 				var mat := ShaderMaterial.new()          # 피격 흰색 플래시용(병사별 flash 파라미터)
@@ -680,7 +895,8 @@ func _sync_sprites() -> void:
 				_sprites[id] = spr
 			spr.position = _draw_pos(s)
 			spr.flip_h = s["face"] < 0.0            # 애셋은 우측을 봄 → 좌향일 때만 뒤집기
-			spr.modulate.a = s["alpha"]
+			var tint: Color = _sprite_tint(s)       # 팀1 경궁병 색조 구분
+			spr.modulate = Color(tint.r, tint.g, tint.b, s["alpha"])
 			# 피격 플래시: hit_t 를 1→0 으로 감쇠시켜 셰이더 flash 로 전달(맞은 순간 흰색 팝).
 			var fl: float = clampf(s.get("hit_t", 0.0) / HIT_FLASH_DUR, 0.0, 1.0)
 			(spr.material as ShaderMaterial).set_shader_parameter("flash", fl)
@@ -688,6 +904,11 @@ func _sync_sprites() -> void:
 				var danim := "hurt" if s["airborne"] else "death"  # 비행=Hurt, 착지=Death(주저앉기)
 				if spr.animation != danim:
 					spr.play(danim)                 # 1회 재생 → 마지막 프레임 유지, alpha로 소멸
+			elif s.get("bow_fire", false):
+				spr.play("bow")                     # 활 당기기 시작 신호 → 0프레임부터 재생
+				s["bow_fire"] = false
+			elif s.get("bow_t", 0.0) > 0.0:
+				pass                                # 활 애니 진행 중 — 그대로 둠
 			elif s["state"] == CHARGE or s["state"] == RETURN:
 				_play_loop(spr, "walk")
 			elif s.get("atk_fire", false):
@@ -701,6 +922,18 @@ func _sync_sprites() -> void:
 		if not live.has(id):
 			_sprites[id].queue_free()
 			_sprites.erase(id)
+
+## 스프라이트 세트: 경궁병은 양 팀 모두 soldier(활 포함), 근접은 side0=soldier·side1=orc.
+func _sprite_set(s: Dictionary) -> String:
+	if s.get("kind", "infantry") == "archer":
+		return "soldier"
+	return "soldier" if s["side"] == 0 else "orc"
+
+## 팀 색조: 팀1 경궁병만 붉은 색조(병사 스프라이트 공유 구분). 그 외 흰색(원색).
+func _sprite_tint(s: Dictionary) -> Color:
+	if s.get("kind", "infantry") == "archer" and s["side"] == 1:
+		return ARCHER_TINT_1
+	return Color.WHITE
 
 ## 루프 애니 전환(같으면 유지, 멈췄으면 재개). walk/idle 전용.
 func _play_loop(spr: AnimatedSprite2D, anim: String) -> void:

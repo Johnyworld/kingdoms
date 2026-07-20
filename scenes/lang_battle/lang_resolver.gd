@@ -144,3 +144,46 @@ static func resolve_engagement(rng: LangRng, a: Dictionary, d: Dictionary) -> Di
 		"stats_a": sa,
 		"stats_d": sd,
 	}
+
+# ── 사격 (원거리 전투 — 스펙 "경궁병 사격 전투") ─────────────────────────────
+## 라운드별로 생존 슈터가 각 1발씩 발사. 명중이면 상대 1명 감소(생존자 초과 킬 불가=cap).
+## 슈터 수는 **라운드 시작 생존자로 잠금**(양측 "동시" 근사): 같은 라운드 안에서 공격측 볼리 →
+## 방어측 볼리, 각 볼리 슈터 수는 라운드 시작값 고정. 라운드 사이 사망은 다음 라운드 슈터 수에 반영.
+## 계산/연출 분리(§0): 여기서 "어느 화살이 죽이는지"(kill 플래그)를 확정, Presenter 는 화살로 재생만 한다.
+## 반환: {shots:[{side,round,kill}], final_a_soldiers, final_d_soldiers, stats_a, stats_d}
+static func resolve_ranged(rng: LangRng, a: Dictionary, d: Dictionary,
+		a_rounds: int, d_rounds: int) -> Dictionary:
+	var sa := assemble_stats(a, d)
+	var sd := assemble_stats(d, a)
+	sa["_opp_df"] = sd["df"]
+	sd["_opp_df"] = sa["df"]
+	sa["hit"] = hit_chance_pct(a, d)
+	sd["hit"] = hit_chance_pct(d, a)
+
+	var surv_a := soldier_count(a)
+	var surv_d := soldier_count(d)
+	var shots: Array = []
+	for r in range(maxi(a_rounds, d_rounds)):
+		# 슈터 수 = 라운드 시작 생존자(양측 잠금 → 라운드 내 사망이 슈터 수를 안 줄임).
+		var a_shooters := surv_a if r < a_rounds else 0
+		var d_shooters := surv_d if r < d_rounds else 0
+		for i in range(a_shooters):                        # 공격측 볼리
+			var ev := _attempt_hit(rng, sa, d, a_shooters)
+			var kill := ev == Hit.HIT and surv_d > 0
+			if kill:
+				surv_d -= 1
+			shots.append({"side": int(a["side"]), "round": r, "kill": kill})
+		for i in range(d_shooters):                        # 방어측 볼리
+			var ev := _attempt_hit(rng, sd, a, d_shooters)
+			var kill := ev == Hit.HIT and surv_a > 0
+			if kill:
+				surv_a -= 1
+			shots.append({"side": int(d["side"]), "round": r, "kill": kill})
+
+	return {
+		"shots": shots,
+		"final_a_soldiers": maxi(surv_a, 0),
+		"final_d_soldiers": maxi(surv_d, 0),
+		"stats_a": sa,
+		"stats_d": sd,
+	}

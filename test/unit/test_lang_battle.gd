@@ -383,3 +383,77 @@ func test_all_returned_only_when_all_idle() -> void:
 	bf.free()
 	assert_false(mixed, "아직 이동 중(RETURN)인 병사가 있으면 미완료")
 	assert_true(all_idle, "생존자 전원 IDLE이면 복귀 완료")
+
+# ── 사격 (resolve_ranged, 원거리 전투 — 슬라이스 1) ─────────────────────────────
+# 계산/연출 분리: Resolver가 "어느 화살이 죽이는지" 먼저 결정. shots 로그 + 최종 병력.
+
+func _archer(side: int) -> Dictionary:
+	# 경궁병 ≈ classId 27 (고AT·저DF), 개활지 회피 5.
+	return LangResolver.make_unit(27, side, 10, 0, 0, 0, 3, 5)
+
+func _infantry(side: int) -> Dictionary:
+	# 경보병 ≈ classId 1, 개활지 회피 5.
+	return LangResolver.make_unit(1, side, 10, 0, 0, 0, 3, 5)
+
+## shots 중 (side, round) 조건 개수. round<0 이면 라운드 무시.
+func _count_shots(shots: Array, side: int, round: int = -1) -> int:
+	var n := 0
+	for sh in shots:
+		if int(sh["side"]) == side and (round < 0 or int(sh["round"]) == round):
+			n += 1
+	return n
+
+## shots 중 (side) 의 kill==true 개수. round<0 이면 라운드 무시.
+func _count_kills(shots: Array, side: int, round: int = -1) -> int:
+	var n := 0
+	for sh in shots:
+		if int(sh["side"]) == side and bool(sh["kill"]) and (round < 0 or int(sh["round"]) == round):
+			n += 1
+	return n
+
+func test_ranged_is_deterministic() -> void:
+	# 같은 시드·입력 → shots·최종 병력 동일 (스킵 무관, §0).
+	var r1 := LangResolver.resolve_ranged(LangRng.new(4242), _archer(0), _archer(1), 2, 2)
+	var r2 := LangResolver.resolve_ranged(LangRng.new(4242), _archer(0), _archer(1), 2, 2)
+	assert_eq(r1["final_a_soldiers"], r2["final_a_soldiers"], "최종 병력(A) 재현")
+	assert_eq(r1["final_d_soldiers"], r2["final_d_soldiers"], "최종 병력(D) 재현")
+	assert_eq(r1["shots"], r2["shots"], "shots 로그가 재현되어야 한다")
+
+func test_ranged_defender_zero_rounds() -> void:
+	# 시나리오 1: 방어측 0라운드 → 방어측(경보병) 사격 없음, 공격측 불변, 방어측만 사망.
+	var r := LangResolver.resolve_ranged(LangRng.new(999), _archer(0), _infantry(1), 2, 0)
+	assert_eq(_count_shots(r["shots"], 1), 0, "방어측(side1) 화살이 없어야 한다")
+	assert_eq(r["final_a_soldiers"], 10, "공격측은 반격 없어 병력 불변")
+	assert_between(r["final_d_soldiers"], 0, 10, "방어측 병력은 0~10")
+
+func test_ranged_shooter_count_equals_survivors() -> void:
+	# 슈터 수 = 라운드 시작 생존자. 라운드0 = 시작(10), 라운드1 = 라운드0 후 생존자.
+	var r := LangResolver.resolve_ranged(LangRng.new(2024), _archer(0), _archer(1), 2, 2)
+	var shots: Array = r["shots"]
+	assert_eq(_count_shots(shots, 0, 0), 10, "라운드0 공격측 슈터 = 시작 생존자 10")
+	assert_eq(_count_shots(shots, 1, 0), 10, "라운드0 방어측 슈터 = 시작 생존자 10")
+	# 라운드1 슈터 수 = 10 − (상대가 라운드0에 낸 킬)
+	var d_deaths_r0 := _count_kills(shots, 0, 0)  # side0가 라운드0에 죽인 적(=방어측 사망)
+	var a_deaths_r0 := _count_kills(shots, 1, 0)  # side1가 라운드0에 죽인 적(=공격측 사망)
+	assert_eq(_count_shots(shots, 1, 1), 10 - d_deaths_r0, "라운드1 방어측 슈터 = 라운드0 생존자")
+	assert_eq(_count_shots(shots, 0, 1), 10 - a_deaths_r0, "라운드1 공격측 슈터 = 라운드0 생존자")
+
+func test_ranged_kill_cap_and_invariant() -> void:
+	# 킬 cap: 최종 병력 ≥ 0. 불변식: side별 kill 합 = 상대 사망 수(시작−최종).
+	for seed in [1, 42, 777, 31337]:
+		var r := LangResolver.resolve_ranged(LangRng.new(seed), _archer(0), _archer(1), 2, 2)
+		var shots: Array = r["shots"]
+		assert_between(r["final_a_soldiers"], 0, 10, "A 최종 0~10 (seed %d)" % seed)
+		assert_between(r["final_d_soldiers"], 0, 10, "D 최종 0~10 (seed %d)" % seed)
+		assert_eq(_count_kills(shots, 0), 10 - int(r["final_d_soldiers"]),
+			"side0 킬 합 = 방어측 사망 (seed %d)" % seed)
+		assert_eq(_count_kills(shots, 1), 10 - int(r["final_a_soldiers"]),
+			"side1 킬 합 = 공격측 사망 (seed %d)" % seed)
+
+func test_ranged_stats_match_engagement() -> void:
+	# 같은 유닛 입력 시 stats(base_at/df·hit)가 근접 resolve_engagement 과 동일 경로.
+	var re := LangResolver.resolve_engagement(LangRng.new(5), _archer(0).duplicate(true), _archer(1).duplicate(true))
+	var rr := LangResolver.resolve_ranged(LangRng.new(5), _archer(0).duplicate(true), _archer(1).duplicate(true), 2, 2)
+	assert_eq(rr["stats_a"]["base_at"], re["stats_a"]["base_at"], "base_at 동일")
+	assert_eq(rr["stats_a"]["base_df"], re["stats_a"]["base_df"], "base_df 동일")
+	assert_eq(rr["stats_a"]["hit"], re["stats_a"]["hit"], "명중률 동일")
