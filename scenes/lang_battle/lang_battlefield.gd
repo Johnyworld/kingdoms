@@ -213,6 +213,36 @@ func setup_hero(hero_hp: int, infantry_n: int) -> void:
 	_retarget_all()
 	queue_redraw()
 
+## 커스텀 근접 전투(설정 화면): 각 side {kind, count}로 스폰. hero/infantry/archer 혼합 지원.
+##  - hero: 1스프라이트(HP=count, 병사 몫), 중앙 단독 배치
+##  - infantry/archer: count명 진형 스폰(archer는 kind 지정 → 근접 상성 페널티 + 활 스프라이트)
+func setup_custom(a: Dictionary, b: Dictionary) -> void:
+	_soldiers = {0: [], 1: []}
+	_effects = []
+	_final_victims = []
+	_round_shooters = {0: [], 1: []}
+	_clear_arrows()
+	_charging = false
+	_retreating = false
+	_fast_melee = false
+	_arrow_peak = ARROW_ARC_PEAK
+	_spawn_custom_side(0, a)
+	_spawn_custom_side(1, b)
+	_retarget_all()
+	queue_redraw()
+
+func _spawn_custom_side(side: int, cfg: Dictionary) -> void:
+	var kind := String(cfg.get("kind", "infantry"))
+	var count := int(cfg.get("count", 10))
+	if kind == "hero":
+		_spawn_hero(side, count)   # count = HP(몫)
+		return
+	var before: int = _soldiers[side].size()
+	_spawn_side(side, count)
+	if kind == "archer":
+		for i in range(before, _soldiers[side].size()):
+			_soldiers[side][i]["kind"] = "archer"
+
 ## 영웅 1명 스폰 — 진영 세로 중앙(BASE_Y)에서 등장(1인이라 3행 진형 대신 중앙 단독 배치).
 func _spawn_hero(side: int, hero_hp: int) -> void:
 	var anchor_x := FORM_EDGE_X if side == 0 else (FIELD_W - FORM_EDGE_X)

@@ -722,3 +722,61 @@ func test_reduce_to_keeps_hero_sprite() -> void:
 	assert_eq(bf._soldiers[0].size(), 1, "영웅 스프라이트는 HP와 무관하게 1개 유지")
 	assert_eq(bf._soldiers[1].size(), 6, "보병 side는 정상 트림")
 	bf.free()
+
+# ── 커스텀 전투 설정(설정 화면 → lang_battle) ────────────────────────────────────
+func test_config_holder_set_and_take_once() -> void:
+	# LangBattleConfig: set 후 take 1회 소비 → 두 번째 take는 빈 dict(기본 시나리오 진입).
+	LangBattleConfig.set_config(
+		{"kind": "hero", "count": 8},
+		{"kind": "archer", "count": 6},
+		"ranged")
+	var c := LangBattleConfig.take()
+	assert_eq(String(c["a"]["kind"]), "hero", "side A 병종 전달")
+	assert_eq(int(c["b"]["count"]), 6, "side B 숫자 전달")
+	assert_eq(String(c["mode"]), "ranged", "공용 교전 방식 전달")
+	assert_true(LangBattleConfig.take().is_empty(), "두 번째 take는 소비되어 빈 dict")
+
+func test_config_holder_mode_defaults_melee() -> void:
+	LangBattleConfig.set_config({"kind": "infantry", "count": 5}, {"kind": "infantry", "count": 5})
+	var c := LangBattleConfig.take()
+	assert_eq(String(c["mode"]), "melee", "mode 미지정 시 근접 기본값")
+
+func test_mk_custom_unit_maps_kinds() -> void:
+	var p = Presenter.new()
+	var hero := p._mk_custom_unit({"kind": "hero", "count": 7}, 0)
+	assert_eq(int(hero["class_id"]), Presenter.HERO_CLASS, "영웅=지휘관 클래스")
+	assert_false(hero["self_cmd"], "단독 영웅은 자기 지휘보정 없음")
+	assert_eq(String(hero["kind"]), "", "영웅은 병종 상성 중립")
+	assert_eq(int(hero["max_soldiers"]), 7, "영웅 count=HP/몫")
+	var arc := p._mk_custom_unit({"kind": "archer", "count": 4}, 1)
+	assert_eq(String(arc["kind"]), "archer", "경궁병 kind")
+	assert_eq(int(arc["max_soldiers"]), 4, "경궁병 인원")
+	var inf := p._mk_custom_unit({"kind": "infantry", "count": 10}, 0)
+	assert_eq(String(inf["kind"]), "infantry", "경보병 kind")
+	p.free()
+
+func test_kind_label() -> void:
+	var p = Presenter.new()
+	assert_eq(p._kind_label("hero"), "영웅")
+	assert_eq(p._kind_label("archer"), "경궁병")
+	assert_eq(p._kind_label("infantry"), "경보병")
+	p.free()
+
+func test_setup_custom_spawns_per_side() -> void:
+	# 영웅 1스프라이트(HP=count) + 경궁병 count명(kind=archer). 근접 스폰.
+	var bf = Battlefield.new()
+	bf.setup_custom({"kind": "hero", "count": 5}, {"kind": "archer", "count": 8})
+	assert_eq(bf._soldiers[0].size(), 1, "영웅 side는 1스프라이트")
+	assert_true(bf._soldiers[0][0]["hero"], "영웅 플래그")
+	assert_eq(int(bf._soldiers[0][0]["hp"]), 5, "영웅 HP=count")
+	assert_eq(bf._soldiers[1].size(), 8, "경궁병 side는 count명")
+	assert_eq(String(bf._soldiers[1][0]["kind"]), "archer", "경궁병 kind 지정")
+	bf.free()
+
+func test_setup_custom_infantry_default_kind() -> void:
+	var bf = Battlefield.new()
+	bf.setup_custom({"kind": "infantry", "count": 3}, {"kind": "infantry", "count": 9})
+	assert_eq(bf._soldiers[0].size(), 3, "side A 인원")
+	assert_eq(bf._soldiers[1].size(), 9, "side B 인원")
+	assert_eq(String(bf._soldiers[0][0]["kind"]), "infantry", "경보병 기본 kind")
+	bf.free()

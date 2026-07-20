@@ -45,16 +45,6 @@ const INFANTRY_CLASS := 1
 # 궁병 근접 취약은 **병종 상성**(보병>궁병 +4/+2, LangResolver)이 담당 — 별도 at/df 페널티 없음.
 const SCENARIO2_CHARGE_EVASION := 25  # 시나리오2 볼리: 돌격 중 보병 화살 회피 → 근접 도달 늘려 보병 우세로
 
-# 우측 상단 시나리오 버튼 [id, 라벨]. 0=근접 난투, 1/3/4=사격, 2=슬라이스2, 5=영웅 근접.
-const SCENARIOS := [
-	[0, "경보병 vs 경보병 (근접)"],
-	[1, "경궁병 → 경보병 (사격)"],
-	[2, "경궁병 vs 경보병 (근접)"],
-	[3, "경궁병 vs 경궁병 (사격)"],
-	[4, "경궁병 vs 경궁병 (근거리)"],
-	[5, "영웅 vs 경보병 (근접)"],
-]
-
 # 영웅 병종: classId 4(지휘관, base at27/df24). 단독 영웅은 자기 지휘보정 없이 27/24 유지.
 const HERO_CLASS := 4
 
@@ -68,15 +58,16 @@ var _timer := 0.0
 var _a_cur := START_SOLDIERS
 var _b_cur := START_SOLDIERS
 
-# 시나리오 선택(우측 상단 버튼)
+# 시나리오 선택(직접 진입 시 기본값). 설정 화면 진입 시엔 -1(해당 없음).
 var _scenario := 1
 var _name_a := ""
 var _name_b := ""
-var _buttons := {}  # 시나리오 id → Button
 # 사격 진행 상태
 var _rounds_shots: Array = []  # round → [{side,kill}, ...]
-var _then_melee := false       # 사격 후 근접 전환(시나리오 2)
-var _open_d_surv := 0          # 사격 오프닝 후 방어측(보병) 생존 = 근접 시작 인원
+var _then_melee := false       # 사격 후 근접 전환(스커미시: 사격→근접)
+var _open_d_surv := 0          # 사격 오프닝 후 근접측(보병) 생존 = 근접 시작 인원
+var _sk_archer_side := 0       # 스커미시에서 궁병(사격) 진영(0/1). 근접측 = 1 - 이 값
+var _sk_archer_count := START_SOLDIERS  # 스커미시 궁병 인원(볼리에 무피해 → 근접까지 유지)
 var _melee_start_a := START_SOLDIERS  # 근접 시작 인원(킬 스케줄·최소전투시간 계산용)
 var _melee_start_b := START_SOLDIERS
 var _fast_melee := false       # 궁병 근접전 — 짧은 CLASH·유예 생략·헛칼질 제거
@@ -94,12 +85,17 @@ var _deferred_sides: Array = []  # 최후 1:1로 유예한 사망의 팀 목록(
 var _finale_fired := false       # FINALE에서 최후 킬을 이미 발동했는가
 var _fx_rng := RandomNumberGenerator.new()  # 연출용(킬 타이밍 지터) — 결과와 무관
 
+var _custom_cfg: Dictionary = {}  # 설정 화면에서 넘어온 커스텀 전투 설정({}=기본 시나리오)
+
 func _ready() -> void:
 	_fx_rng.randomize()  # 연출용 RNG(타이밍 지터) — 결과에는 영향 없음
-	_build_scenario_buttons()  # 우측 상단 시나리오 버튼
-	_load_scenario(1)          # 진입 시 시나리오 1(경궁병 → 경보병 사격)
+	_custom_cfg = LangBattleConfig.take()
+	if _custom_cfg.is_empty():
+		_load_scenario(1)      # 직접 진입(설정 없음): 기본 시나리오 1
+	else:
+		_load_custom(_custom_cfg)  # 설정 화면 진입: 커스텀 전투
 
-## 시나리오 로드(우측 상단 버튼). 0=근접 난투, 1/3/4=사격, 2=슬라이스2 안내.
+## 시나리오 로드(직접 진입 시 기본 폴백). 0=근접 난투, 1/3/4=사격, 2=스커미시, 5=영웅 근접.
 func _load_scenario(n: int) -> void:
 	_scenario = n
 	_a_cur = START_SOLDIERS
@@ -109,7 +105,6 @@ func _load_scenario(n: int) -> void:
 	_hero_battle = false
 	_melee_start_a = START_SOLDIERS
 	_melee_start_b = START_SOLDIERS
-	_highlight_active()
 	match n:
 		0:
 			_load_melee()
@@ -119,6 +114,120 @@ func _load_scenario(n: int) -> void:
 			_load_hero()       # 영웅(27/24 단독) vs 경보병 10
 		_:
 			_load_ranged(n)
+
+## 커스텀 전투(설정 화면) — 양 진영 {kind, count} + 공용 교전 방식 mode.
+## 원거리(mode="ranged", 최소 한쪽 경궁병):
+##   - 양측 경궁병 → 사격 대결
+##   - 경궁병 + 경보병 → 스커미시(궁병 사격 오프닝 → 근접)
+##   - 경궁병 + 영웅 → 근접 폴백(영웅은 스커미시 스폰 대상 아님)
+## 근접(mode="melee"): 병종/인원 임의 근접.
+func _load_custom(cfg: Dictionary) -> void:
+	var a: Dictionary = cfg["a"]
+	var b: Dictionary = cfg["b"]
+	var mode := String(cfg.get("mode", "melee"))
+	_scenario = -1
+	_a_cur = int(a["count"])
+	_b_cur = int(b["count"])
+	_then_melee = false
+	_fast_melee = false
+	_hero_battle = false
+	_melee_start_a = int(a["count"])
+	_melee_start_b = int(b["count"])
+	if mode == "ranged":
+		var a_arc := String(a["kind"]) == "archer"
+		var b_arc := String(b["kind"]) == "archer"
+		if a_arc and b_arc:
+			_load_custom_ranged(a, b)
+		elif a_arc and String(b["kind"]) == "infantry":
+			_load_custom_skirmish(a, b, 0)   # side0 궁병 사격 → 근접
+		elif b_arc and String(a["kind"]) == "infantry":
+			_load_custom_skirmish(a, b, 1)   # side1 궁병 사격 → 근접
+		else:
+			_load_custom_melee(a, b)         # 경궁병+영웅 등 → 근접 폴백
+	else:
+		_load_custom_melee(a, b)
+
+## 커스텀 근접 — 병종/인원 임의. resolve_engagement + CHARGE→CLASH→RETREAT 재사용.
+func _load_custom_melee(a: Dictionary, b: Dictionary) -> void:
+	_rng = _fresh_rng()
+	_a = _mk_custom_unit(a, 0)
+	_d = _mk_custom_unit(b, 1)
+	_hero_battle = String(a["kind"]) == "hero" or String(b["kind"]) == "hero"
+	_name_a = _kind_label(String(a["kind"]))
+	_name_b = _kind_label(String(b["kind"]))
+	_result = LangResolver.resolve_engagement(_rng, _a, _d)
+	_events = _build_plan()
+	_init_hud_stats(false)
+	_hud.set_title("%s  vs  %s (근접)" % [_name_a, _name_b])
+	_field.call("setup_custom", {"kind": a["kind"], "count": a["count"]}, {"kind": b["kind"], "count": b["count"]})
+	_field.call("begin_advance")
+	_enter(St.CHARGE)
+
+## 커스텀 사격 — 양측 경궁병·원거리. resolve_ranged + St.RANGED 재사용(1볼리).
+func _load_custom_ranged(a: Dictionary, b: Dictionary) -> void:
+	_rng = _fresh_rng()
+	_a = _mk_custom_unit(a, 0)
+	_d = _mk_custom_unit(b, 1)
+	_name_a = "경궁병(청)"
+	_name_b = "경궁병(적)"
+	_result = LangResolver.resolve_ranged(_rng, _a, _d, 1, 1)
+	_init_hud_stats(true)
+	_rounds_shots = _group_shots_by_round(_result["shots"])
+	_hud.set_title("경궁병  vs  경궁병 (사격)")
+	_field.call("setup_ranged", "archer", "archer", int(a["count"]), int(b["count"]))
+	_enter(St.RANGED)
+
+## 커스텀 스커미시 — 경궁병(archer_side, 원거리) vs 경보병(원거리 아님). 사격 오프닝 1볼리 → 근접 전환.
+## a=side0 설정, b=side1 설정. archer_side가 사격, 상대(1-archer_side)는 경보병.
+func _load_custom_skirmish(a: Dictionary, b: Dictionary, archer_side: int) -> void:
+	_rng = _fresh_rng()
+	var inf_side := 1 - archer_side
+	_sk_archer_side = archer_side
+	_sk_archer_count = int((a if archer_side == 0 else b)["count"])
+	# side0/side1 유닛 조립(궁병은 archer_side에, 보병은 inf_side에).
+	_a = _mk_custom_unit(a, 0)
+	_d = _mk_custom_unit(b, 1)
+	(_a if inf_side == 0 else _d)["acc_mod"] = SCENARIO2_CHARGE_EVASION  # 돌격 중 보병 화살 회피↑(균형)
+	_name_a = _kind_label(String(a["kind"]))
+	_name_b = _kind_label(String(b["kind"]))
+	# 궁병 side만 1볼리, 보병 side 0라운드(반격 없음).
+	var a_rounds := 1 if archer_side == 0 else 0
+	var d_rounds := 1 if archer_side == 1 else 0
+	_result = LangResolver.resolve_ranged(_rng, _a, _d, a_rounds, d_rounds)
+	_init_hud_stats(true)
+	_rounds_shots = _group_shots_by_round(_result["shots"])
+	# 사격 오프닝 후 보병 생존 = 근접 시작 인원.
+	_open_d_surv = int(_result["final_a_soldiers"] if inf_side == 0 else _result["final_d_soldiers"])
+	_then_melee = true
+	_hud.set_title("%s  vs  %s (근접)" % [_name_a, _name_b])
+	# 궁병: 진형 대기(사격), 보병: 화면 밖 즉시 돌격.
+	_field.call("setup_skirmish", archer_side, inf_side, _sk_archer_count, int((a if inf_side == 0 else b)["count"]))
+	_enter(St.RANGED)
+
+## 설정 kind → 전투 유닛(resolve). 영웅=지휘관 클래스 단독(27/24, count=몫/HP), 경보병/경궁병=base 동일·상성만 차이.
+func _mk_custom_unit(cfg: Dictionary, side: int) -> Dictionary:
+	var kind := String(cfg["kind"])
+	var count := int(cfg["count"])
+	match kind:
+		"hero":
+			var u := LangResolver.make_unit(HERO_CLASS, side, count, 0, 0, 0, 3, 0)
+			u["kind"] = ""          # 병종 상성 중립
+			u["self_cmd"] = false   # 단독 영웅 — 자기 지휘보정 없음(27/24 유지)
+			return u
+		"archer":
+			var u := LangResolver.make_unit(ARCHER_CLASS, side, count, 0, 0, 0, 3, 5)
+			u["kind"] = "archer"
+			return u
+		_:
+			var u := LangResolver.make_unit(INFANTRY_CLASS, side, count, 0, 0, 0, 3, 5)
+			u["kind"] = "infantry"
+			return u
+
+func _kind_label(kind: String) -> String:
+	match kind:
+		"hero": return "영웅"
+		"archer": return "경궁병"
+		_: return "경보병"
 
 ## 근접 난투(경보병 vs 경보병) — 기존 resolve_engagement + CHARGE→CLASH→RETREAT 재사용.
 func _load_melee() -> void:
@@ -195,17 +304,18 @@ func _load_ranged(n: int) -> void:
 func _init_hud_stats(show_assembled: bool) -> void:
 	var sa: Dictionary = _result["stats_a"]
 	var sd: Dictionary = _result["stats_d"]
-	_hud.set_side(0, _a["level"], sa["base_at"], sa["base_df"], START_SOLDIERS)
-	_hud.set_side(1, _d["level"], sd["base_at"], sd["base_df"], START_SOLDIERS)
+	_hud.set_side(0, _a["level"], sa["base_at"], sa["base_df"], _melee_start_a)
+	_hud.set_side(1, _d["level"], sd["base_at"], sd["base_df"], _melee_start_b)
 	_hud.set_hits(sa["hit"], sd["hit"])
 	if show_assembled:
 		_hud.set_at_df(0, sa["at"], sa["df"])
 		_hud.set_at_df(1, sd["at"], sd["df"])
 
-## 시나리오 2 — 경궁병 vs 경보병: ① 사격 오프닝(궁병 1발, 보병 반격 없음) → ② 근접 난투(생존자, 궁병 근접 페널티).
-## 여기선 ①만 세팅하고 St.RANGED로 재생. ②로의 전환은 _finish_ranged → _begin_scenario2_melee.
+## 시나리오 2(직접 진입 폴백) — 경궁병(side0) vs 경보병(side1): 사격 오프닝 → 근접. 스커미시 일반 경로 사용.
 func _load_scenario2() -> void:
 	_rng = _fresh_rng()
+	_sk_archer_side = 0
+	_sk_archer_count = START_SOLDIERS
 	_a = _mk_archer(0)
 	_d = _mk_infantry(1)
 	_d["acc_mod"] = SCENARIO2_CHARGE_EVASION  # 돌격 중 보병은 화살을 더 피함(볼리 명중↓ → 균형)
@@ -221,23 +331,32 @@ func _load_scenario2() -> void:
 	_field.call("setup_skirmish", 0, 1, START_SOLDIERS, START_SOLDIERS)
 	_enter(St.RANGED)
 
-## 사격 볼리 종료 → 근접 전환. 병사는 이미 필드에서 이동/교전 중(재스폰 없음) → 근접 결과로 CLASH.
-func _begin_scenario2_melee() -> void:
+## 사격 볼리 종료 → 근접 전환(스커미시). 궁병=_sk_archer_side, 보병=반대편(생존 _open_d_surv).
+## 병사는 이미 필드에서 이동/교전 중(재스폰 없음) → 근접 결과로 CLASH.
+func _begin_skirmish_melee() -> void:
+	var archer_side := _sk_archer_side
+	var inf_side := 1 - archer_side
+	# side별 근접 시작 인원: 궁병은 볼리 무피해로 풀 유지, 보병은 사격 생존자.
+	var cnt := {archer_side: _sk_archer_count, inf_side: _open_d_surv}
 	_field.call("clear_aiming")  # 남은 궁병도 전진
-	_field.call("force_result", START_SOLDIERS, _open_d_surv)  # 사격 사상자 확정(안전, 궁병 무피해)
-	_a_cur = START_SOLDIERS
-	_b_cur = _open_d_surv
+	_field.call("force_result", cnt[0], cnt[1])  # 사격 사상자 확정(안전, 궁병 무피해)
+	_a_cur = cnt[0]
+	_b_cur = cnt[1]
 	_hud.set_count(0, _a_cur)
 	_hud.set_count(1, _b_cur)
 	if _open_d_surv <= 0:
 		_enter(St.DONE)  # 보병이 화살만으로 전멸 → 근접 없음
 		return
-	var am := _mk_archer(0)  # 근접 취약은 병종 상성(보병>궁병)이 담당 — 별도 페널티 없음
-	var bm := LangResolver.make_unit(INFANTRY_CLASS, 1, _open_d_surv, 0, 0, 0, 3, 5)
+	# 궁병 근접 취약은 병종 상성(보병>궁병)이 담당 — 별도 페널티 없음.
+	var am := LangResolver.make_unit(ARCHER_CLASS, archer_side, _sk_archer_count, 0, 0, 0, 3, 5)
+	am["kind"] = "archer"
+	var bm := LangResolver.make_unit(INFANTRY_CLASS, inf_side, _open_d_surv, 0, 0, 0, 3, 5)
 	bm["kind"] = "infantry"  # ★ 병종 상성 적용(보병>궁병 +4/+2) — 이게 빠지면 궁병이 압살함
-	_result = LangResolver.resolve_engagement(_fresh_rng(), am, bm)
-	_melee_start_a = START_SOLDIERS
-	_melee_start_b = _open_d_surv
+	_a = am if archer_side == 0 else bm
+	_d = am if archer_side == 1 else bm
+	_result = LangResolver.resolve_engagement(_fresh_rng(), _a, _d)
+	_melee_start_a = cnt[0]
+	_melee_start_b = cnt[1]
 	_fast_melee = true                    # 궁병 근접전은 빨리 끝냄(짧은 CLASH·유예 생략)
 	_field.call("set_fast_melee", true)   # 듀얼 밀당 0(즉결) + 복귀 전 헛칼질 제거
 	_events = _build_plan()
@@ -246,40 +365,6 @@ func _begin_scenario2_melee() -> void:
 func _fresh_rng() -> LangRng:
 	# 씬 진입/전환 시각 기반 시드(매 판 다른 전개). 계산은 이 시드에서 결정론적.
 	return LangRng.new(Time.get_ticks_msec() * 2654435761 & 0xFFFFFFFF)
-
-## 우측 상단 시나리오 버튼 생성(HudLayer 위). 마우스 전용(포커스 없음 → 키보드 스킵 유지).
-func _build_scenario_buttons() -> void:
-	var vb := VBoxContainer.new()
-	vb.name = "ScenarioButtons"
-	vb.anchor_left = 1.0
-	vb.anchor_right = 1.0
-	vb.offset_left = -424.0
-	vb.offset_top = 64.0
-	vb.offset_right = -24.0
-	vb.add_theme_constant_override("separation", 8)
-	$HudLayer.add_child(vb)
-	var title := Label.new()
-	title.text = "── 전투 시나리오 ──"
-	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", Color(1, 0.92, 0.7))
-	title.add_theme_constant_override("outline_size", 5)
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(title)
-	for item in SCENARIOS:
-		var b := Button.new()
-		b.text = item[1]
-		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(400, 46)
-		b.add_theme_font_size_override("font_size", 22)
-		b.pressed.connect(_load_scenario.bind(int(item[0])))
-		vb.add_child(b)
-		_buttons[int(item[0])] = b
-
-## 현재 시나리오 버튼 강조(노란 색조), 나머지는 원색.
-func _highlight_active() -> void:
-	for id in _buttons:
-		_buttons[id].modulate = Color(1, 0.95, 0.5) if id == _scenario else Color.WHITE
 
 func _mk_archer(side: int) -> Dictionary:
 	# make_unit(class_id, side, soldiers, gx, gy, item_id, level, acc_mod). 개활지 회피 5.
@@ -366,9 +451,9 @@ func _enter(s: int) -> void:
 			_round_i = 0
 			_shot_cd = 0.0
 			_round_gap = 0.0
-			_hint.text = "[사격 시나리오]   우측 버튼 = 시나리오 / 아무 키 = 스킵 / ESC = 타이틀"
+			_hint.text = "[사격]   아무 키 = 스킵 / 클릭 = 재전투 / ESC = 설정 화면"
 		St.CHARGE:
-			_hint.text = "[격리 테스트: 랑그릿사 1 전투]   아무 키 = 스킵 / ESC = 타이틀"
+			_hint.text = "[전투]   아무 키 = 스킵 / 클릭 = 재전투 / ESC = 설정 화면"
 		St.CLASH:
 			_event_i = 0
 			_finale_fired = false
@@ -393,7 +478,7 @@ func _enter(s: int) -> void:
 			else:
 				win = "무승부"
 			_hud.set_title(win)
-			_hint.text = "우측 버튼 = 다른 시나리오 / 아무 키 = 다시 / ESC = 타이틀"
+			_hint.text = "클릭 / 아무 키 = 재전투 / ESC = 설정 화면"
 
 func _process(delta: float) -> void:
 	# 큰 프레임 델타(씬 시작 로딩·랙 스파이크)가 상태를 건너뛰지 않도록 상한.
@@ -491,7 +576,7 @@ func _process_ranged(delta: float) -> void:
 func _finish_ranged() -> void:
 	if _then_melee:
 		_then_melee = false
-		_begin_scenario2_melee()  # 시나리오 2: 사격 종료 → 근접 전환
+		_begin_skirmish_melee()  # 스커미시: 사격 종료 → 근접 전환
 		return
 	_a_cur = _result["final_a_soldiers"]
 	_b_cur = _result["final_d_soldiers"]
@@ -565,12 +650,23 @@ func _apply_event(ev: Dictionary) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event.is_pressed() and not event.is_echo()):
 		return
-	# 시나리오 전환은 우측 상단 버튼(마우스). 키보드는 ESC=타이틀 / 그 외=스킵.
+	# 마우스 클릭: 언제든 같은 구성으로 재전투.
+	if event is InputEventMouseButton:
+		_restart()
+		return
+	# 키보드: ESC = 전투 설정 화면 / 그 외 = 스킵.
 	if event is InputEventKey:
 		if event.keycode == KEY_ESCAPE:
-			SceneManager.change_scene("res://scenes/title/title.tscn")
+			SceneManager.change_scene("res://scenes/lang_setup/lang_setup.tscn")
 		else:
 			_skip()
+
+## 같은 구성으로 처음부터 다시(커스텀 전투면 커스텀, 아니면 시나리오 폴백).
+func _restart() -> void:
+	if _custom_cfg.is_empty():
+		_load_scenario(_scenario)
+	else:
+		_load_custom(_custom_cfg)
 
 func _skip() -> void:
 	match _state:
@@ -584,4 +680,4 @@ func _skip() -> void:
 		St.POST, St.RETREAT:
 			_enter(St.DONE)
 		St.DONE:
-			_load_scenario(_scenario)  # 같은 시나리오 다시 재생
+			_restart()  # 같은 구성 다시 재생
