@@ -118,8 +118,8 @@ func _load_melee() -> void:
 ## 사격 시나리오(1/3/4) — resolve_ranged → 사격 상태머신(St.RANGED).
 func _load_ranged(n: int) -> void:
 	_rng = _fresh_rng()
-	var a_rounds := 2
-	var d_rounds := 2
+	var a_rounds := 1   # 사격은 1회(1라운드)만 연출 — 각 궁병 1발
+	var d_rounds := 1
 	var b_kind := "archer"
 	match n:
 		1:  # 경궁병 → 경보병(사격): 방어측 제자리 대기, 반격 없음(0라운드)
@@ -373,7 +373,11 @@ func _process_ranged(delta: float) -> void:
 		return
 
 	if not _round_started:
-		_field.call("begin_shot_round")        # 라운드당 슈터 분산(1인 1발)
+		# 이번 라운드에 사격하는 side만 슈터 풀에 — 사격 안 하는 side는 착탄 즉시 사망(유예 아님).
+		var sides := {}
+		for sh in _rounds_shots[_cur_round]:
+			sides[int(sh["side"])] = true
+		_field.call("begin_shot_round", sides.keys())
 		_round_started = true
 		_round_i = 0
 		_shot_cd = 0.0

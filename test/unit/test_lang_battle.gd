@@ -457,3 +457,17 @@ func test_ranged_stats_match_engagement() -> void:
 	assert_eq(rr["stats_a"]["base_at"], re["stats_a"]["base_at"], "base_at 동일")
 	assert_eq(rr["stats_a"]["base_df"], re["stats_a"]["base_df"], "base_df 동일")
 	assert_eq(rr["stats_a"]["hit"], re["stats_a"]["hit"], "명중률 동일")
+
+func test_shot_round_pools_only_shooting_sides() -> void:
+	# begin_shot_round(사격하는 side들): 사격 안 하는 side(시나리오1 경보병)는 슈터 풀에서 제외
+	# → 그 병사는 착탄 시 유예 없이 즉시 사망(_die). 사격하는 side만 풀에 포함.
+	var bf = Battlefield.new()
+	var a0 := {"id": 1, "side": 0, "state": Battlefield.IDLE}
+	var b0 := {"id": 2, "side": 1, "state": Battlefield.IDLE}
+	bf._soldiers = {0: [a0], 1: [b0]}
+	bf.begin_shot_round([0])   # side0만 사격
+	var a_pool: int = bf._round_shooters[0].size()
+	var b_pool: int = bf._round_shooters[1].size()
+	bf.free()
+	assert_eq(a_pool, 1, "사격하는 side0는 슈터 풀에 포함")
+	assert_eq(b_pool, 0, "사격 안 하는 side1는 슈터 풀에서 제외(착탄 즉시 사망)")

@@ -75,8 +75,8 @@ const BOW_RELEASE := 6.0 / BOW_FPS          # 발사 시작 후 화살 loose 까
 const TEX_ARROW := preload("res://assets/units/arrow.png")
 const ARROW_PX := 32
 const ARROW_SCALE := 0.45                   # 32px → ~14px(필드 좌표)
-const ARROW_SPEED := 300.0                  # px/s (필드 좌표) 등속 직선 비행
-const ARROW_HIT_DIST := 6.0                 # 타겟 근접 이 안이면 착탄
+const ARROW_VX := 230.0                     # 화살 수평 등속(px/s) — 포물선: 수평 등속 + 수직 중력
+const ARROW_ARC_PEAK := 40.0                # 포물선 정점 높이(px, 거리 무관 일정)
 # 팀1 경궁병 색조(임시 플레이스홀더 — 병사 스프라이트 공유하되 색으로 구분)
 const ARCHER_TINT_1 := Color(1.0, 0.62, 0.55)
 
@@ -205,9 +205,10 @@ func _spawn_ranged_side(side: int, n: int, kind: String) -> void:
 		s["kind"] = kind
 		_soldiers[side].append(s)
 
-## 새 사격 라운드 시작 — 슈터를 라운드 시작 시점 생존자로 스냅샷(Resolver 의 "슈터=라운드 시작 생존자"와 일치).
+## 새 사격 라운드 시작 — **이번 라운드에 사격하는 side만** 슈터를 라운드 시작 생존자로 스냅샷.
+## (사격 안 하는 side(예: 시나리오1 경보병)는 풀에서 제외 → 착탄 시 유예 없이 즉시 사망.)
 ## 라운드 중 사망해도 슈터 풀이 줄지 않게(스냅샷) → 자기 라운드 화살에 죽는 병사도 먼저 발사 후 사망(deferral).
-func begin_shot_round() -> void:
+func begin_shot_round(shooting_sides: Array) -> void:
 	_round_shooters = {0: [], 1: []}
 	for side in [0, 1]:
 		for s in _soldiers[side]:
@@ -216,7 +217,7 @@ func begin_shot_round() -> void:
 			if s.get("death_queued", false) and s["state"] != DYING:
 				_die(s)
 			s["death_queued"] = false
-			if s["state"] != DYING:
+			if side in shooting_sides and s["state"] != DYING:
 				_round_shooters[side].append(s)
 
 ## 한 발 발사: shooter_side 슈터 스냅샷에서 하나 꺼내 상대 하나를 향해 활을 쏜다.
@@ -260,54 +261,62 @@ func _pick_target(side: int, need_kill: bool) -> Variant:
 	return pool[_rng.randi() % pool.size()]
 
 ## 활 릴리스 프레임에 호출 — 슈터 활 위치에서 타겟을 향해 등속 화살 발사체 생성.
+## 활 릴리스 프레임에 호출 — 슈터 활 위치에서 타겟까지 **포물선** 화살 발사체 생성.
+## 수평은 등속(ARROW_VX), 수직은 중력 g로 낙하. g는 비행시간 T에서 정점=ARROW_ARC_PEAK가 되도록 유도(거리 무관 일정 아치).
 func _spawn_arrow(shooter: Dictionary) -> void:
 	var tgt: Variant = shooter["arrow_target"]
 	if tgt == null:
 		return
 	var from: Vector2 = shooter["pos"] + Vector2(shooter["face"] * 5.0, -6.0)
 	var to: Vector2 = tgt["pos"] + Vector2(0.0, -4.0)
-	var dir: Vector2 = (to - from)
-	if dir.length() < 0.01:
-		dir = Vector2(shooter["face"], 0.0)
-	dir = dir.normalized()
+	var dx: float = to.x - from.x
+	var flight: float = maxf(absf(dx), 1.0) / ARROW_VX      # 수평 등속 → 비행시간
+	var g: float = 8.0 * ARROW_ARC_PEAK / (flight * flight) # 대칭 포물선 정점 = ARROW_ARC_PEAK
+	var vx: float = dx / flight                             # = sign(dx)*ARROW_VX
+	var vy0: float = (to.y - from.y) / flight - 0.5 * g * flight  # T에 to.y 도달하도록 초기 수직속도
+	var vel := Vector2(vx, vy0)
 	var spr := Sprite2D.new()
 	spr.texture = TEX_ARROW
 	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	spr.scale = Vector2(ARROW_SCALE, ARROW_SCALE)
 	spr.position = from
-	spr.rotation = dir.angle()
+	spr.rotation = vel.angle()
 	_arrows_node.add_child(spr)
 	_arrows.append({
-		"spr": spr, "pos": from, "vel": dir * ARROW_SPEED,
+		"spr": spr, "pos": from, "vel": vel, "g": g,
+		"t": 0.0, "flight": flight, "to": to,
 		"target": tgt, "is_kill": bool(shooter["arrow_kill"]),
 	})
 	shooter["arrow_target"] = null
 	shooter["arrow_kill"] = false
 
-## 화살 비행·착탄 갱신. 타겟 근접(ARROW_HIT_DIST) 시 임팩트 + 살상 화살이면 _die.
+## 화살 포물선 비행·착탄 갱신. 비행시간(flight) 경과 시 착탄 → 임팩트 + 살상이면 _die(또는 슈터면 유예).
 func _update_arrows(delta: float) -> void:
 	var keep: Array = []
 	for ar in _arrows:
-		ar["pos"] += ar["vel"] * delta
+		ar["t"] += delta
+		var vel: Vector2 = ar["vel"]
+		vel.y += ar["g"] * delta          # 중력으로 낙하(수평은 등속)
+		ar["vel"] = vel
+		ar["pos"] = ar["pos"] + vel * delta
 		var tgt: Dictionary = ar["target"]
-		var to: Vector2 = tgt["pos"] + Vector2(0.0, -4.0)
-		if ar["pos"].distance_to(to) <= ARROW_HIT_DIST or ar["pos"].distance_to(to) > 600.0:
-			# 착탄(또는 안전 이탈): 임팩트 + 살상이면 사망.
-			_flashes.append({"pos": ar["pos"], "life": 0.12, "max": 0.12, "big": ar["is_kill"]})
+		if ar["t"] >= ar["flight"]:
+			# 착탄: 임팩트 섬광 + 살상이면 사망(그 순간).
+			_flashes.append({"pos": ar["to"], "life": 0.12, "max": 0.12, "big": ar["is_kill"]})
 			if ar["is_kill"] and tgt["state"] != DYING:
 				if tgt in _round_shooters[int(tgt["side"])]:
 					# 아직 이번 라운드 발사 전인 슈터 → 발사 마친 뒤 사망(deferral). 지금은 피격 플래시만.
 					tgt["death_queued"] = true
 					tgt["hit_t"] = HIT_FLASH_DUR
 				else:
-					_die(tgt)
+					_die(tgt)                # 사격 안 하는 side(경보병 등)는 착탄 즉시 사망
 				_shake = maxf(_shake, 1.6)
 			else:
 				_shake = maxf(_shake, 0.5)
 			ar["spr"].queue_free()
 		else:
 			ar["spr"].position = ar["pos"]
-			ar["spr"].rotation = ar["vel"].angle()
+			ar["spr"].rotation = vel.angle()   # 접선 방향(아치 상승→하강)으로 회전
 			keep.append(ar)
 	_arrows = keep
 
