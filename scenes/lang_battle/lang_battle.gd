@@ -377,7 +377,7 @@ func _process(delta: float) -> void:
 		St.CHARGE:
 			# 돌격과 동시에 AT/DF 지휘보정 틱업(스펙 §4.2).
 			# 첫 충돌(양쪽 접전 시작)이 생기면 바로 교전 시작 — 전원 도착을 기다리지 않는다.
-			var t := clampf(_timer / STEP, 0.0, 1.0)
+			var t := _atdf_tick_t()
 			_tick_atdf(0, _result["stats_a"], t)
 			_tick_atdf(1, _result["stats_d"], t)
 			if _field.call("any_engaged") or _timer >= ADVANCE_TIME:
@@ -471,6 +471,14 @@ func _finish_ranged() -> void:
 	_hud.set_count(1, _b_cur)
 	_field.call("force_result", _a_cur, _b_cur)  # 안전 트림(잔여 화살 스킵 시)
 	_enter(St.DONE)
+
+## AT/DF 표시 보간 계수. 순수 근접(시나리오 0)은 돌격과 함께 base→조립값 틱업(0→1).
+## 시나리오 2 근접(_fast_melee)은 사격 단계에서 이미 조립값(29/25)을 보였으므로 즉시 t=1 —
+## base(23/21)로 뚝 떨어졌다 되오르는 어색함 방지(같은 부대·같은 버프의 연속 전투).
+func _atdf_tick_t() -> float:
+	if _fast_melee:
+		return 1.0
+	return clampf(_timer / STEP, 0.0, 1.0)
 
 func _tick_atdf(side: int, st: Dictionary, t: float) -> void:
 	var at := int(round(lerpf(st["base_at"], st["at"], t)))

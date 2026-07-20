@@ -611,3 +611,24 @@ func test_miss_scatter_bounds() -> void:
 		assert_between(o.x, -Battlefield.ARROW_MISS_SCATTER_X, Battlefield.ARROW_MISS_SCATTER_X, "x는 ± 범위 내")
 		assert_between(o.y, 0.0, Battlefield.ARROW_MISS_SCATTER_Y, "y는 0~+ 범위(아래로만, 음수 없음)")
 	bf.free()
+
+# ── AT/DF 표시 보간 (_atdf_tick_t) ───────────────────────────────────────────
+func test_atdf_tick_ramps_for_pure_melee() -> void:
+	# 순수 근접(시나리오 0): base→조립값 틱업(_timer/STEP).
+	var p = Presenter.new()
+	p._fast_melee = false
+	p._timer = 0.0
+	assert_eq(p._atdf_tick_t(), 0.0, "돌격 시작(t=0)은 base 표시")
+	p._timer = Presenter.STEP
+	assert_eq(p._atdf_tick_t(), 1.0, "STEP 경과면 조립값(t=1)")
+	p.free()
+
+func test_atdf_tick_instant_for_scenario2_melee() -> void:
+	# 시나리오 2 근접(_fast_melee): 사격 때 조립값을 이미 보였으므로 즉시 t=1(떨어짐 없음).
+	var p = Presenter.new()
+	p._fast_melee = true
+	p._timer = 0.0
+	assert_eq(p._atdf_tick_t(), 1.0, "_timer=0이어도 조립값 유지")
+	p._timer = Presenter.STEP * 0.5
+	assert_eq(p._atdf_tick_t(), 1.0, "중간 시점에도 base로 떨어지지 않음")
+	p.free()
