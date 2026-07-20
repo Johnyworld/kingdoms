@@ -112,6 +112,7 @@ var _charging := false
 var _retreating := false
 var _next_id := 0
 var _rng := RandomNumberGenerator.new()
+var _final_victims: Array = []  # 최후 전투에서 처형될 victim(V) 목록 — fire_final_duel에서 소비
 
 # 스프라이트 렌더: 병사 id → AnimatedSprite2D. 팀별 SpriteFrames 공유. _units 아래 y-sort로 정렬.
 var _units: Node2D
@@ -150,6 +151,8 @@ func _add_anim(sf: SpriteFrames, tex: Texture2D, anim_name: String, count: int, 
 func setup(a_count: int, b_count: int) -> void:
 	_soldiers = {0: [], 1: []}
 	_effects = []
+	_final_victims = []
+	_retreating = false
 	_spawn_side(0, a_count)
 	_spawn_side(1, b_count)
 	_retarget_all()
@@ -191,6 +194,8 @@ func _spawn_side(side: int, n: int) -> void:
 			"attack_t": 0.0,  # 공격 애니 잔여 시간(>0이면 attack 재생)
 			"atk_fire": false,  # 이번 프레임 공격 시작 신호(스프라이트가 소비 → attack 0프레임부터 재생)
 			"hit_t": 0.0,  # 피격 흰색 플래시 잔여(>0이면 셰이더 flash>0)
+			"retreat_swings": -1,  # 복귀 시작 후 남은 마지막 교전 횟수(-1=미배정)
+			"final": false,        # 최후 전투 쌍(V/W) — 복귀 제외, 필드에 남아 1:1 지속
 			"death_t": 0.0,
 			"airborne": false,  # 사망 넉백 비행 중(Hurt 자세) — 착지하면 Death로 전환
 			"dvx": 0.0,
@@ -250,14 +255,93 @@ func _retarget_all() -> void:
 func begin_advance() -> void:
 	_charging = true
 
-## 전투 종료: 이후 각 전투(MELEE/CHARGE) 병사는 진행 중이던 공방을 마치면 home으로 복귀(RETURN)한다.
-## 전원이 "마지막에 한 번" 돌아가는 그림 — 전투 중 이탈은 없다(재교전으로 끝까지 싸운 뒤 복귀).
+## 전투 종료: 이후 각 병사는 **마지막 교전(유닛별 랜덤 1~N회 공방) + 진행 중 공방·핑퐁 밀림**을 마치면 home으로 복귀(RETURN).
+## 마지막 교전 횟수가 유닛마다 달라 **동시에가 아니라 순차적으로(줄줄이) 이탈**한다 — 전투 중 이탈은 없다(끝까지 싸운 뒤 복귀).
 func begin_retreat() -> void:
 	_retreating = true
 
-## 전투 종료 후, 전투 병사가 진행 중 공방(strike_t)까지 마쳤으면 복귀 시작 가능.
+## 아직 싸울 수 있는 적(타겟이 MELEE 또는 CHARGE)인가 — 복귀 중 헛칼질/즉시복귀 판단용.
+## 상대가 죽는 중(DYING)·이미 이탈(RETURN/IDLE)·없음(null)이면 마무리할 교전이 없다.
+func _foe_alive(s: Dictionary) -> bool:
+	var t: Variant = s["target"]
+	return t != null and (t["state"] == MELEE or t["state"] == CHARGE)
+
+## 복귀 준비: 복귀 시작 후 각 유닛은 **마지막 교전(랜덤 1~N회 공방)** 을 마쳐야 이탈한다 → 유닛별로 어긋난 순차 복귀.
+##  - CHARGE(접근만 하던 병사): 마무리할 교전 없음 → 바로 복귀.
+##  - MELEE: `retreat_swings`(begin_retreat 후 유닛별 randi[1,MAX] 배정)가 0으로 소진되고,
+##    진행 중이던 공방(strike_t)·핑퐁 밀림(push_rem)까지 잦아들면 복귀. 상대가 죽으면 즉시 소진(헛칼질 방지, _process 참조).
+const RETREAT_PUSH_EPS := 1.0        # 밀림이 이 px 안으로 잦아들면 핑퐁 종료로 간주
+const RETREAT_SWINGS_MAX := 2        # 복귀 전 마지막 교전 최대 공방 횟수(유닛별 randi[1,이 값]) — 죽음 없는 복귀 꼬리 최소화
 func _retreat_ready(s: Dictionary) -> bool:
-	return _retreating and (s["state"] == MELEE or s["state"] == CHARGE) and s["strike_t"] <= 0.0
+	if not _retreating:
+		return false
+	if s.get("final", false):
+		return false  # 최후 전투 쌍은 필드에 남아 1:1 지속(복귀 안 함)
+	if s["state"] == CHARGE:
+		return true  # 접근만 하던 병사는 마무리 교전 없이 바로 복귀
+	if s["state"] != MELEE:
+		return false
+	# 마지막 교전 다 하고(retreat_swings==0), 현재 공방·밀림까지 잦아들면 이탈
+	return s.get("retreat_swings", -1) == 0 \
+		and s["strike_t"] <= 0.0 and absf(s.get("push_rem", 0.0)) < RETREAT_PUSH_EPS
+
+## 최후 전투 스테이징: loser_side의 유닛 V + 적 유닛 W 를 1:1 최후 쌍으로 지정(복귀 제외, 서로 락).
+## 다른 유닛이 V/W를 노리면 해제 → 개입 없는 1:1 보장. 성립 못하면 false.
+func stage_final_duel(loser_side: int) -> bool:
+	var v: Variant = _pick_final(loser_side)
+	if v == null:
+		return false
+	var w: Variant = _pick_final_opponent(v, loser_side)
+	if w == null:
+		return false
+	v["final"] = true
+	w["final"] = true
+	v["target"] = w   # 서로 락 → 1:1
+	w["target"] = v
+	_final_victims.append(v)  # 최후 킬 대상(정확히 이 V) — fire_final_duel이 처형
+	for side in [0, 1]:   # 다른 유닛이 V/W 노리면 해제(최후 전투에 개입 금지)
+		for s in _soldiers[side]:
+			if s.get("final", false):
+				continue
+			if s["target"] == v or s["target"] == w:
+				s["target"] = null
+	return true
+
+## 최후 쌍 후보: 아직 안 정해진(비-final) 접전/접근 유닛.
+func _pick_final(side: int) -> Variant:
+	var pool: Array = _soldiers[side].filter(func(s):
+		return (s["state"] == MELEE or s["state"] == CHARGE) and not s.get("final", false))
+	if pool.is_empty():
+		return null
+	return pool[_rng.randi() % pool.size()]
+
+## V의 최후 상대: 현재 타겟이 유효(비-final 적)면 우선(인접), 아니면 최근접 적.
+func _pick_final_opponent(v: Dictionary, loser_side: int) -> Variant:
+	var enemies: Array = _soldiers[1 - loser_side].filter(func(s):
+		return (s["state"] == MELEE or s["state"] == CHARGE) and not s.get("final", false))
+	if enemies.is_empty():
+		return null
+	var cur: Variant = v["target"]
+	if cur != null and cur in enemies:
+		return cur
+	var best: Dictionary = enemies[0]
+	var bd := 1.0e18
+	for e in enemies:
+		var d: float = v["pos"].distance_squared_to(e["pos"])
+		if d < bd:
+			bd = d
+			best = e
+	return best
+
+## 최후 쌍 외 나머지가 모두 복귀(IDLE) 또는 사망 중(DYING)인가 — FINALE 최후 킬 발동 시점 판단.
+func others_returned() -> bool:
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			if s.get("final", false):
+				continue
+			if s["state"] != IDLE and s["state"] != DYING:
+				return false
+	return true
 
 ## 진형 좌표: 진영 끝에 앵커, 중앙 방향으로 균일한 3행 [3,3,4] 열(가운데 행 쐐기). 각 병사의 복귀 위치.
 func _formation_slots(side: int, n: int) -> Array:
@@ -330,8 +414,8 @@ func _pick_engaged(side: int) -> Variant:
 func _auto_strike(s: Dictionary) -> void:
 	var tgt: Variant = s["target"]
 	var toward: Vector2 = s["pos"] + Vector2(s["face"] * 10.0, 0.0)
-	# DUEL 중인 적은 이미 죽는 중(밀당 시퀀스) — 앰비언트 밀림을 얹지 않는다(듀얼 정렬 흐트러짐 방지).
-	if tgt != null and tgt["state"] != DYING and tgt["state"] != DUEL:
+	# 밀림 예약은 아직 싸우는 적(MELEE/CHARGE)에게만 — 죽는 중(DYING/DUEL)이거나 이미 이탈한(RETURN/IDLE) 적은 제외.
+	if tgt != null and (tgt["state"] == MELEE or tgt["state"] == CHARGE):
 		toward = tgt["pos"]
 		if toward.x != s["pos"].x:
 			s["face"] = signf(toward.x - s["pos"].x)
@@ -358,11 +442,31 @@ func kill(side: int) -> void:
 	var v: Variant = _pick_engaged(side)
 	if v == null:
 		return
-	var w: Variant = v["target"]
+	_open_duel(v, v["target"], _duel_count() - 1)
+
+## 최후 전투 발동: 스테이징된 victim(V)들을 긴 밀당 듀얼로 처형. FINALE에서 나머지 복귀 후 호출.
+## 더블(양 팀 각 1:1)이면 **길이를 다르게** 부여 — 첫 victim 짧게(3~4), 둘째 victim 길게(5~7)
+## → 동시 시작이지만 **먼저 하나 쓰러지고, 다른 하나가 더 버티다 쓰러짐**(동시 사망 어색함 제거).
+const DRAMATIC_STEPS_MIN := 3   # 첫 victim 밀당 최소 스텝
+const DRAMATIC_STEPS_MAX := 4   # 첫 victim 밀당 최대 스텝
+const DRAMATIC_STEPS2_MIN := 5  # 둘째 victim(더블) 밀당 최소 스텝 — 더 오래 버팀
+const DRAMATIC_STEPS2_MAX := 7  # 둘째 victim(더블) 밀당 최대 스텝
+func fire_final_duel() -> void:
+	for i in range(_final_victims.size()):
+		var v: Dictionary = _final_victims[i]
+		if v["state"] != MELEE and v["state"] != CHARGE:
+			continue  # 방어: V가 이미 죽었거나 이탈했으면 스킵(정상 흐름에선 발생 안 함)
+		var steps: int = _rng.randi_range(DRAMATIC_STEPS_MIN, DRAMATIC_STEPS_MAX) if i == 0 \
+			else _rng.randi_range(DRAMATIC_STEPS2_MIN, DRAMATIC_STEPS2_MAX)  # 둘째부터 길게 → 시차 사망
+		_open_duel(v, v["target"], steps)
+	_final_victims = []
+
+## 듀얼 개시: V가 승자 W와 steps회 밀당 후 사망(_die). W가 유효 접전 적이 아니면 즉사 fallback.
+func _open_duel(v: Dictionary, w: Variant, steps: int) -> void:
 	if w != null and (w["state"] == MELEE or w["state"] == CHARGE):
 		v["state"] = DUEL
 		v["duel_winner"] = w
-		v["duel_steps"] = _duel_count() - 1  # N-1 밀림 후 사망
+		v["duel_steps"] = maxi(0, steps)
 		v["duel_timer"] = DUEL_STEP
 	else:
 		_die(v)  # 승자 없음 → 즉사 fallback
@@ -452,11 +556,28 @@ func _process(delta: float) -> void:
 				pp.x += mv
 				s["pos"] = pp
 				s["push_rem"] = pr - mv
-			if s["state"] == MELEE and not _retreating:
-				s["strike_cd"] = s.get("strike_cd", 0.0) - delta
-				if s["strike_cd"] <= 0.0:
-					_auto_strike(s)
-					s["strike_cd"] = STRIKE_INTERVAL + _rng.randf_range(0.0, STRIKE_JITTER)
+			# 최후 전투 승자: 상대(V)가 죽으면(DYING) final 해제 → 이제 이 승자도 복귀 대상이 됨.
+			if s.get("final", false):
+				var ft: Variant = s["target"]
+				if ft == null or ft["state"] == DYING:
+					s["final"] = false
+			# 접전 자동 공방: 평시엔 계속. 복귀 시작 후엔 **살아있는 적이 있을 때만** 유닛별 "마지막 교전(retreat_swings)"을 하고 멈춤.
+			# 상대가 죽거나(DYING) 이미 이탈했으면 retreat_swings=0 → 헛칼질 없이 바로 복귀.
+			# 단, 최후 전투 쌍(final)은 복귀 안 하고 끝까지 1:1 교전을 계속한다.
+			if s["state"] == MELEE:
+				var is_final: bool = s.get("final", false)
+				if _retreating and not is_final:
+					if not _foe_alive(s):
+						s["retreat_swings"] = 0                                       # 상대 없음 → 헛칼질 없이 복귀
+					elif s.get("retreat_swings", -1) < 0:
+						s["retreat_swings"] = _rng.randi_range(1, RETREAT_SWINGS_MAX)  # 유닛별 마지막 교전 횟수
+				if is_final or not _retreating or s.get("retreat_swings", 0) > 0:
+					s["strike_cd"] = s.get("strike_cd", 0.0) - delta
+					if s["strike_cd"] <= 0.0:
+						_auto_strike(s)
+						if _retreating and not is_final:
+							s["retreat_swings"] -= 1  # 마지막 교전 1회 소진
+						s["strike_cd"] = STRIKE_INTERVAL + _rng.randf_range(0.0, STRIKE_JITTER)
 			if s["state"] == DYING:
 				if s["airborne"]:
 					# ① 넉백 비행: 중력 가속 + 등속 뒤로(Hurt 자세). 착지하면 주저앉기 단계로.
@@ -491,7 +612,7 @@ func _process(delta: float) -> void:
 			elif s["state"] == RETURN:
 				_return_step(s, delta)  # 본인 진영으로 복귀
 			elif _retreat_ready(s):
-				# 전투 종료: 진행 중이던 공방(strike_t)을 마치면 그때 복귀 시작 → 마지막에 한 번, idle 없이.
+				# 마지막 교전(retreat_swings)·공방·밀림 다 끝난 병사부터 순차적으로 복귀 시작.
 				s["state"] = RETURN
 				s["target"] = null
 			elif _charging and not _retreating:

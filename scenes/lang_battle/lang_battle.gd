@@ -10,7 +10,7 @@ extends Node2D
 @onready var _hint: Label = $HudLayer/Hint
 
 # 상태 전이 — 스폰 즉시 돌격 → 접촉 즉시 교전 → 결과 → 본인 진영 복귀.
-enum St { CHARGE, CLASH, POST, RETREAT, DONE }
+enum St { CHARGE, CLASH, POST, RETREAT, DONE, FINALE }
 
 # 타이밍
 const STEP := 0.75          # AT/DF 지휘보정 틱업 시간(돌격과 동시 진행)
@@ -21,6 +21,11 @@ const MELEE_PER_UNIT := 0.22 # 기준값당 전투시간(초)
 const MELEE_FLOOR := 0.5     # 최소 전투시간(초)
 const MELEE_CAP := 2.2       # 최대 전투시간(초)
 const KILL_JITTER := 0.65    # 킬 타이밍 지터(±, 간격 비율) — 등간격 깨서 리듬 만들기
+# 최후 전투: 일정 확률로 마지막 사망을 유예 → 나머지 복귀 후 필드에 남은 1쌍이 1:1 최후 전투.
+const DEFER_LAST_CHANCE := 0.25   # 이 확률로 최후 전투(가능할 때만)
+const DEFER_DOUBLE_CHANCE := 0.05 # (양 팀 모두 죽음 있을 때) 이 확률로 양 팀 각 1:1 최후 전투 — 레어
+const FINALE_STAGE_MAX := 3.5     # 나머지 복귀 대기 상한(초) — 넘으면 강제로 최후 킬 발동
+const FINALE_MAX := 4.0           # 최후 전투(듀얼+복귀) 상한(초)
 const POST_PAUSE := 0.0     # 결과 표시 후 복귀 시작까지 — 0=마지막 킬 직후 바로 순차 복귀(얼음 구간 제거)
 const RETREAT_MAX := 4.0    # 복귀 최대 시간(상한) — 스커미시 대기 + 순차 peel-off 감안
 
@@ -39,6 +44,8 @@ var _events: Array = []  # 킬 스케줄(전 구간 분산) — _build_plan
 var _event_i := 0
 var _melee_dur := 0.0        # 이번 CLASH 목표 길이(_melee_duration)
 var _event_times: Array = [] # 각 킬의 재생 시각(CLASH 시작 기준, 지터 적용·정렬)
+var _deferred_sides: Array = []  # 최후 1:1로 유예한 사망의 팀 목록(0/1). []=없음, [t]=단일, [0,1]=더블
+var _finale_fired := false       # FINALE에서 최후 킬을 이미 발동했는가
 var _fx_rng := RandomNumberGenerator.new()  # 연출용(킬 타이밍 지터) — 결과와 무관
 
 func _ready() -> void:
@@ -70,10 +77,31 @@ func _ready() -> void:
 ## 킬(사망) 이벤트만 스케줄에 넣는다. 재생 시각은 `_schedule_times`(melee_dur 안에 지터 분산, `_enter(CLASH)`)로
 ## 최소 전투시간 전 구간에 퍼뜨린다 — 죽음 쏠림·뒷부분 빔 제거. 복귀는 스케줄 소진 후 begin_retreat로 마지막에 일괄.
 ## 총합은 Resolver 결과 그대로: 사망 = 시작 - 생존.
+## 최후 전투(_deferred_sides): 일정 확률로 한 팀(또는 양 팀)의 마지막 사망 1건을 **CLASH 스케줄에서 빼서**
+## 유예한다. 나머지가 다 죽고 대형 복귀를 마친 뒤, 필드에 남은 그 1쌍이 **최후의 1:1 듀얼**로 처형된다(FINALE).
+##  - 25%: 한 팀(죽음 있는 팀 중 랜덤, 승패 무관)의 1건 유예.
+##  - 그중 5%(양 팀 모두 죽음 있을 때): 양 팀 각 1건 유예 → 각자 1:1 최후 전투(레어).
+## 총합·팀별 사망 수는 불변(유예분은 FINALE에서 처리).
 func _build_plan() -> Array:
 	var da: int = START_SOLDIERS - _result["final_a_soldiers"]  # 공격측 사망
 	var dd: int = START_SOLDIERS - _result["final_d_soldiers"]  # 방어측 사망
-	return _side_list(da, dd, "kill")  # 양쪽 번갈아 → 사망이 한쪽으로 안 쏠림
+	_deferred_sides = []
+	var eligible: Array = []            # 죽음 있는 팀만 유예 가능
+	if da > 0:
+		eligible.append(0)
+	if dd > 0:
+		eligible.append(1)
+	# 총 사망 2 이상일 때만(1건뿐이면 "나머지 다 죽고 최후 1" 그림이 안 나옴).
+	if da + dd >= 2 and not eligible.is_empty():
+		var r := _fx_rng.randf()
+		if eligible.size() == 2 and r < DEFER_DOUBLE_CHANCE:
+			_deferred_sides = [0, 1]       # 양 팀 각 1건 유예
+		elif r < DEFER_LAST_CHANCE:
+			_deferred_sides = [eligible[_fx_rng.randi() % eligible.size()]]  # 랜덤 한 팀
+	# CLASH 스케줄엔 유예분 제외(각 유예 팀 사망 −1). 유예분은 FINALE 최후 1:1로.
+	var da_clash := da - (1 if 0 in _deferred_sides else 0)
+	var dd_clash := dd - (1 if 1 in _deferred_sides else 0)
+	return _side_list(da_clash, dd_clash, "kill")  # 양쪽 번갈아 → 사망이 한쪽으로 안 쏠림
 
 ## 최소 전투시간: CLASH 길이를 킬 수에서 분리 — 적게 죽어도 안 빨리 끝나게.
 ## basis = max(동시 듀얼 수 min(a,b), 소수가 다수를 잡은 max(deaths)) → clamp(×PER_UNIT, FLOOR, CAP).
@@ -105,6 +133,7 @@ func _enter(s: int) -> void:
 			_hint.text = "[격리 테스트: 랑그릿사 1 전투]   아무 키 = 스킵 / ESC = 타이틀"
 		St.CLASH:
 			_event_i = 0
+			_finale_fired = false
 			_melee_dur = _melee_duration(START_SOLDIERS, START_SOLDIERS, _result["final_a_soldiers"], _result["final_d_soldiers"])
 			_event_times = _schedule_times(_events.size(), _melee_dur)
 		St.POST:
@@ -148,8 +177,29 @@ func _process(delta: float) -> void:
 			# 생존자가 진영에 복귀하면(또는 상한) 종료
 			if _field.call("all_returned") or _timer >= RETREAT_MAX:
 				_enter(St.DONE)
+		St.FINALE:
+			_process_finale()
 		St.DONE:
 			pass
+
+## 최후 전투: 나머지가 다 복귀하면 남은 1쌍(들)을 1:1로 처형, 그 뒤 승자까지 복귀하면 종료.
+func _process_finale() -> void:
+	if not _finale_fired:
+		# 나머지 유닛이 전부 대형 복귀했을 때(또는 상한) 최후 처형 발동
+		if _field.call("others_returned") or _timer >= FINALE_STAGE_MAX:
+			_finale_fired = true
+			_field.call("fire_final_duel")   # 스테이징된 V만 정확히 처형(개입 없는 1:1 + 긴 밀당)
+			for side in _deferred_sides:      # HUD 병력 −1
+				if side == 1:
+					_b_cur = maxi(0, _b_cur - 1)
+				else:
+					_a_cur = maxi(0, _a_cur - 1)
+			_hud.set_count(0, _a_cur)
+			_hud.set_count(1, _b_cur)
+	else:
+		# 최후 듀얼 끝나고 승자까지 복귀하면 결과로
+		if _field.call("all_returned") or _timer >= FINALE_MAX:
+			_enter(St.POST)
 
 func _tick_atdf(side: int, st: Dictionary, t: float) -> void:
 	var at := int(round(lerpf(st["base_at"], st["at"], t)))
@@ -173,16 +223,32 @@ func _process_clash(_delta: float) -> void:
 	while _event_i < _events.size() and _timer >= _event_times[_event_i]:
 		_apply_event(_events[_event_i])
 		_event_i += 1
-	# 킬 전부 재생 + 최소 전투시간 채움 + **진행 중 듀얼 없음**일 때 종료(복귀 중 사망 방지).
-	# 남는 시간은 전장 스커미시가 채우고, 마지막 듀얼이 사망까지 끝난 뒤에야 복귀 시작.
+	# 킬 전부 재생 + 최소 전투시간 채움 + **진행 중 듀얼 없음**일 때 CLASH 종료.
 	if _event_i >= _events.size() and _timer >= _melee_dur and not _field.call("duels_active"):
-		_enter(St.POST)
+		if _deferred_sides.is_empty():
+			_enter(St.POST)                     # 유예 없음 → 일반 복귀
+		else:
+			_begin_finale()                     # 유예 있음 → 최후 1:1 준비
 
-## 스케줄은 전부 킬 이벤트 — 접전 병사 1명 전사 + 병력 카운트 갱신.
+## 최후 전투 준비: 유예 팀별로 1:1 쌍(V+W)을 필드에 남기고(stage_final_duel), 나머지는 대형 복귀 시작.
+## 스테이징 실패(1:1 성립 불가 — 예: 더블인데 한 팀 잔여 1명)한 유예분은 여기서 빠지지만,
+## 그 사망은 POST의 force_result가 최종 카운트로 보정한다(사망 수 불변식 유지, 해당 연출만 생략 — rare).
+func _begin_finale() -> void:
+	var staged: Array = []
+	for side in _deferred_sides:
+		if _field.call("stage_final_duel", side):
+			staged.append(side)
+	_deferred_sides = staged
+	if _deferred_sides.is_empty():
+		_enter(St.POST)                          # 1:1 성립 불가 → 일반 복귀(force_result가 카운트 보정)
+		return
+	_field.call("begin_retreat")                 # 나머지 유닛 대형 복귀(최후 쌍은 제외)
+	_enter(St.FINALE)
+
+## 스케줄은 전부 킬 이벤트 — 접전 병사 1명 전사(듀얼) + 병력 카운트 갱신.
 func _apply_event(ev: Dictionary) -> void:
-	var side: int = ev["side"]
-	_field.call("kill", side)  # 넉백+섬광+흔들림
-	if side == 1:
+	_field.call("kill", ev["side"])  # 넉백+섬광+흔들림
+	if ev["side"] == 1:
 		_b_cur = maxi(0, _b_cur - 1)
 	else:
 		_a_cur = maxi(0, _a_cur - 1)
@@ -199,8 +265,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _skip() -> void:
 	match _state:
-		St.CHARGE, St.CLASH:
-			# 돌격/교전 스킵 → 최종 스탯 세팅 후 즉시 결과
+		St.CHARGE, St.CLASH, St.FINALE:
+			# 돌격/교전/최후 전투 스킵 → 최종 스탯 세팅 후 즉시 결과
 			_tick_atdf(0, _result["stats_a"], 1.0)
 			_tick_atdf(1, _result["stats_d"], 1.0)
 			_enter(St.POST)
