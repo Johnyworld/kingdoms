@@ -632,3 +632,93 @@ func test_atdf_tick_instant_for_scenario2_melee() -> void:
 	p._timer = Presenter.STEP * 0.5
 	assert_eq(p._atdf_tick_t(), 1.0, "중간 시점에도 base로 떨어지지 않음")
 	p.free()
+
+# ── 영웅 전투 (시나리오 5): 자기 지휘보정 토글 + 1인 유닛 HP ─────────────────────
+func test_self_cmd_false_disables_self_bonus() -> void:
+	# classId 4: base 27/24, cmdAT/cmdDF=2/4. 자기 지휘보정 O면 29/28, self_cmd=false면 27/24 유지.
+	var d := LangResolver.make_unit(1, 1, 10)
+	var with_cmd := LangResolver.make_unit(4, 0, 10)
+	var s_with := LangResolver.assemble_stats(with_cmd, d)
+	assert_eq(s_with["at"], 29, "자기 지휘보정 O: 27+2=29")
+	assert_eq(s_with["df"], 28, "자기 지휘보정 O: 24+4=28")
+	var lone := LangResolver.make_unit(4, 0, 10)
+	lone["self_cmd"] = false
+	var s_lone := LangResolver.assemble_stats(lone, d)
+	assert_eq(s_lone["base_at"], 27, "base는 클래스 데이터 그대로")
+	assert_eq(s_lone["at"], 27, "self_cmd=false: 자기 지휘보정 없이 27 유지")
+	assert_eq(s_lone["df"], 24, "self_cmd=false: 24 유지")
+
+func test_hero_engagement_bounds_and_takes_damage() -> void:
+	# 영웅(class4, self_cmd=false, kind"") vs 경보병 10 — HP 0~10, 여러 시드 중 영웅이 피해 입는 판이 존재.
+	var took_damage := false
+	for seed in range(50):
+		var hero := LangResolver.make_unit(4, 0, 10, 0, 0, 0, 3, 0)
+		hero["kind"] = ""
+		hero["self_cmd"] = false
+		var inf := LangResolver.make_unit(1, 1, 10, 0, 0, 0, 3, 5)
+		inf["kind"] = "infantry"
+		var r := LangResolver.resolve_engagement(LangRng.new(seed * 7919 + 3), hero, inf)
+		assert_between(r["final_a_soldiers"], 0, 10, "영웅 HP는 0~10")
+		assert_between(r["final_d_soldiers"], 0, 10, "보병 잔여는 0~10")
+		if r["final_a_soldiers"] < 10:
+			took_damage = true
+	assert_true(took_damage, "영웅은 27/24(자기보정 없음)면 보병 물량에 피해를 입는다(HP<10 발생)")
+
+func test_setup_hero_spawns_single_unit() -> void:
+	var bf = Battlefield.new()
+	bf.setup_hero(10, 10)
+	assert_eq(bf._soldiers[0].size(), 1, "영웅 side는 1스프라이트")
+	assert_eq(bf._soldiers[1].size(), 10, "보병 side는 10스프라이트")
+	assert_true(bf._soldiers[0][0]["hero"], "영웅 플래그")
+	assert_eq(int(bf._soldiers[0][0]["hp"]), 10, "영웅 HP=10")
+	bf.free()
+
+func test_hero_kill_decrements_hp_until_last_hit() -> void:
+	# 영웅은 kill(0)마다 죽지 않고 HP만 −1, 마지막(hp 1→0)에서 실제 사망(듀얼/DYING) 진입.
+	var bf = Battlefield.new()
+	var hero := {"id": 0, "side": 0, "hero": true, "hp": 10, "state": Battlefield.MELEE,
+		"pos": Vector2(100, 96), "face": 1.0, "push_rem": 0.0, "hit_t": 0.0}
+	var foe := {"id": 1, "side": 1, "state": Battlefield.MELEE, "pos": Vector2(110, 96)}
+	hero["target"] = foe
+	bf._soldiers = {0: [hero], 1: [foe]}
+	for i in 9:
+		bf.kill(0)
+	assert_eq(int(hero["hp"]), 1, "9번 피격 → HP 1 남음")
+	assert_eq(int(hero["state"]), Battlefield.MELEE, "HP 남으면 죽지 않고 계속 교전")
+	bf.kill(0)
+	assert_eq(int(hero["hp"]), 0, "10번째 피격 → HP 0")
+	assert_true(hero["state"] == Battlefield.DUEL or hero["state"] == Battlefield.DYING,
+		"HP 0에서 실제 사망(듀얼→사망) 진입")
+	bf.free()
+
+func test_hero_holds_ground_no_push() -> void:
+	# 영웅은 보병에게 밀리지 않는다 — 접전 펜싱 밀림·듀얼 밀당에서 push_rem 누적 안 함(보병만 밀림).
+	var bf = Battlefield.new()
+	var infantry := {"id": 1, "side": 1, "state": Battlefield.MELEE, "pos": Vector2(110, 96),
+		"face": -1.0, "push_rem": 0.0}
+	var hero := {"id": 0, "side": 0, "hero": true, "hp": 10, "state": Battlefield.MELEE,
+		"pos": Vector2(100, 96), "face": 1.0, "push_rem": 0.0, "hit_t": 0.0, "attack_t": 0.0}
+	# 보병이 영웅을 침 → 영웅은 밀림 예약 안 됨, 보병(공격측)만 전진 밀림.
+	infantry["target"] = hero
+	bf._auto_strike(infantry)
+	assert_eq(hero["push_rem"], 0.0, "영웅은 피격돼도 뒤로 밀리지 않는다")
+	assert_ne(infantry["push_rem"], 0.0, "보병(공격측)은 전진 밀림 예약")
+	# 듀얼 밀당에서도 영웅(패자든 승자든)은 밀리지 않음.
+	hero["push_rem"] = 0.0
+	infantry["push_rem"] = 0.0
+	bf._apply_duel_push(hero, infantry, Battlefield.PUSH_LOSER)
+	assert_eq(hero["push_rem"], 0.0, "영웅은 듀얼 밀당에서도 제자리 사수")
+	bf.free()
+
+func test_reduce_to_keeps_hero_sprite() -> void:
+	# force_result가 영웅 side를 HP로 트림하지 않는다(스프라이트 1개 유지). 보병 side만 트림.
+	var bf = Battlefield.new()
+	var hero := {"id": 0, "side": 0, "hero": true, "hp": 4, "state": Battlefield.MELEE}
+	bf._soldiers = {0: [hero], 1: []}
+	for i in 10:
+		bf._soldiers[1].append({"id": 10 + i, "side": 1, "state": Battlefield.MELEE})
+	bf._reduce_to(0, 4)   # 영웅 HP 4 — 스프라이트 수와 무관, 트림 스킵
+	bf._reduce_to(1, 6)   # 보병 10→6
+	assert_eq(bf._soldiers[0].size(), 1, "영웅 스프라이트는 HP와 무관하게 1개 유지")
+	assert_eq(bf._soldiers[1].size(), 6, "보병 side는 정상 트림")
+	bf.free()

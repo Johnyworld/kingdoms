@@ -196,6 +196,34 @@ func setup(a_count: int, b_count: int) -> void:
 	_retarget_all()
 	queue_redraw()
 
+## 영웅 전투(시나리오 5): side0 = 영웅 1명(HP), side1 = 경보병 n명.
+## 영웅은 병사 10 몫으로 싸우되 1스프라이트 — kill(0)마다 죽지 않고 HP만 깎이다 0에서 사망(kill 참조).
+func setup_hero(hero_hp: int, infantry_n: int) -> void:
+	_soldiers = {0: [], 1: []}
+	_effects = []
+	_final_victims = []
+	_round_shooters = {0: [], 1: []}
+	_clear_arrows()
+	_charging = false
+	_retreating = false
+	_fast_melee = false
+	_arrow_peak = ARROW_ARC_PEAK
+	_spawn_hero(0, hero_hp)
+	_spawn_side(1, infantry_n)
+	_retarget_all()
+	queue_redraw()
+
+## 영웅 1명 스폰 — 진영 세로 중앙(BASE_Y)에서 등장(1인이라 3행 진형 대신 중앙 단독 배치).
+func _spawn_hero(side: int, hero_hp: int) -> void:
+	var anchor_x := FORM_EDGE_X if side == 0 else (FIELD_W - FORM_EDGE_X)
+	var edge_x := -SPAWN_EDGE_X if side == 0 else (FIELD_W + SPAWN_EDGE_X)
+	var home := Vector2(anchor_x, BASE_Y)
+	var spawn := Vector2(edge_x, BASE_Y)
+	var s := _make_soldier(side, spawn, home)
+	s["hero"] = true
+	s["hp"] = hero_hp
+	_soldiers[side].append(s)
+
 # ── 사격 전투(원거리) — 스펙 "경궁병 사격 전투" ───────────────────────────────
 ## 양측을 진형(home)에 바로 배치하고 중앙(적)을 바라본 채 대기. 돌격·분리·복귀 없음(진형 유지).
 func setup_ranged(a_kind: String, b_kind: String, a_count: int, b_count: int) -> void:
@@ -541,6 +569,9 @@ func _make_soldier(side: int, pos: Vector2, home: Vector2) -> Dictionary:
 		"alpha": 1.0,
 		"seed": _rng.randf() * TAU,
 		"face": 1.0 if side == 0 else -1.0,
+		# ── 영웅(1인 유닛) 전용 ──
+		"hero": false,         # true면 병사 10 몫으로 싸우는 단독 영웅 — kill 시 죽지 않고 hp만 감소
+		"hp": 0,               # 영웅 잔여 HP(피격마다 −1, 0에서 실제 사망)
 		# ── 사격(경궁병) 전용 ──
 		"bow_t": 0.0,          # 활 당기기 애니 잔여(>0이면 발사 중)
 		"bow_fire": false,     # 이번 프레임 활 애니 시작 신호(스프라이트가 소비)
@@ -761,6 +792,12 @@ func _pick_engaged(side: int) -> Variant:
 		return null
 	return pool[_rng.randi() % pool.size()]
 
+## 펜싱/듀얼 밀림(push_rem) 누적 — 밀림 규칙의 단일 출처. **영웅은 제자리 사수라 밀리지 않는다**(누적 스킵).
+func _add_push(s: Variant, amount: float) -> void:
+	if s == null or s.get("hero", false):
+		return
+	s["push_rem"] = s.get("push_rem", 0.0) + amount
+
 ## 접전 중 병사가 자기 타겟(없으면 앞쪽)을 향해 자동 공방(연출). 데미지는 presenter의 kill이 별도 처리.
 ## 모션이 꺼져 있어도 보이도록 접점에 작은 섬광 + 약한 흔들림. strike_t는 찌르기/창 뻗기 재활성 시 사용.
 func _auto_strike(s: Dictionary) -> void:
@@ -774,8 +811,9 @@ func _auto_strike(s: Dictionary) -> void:
 		# 펜싱 밀림 예약: 찌르는 쪽 전진 + 맞는 쪽 뒤로(같은 벡터 → 거리 유지). 실제 이동은 _process가
 		# push_rem을 이징으로 소진(순간이동 대신 슬라이드).
 		var push: float = s["face"] * FENCE_PUSH
-		s["push_rem"] = s.get("push_rem", 0.0) + push
-		tgt["push_rem"] = tgt.get("push_rem", 0.0) + push
+		# 펜싱 밀림 예약: 찌르는 쪽 전진 + 맞는 쪽 뒤로(같은 벡터 → 거리 유지). 영웅은 _add_push가 스킵(제자리 사수).
+		_add_push(s, push)
+		_add_push(tgt, push)
 		tgt["hit_t"] = HIT_FLASH_DUR  # 맞는 쪽 흰색 피격 플래시
 	s["strike_t"] = STRIKE_DUR
 	s["attack_t"] = ATTACK_DUR   # 공격 애니 재생 예약
@@ -795,8 +833,21 @@ func kill(side: int) -> void:
 	var v: Variant = _pick_engaged(side)
 	if v == null:
 		return
+	# 영웅: HP가 남아 있으면 죽지 않고 피격 리액션(플래시+뒤로 밀림)만, 마지막 1발에서 실제 사망.
+	if v.get("hero", false) and int(v.get("hp", 0)) > 1:
+		v["hp"] = int(v["hp"]) - 1
+		_hero_recoil(v)
+		return
+	if v.get("hero", false):
+		v["hp"] = 0
 	var steps: int = _rng.randi_range(0, 1) if _fast_melee else _duel_count() - 1  # 빠른 근접: 짧은 밀당(0~1)
 	_open_duel(v, v["target"], steps)
+
+## 영웅 비살상 피격: 흰색 플래시 + 흔들림(제자리 사수 — 뒤로 밀리지 않음). 죽지 않고 계속 교전.
+func _hero_recoil(s: Dictionary) -> void:
+	s["hit_t"] = HIT_FLASH_DUR
+	_flashes.append({"pos": s["pos"], "life": 0.16, "max": 0.16, "big": true})
+	_shake = maxf(_shake, 1.5)
 
 ## 최후 전투 발동: 스테이징된 victim(V)들을 긴 밀당 듀얼로 처형. FINALE에서 나머지 복귀 후 호출.
 ## 더블(양 팀 각 1:1)이면 **길이를 다르게** 부여 — 첫 victim 짧게(3~4), 둘째 victim 길게(5~7)
@@ -865,15 +916,24 @@ func _apply_duel_push(v: Dictionary, w: Variant, kind: int) -> void:
 	if dir == 0.0:
 		dir = 1.0
 	var push: float = dir * FENCE_PUSH
-	v["push_rem"] = v.get("push_rem", 0.0) + push
-	w["push_rem"] = w.get("push_rem", 0.0) + push
+	_add_push(v, push)  # 영웅은 제자리 사수(_add_push가 스킵)
+	_add_push(w, push)
 
 func force_result(a_final: int, b_final: int) -> void:
 	_reduce_to(0, a_final)
 	_reduce_to(1, b_final)
 	queue_redraw()
 
+## side에 영웅(1인 유닛)이 있는가 — force_result 트림·HUD 판단용.
+func _side_has_hero(side: int) -> bool:
+	for s in _soldiers[side]:
+		if s.get("hero", false):
+			return true
+	return false
+
 func _reduce_to(side: int, final_n: int) -> void:
+	if _side_has_hero(side):
+		return  # 영웅 side는 HP(kill 이벤트)로 처리 — 스프라이트 수를 final_n으로 트림하지 않음
 	# 죽는 중(DYING)·듀얼 중(DUEL) 병사는 이미 사망 예정 → 생존 트림 대상에서 빼고 유지(애니 끝까지).
 	var alive: Array = _soldiers[side].filter(func(s): return s["state"] != DYING and s["state"] != DUEL)
 	var dying: Array = _soldiers[side].filter(func(s): return s["state"] == DYING or s["state"] == DUEL)

@@ -45,14 +45,18 @@ const INFANTRY_CLASS := 1
 # 궁병 근접 취약은 **병종 상성**(보병>궁병 +4/+2, LangResolver)이 담당 — 별도 at/df 페널티 없음.
 const SCENARIO2_CHARGE_EVASION := 25  # 시나리오2 볼리: 돌격 중 보병 화살 회피 → 근접 도달 늘려 보병 우세로
 
-# 우측 상단 시나리오 버튼 [id, 라벨]. 0=근접 난투, 1/3/4=사격, 2=슬라이스2 예정.
+# 우측 상단 시나리오 버튼 [id, 라벨]. 0=근접 난투, 1/3/4=사격, 2=슬라이스2, 5=영웅 근접.
 const SCENARIOS := [
 	[0, "경보병 vs 경보병 (근접)"],
 	[1, "경궁병 → 경보병 (사격)"],
 	[2, "경궁병 vs 경보병 (근접)"],
 	[3, "경궁병 vs 경궁병 (사격)"],
 	[4, "경궁병 vs 경궁병 (근거리)"],
+	[5, "영웅 vs 경보병 (근접)"],
 ]
+
+# 영웅 병종: classId 4(지휘관, base at27/df24). 단독 영웅은 자기 지휘보정 없이 27/24 유지.
+const HERO_CLASS := 4
 
 var _rng: LangRng
 var _a: Dictionary
@@ -76,6 +80,7 @@ var _open_d_surv := 0          # 사격 오프닝 후 방어측(보병) 생존 =
 var _melee_start_a := START_SOLDIERS  # 근접 시작 인원(킬 스케줄·최소전투시간 계산용)
 var _melee_start_b := START_SOLDIERS
 var _fast_melee := false       # 궁병 근접전 — 짧은 CLASH·유예 생략·헛칼질 제거
+var _hero_battle := false       # 영웅 전투(시나리오 5) — 1인 영웅(HP) vs 경보병 10, 최후 1:1 유예 생략
 var _cur_round := 0
 var _round_started := false
 var _round_i := 0
@@ -101,6 +106,7 @@ func _load_scenario(n: int) -> void:
 	_b_cur = START_SOLDIERS
 	_then_melee = false
 	_fast_melee = false
+	_hero_battle = false
 	_melee_start_a = START_SOLDIERS
 	_melee_start_b = START_SOLDIERS
 	_highlight_active()
@@ -109,6 +115,8 @@ func _load_scenario(n: int) -> void:
 			_load_melee()
 		2:
 			_load_scenario2()  # 경궁병 vs 경보병: 사격 오프닝 → 근접
+		5:
+			_load_hero()       # 영웅(27/24 단독) vs 경보병 10
 		_:
 			_load_ranged(n)
 
@@ -125,6 +133,26 @@ func _load_melee() -> void:
 	_hud.set_title("경보병  vs  경보병 (근접)")
 	_field.call("setup", START_SOLDIERS, START_SOLDIERS)
 	_field.call("begin_advance")  # 스폰하자마자 돌격
+	_enter(St.CHARGE)
+
+## 영웅 전투(시나리오 5) — 영웅(classId 4, 27/24 단독) vs 경보병 10인.
+## 영웅은 1스프라이트지만 **병사 10 몫**으로 싸운다(공격 13회·10 병력 factor). 계산은 근접(resolve_engagement) 그대로.
+## 영웅 HP=10 → 피격마다 −1, 0에서 사망(battlefield kill 참조). 단독 영웅이라 자기 지휘보정 없음(self_cmd=false → 27/24 유지).
+func _load_hero() -> void:
+	_hero_battle = true
+	_rng = _fresh_rng()
+	_a = LangResolver.make_unit(HERO_CLASS, 0, START_SOLDIERS, 0, 0, 0, 3, 0)  # 영웅 회피 기본(acc_mod 0)
+	_a["kind"] = ""             # 병종 상성 중립(경보병에 우열 없음)
+	_a["self_cmd"] = false      # 단독 영웅 — 자기 지휘보정 없음(27/24 유지, 1:다 스케일 균형)
+	_d = _mk_infantry(1)
+	_name_a = "영웅"
+	_name_b = "경보병"
+	_result = LangResolver.resolve_engagement(_rng, _a, _d)
+	_events = _build_plan()
+	_init_hud_stats(false)      # 근접: base 표시(영웅 base==조립 27/24라 틱업해도 그대로)
+	_hud.set_title("영웅  vs  경보병 (근접)")
+	_field.call("setup_hero", START_SOLDIERS, START_SOLDIERS)  # 영웅 1 + 보병 10
+	_field.call("begin_advance")
 	_enter(St.CHARGE)
 
 ## 사격 시나리오(1/3/4) — resolve_ranged → 사격 상태머신(St.RANGED).
@@ -291,9 +319,9 @@ func _build_plan() -> Array:
 		eligible.append(0)
 	if dd > 0:
 		eligible.append(1)
-	# 빠른 근접(궁병 근접전)은 최후 1:1 유예(FINALE) 생략 — 뒤 드라마 없이 빨리 끝냄.
+	# 빠른 근접(궁병 근접전)·영웅 전투는 최후 1:1 유예(FINALE) 생략 — 뒤 드라마 없이/영웅 1인이라 부적합.
 	# 총 사망 2 이상일 때만(1건뿐이면 "나머지 다 죽고 최후 1" 그림이 안 나옴).
-	if not _fast_melee and da + dd >= 2 and not eligible.is_empty():
+	if not _fast_melee and not _hero_battle and da + dd >= 2 and not eligible.is_empty():
 		var r := _fx_rng.randf()
 		if eligible.size() == 2 and r < DEFER_DOUBLE_CHANCE:
 			_deferred_sides = [0, 1]       # 양 팀 각 1건 유예

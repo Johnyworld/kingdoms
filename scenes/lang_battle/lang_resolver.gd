@@ -28,6 +28,7 @@ static func make_unit(class_id: int, side: int, soldiers: int,
 		"acc_mod": acc_mod,         # 방어측 회피 보정(지형 등)
 		"kind": "",                 # 병종(cavalry/infantry/spear/archer) — 병종 상성용
 		"commander": null,          # null 이면 self (거리 0 → 항상 자기 지휘보정)
+		"self_cmd": true,           # false 면 자기 지휘보정 없음(단독 영웅 — 지휘할 부대 없음)
 	}
 
 static func soldier_count(u: Dictionary) -> int:
@@ -79,9 +80,12 @@ static func _type_bonus(u: Dictionary, opp: Dictionary) -> Vector2i:
 	return Vector2i(int(row[0]), int(row[1]))
 
 ## 지휘범위 보정 (스펙 §2.4, 원본 0xDC7C). 맨해튼 거리 ≤ range 면 지휘관 보너스.
+## `self_cmd=false`(단독 영웅 등)면 본인 지휘보정(거리 0)을 받지 않는다 — 지휘할 부대 없는 1인 유닛.
 static func _cmd_bonus(u: Dictionary) -> Vector2i:
 	var cmdr: Variant = u["commander"]
 	if cmdr == null:
+		if not bool(u.get("self_cmd", true)):
+			return Vector2i.ZERO  # 자기 지휘보정 없음(단독 영웅)
 		cmdr = u  # 본인이 지휘관 (거리 0)
 	var cmdr_stat := LangData.get_class_stat(cmdr["class_id"])
 	var dist: int = abs(int(u["gx"]) - int(cmdr["gx"])) + abs(int(u["gy"]) - int(cmdr["gy"]))
