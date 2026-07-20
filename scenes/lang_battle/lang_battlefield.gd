@@ -75,7 +75,7 @@ const BOW_RELEASE := 6.0 / BOW_FPS          # 발사 시작 후 화살 loose 까
 const TEX_ARROW := preload("res://assets/units/arrow.png")
 const ARROW_PX := 32
 const ARROW_SCALE := 0.45                   # 32px → ~14px(필드 좌표)
-const ARROW_VX := 230.0                     # 화살 수평 등속(px/s) — 포물선: 수평 등속 + 수직 중력
+const ARROW_VX := 340.0                     # 화살 수평 등속(px/s) — 빠른 화살(붙기 전 착탄)
 const ARROW_ARC_PEAK := 40.0                # 포물선 정점 높이(px, 거리 무관 일정)
 # 팀1 경궁병 색조(임시 플레이스홀더 — 병사 스프라이트 공유하되 색으로 구분)
 const ARCHER_TINT_1 := Color(1.0, 0.62, 0.55)
@@ -86,6 +86,7 @@ const VY := 2.0 * 1.2 * 60.0   # ≈ 144 px/s (원본 2px/frame)
 const CLOSE_X := 36.0 * 1.2    # X가 이 안이면 Y 접근 시작 (원본 0x240000=36px)
 const GAP_X := 21.0            # 근접 시 좌우 간격(마주섬) — 스프라이트 몸통 ~16px 감안해 살짝 띄움
 const GAP_Y := 5.0
+const MEET_RANGE := 40.0      # 사격 후 대기(hold_ground) 궁병이 적을 마중 나가는 거리 — 이 안에 오면 한두걸음 접근
 const STRIKE_INTERVAL := 0.34  # 접전 중 자동 공방 주기(초) — 전투 내내 계속 주고받게(idle 방지)
 const STRIKE_JITTER := 0.18    # 공방 주기 무작위 편차(위상차)
 
@@ -124,6 +125,7 @@ var _shake := 0.0
 var _t := 0.0
 var _charging := false
 var _retreating := false
+var _fast_melee := false   # 궁병 근접전: 킬 시 듀얼 밀당 0(즉결) + 복귀 전 마지막 교전 0(헛칼질 제거)
 var _next_id := 0
 var _rng := RandomNumberGenerator.new()
 var _final_victims: Array = []  # 최후 전투에서 처형될 victim(V) 목록 — fire_final_duel에서 소비
@@ -134,6 +136,7 @@ var _arrows_node: Node2D   # 화살 발사체(병사 위에 그림)
 var _frames := {}          # "soldier"/"orc" -> SpriteFrames. soldier 세트만 "bow"(활) 포함.
 var _sprites := {}         # soldier id -> AnimatedSprite2D
 var _arrows: Array = []    # 비행 중 화살 [{spr, pos, vel, target, is_kill}]
+var _arrow_peak := ARROW_ARC_PEAK  # 이번 전투 화살 포물선 정점(스커미시=궁병vs근접은 완만하게 절반)
 var _round_shooters := {0: [], 1: []}  # 이번 사격 라운드의 슈터 스냅샷(라운드 시작 생존자)
 
 func _ready() -> void:
@@ -178,6 +181,8 @@ func setup(a_count: int, b_count: int) -> void:
 	_clear_arrows()
 	_charging = false
 	_retreating = false
+	_fast_melee = false
+	_arrow_peak = ARROW_ARC_PEAK
 	_spawn_side(0, a_count)
 	_spawn_side(1, b_count)
 	_retarget_all()
@@ -191,11 +196,43 @@ func setup_ranged(a_kind: String, b_kind: String, a_count: int, b_count: int) ->
 	_final_victims = []
 	_charging = false
 	_retreating = false
+	_fast_melee = false
+	_arrow_peak = ARROW_ARC_PEAK
 	_round_shooters = {0: [], 1: []}
 	_clear_arrows()
 	_spawn_ranged_side(0, a_count, a_kind)
 	_spawn_ranged_side(1, b_count, b_kind)
 	queue_redraw()
+
+## 스커미시(시나리오 2): 궁병은 진형에 서서 대기(aiming), 근접 유닛은 화면 밖에서 즉시 돌격 — 실시간 동시.
+func setup_skirmish(shooter_side: int, charger_side: int, n_shoot: int, n_charge: int) -> void:
+	_soldiers = {0: [], 1: []}
+	_effects = []
+	_final_victims = []
+	_round_shooters = {0: [], 1: []}
+	_clear_arrows()
+	_retreating = false
+	_fast_melee = false
+	_arrow_peak = ARROW_ARC_PEAK * 0.5   # 궁병 vs 근접: 화살 포물선 완만하게(정점 절반)
+	_charging = true   # 근접 유닛이 처음부터 돌격
+	# 궁병: 진형에 서서 사격 대기(aiming=true → 발사 전엔 이동 안 함)
+	var homes := _formation_slots(shooter_side, n_shoot)
+	for i in range(n_shoot):
+		var s := _make_soldier(shooter_side, homes[i], homes[i])
+		s["state"] = CHARGE
+		s["kind"] = "archer"
+		s["aiming"] = true
+		_soldiers[shooter_side].append(s)
+	# 근접 유닛: 화면 밖 스폰 → 즉시 돌격(근접 vs 근접과 동일)
+	_spawn_side(charger_side, n_charge)
+	_retarget_all()
+	queue_redraw()
+
+## 남은 사격 대기(aiming) 해제 — 근접 전환 시 전 궁병이 전진하도록.
+func clear_aiming() -> void:
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			s["aiming"] = false
 
 func _spawn_ranged_side(side: int, n: int, kind: String) -> void:
 	var homes := _formation_slots(side, n)
@@ -230,6 +267,8 @@ func shoot(shooter_side: int, is_kill: bool) -> bool:
 	var shooter: Variant = _pick_shooter(shooter_side)
 	if shooter == null:
 		return true   # 슈터 소진(방어적) → 스킵
+	shooter["aiming"] = false      # 사격 완료 → 이제 제자리 대기(전진 금지)
+	shooter["hold_ground"] = true  # 적이 가까이 올 때까지 대기하다 마중(_process에서 해제)
 	shooter["face"] = signf(target["pos"].x - shooter["pos"].x)
 	if shooter["face"] == 0.0:
 		shooter["face"] = 1.0 if shooter_side == 0 else -1.0
@@ -261,19 +300,57 @@ func _pick_target(side: int, need_kill: bool) -> Variant:
 	return pool[_rng.randi() % pool.size()]
 
 ## 활 릴리스 프레임에 호출 — 슈터 활 위치에서 타겟을 향해 등속 화살 발사체 생성.
-## 활 릴리스 프레임에 호출 — 슈터 활 위치에서 타겟까지 **포물선** 화살 발사체 생성.
-## 수평은 등속(ARROW_VX), 수직은 중력 g로 낙하. g는 비행시간 T에서 정점=ARROW_ARC_PEAK가 되도록 유도(거리 무관 일정 아치).
+## 타겟의 돌격 속도 근사(예측 사격용). CHARGE 중이면 자기 타겟 쪽으로 X우선(≈VX), 그 외(대기·접전·정적)면 0.
+func _charge_velocity(s: Dictionary) -> Vector2:
+	if s["state"] != CHARGE or s.get("aiming", false) or s.get("hold_ground", false):
+		return Vector2.ZERO
+	var t: Variant = s["target"]
+	if t == null:
+		return Vector2.ZERO
+	var dx: float = t["pos"].x - s["pos"].x
+	if absf(dx) <= GAP_X:
+		return Vector2.ZERO
+	return Vector2(signf(dx) * VX, 0.0)  # _move_step 은 X 먼저 → 수평 등속 근사
+
+## 예측 요격: 화살 속도 speed로 from에서 쏜 화살이 (tpos, 속도 tvel) 타겟과 만나는 지점을 2차 방정식으로 푼다.
+## |R + V·T| = speed·T  → (V·V − speed²)T² + 2(R·V)T + R·R = 0. 최소 양수근 T → tpos + V·T. 해 없으면 tpos.
+func _predict_intercept(from: Vector2, tpos: Vector2, tvel: Vector2, speed: float) -> Vector2:
+	var r: Vector2 = tpos - from
+	var a: float = tvel.dot(tvel) - speed * speed
+	var b: float = 2.0 * r.dot(tvel)
+	var c: float = r.dot(r)
+	var t := -1.0
+	if absf(a) < 0.0001:
+		if absf(b) > 0.0001:
+			t = -c / b
+	else:
+		var disc: float = b * b - 4.0 * a * c
+		if disc >= 0.0:
+			var sq: float = sqrt(disc)
+			var t1: float = (-b + sq) / (2.0 * a)
+			var t2: float = (-b - sq) / (2.0 * a)
+			var lo: float = minf(t1, t2)
+			var hi: float = maxf(t1, t2)
+			t = lo if lo > 0.0 else hi   # 최소 양수근
+	if t <= 0.0:
+		return tpos   # 요격 불가(정적/후퇴 등) → 현재 위치
+	return tpos + tvel * t
+
+## 활 릴리스 프레임에 호출 — **예측 요격**: 화살과 적이 만나는 지점으로 **고정 포물선** 발사(유도 아님).
+## 수평 등속 ARROW_VX + 수직 중력 g(정점 ARROW_ARC_PEAK). 정적 타겟/요격 불가면 현재 위치.
 func _spawn_arrow(shooter: Dictionary) -> void:
 	var tgt: Variant = shooter["arrow_target"]
 	if tgt == null:
 		return
 	var from: Vector2 = shooter["pos"] + Vector2(shooter["face"] * 5.0, -6.0)
-	var to: Vector2 = tgt["pos"] + Vector2(0.0, -4.0)
+	var tvel: Vector2 = _charge_velocity(tgt)
+	var aim: Vector2 = _predict_intercept(from, tgt["pos"], tvel, ARROW_VX)
+	var to: Vector2 = aim + Vector2(0.0, -4.0)
+	var flight: float = maxf(from.distance_to(to), 1.0) / ARROW_VX  # 요격해에 의해 ≈ T
 	var dx: float = to.x - from.x
-	var flight: float = maxf(absf(dx), 1.0) / ARROW_VX      # 수평 등속 → 비행시간
-	var g: float = 8.0 * ARROW_ARC_PEAK / (flight * flight) # 대칭 포물선 정점 = ARROW_ARC_PEAK
-	var vx: float = dx / flight                             # = sign(dx)*ARROW_VX
-	var vy0: float = (to.y - from.y) / flight - 0.5 * g * flight  # T에 to.y 도달하도록 초기 수직속도
+	var g: float = 8.0 * _arrow_peak / (flight * flight)   # 대칭 포물선 정점 = _arrow_peak(스커미시는 절반)
+	var vx: float = dx / flight
+	var vy0: float = (to.y - from.y) / flight - 0.5 * g * flight
 	var vel := Vector2(vx, vy0)
 	var spr := Sprite2D.new()
 	spr.texture = TEX_ARROW
@@ -290,7 +367,7 @@ func _spawn_arrow(shooter: Dictionary) -> void:
 	shooter["arrow_target"] = null
 	shooter["arrow_kill"] = false
 
-## 화살 포물선 비행·착탄 갱신. 비행시간(flight) 경과 시 착탄 → 임팩트 + 살상이면 _die(또는 슈터면 유예).
+## 화살 고정 포물선 비행·착탄(유도 없음). 비행시간(flight) 경과 시 착탄 → 임팩트 + 살상이면 _die(또는 슈터면 유예).
 func _update_arrows(delta: float) -> void:
 	var keep: Array = []
 	for ar in _arrows:
@@ -302,7 +379,7 @@ func _update_arrows(delta: float) -> void:
 		var tgt: Dictionary = ar["target"]
 		if ar["t"] >= ar["flight"]:
 			# 착탄: 임팩트 섬광 + 살상이면 사망(그 순간).
-			_flashes.append({"pos": ar["to"], "life": 0.12, "max": 0.12, "big": ar["is_kill"]})
+			_flashes.append({"pos": ar["pos"], "life": 0.12, "max": 0.12, "big": ar["is_kill"]})
 			if ar["is_kill"] and tgt["state"] != DYING:
 				if tgt in _round_shooters[int(tgt["side"])]:
 					# 아직 이번 라운드 발사 전인 슈터 → 발사 마친 뒤 사망(deferral). 지금은 피격 플래시만.
@@ -412,6 +489,8 @@ func _make_soldier(side: int, pos: Vector2, home: Vector2) -> Dictionary:
 		"arrow_kill": false,   # 이 화살이 살상 화살인가
 		"doomed": false,       # 살상 화살이 배정됨(중복 배정·중복 사망 방지)
 		"death_queued": false, # 자기 라운드 화살에 맞음 → 발사 마친 뒤 사망(deferral)
+		"aiming": false,       # 사격 대기(제자리) — true면 CHARGE라도 이동 안 함(시나리오2 궁병). 발사 시 해제.
+		"hold_ground": false,  # 사격 후 제자리 대기 — 적이 MEET_RANGE 안에 오면 해제(마중→근접). 시나리오2 궁병.
 	}
 	_next_id += 1
 	return s
@@ -468,6 +547,10 @@ func begin_advance() -> void:
 ## 마지막 교전 횟수가 유닛마다 달라 **동시에가 아니라 순차적으로(줄줄이) 이탈**한다 — 전투 중 이탈은 없다(끝까지 싸운 뒤 복귀).
 func begin_retreat() -> void:
 	_retreating = true
+
+## 빠른 근접 모드 on/off — 궁병 근접전: 듀얼 밀당 0(즉결) + 복귀 전 헛칼질 제거.
+func set_fast_melee(on: bool) -> void:
+	_fast_melee = on
 
 ## 아직 싸울 수 있는 적(타겟이 MELEE 또는 CHARGE)인가 — 복귀 중 헛칼질/즉시복귀 판단용.
 ## 상대가 죽는 중(DYING)·이미 이탈(RETURN/IDLE)·없음(null)이면 마무리할 교전이 없다.
@@ -647,11 +730,13 @@ func _auto_strike(s: Dictionary) -> void:
 
 ## Presenter가 결과대로 지정하는 킬 → 즉사 대신 **듀얼**을 연다. 패자 V(접전 병사) + 승자 W(=V의 타겟 적).
 ## 공방 N=randi(1..3)회 → N-1번 밀림 스텝(_process) 후 V 사망(_die). W 없으면 즉사.
+## 빠른 근접(궁병)이면 밀당 스텝 0 → 즉결(길게 밀당하지 않음).
 func kill(side: int) -> void:
 	var v: Variant = _pick_engaged(side)
 	if v == null:
 		return
-	_open_duel(v, v["target"], _duel_count() - 1)
+	var steps: int = _rng.randi_range(0, 1) if _fast_melee else _duel_count() - 1  # 빠른 근접: 짧은 밀당(0~1)
+	_open_duel(v, v["target"], steps)
 
 ## 최후 전투 발동: 스테이징된 victim(V)들을 긴 밀당 듀얼로 처형. FINALE에서 나머지 복귀 후 호출.
 ## 더블(양 팀 각 1:1)이면 **길이를 다르게** 부여 — 첫 victim 짧게(3~4), 둘째 victim 길게(5~7)
@@ -745,6 +830,9 @@ func _process(delta: float) -> void:
 	if _charging and not _retreating:
 		_retarget_all()  # 매 프레임 3단계 우선순위 타겟팅(원본 0xE5DA: 상호 락>미교전>교전 중, 동순위 최근접)
 
+	# 교전 시작(어느 한쪽이라도 접전)이면 대기 중인 궁병 뒷열도 근접 가담(아래 hold_ground 해제).
+	var clash_on: bool = _has_melee(0) or _has_melee(1)
+
 	for side in [0, 1]:
 		var keep: Array = []
 		for s in _soldiers[side]:
@@ -766,6 +854,17 @@ func _process(delta: float) -> void:
 				if s["bow_t"] <= 0.0 and s.get("death_queued", false):
 					s["death_queued"] = false
 					_die(s)
+			# 사격 후 제자리 대기(hold_ground) 해제 조건:
+			#  ① 교전이 시작됨(clash_on) → 뒷열도 다 같이 근접 가담(앞 열이 붙으면 따라 들어감)
+			#  ② 아직 교전 전이면, 내 타겟이 MEET_RANGE 안에 오면 한두걸음 마중.
+			if s.get("hold_ground", false):
+				if clash_on:
+					s["hold_ground"] = false
+				else:
+					var ht: Variant = s["target"]
+					if ht != null and (ht["state"] == CHARGE or ht["state"] == MELEE) \
+							and s["pos"].distance_to(ht["pos"]) <= MEET_RANGE:
+						s["hold_ground"] = false
 			# 접전(MELEE) 병사 자동 공방: 계속 주고받게(idle 방지). 전투 종료(_retreating) 후엔 새 공방 안 시작.
 			# 펜싱 밀림 애니메이션: 예약된 push_rem을 이징으로 소진(순간이동 대신 슬라이드). 사망 중 제외.
 			var pr: float = s.get("push_rem", 0.0)
@@ -791,7 +890,8 @@ func _process(delta: float) -> void:
 					if not _foe_alive(s):
 						s["retreat_swings"] = 0                                       # 상대 없음 → 헛칼질 없이 복귀
 					elif s.get("retreat_swings", -1) < 0:
-						s["retreat_swings"] = _rng.randi_range(1, RETREAT_SWINGS_MAX)  # 유닛별 마지막 교전 횟수
+						# 빠른 복귀(궁병 근접전)면 0 → 뒤 헛칼질 없이 즉시 복귀.
+						s["retreat_swings"] = 0 if _fast_melee else _rng.randi_range(1, RETREAT_SWINGS_MAX)
 				if is_final or not _retreating or s.get("retreat_swings", 0) > 0:
 					s["strike_cd"] = s.get("strike_cd", 0.0) - delta
 					if s["strike_cd"] <= 0.0:
@@ -836,8 +936,8 @@ func _process(delta: float) -> void:
 				# 마지막 교전(retreat_swings)·공방·밀림 다 끝난 병사부터 순차적으로 복귀 시작.
 				s["state"] = RETURN
 				s["target"] = null
-			elif _charging and not _retreating:
-				_move_step(s, delta)
+			elif _charging and not _retreating and not s.get("aiming", false) and not s.get("hold_ground", false):
+				_move_step(s, delta)   # aiming(발사 전)·hold_ground(발사 후 대기) 궁병은 제자리
 			keep.append(s)
 		_soldiers[side] = keep
 

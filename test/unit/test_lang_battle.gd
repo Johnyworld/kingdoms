@@ -471,3 +471,35 @@ func test_shot_round_pools_only_shooting_sides() -> void:
 	bf.free()
 	assert_eq(a_pool, 1, "사격하는 side0는 슈터 풀에 포함")
 	assert_eq(b_pool, 0, "사격 안 하는 side1는 슈터 풀에서 제외(착탄 즉시 사망)")
+
+# ── 근접 페널티 at_mod (시나리오 2 — 궁병 근접 취약) ──────────────────────────
+func test_at_mod_reduces_assembled_attack() -> void:
+	# at_mod: 조립 공격에 가산(근접 페널티 등). base_at은 불변.
+	var opp := LangResolver.make_unit(1, 1, 10)
+	var base := LangResolver.assemble_stats(LangResolver.make_unit(27, 0, 10), opp)
+	var u := LangResolver.make_unit(27, 0, 10)
+	u["at_mod"] = -25
+	var mod := LangResolver.assemble_stats(u, opp)
+	assert_eq(mod["at"], base["at"] - 25, "at_mod=-25면 조립 공격 25 감소")
+	assert_eq(mod["base_at"], base["base_at"], "base_at은 at_mod와 무관")
+
+func test_make_unit_provides_at_mod_default_zero() -> void:
+	# make_unit은 at_mod 기본 0을 제공(미설정 시 조립 회귀 없음).
+	var u := LangResolver.make_unit(27, 0, 10)
+	assert_eq(int(u.get("at_mod", -999)), 0, "make_unit이 at_mod 기본 0을 제공")
+
+# ── 예측 요격 (_predict_intercept, 시나리오 2 화살) ────────────────────────────
+func test_predict_intercept_leads_toward_meeting_point() -> void:
+	# 궁수 x80, 좌로 216px/s로 오는 적 x370, 화살 230px/s → 서로 접근 → 중간(~230)에서 요격.
+	var bf = Battlefield.new()
+	var aim: Vector2 = bf._predict_intercept(Vector2(80, 0), Vector2(370, 0), Vector2(-216, 0), 230.0)
+	bf.free()
+	assert_true(aim.x > 80.0 and aim.x < 370.0, "요격 지점은 궁수와 적 사이")
+	assert_almost_eq(aim.x, 230.0, 25.0, "화살·적이 만나는 중간 부근(바로 앞 아님)")
+
+func test_predict_intercept_static_target_is_current_pos() -> void:
+	# 정적 타겟(속도 0)은 현재 위치 겨냥.
+	var bf = Battlefield.new()
+	var aim: Vector2 = bf._predict_intercept(Vector2(80, 0), Vector2(370, 0), Vector2.ZERO, 230.0)
+	bf.free()
+	assert_eq(aim.x, 370.0, "정적 타겟은 현재 위치")

@@ -26,6 +26,7 @@ static func make_unit(class_id: int, side: int, soldiers: int,
 		"strength": soldiers * SUBUNITS_PER_SOLDIER,  # 1/8 병사 단위
 		"attack_count": soldiers,   # 이 교전의 공격 횟수(각 병사 1회) — 스펙 §1.2 근사
 		"acc_mod": acc_mod,         # 방어측 회피 보정(지형 등)
+		"at_mod": 0,                # 공격 보정(근접 페널티 등) — 조립 at 에 가산
 		"commander": null,          # null 이면 self (거리 0 → 항상 자기 지휘보정)
 	}
 
@@ -47,6 +48,8 @@ static func assemble_stats(u: Dictionary, opp: Dictionary) -> Dictionary:
 	var cb := _cmd_bonus(u)
 	at += cb.x
 	df += cb.y
+	# 공격 보정(근접 페널티 등) — base_at(HUD 기준)엔 반영 안 함.
+	at += int(u.get("at_mod", 0))
 	return {"at": at, "df": df, "base_at": int(base["at"]), "base_df": int(base["df"])}
 
 ## 병종 상성 (스펙 §2.3, 원본 0xDBBA). 상대의 magicTier 로 조회.
