@@ -77,6 +77,13 @@ const ARROW_PX := 32
 const ARROW_SCALE := 0.45                   # 32px → ~14px(필드 좌표)
 const ARROW_VX := 340.0                     # 화살 수평 등속(px/s) — 빠른 화살(붙기 전 착탄)
 const ARROW_ARC_PEAK := 40.0                # 포물선 정점 높이(px, 거리 무관 일정)
+# 빗나간 화살 박힘(잔류) 연출
+const STUCK_KEEP := 0.62                     # 노출 비율(오늬~샤프트) — 나머지(화살촉 쪽)는 땅에 묻힘=crop
+const STUCK_TILT_MIN := 0.26                 # 수직에서 틀어지는 최소각(rad ≈ 15°)
+const STUCK_TILT_MAX := 0.56                 # 최대각(rad ≈ 32°)
+const ARROW_MISS_SCATTER_X := 18.0           # 빗나간 화살 착탄 좌우 산포(±px) — 목표 주변에 흩뿌림
+const ARROW_MISS_SCATTER_Y := 14.0           # 빗나간 화살 착탄 하향 산포(+px, 아래로만)
+const GROUND_SORT_DY := 8.0                  # 병사 노드 원점 → 발밑(지면 그림자) 거리 — y-sort 기준선
 # 팀1 경궁병 색조(임시 플레이스홀더 — 병사 스프라이트 공유하되 색으로 구분)
 const ARCHER_TINT_1 := Color(1.0, 0.62, 0.55)
 
@@ -136,6 +143,7 @@ var _arrows_node: Node2D   # 화살 발사체(병사 위에 그림)
 var _frames := {}          # "soldier"/"orc" -> SpriteFrames. soldier 세트만 "bow"(활) 포함.
 var _sprites := {}         # soldier id -> AnimatedSprite2D
 var _arrows: Array = []    # 비행 중 화살 [{spr, pos, vel, target, is_kill}]
+var _stuck_arrows: Array = []  # 땅에 박힌(빗나간) 화살 스프라이트 — 전투 끝까지 누적
 var _arrow_peak := ARROW_ARC_PEAK  # 이번 전투 화살 포물선 정점(스커미시=궁병vs근접은 완만하게 절반)
 var _round_shooters := {0: [], 1: []}  # 이번 사격 라운드의 슈터 스냅샷(라운드 시작 생존자)
 
@@ -344,8 +352,11 @@ func _spawn_arrow(shooter: Dictionary) -> void:
 		return
 	var from: Vector2 = shooter["pos"] + Vector2(shooter["face"] * 5.0, -6.0)
 	var tvel: Vector2 = _charge_velocity(tgt)
+	var is_kill := bool(shooter["arrow_kill"])
 	var aim: Vector2 = _predict_intercept(from, tgt["pos"], tvel, ARROW_VX)
 	var to: Vector2 = aim + Vector2(0.0, -4.0)
+	if not is_kill:
+		to += _miss_scatter()   # 빗나감 → 목표 조준점 주변으로 흩뿌려 착탄
 	var flight: float = maxf(from.distance_to(to), 1.0) / ARROW_VX  # 요격해에 의해 ≈ T
 	var dx: float = to.x - from.x
 	var g: float = 8.0 * _arrow_peak / (flight * flight)   # 대칭 포물선 정점 = _arrow_peak(스커미시는 절반)
@@ -362,7 +373,7 @@ func _spawn_arrow(shooter: Dictionary) -> void:
 	_arrows.append({
 		"spr": spr, "pos": from, "vel": vel, "g": g,
 		"t": 0.0, "flight": flight, "to": to,
-		"target": tgt, "is_kill": bool(shooter["arrow_kill"]),
+		"target": tgt, "is_kill": is_kill,
 	})
 	shooter["arrow_target"] = null
 	shooter["arrow_kill"] = false
@@ -390,7 +401,11 @@ func _update_arrows(delta: float) -> void:
 				_shake = maxf(_shake, 1.6)
 			else:
 				_shake = maxf(_shake, 0.5)
-			ar["spr"].queue_free()
+			# 처분: 명중(is_kill) 화살은 몸에 맞아 소멸, 빗나간 화살은 땅에 박혀 잔류.
+			if ar["is_kill"]:
+				ar["spr"].queue_free()
+			else:
+				_stick_arrow(ar)
 		else:
 			ar["spr"].position = ar["pos"]
 			ar["spr"].rotation = vel.angle()   # 접선 방향(아치 상승→하강)으로 회전
@@ -401,6 +416,51 @@ func _clear_arrows() -> void:
 	for ar in _arrows:
 		ar["spr"].queue_free()
 	_arrows = []
+	for spr in _stuck_arrows:
+		if is_instance_valid(spr):
+			spr.queue_free()
+	_stuck_arrows = []
+
+## 빗나간 화살 착탄 산포: x는 좌우(±), y는 아래(+)로만 — 목표 조준점 주변에 흩뿌려 박히게.
+func _miss_scatter() -> Vector2:
+	return Vector2(
+		_rng.randf_range(-ARROW_MISS_SCATTER_X, ARROW_MISS_SCATTER_X),
+		_rng.randf_range(0.0, ARROW_MISS_SCATTER_Y),
+	)
+
+## 빗나간 화살을 착탄 지점(지면)에 박아 세운다: 아래로 살짝 기운 각도 + 진행 방향 끝(화살촉)은 crop해 땅에 묻는다.
+## 지면에 닿는 건 노출 영역의 +x 경계(=크롭 seam, 샤프트 하단)이고, 잘린 화살촉은 그 아래(지중)에 있다 —
+## 즉 오늬~샤프트만 지면 위로 보이고 화살촉은 박혀 안 보인다.
+## z-정렬: 병사 원점이 발밑보다 GROUND_SORT_DY 위이므로, 화살 origin도 지면보다 그만큼 위에 둬(=정렬 기준을
+## 지면으로 통일) _units(y-sort)에서 병사 발끝과 화살 착탄점을 같은 기준으로 앞뒤 정렬한다.
+func _stick_arrow(ar: Dictionary) -> void:
+	var spr: Sprite2D = ar["spr"]
+	var rect := _stuck_region_rect()
+	var rot := _stuck_rotation(ar["vel"])
+	var ground: Vector2 = ar["pos"]
+	spr.region_enabled = true
+	spr.region_rect = rect
+	spr.rotation = rot
+	# origin(=정렬 기준)은 지면보다 GROUND_SORT_DY 위. 노출 영역의 +x 경계(묻힌 끝)가 지면에 닿도록 offset 보정.
+	var buried_local := Vector2(0.0, GROUND_SORT_DY).rotated(-rot) / ARROW_SCALE  # origin→묻힌 끝(월드 (0,DY)) 역변환
+	spr.offset = buried_local - Vector2(rect.size.x * 0.5, 0.0)
+	var p := spr.get_parent()
+	if p != _units:                                  # 화살 노드(병사 위) → y-sort 노드로 이동
+		if p != null:
+			p.remove_child(spr)
+		_units.add_child(spr)
+	spr.position = Vector2(ground.x, ground.y - GROUND_SORT_DY)
+	_stuck_arrows.append(spr)
+
+## 박힌 화살 회전: 수직(PI/2)에서 진행 방향(vel.x 부호)으로 소폭 틀어 화살촉이 아래를 향하게 한다.
+func _stuck_rotation(vel: Vector2) -> float:
+	var dir := 1.0 if vel.x >= 0.0 else -1.0
+	var tilt := _rng.randf_range(STUCK_TILT_MIN, STUCK_TILT_MAX)
+	return PI / 2.0 - dir * tilt
+
+## 노출 영역(오늬~샤프트): x=0에서 STUCK_KEEP 비율만. 진행 방향 끝(화살촉)은 잘려 땅에 묻힌다.
+func _stuck_region_rect() -> Rect2:
+	return Rect2(0.0, 0.0, ARROW_PX * STUCK_KEEP, ARROW_PX)
 
 ## 생존 병력(사망 애니 중=DYING 제외) — 사격 중 HUD 병력 폴링용.
 func alive_count(side: int) -> int:
@@ -1194,7 +1254,7 @@ func _draw_shadow(pos: Vector2, s: Dictionary) -> void:
 	var gy: float = pos.y
 	if s["state"] == DYING and s["airborne"]:
 		gy = s["land_y"] + (pos.y - s["pos"].y)  # (pos.y - s.pos.y) = 흔들림 sh.y 보정
-	_px(round(pos.x) - 5, round(gy) + 8, 10, 2, Color(0, 0, 0, 0.28 * a))
+	_px(round(pos.x) - 5, round(gy) + GROUND_SORT_DY, 10, 2, Color(0, 0, 0, 0.28 * a))
 
 func _draw_effect(pos: Vector2, side: int, life: float) -> void:
 	var a := clampf(life / 0.22, 0.0, 1.0)

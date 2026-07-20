@@ -522,3 +522,92 @@ func test_predict_intercept_static_target_is_current_pos() -> void:
 func test_make_unit_provides_kind_default_empty() -> void:
 	var u := LangResolver.make_unit(1, 0, 10)
 	assert_eq(String(u.get("kind", "?")), "", "make_unit은 kind 기본 빈 문자열(상성 없음)")
+
+# ── 빗나간 화살 박힘 (_update_arrows·_stuck_rotation·_stuck_region_rect) ────────
+## 착탄 직전(t≥flight) 상태의 비행 화살 하나 — 스프라이트는 실제 _arrows_node에 붙인다.
+func _make_landing_arrow(is_kill: bool, vel: Vector2, node: Node2D) -> Dictionary:
+	var spr := Sprite2D.new()
+	spr.texture = Battlefield.TEX_ARROW
+	node.add_child(spr)
+	return {
+		"spr": spr, "pos": Vector2(200, 100), "vel": vel, "g": 0.0,
+		"t": 1.0, "flight": 0.0, "to": Vector2(200, 100),
+		"target": {"state": Battlefield.MELEE}, "is_kill": is_kill,
+	}
+
+func test_missed_arrow_sticks_and_accumulates() -> void:
+	# 빗나간 화살(is_kill=false)은 착탄해도 소멸하지 않고 _stuck_arrows에 누적.
+	var bf = Battlefield.new()
+	add_child_autofree(bf)   # _ready → _arrows_node 준비
+	bf._arrows = [
+		_make_landing_arrow(false, Vector2(120, 60), bf._arrows_node),
+		_make_landing_arrow(false, Vector2(120, 60), bf._arrows_node),
+	]
+	var spr0 = bf._arrows[0]["spr"]
+	bf._update_arrows(0.016)
+	assert_eq(bf._stuck_arrows.size(), 2, "빗나간 화살 2발이 박혀 누적")
+	assert_true(is_instance_valid(spr0), "박힌 화살 스프라이트는 소멸하지 않는다")
+
+func test_hit_arrow_does_not_stick() -> void:
+	# 명중 화살(is_kill=true)은 박히지 않는다(기존대로 소멸).
+	var bf = Battlefield.new()
+	add_child_autofree(bf)
+	var ar := _make_landing_arrow(true, Vector2(120, 60), bf._arrows_node)
+	ar["target"] = {"state": Battlefield.DYING}   # 이미 죽는 중 → _die 스킵(플래시만)
+	bf._arrows = [ar]
+	bf._update_arrows(0.016)
+	assert_eq(bf._stuck_arrows.size(), 0, "명중 화살은 박히지 않음")
+
+func test_clear_arrows_removes_stuck() -> void:
+	var bf = Battlefield.new()
+	add_child_autofree(bf)
+	bf._arrows = [_make_landing_arrow(false, Vector2(120, 60), bf._arrows_node)]
+	bf._update_arrows(0.016)
+	assert_eq(bf._stuck_arrows.size(), 1, "선행: 1발 박힘")
+	bf._clear_arrows()
+	assert_eq(bf._stuck_arrows.size(), 0, "_clear_arrows가 박힌 화살도 비운다")
+
+func test_stuck_rotation_points_downward() -> void:
+	var bf = Battlefield.new()
+	var r: float = bf._stuck_rotation(Vector2(100, 40))
+	bf.free()
+	assert_true(sin(r) > 0.0, "화살촉이 아래를 향한다(회전 y성분>0)")
+	assert_true(absf(r - PI / 2.0) > 0.01, "정확한 수직이 아니라 소폭 틀어짐")
+
+func test_stuck_rotation_tilts_by_travel_direction() -> void:
+	var bf = Battlefield.new()
+	var r_right: float = bf._stuck_rotation(Vector2(100, 40))
+	var r_left: float = bf._stuck_rotation(Vector2(-100, 40))
+	bf.free()
+	assert_true(r_right < PI / 2.0, "우진(vel.x>0) 화살은 회전 < PI/2")
+	assert_true(r_left > PI / 2.0, "좌진(vel.x<0) 화살은 회전 > PI/2")
+
+func test_stuck_region_rect_crops_arrowhead() -> void:
+	var bf = Battlefield.new()
+	var rect: Rect2 = bf._stuck_region_rect()
+	bf.free()
+	assert_eq(rect.position.x, 0.0, "오늬(꽁지) 쪽 x=0에서 시작")
+	assert_true(rect.size.x < float(Battlefield.ARROW_PX), "너비<전체 → 화살촉 쪽 크롭")
+	assert_true(rect.size.x > 0.0, "노출 영역은 양수")
+
+func test_stuck_arrow_joins_units_ysort() -> void:
+	# 박힌 화살은 _units(y-sort)로 옮겨져 착탄 지점 y로 병사와 앞뒤 정렬된다.
+	var bf = Battlefield.new()
+	add_child_autofree(bf)
+	var ar := _make_landing_arrow(false, Vector2(120, 0), bf._arrows_node)  # vel.y=0 → 착탄 전 적분해도 y 불변
+	ar["pos"] = Vector2(200, 137)
+	bf._arrows = [ar]
+	var spr = ar["spr"]
+	bf._update_arrows(0.016)
+	assert_eq(spr.get_parent(), bf._units, "박힌 화살은 _units(y-sort) 자식")
+	# 정렬 기준(origin)은 지면보다 GROUND_SORT_DY 위 — 병사 원점(발밑−8px) 규약과 일치.
+	assert_eq(spr.position.y, 137.0 - Battlefield.GROUND_SORT_DY, "정렬 기준 y = 착탄 지면 − GROUND_SORT_DY")
+
+func test_miss_scatter_bounds() -> void:
+	# x는 좌우(±), y는 아래(+)로만 — 여러 번 뽑아 범위·부호 검증.
+	var bf = Battlefield.new()
+	for i in 30:
+		var o: Vector2 = bf._miss_scatter()
+		assert_between(o.x, -Battlefield.ARROW_MISS_SCATTER_X, Battlefield.ARROW_MISS_SCATTER_X, "x는 ± 범위 내")
+		assert_between(o.y, 0.0, Battlefield.ARROW_MISS_SCATTER_Y, "y는 0~+ 범위(아래로만, 음수 없음)")
+	bf.free()
