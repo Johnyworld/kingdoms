@@ -35,8 +35,15 @@ func _join_poor_territory() -> Object:
 func test_shows_territory_name_and_faction() -> void:
 	_join_territory()
 	menu.open(building)
-	assert_eq(menu._camp_title.text, "파리", "제목 라벨 = 영지 이름")
+	assert_eq(menu._modal.title, "파리", "Modal 제목 = 영지 이름")
 	assert_eq(menu._faction_label.text, "프랑스", "세력 라벨 = 세력명")
+
+func test_open_registers_modal_and_close_menu() -> void:
+	_join_territory()
+	menu.open(building)
+	assert_true(menu._modal.is_open(), "open → 공용 Modal 열림(ModalStack 등록·지도 입력 차단)")
+	menu.close_menu()
+	assert_false(menu._modal.is_open(), "close_menu → Modal 닫힘")
 
 func test_faction_label_color() -> void:
 	_join_territory()

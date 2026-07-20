@@ -3,13 +3,15 @@ extends CanvasLayer
 ## 약탈 패널. 전투로 적 부대를 전멸시킨 승자가 패자 전사자 장비를 골라 노획한다([Raid](../../docs/spec/features/raid.md)).
 ## 화면 중앙 모달. 좌우 2열: 왼쪽 「노획」(패자, [가져오기]) + 오른쪽 「내 인벤토리」(승자, 읽기 전용) + 하단 [모두 가져오기]·[닫기].
 ## 장비는 승자 loot_items로 들어간다. 안 가져간 건 소실(패자 부대가 곧 제거됨). (화물 노획은 화물 제거로 폐지.)
-## UI는 코드로 구성한다(camp_menu·party_action_menu와 같은 패턴, 별도 .tscn 없음).
+## chrome(딤 배경·제목 바·X·ESC·지도 입력 차단)은 공용 Modal에 위임하고, 콘텐츠(2열+버튼)만 주입한다.
+## 제목 바 = "약탈 — <패자 부대명>". → docs/spec/features/modal.md
 
-## 패널이 닫히면 방출. game.gd가 await로 받아 전투 마무리(사상자 반영·패자 제거)를 이어간다.
+## 패널이 닫히면 방출(X·배경·ESC·자동 닫힘 모두 수렴). game.gd가 await로 받아 전투 마무리를 이어간다.
 signal closed
 
-var _root: Control
-var _title: Label            # "약탈 — <패자 부대명>"
+const ModalScript = preload("res://scenes/modal/modal.gd")
+
+var _modal: Modal            # 공용 chrome(배경·제목·X·ESC·ModalStack 등록)
 var _equip_header: Label     # 노획 장비 섹션 제목(장비 있을 때만)
 var _equip_list: VBoxContainer  # 장비별 노획 행
 var _own_list: VBoxContainer    # 내 인벤토리(승자 보유 노획 장비, 읽기 전용)
@@ -18,40 +20,17 @@ var _loser = null            # 노획당하는 패자 부대
 var _dropped: Array = []     # 아직 안 가져간 패자 전사자 장비 id 스냅샷
 
 func _ready() -> void:
-	layer = 70   # camp_menu(64)·행동 메뉴(50)보다 위. 전투 오버레이는 열기 전 닫힌다.
 	_build()
-	hide()
 
-## UI 트리를 코드로 구성한다.
+## UI 트리를 코드로 구성한다. chrome은 Modal, 콘텐츠는 2열 + 버튼 행.
 func _build() -> void:
-	_root = Control.new()
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_root)
-
-	# 반투명 배경 — 클릭하면 닫힘(남은 장비 소실).
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.45)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.gui_input.connect(_on_background_input)
-	_root.add_child(bg)
-
-	# 중앙 패널.
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(460, 0)
-	center.add_child(panel)
+	_modal = ModalScript.new()
+	_modal.closed.connect(_on_modal_closed)
+	add_child(_modal)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
-
-	_title = Label.new()
-	_title.text = "약탈"
-	box.add_child(_title)
+	box.custom_minimum_size = Vector2(460, 0)
 
 	# 좌우 2열: 왼쪽 = 노획 대상(패자), 오른쪽 = 내 인벤토리(승자).
 	var cols := HBoxContainer.new()
@@ -88,7 +67,7 @@ func _build() -> void:
 	_own_list.add_theme_constant_override("separation", 6)
 	own_col.add_child(_own_list)
 
-	# 하단 버튼 행.
+	# 하단 버튼 행. 닫기는 Modal chrome(X·배경·ESC)이 맡는다.
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
 	box.add_child(buttons)
@@ -98,10 +77,7 @@ func _build() -> void:
 	take_all.pressed.connect(_on_take_all)
 	buttons.add_child(take_all)
 
-	var close_btn := Button.new()
-	close_btn.text = "닫기"
-	close_btn.pressed.connect(_close)
-	buttons.add_child(close_btn)
+	_modal.set_content(box)
 
 ## 승자(winner)가 패자(loser)의 전사자 장비(dropped)를 노획하도록 패널을 연다.
 ## 호출부는 장비가 하나라도 있음을 보장한다.
@@ -109,9 +85,9 @@ func open(winner, loser, dropped: Array) -> void:
 	_winner = winner
 	_loser = loser
 	_dropped = dropped.duplicate()
-	_title.text = "약탈 — %s" % (loser.party_name if loser.party_name != "" else "적 부대")
-	show()
-	_refresh()   # show() 뒤에 채운다 — 빈 노획물이면 _refresh가 다시 닫는다(순서 안전)
+	_modal.title = "약탈 — %s" % (loser.party_name if loser.party_name != "" else "적 부대")
+	_modal.open()
+	_refresh()   # open() 뒤에 채운다 — 빈 노획물이면 _refresh가 다시 닫는다(순서 안전)
 
 ## 노획 대상·내 인벤토리 목록을 다시 채운다. 노획 대상이 다 비면 자동으로 닫는다.
 func _refresh() -> void:
@@ -180,16 +156,12 @@ func _on_take_all() -> void:
 	_dropped.clear()
 	_refresh()
 
-## 배경 클릭(좌클릭) → 닫기(남은 장비 소실).
-func _on_background_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_close()
-
-## 패널을 닫고 closed를 방출한다. 남은 장비는 소실(패자 부대가 곧 제거됨).
+## 패널을 닫는다(Modal 경유). 남은 장비는 소실(패자 부대가 곧 제거됨).
 func _close() -> void:
-	if not visible:
-		return
-	hide()
+	_modal.close()
+
+## Modal이 닫히면(X·배경·ESC·_close 모두 수렴) 상태를 정리하고 closed를 방출한다.
+func _on_modal_closed() -> void:
 	_winner = null
 	_loser = null
 	_dropped = []

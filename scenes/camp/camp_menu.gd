@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## 캠프 메뉴 오버레이. 좌측에 자원 정보, 우측에 선택 메뉴를 표시한다.
-## 배경(어두운 영역)이나 닫기 버튼을 누르면 닫힌다.
+## chrome(딤 배경·제목 바·X·ESC·지도 입력 차단)은 공용 Modal에 위임하고, 콘텐츠(두 패널)만 주입한다.
+## 제목 바 = 영지 이름. → docs/spec/features/modal.md
 
 ## 건설 리스트에서 건물 종류를 선택하면 방출. 게임이 받아 건설 모드로 처리한다(2b, 미구현).
 signal build_selected(type_id: String, territory: Territory)
@@ -17,10 +18,11 @@ signal found_camp_requested(territory: Territory)
 ## 캠프 철거 버튼 클릭 시 방출. game.gd가 받아 확인 후 캠프 철거(영지 통째 제거)를 처리한다.
 signal demolish_requested(building: Building)
 
-var _root: Control
+const ModalScript = preload("res://scenes/modal/modal.gd")
+
+var _modal: Modal          # 공용 chrome(배경·제목=영지 이름·X·ESC·ModalStack 등록)
 var _res_grid: GridContainer
-var _camp_title: Label     # 우측 패널 제목 = 영지 이름
-var _faction_label: Label  # 제목 아래 세력명(세력 색상)
+var _faction_label: Label  # 메뉴 패널 상단 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
 var _upgrade_btn: Button   # 거점 업그레이드 버튼(다음 티어 있을 때만)
 var _wall_btn: Button      # 성벽 건설 버튼(마을회관·성 + 성벽 없을 때만) → wall.md
@@ -32,35 +34,18 @@ var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불
 var _building: Building            # 현재 열려 있는 거점
 
 func _ready() -> void:
-	layer = 64
 	_build()
-	hide()
 
-## UI 트리를 코드로 구성한다.
+## UI 트리를 코드로 구성한다. chrome은 Modal, 콘텐츠는 두 패널(HBox).
 func _build() -> void:
-	_root = Control.new()
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_root)
-
-	# 반투명 배경 — 클릭하면 닫힘.
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.45)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.gui_input.connect(_on_background_input)
-	_root.add_child(bg)
-
-	# 두 패널을 화면 중앙에 나란히.
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(center)
+	_modal = ModalScript.new()
+	add_child(_modal)
 
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 16)
-	center.add_child(hbox)
-
 	hbox.add_child(_build_resource_panel())
 	hbox.add_child(_build_menu_panel())
+	_modal.set_content(hbox)
 
 ## 좌측: 자원 정보 패널.
 func _build_resource_panel() -> Control:
@@ -93,10 +78,6 @@ func _build_menu_panel() -> Control:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 	panel.add_child(vbox)
-
-	_camp_title = Label.new()
-	_camp_title.add_theme_font_size_override("font_size", 20)
-	vbox.add_child(_camp_title)
 
 	_faction_label = Label.new()
 	vbox.add_child(_faction_label)
@@ -131,21 +112,11 @@ func _build_menu_panel() -> Control:
 	_demolish_btn.hide()
 	vbox.add_child(_demolish_btn)
 
-	# 건설 가능 건물 리스트. 건축 버튼을 누르면 채워져 표시된다.
+	# 건설 가능 건물 리스트. 건축 버튼을 누르면 채워져 표시된다. 닫기는 Modal chrome(X·배경·ESC)이 맡는다.
 	_build_list = VBoxContainer.new()
 	_build_list.add_theme_constant_override("separation", 6)
 	_build_list.hide()
 	vbox.add_child(_build_list)
-
-	# 남는 공간을 밀어내고 하단에 닫기 버튼.
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(spacer)
-
-	var close_btn := Button.new()
-	close_btn.text = "닫기"
-	close_btn.pressed.connect(close_menu)
-	vbox.add_child(close_btn)
 
 	return panel
 
@@ -163,8 +134,8 @@ func open(building: Building, can_demolish := false) -> void:
 	_refresh_found_camp_button()
 	_demolish_btn.visible = can_demolish   # 캠프 철거 버튼(game.gd가 조건 판정)
 
-	# 우측 패널: 영지 이름 + 세력.
-	_camp_title.text = territory.name if territory != null else ""
+	# 제목 바 = 영지 이름, 메뉴 패널 상단 = 세력.
+	_modal.title = territory.name if territory != null else ""
 	var faction: Faction = territory.faction if territory != null else null
 	if faction != null:
 		_faction_label.text = faction.name
@@ -176,7 +147,7 @@ func open(building: Building, can_demolish := false) -> void:
 
 	# 좌측 패널: 영지 자원 그리드.
 	_fill_resource_grid()
-	show()
+	_modal.open()   # 이미 열려 있으면 no-op(업그레이드·성벽 후 재오픈은 내용만 갱신)
 
 ## 좌측 자원 그리드를 비우고 영지 자원으로 다시 채운다(인구는 "현재/상한").
 func _fill_resource_grid() -> void:
@@ -199,11 +170,7 @@ func _fill_resource_grid() -> void:
 		_res_grid.add_child(value_label)
 
 func close_menu() -> void:
-	hide()
-
-func _on_background_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		close_menu()
+	_modal.close()
 
 ## 거점 업그레이드 버튼을 갱신한다. 다음 티어가 있으면(캠프·마을회관) 표시·라벨·활성 설정, 없으면(성·비거점) 숨김.
 func _refresh_upgrade_button() -> void:

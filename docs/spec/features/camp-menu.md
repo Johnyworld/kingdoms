@@ -1,27 +1,29 @@
 # Feature: Camp Menu (캠프 메뉴)
 
-> 스크립트: `scenes/camp/camp_menu.gd` (`extends CanvasLayer`, layer 64)
+> 스크립트: `scenes/camp/camp_menu.gd` (`extends CanvasLayer`)
 
 **거점**([center](../data/buildings.md#동작) = 캠프·마을회관·성) 헥스를 클릭하면 열리는 오버레이. 그 건물이 속한 **영지** 정보(자원·이름·세력)를 보여준다.
 (거점이 아닌 건물(농장·집 등)은 대신 [건물 정보 패널](building-info.md)이 열린다.)
 UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 (스크립트/노드 이름은 `camp_menu`지만 실제로는 클릭한 건물의 **영지** 정보를 표시한다.)
 
+chrome(딤 배경·제목 바·X·ESC·`ModalStack` 등록 = 지도 입력 차단)은 **공용 [Modal](modal.md)에 위임**하고, 콘텐츠(두 패널)만 `set_content`로 주입한다([구성원 메뉴](members-menu.md)·[장비](equipment.md)와 같은 패턴).
+
 ## 레이아웃
 
-- 반투명 배경(`Color(0,0,0,0.45)`) — 클릭 시 닫힘.
-- 화면 중앙에 두 패널을 나란히(HBox, separation 16):
+- chrome = [Modal](modal.md): 딤 배경(클릭 시 닫힘) + **제목 바 = 영지 이름**(예: "파리") + X 버튼.
+- 콘텐츠: 두 패널을 나란히(HBox, separation 16):
   - **좌측 — 자원 패널** (220×260): 제목 "자원" + 2열 그리드(자원명 / 값). 자원 4종(목재·식량·철·금) + `인구`. **`인구` 행의 값은 `"현재 / 상한"`**(예: `10 / 12`, 상한 = `territory.population_cap()` → [인구 상한](../entities/Territory.md#인구-상한population_cap)). 나머지 자원은 수량만.
-  - **우측 — 영지 패널** (200×260): 제목 = **영지 이름**(예: "파리") + 그 아래 **세력명**(예: "프랑스", 세력 색상으로 표기) + **업그레이드 버튼**(거점의 다음 티어가 있을 때) + "건축" 버튼 + **건설 리스트**(기본 숨김) + (하단) "닫기" 버튼.
+  - **우측 — 영지 패널** (200×260): **세력명**(예: "프랑스", 세력 색상으로 표기) + **업그레이드 버튼**(거점의 다음 티어가 있을 때) + "건축" 버튼 + **건설 리스트**(기본 숨김). (별도 "닫기" 버튼 없음 — 닫기는 Modal chrome.)
 
 ## 동작
 
-- `open(building: Building, can_demolish := false)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 우측 패널의 이름/세력 라벨을 채운 뒤 메뉴를 연다. `can_demolish`가 참이면 [철거 버튼](#철거-버튼)을 보인다(재오픈 대비 매번 토글).
-  - 제목 라벨 = `territory.name`.
+- `open(building: Building, can_demolish := false)` — 건물의 영지(`building.territory`)를 읽어 자원 그리드를 채우고(`territory.resources`, 삽입 순서대로), 제목·세력 라벨을 채운 뒤 `modal.open()`한다(이미 열려 있으면 no-op — 업그레이드·성벽 후 재오픈은 내용만 갱신). `can_demolish`가 참이면 [철거 버튼](#철거-버튼)을 보인다(재오픈 대비 매번 토글).
+  - Modal 제목 = `territory.name`.
   - 세력 라벨 = `territory.faction.name` (색상 = `territory.faction.color`). `faction`이 `null`이면 세력 라벨은 빈 문자열.
   - `building.territory`가 `null`이거나 영지에 세력이 없으면 라벨은 빈 문자열이고, 세력 색상 오버라이드를 제거한다(다른 영지로 재오픈 대비). `territory == null`이면 자원 그리드도 비어 있다.
-- `close_menu()` — 숨긴다.
-- 닫기 트리거: 배경 좌클릭, "닫기" 버튼.
+- `close_menu()` — `modal.close()` 위임.
+- 닫기 트리거: X 버튼·배경 좌클릭·ESC([Modal](modal.md) chrome 공통).
 - **업그레이드 버튼** (`_upgrade_btn`) — 연 건물이 거점이고 [`next_center`](../data/buildings.md#거점-업그레이드)가 있으면(캠프·마을회관) 표시한다. 텍스트 `"<다음 티어 라벨>으로 업그레이드  <비용>"`(예: `"마을회관으로 업그레이드  목재 20 · 식량 20"`). `BuildPlanner.can_upgrade`면 활성, 비용 부족이면 비활성. 최종 티어(성)·비거점이면 **숨김**. 누르면 `upgrade_requested(building)` 방출 → `game.gd`가 지불·`upgrade_to` 처리([건축](building.md#거점-업그레이드)).
 - **성벽 건설 버튼** (`_wall_btn`) — 연 건물이 **tier ≥ town_hall**(마을회관·성)이고 **성벽 없음**(`not is_walled()`)일 때 표시. 텍스트 `"성벽 건설  <비용>"`(비용 = [`WALL_COST`](../data/buildings.md#성벽-wall_cost)). `BuildingTypes.can_build_wall(territory, building)`면 활성, 자재 부족이면 비활성. 캠프·이미 성벽 있음·비거점이면 **숨김**. 누르면 `wall_requested(building)` 방출 → `game.gd`가 자재 지불·`wall_level = 1` 처리([성벽](wall.md)).
 - **캠프 건설 버튼** (`_found_camp_btn`) — `"캠프 건설 (새 영지)  목재 10 · 식량 10"`. 여는 영지가 캠프 비용을 감당하면(`BuildPlanner.can_build(territory, "camp")`) 활성, 아니면 비활성. 누르면 `found_camp_requested(territory)` 방출 → `game.gd`가 [캠프 건설](building.md#캠프-건설-새-영지-확장) 모드(부대 시야 배치)로 진입. `territory == null`이면 비활성.
@@ -43,7 +45,8 @@ UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 
 `test/unit/test_camp_menu.gd`.
 
-- [정상] 세력 소속 영지의 건물로 `open` → 제목 라벨 = 영지 이름("파리"), 세력 라벨 = 세력명("프랑스")
+- [정상] 세력 소속 영지의 건물로 `open` → Modal 제목 = 영지 이름("파리"), 세력 라벨 = 세력명("프랑스")
+- [정상] `open` → 내부 Modal 열림(`ModalStack` 등록 = 지도 입력 차단), `close_menu` → 닫힘
 - [정상] 세력 라벨 색상 = 세력 색상
 - [경계] `territory == null`인 건물로 `open` → 세력 라벨은 빈 문자열
 - [경계] 세력 있는 영지로 연 뒤 세력 없는 건물로 재오픈 → 이전 세력 색상 오버라이드가 남지 않음
