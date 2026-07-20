@@ -472,21 +472,36 @@ func test_shot_round_pools_only_shooting_sides() -> void:
 	assert_eq(a_pool, 1, "사격하는 side0는 슈터 풀에 포함")
 	assert_eq(b_pool, 0, "사격 안 하는 side1는 슈터 풀에서 제외(착탄 즉시 사망)")
 
-# ── 근접 페널티 at_mod (시나리오 2 — 궁병 근접 취약) ──────────────────────────
-func test_at_mod_reduces_assembled_attack() -> void:
-	# at_mod: 조립 공격에 가산(근접 페널티 등). base_at은 불변.
-	var opp := LangResolver.make_unit(1, 1, 10)
-	var base := LangResolver.assemble_stats(LangResolver.make_unit(27, 0, 10), opp)
-	var u := LangResolver.make_unit(27, 0, 10)
-	u["at_mod"] = -25
-	var mod := LangResolver.assemble_stats(u, opp)
-	assert_eq(mod["at"], base["at"] - 25, "at_mod=-25면 조립 공격 25 감소")
-	assert_eq(mod["base_at"], base["base_at"], "base_at은 at_mod와 무관")
+# ── 병종 상성 (기/보/창/궁 가위바위보) ───────────────────────────────────────
+func _assembled_with_kind(self_kind: String, opp_kind: String) -> Dictionary:
+	var u := LangResolver.make_unit(1, 0, 10); u["kind"] = self_kind
+	var o := LangResolver.make_unit(1, 1, 10); o["kind"] = opp_kind
+	return LangResolver.assemble_stats(u, o)
 
-func test_make_unit_provides_at_mod_default_zero() -> void:
-	# make_unit은 at_mod 기본 0을 제공(미설정 시 조립 회귀 없음).
-	var u := LangResolver.make_unit(27, 0, 10)
-	assert_eq(int(u.get("at_mod", -999)), 0, "make_unit이 at_mod 기본 0을 제공")
+func test_type_counter_infantry_beats_archer() -> void:
+	# 보병 > 궁병: 보병은 +4/+2, 궁병은 보정 없음(모든 병종에 약함).
+	var base := _assembled_with_kind("", "")  # 상성 없음(기준)
+	var inf := _assembled_with_kind("infantry", "archer")
+	var arc := _assembled_with_kind("archer", "infantry")
+	assert_eq(inf["at"], base["at"] + 4, "보병은 궁병 상대로 공격 +4")
+	assert_eq(inf["df"], base["df"] + 2, "보병은 궁병 상대로 방어 +2")
+	assert_eq(arc["at"], base["at"], "궁병은 상성 우위 없음(공격 보정 0)")
+	assert_eq(arc["df"], base["df"], "궁병은 상성 우위 없음(방어 보정 0)")
+
+func test_type_counter_cycle() -> void:
+	# 기병>보병>창병>기병 사이클: 이기는 쪽만 +4/+2.
+	var base := _assembled_with_kind("", "")
+	assert_eq(_assembled_with_kind("cavalry", "infantry")["at"], base["at"] + 4, "기병>보병")
+	assert_eq(_assembled_with_kind("infantry", "spear")["at"], base["at"] + 4, "보병>창병")
+	assert_eq(_assembled_with_kind("spear", "cavalry")["at"], base["at"] + 4, "창병>기병")
+	# 역방향은 보정 없음
+	assert_eq(_assembled_with_kind("infantry", "cavalry")["at"], base["at"], "보병<기병(보정 없음)")
+
+func test_type_counter_archer_beats_none() -> void:
+	# 궁병은 어떤 병종도 상성으로 못 이김(원거리 이점 대가).
+	var base := _assembled_with_kind("", "")
+	for foe in ["cavalry", "infantry", "spear", "archer"]:
+		assert_eq(_assembled_with_kind("archer", foe)["at"], base["at"], "궁병은 %s에 상성 우위 없음" % foe)
 
 # ── 예측 요격 (_predict_intercept, 시나리오 2 화살) ────────────────────────────
 func test_predict_intercept_leads_toward_meeting_point() -> void:
@@ -503,3 +518,7 @@ func test_predict_intercept_static_target_is_current_pos() -> void:
 	var aim: Vector2 = bf._predict_intercept(Vector2(80, 0), Vector2(370, 0), Vector2.ZERO, 230.0)
 	bf.free()
 	assert_eq(aim.x, 370.0, "정적 타겟은 현재 위치")
+
+func test_make_unit_provides_kind_default_empty() -> void:
+	var u := LangResolver.make_unit(1, 0, 10)
+	assert_eq(String(u.get("kind", "?")), "", "make_unit은 kind 기본 빈 문자열(상성 없음)")

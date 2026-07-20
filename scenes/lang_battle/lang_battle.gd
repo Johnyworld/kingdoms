@@ -40,9 +40,10 @@ const START_SOLDIERS := 10
 const SHOT_STAGGER := 0.06  # 라운드 내 화살 발사 간격(초) — 빠른 볼리(붙기 전 사격 마치게)
 const ROUND_GAP := 0.55     # 라운드 사이 간격(초, 사상자 반영 뒤 다음 볼리)
 # 병종 매핑(근사): 경궁병 ≈ classId 27(고AT·저DF), 경보병 ≈ classId 1. 개활지 회피 5.
-const ARCHER_CLASS := 27
+const ARCHER_CLASS := 1   # 경궁병도 경보병과 동일 base 스탯(공정 비교) — 차이는 역할(사격)+근접 배율뿐
 const INFANTRY_CLASS := 1
-const ARCHER_MELEE_PENALTY := -25  # 궁병 근접 공격 페널티(at_mod) — 근접에선 거의 못 죽임(시나리오 2)
+# 궁병 근접 취약은 **병종 상성**(보병>궁병 +4/+2, LangResolver)이 담당 — 별도 at/df 페널티 없음.
+const SCENARIO2_CHARGE_EVASION := 25  # 시나리오2 볼리: 돌격 중 보병 화살 회피 → 근접 도달 늘려 보병 우세로
 
 # 우측 상단 시나리오 버튼 [id, 라벨]. 0=근접 난투, 1/3/4=사격, 2=슬라이스2 예정.
 const SCENARIOS := [
@@ -179,6 +180,7 @@ func _load_scenario2() -> void:
 	_rng = _fresh_rng()
 	_a = _mk_archer(0)
 	_d = _mk_infantry(1)
+	_d["acc_mod"] = SCENARIO2_CHARGE_EVASION  # 돌격 중 보병은 화살을 더 피함(볼리 명중↓ → 균형)
 	_name_a = "경궁병"
 	_name_b = "경보병"
 	_hud.set_title("경궁병  vs  경보병 (근접)")
@@ -202,9 +204,9 @@ func _begin_scenario2_melee() -> void:
 	if _open_d_surv <= 0:
 		_enter(St.DONE)  # 보병이 화살만으로 전멸 → 근접 없음
 		return
-	var am := _mk_archer(0)
-	am["at_mod"] = ARCHER_MELEE_PENALTY  # 궁병 근접 취약
+	var am := _mk_archer(0)  # 근접 취약은 병종 상성(보병>궁병)이 담당 — 별도 페널티 없음
 	var bm := LangResolver.make_unit(INFANTRY_CLASS, 1, _open_d_surv, 0, 0, 0, 3, 5)
+	bm["kind"] = "infantry"  # ★ 병종 상성 적용(보병>궁병 +4/+2) — 이게 빠지면 궁병이 압살함
 	_result = LangResolver.resolve_engagement(_fresh_rng(), am, bm)
 	_melee_start_a = START_SOLDIERS
 	_melee_start_b = _open_d_surv
@@ -253,10 +255,14 @@ func _highlight_active() -> void:
 
 func _mk_archer(side: int) -> Dictionary:
 	# make_unit(class_id, side, soldiers, gx, gy, item_id, level, acc_mod). 개활지 회피 5.
-	return LangResolver.make_unit(ARCHER_CLASS, side, START_SOLDIERS, 0, 0, 0, 3, 5)
+	var u := LangResolver.make_unit(ARCHER_CLASS, side, START_SOLDIERS, 0, 0, 0, 3, 5)
+	u["kind"] = "archer"  # 병종 상성: 근접 모든 병종에 약함
+	return u
 
 func _mk_infantry(side: int) -> Dictionary:
-	return LangResolver.make_unit(INFANTRY_CLASS, side, START_SOLDIERS, 0, 0, 0, 3, 5)
+	var u := LangResolver.make_unit(INFANTRY_CLASS, side, START_SOLDIERS, 0, 0, 0, 3, 5)
+	u["kind"] = "infantry"  # 병종 상성: 궁병에 우위(+4/+2)
+	return u
 
 ## shots(발사 순서 배열)를 라운드별로 그룹핑 → [round][{side,kill}].
 func _group_shots_by_round(shots: Array) -> Array:

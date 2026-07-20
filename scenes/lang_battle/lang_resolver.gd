@@ -24,14 +24,29 @@ static func make_unit(class_id: int, side: int, soldiers: int,
 		"gy": gy,
 		"max_soldiers": soldiers,
 		"strength": soldiers * SUBUNITS_PER_SOLDIER,  # 1/8 병사 단위
-		"attack_count": soldiers,   # 이 교전의 공격 횟수(각 병사 1회) — 스펙 §1.2 근사
+		"attack_count": soldiers + 3,  # 교전 공격 횟수 = 병사수+3 (원작 §1.2/§2.2) — 소수 유닛도 4회 공격
 		"acc_mod": acc_mod,         # 방어측 회피 보정(지형 등)
-		"at_mod": 0,                # 공격 보정(근접 페널티 등) — 조립 at 에 가산
+		"kind": "",                 # 병종(cavalry/infantry/spear/archer) — 병종 상성용
 		"commander": null,          # null 이면 self (거리 0 → 항상 자기 지휘보정)
 	}
 
 static func soldier_count(u: Dictionary) -> int:
 	return int(u["strength"]) / SUBUNITS_PER_SOLDIER
+
+# ── 병종 상성 (lang_battle 자체 — 가위바위보) ────────────────────────────────
+## 상성 우위면 공격 +4 / 방어 +2 (원작 스타일). 상대가 자기를 이겨도 별도 보정은 없음.
+## 기병>보병>창병>기병(사이클), 그리고 기/보/창 > 궁병. **궁병은 원거리 이점이 있어 근접 모든 병종에 약함**(누구도 못 이김).
+const TYPE_ADV := Vector2i(4, 2)
+
+static func _lang_type_bonus(self_kind: String, opp_kind: String) -> Vector2i:
+	return TYPE_ADV if _beats(self_kind, opp_kind) else Vector2i.ZERO
+
+static func _beats(a: String, b: String) -> bool:
+	match a:
+		"cavalry": return b == "infantry" or b == "archer"
+		"infantry": return b == "spear" or b == "archer"
+		"spear": return b == "cavalry" or b == "archer"
+	return false  # archer 는 아무도 못 이김
 
 # ── 스탯 조립 (스펙 §2.1) ────────────────────────────────────────────────
 
@@ -40,16 +55,18 @@ static func assemble_stats(u: Dictionary, opp: Dictionary) -> Dictionary:
 	var base := LangData.get_class_stat(u["class_id"])
 	var at: int = base["at"]
 	var df: int = base["df"]
-	# 병종 상성 (§2.3)
+	# 병종 상성 (§2.3, ROM 매치업 — lang_battle 더미는 대개 0)
 	var tb := _type_bonus(u, opp)
 	at += tb.x
 	df += tb.y
+	# lang_battle 자체 병종 상성(기/보/창/궁 가위바위보) — 유닛 kind 기반. 궁병 근접 취약이 여기서 나온다.
+	var lb := _lang_type_bonus(String(u.get("kind", "")), String(opp.get("kind", "")))
+	at += lb.x
+	df += lb.y
 	# 지휘범위 보정 (§2.4)
 	var cb := _cmd_bonus(u)
 	at += cb.x
 	df += cb.y
-	# 공격 보정(근접 페널티 등) — base_at(HUD 기준)엔 반영 안 함.
-	at += int(u.get("at_mod", 0))
 	return {"at": at, "df": df, "base_at": int(base["at"]), "base_df": int(base["df"])}
 
 ## 병종 상성 (스펙 §2.3, 원본 0xDBBA). 상대의 magicTier 로 조회.
