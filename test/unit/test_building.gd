@@ -162,6 +162,26 @@ func test_unknown_type_defaults() -> void:
 	assert_eq(building.vision, 0, "미지 종류 시야 0")
 	assert_eq(building.label(), "", "미지 종류 라벨 빈 문자열")
 
+# --- 세력 위임 (faction / faction_name) ---
+
+func test_faction_delegates_via_territory() -> void:
+	_camp()
+	_join_territory()
+	assert_eq(building.faction_name(), "프랑스", "영지 경유 세력 이름")
+	assert_eq(building.faction().name, "프랑스", "faction()은 영지의 세력 객체")
+
+func test_faction_empty_without_territory() -> void:
+	_camp()
+	assert_null(building.faction(), "영지 없으면 세력 null")
+	assert_eq(building.faction_name(), "", "영지 없으면 세력 이름 빈 문자열")
+
+func test_faction_empty_when_territory_unowned() -> void:
+	_camp()
+	var t = load("res://scenes/territory/territory.gd").new("무주지", {})
+	t.add_building(building)
+	assert_null(building.faction(), "무소속 영지면 세력 null")
+	assert_eq(building.faction_name(), "", "무소속 영지면 빈 문자열")
+
 # --- 영지 / 맵 라벨 ---
 
 func test_default_no_territory() -> void:

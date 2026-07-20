@@ -62,6 +62,8 @@
 - `contains_cell(cell) -> bool` — 해당 셀이 건물 영역에 포함되는지.
 - `center_cell() -> Vector2i` — 시야 계산 기준점 반환.
 - `label() -> String` — 종류 라벨(예: "캠프"). 카탈로그의 `label`.
+- `faction() -> Faction|null` — 소속 세력(영지 경유 위임). 영지가 없거나 무소속이면 `null`. `b.territory.faction` 체인 접근 대신 쓴다.
+- `faction_name() -> String` — 소속 세력 이름(영지 경유 위임). 영지가 없거나 무소속이면 `""`. 세력 판정(아군/적 거점 구분)의 단일 출처 — game.gd의 성벽·투석·점령·후퇴 판정이 모두 이걸 쓴다.
 - `is_complete() -> bool` — 건설이 끝났으면(건설 중이 아니면) 참.
 - `is_walled() -> bool` — `wall_level > 0`. 거점에 [성벽](../features/wall.md)이 있는지(적 접근 차단 판정). 내구도(`wall_hp`)와 무관 — [투석 붕괴](../features/wall.md#성벽-내구도-buildingwall_hp--siege)는 `wall_level`을 0으로 내려 처리한다.
 - `gate_cell() -> Vector2i` — 성문이 놓인 ring 한 면(footprint 이웃 6칸 중 결정론적으로 한 칸 — 각도순 정렬 첫 칸). [성문](../features/wall.md#성문-gate) 표적·통로 셀. 성벽 유무와 무관하게 계산(위치 고정).
@@ -115,6 +117,8 @@
 - [정상] 기본 `territory == null`
 - [정상] 영지(이름·세력 포함)에 편입되면 `map_label_lines()` = [영지명(흰색), 세력명(세력색)] 2줄
 - [경계] `territory == null`이면 `map_label_lines()`는 빈 배열
+- [정상] 세력 위임 — 영지·세력에 편입되면 `faction_name()` = 세력 이름, `faction()` = 세력 객체
+- [경계] 영지 없음 / 무소속 영지면 `faction() == null`, `faction_name() == ""`
 
 ## 관련
 

@@ -110,6 +110,15 @@ func gate_broken() -> bool:
 func label() -> String:
 	return _spec.get("label", "")
 
+## 소속 세력(영지 경유 위임). 영지가 없거나 무소속이면 null. b.territory.faction 체인 대신 쓴다.
+func faction():
+	return territory.faction if territory != null else null
+
+## 소속 세력 이름(영지 경유 위임). 영지가 없거나 무소속이면 "". 세력 판정의 단일 출처.
+func faction_name() -> String:
+	var f = faction()
+	return f.name if f != null else ""
+
 ## 1차 생산 건물인지(카탈로그 primary_production). 배치 규칙·생산포인트 경로 게이트. → production.md
 func is_primary_production() -> bool:
 	return _spec.get("primary_production", false)
@@ -189,8 +198,8 @@ func map_label_lines() -> Array:
 		return lines
 	if territory.name != "":
 		lines.append({"text": territory.name, "color": LABEL_COLOR})
-	if territory.faction != null:
-		lines.append({"text": territory.faction.name, "color": territory.faction.color})
+	if faction() != null:
+		lines.append({"text": faction().name, "color": faction().color})
 	return lines
 
 func _draw() -> void:

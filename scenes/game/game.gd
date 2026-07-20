@@ -413,7 +413,7 @@ func _nearby_free_cells(anchor: Vector2i, count: int, occupied: Dictionary) -> A
 
 ## 주인공 위치에서 이동력만큼 BFS로 도달 셀(파랑)을 구하고, 공격 가능한 적(빨강)을 분류한다.
 func _update_ranges() -> void:
-	var start := terrain.local_to_map(party.position)
+	var start := _cell_of(party)
 	var move_range: int = party.movement() if party.can_move() else 0
 	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, _blocked_for(party))
 	var move_cells: Array[Vector2i] = ranges["move"]
@@ -434,7 +434,7 @@ func _compute_merge_targets(start: Vector2i) -> void:
 	for p in _units:
 		if p == party or p.members.is_empty() or not party.can_merge_with(p):
 			continue
-		var pcell := terrain.local_to_map(p.position)
+		var pcell := _cell_of(p)
 		if pcell in neighbors:
 			_merge_targets[pcell] = p
 
@@ -454,13 +454,13 @@ func _compute_bombard_targets(start: Vector2i) -> void:
 		for p in _npc_parties:   # 적 부대(유닛 투석)
 			if not p.visible or p.members.is_empty():
 				continue
-			var ec: Vector2i = terrain.local_to_map(p.position)
+			var ec: Vector2i = _cell_of(p)
 			if dists.has(ec) and int(dists[ec]) >= min_r:
 				_bombard_cells[ec] = {"kind": "party", "ref": p, "dist": int(dists[ec])}
 	for b in _buildings + _npc_buildings:   # 성벽 적 거점 — 성벽 셀(wall) + 성문 셀(gate). 부대 셀보다 우선
 		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
 			continue
-		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
+		var bf: String = b.faction_name()
 		if bf == party.faction_name:
 			continue   # 아군 성벽 제외
 		var gate: Vector2i = b.gate_cell()
@@ -493,7 +493,7 @@ func _compute_attack_targets(start: Vector2i) -> void:
 	for p in _npc_parties:
 		if not p.visible:
 			continue
-		var ec: Vector2i = terrain.local_to_map(p.position)
+		var ec: Vector2i = _cell_of(p)
 		if walls.has(ec):
 			continue   # 성벽 안 수비대는 공격·사격 대상 아님
 		var melee := _cell_melee_reachable(ec, start)
@@ -561,7 +561,7 @@ func _update_fog() -> void:
 	for u in _units:
 		if u.members.is_empty():
 			continue   # 사라진(빈) 부대는 시야 없음
-		for c in HexGrid.cells_within(terrain, terrain.local_to_map(u.position), u.vision(), MAP_WIDTH, MAP_HEIGHT):
+		for c in HexGrid.cells_within(terrain, _cell_of(u), u.vision(), MAP_WIDTH, MAP_HEIGHT):
 			visible[c] = true
 	# 완성 건물(캠프·농장 등)의 시야. 건설 중 건물은 buildings_vision이 제외한다.
 	for c in BuildPlanner.buildings_vision(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT):
@@ -576,7 +576,7 @@ func _update_fog() -> void:
 ## (NPC는 시야를 밝히지 않으므로 _update_fog 시야 합산에는 넣지 않는다.)
 func _update_npc_visibility() -> void:
 	for p in _npc_parties:
-		p.visible = fog.is_cell_visible(terrain.local_to_map(p.position))
+		p.visible = fog.is_cell_visible(_cell_of(p))
 
 ## NPC 거점(캠프)은 한 번 발견(탐험)하면 계속 보인다(정적 구조물). 미발견이면 안개에 가려 숨긴다.
 ## 부대와 달리 현재 시야가 아니라 탐험됨(fog.is_cell_explored)으로 판정 — 7칸 중 하나라도 본 적 있으면 발견.
@@ -597,7 +597,7 @@ func _base_discovered(b) -> bool:
 func _handle_click(world_pos: Vector2) -> void:
 	var cell := terrain.local_to_map(terrain.to_local(world_pos))
 	# 활성 부대 칸(이동 시작점). party가 null(전멸로 부대 0)이면 이동 관련 분기는 _selected=false라 안 타므로 더미.
-	var party_cell := terrain.local_to_map(party.position) if party != null else Vector2i(-1, -1)
+	var party_cell := _cell_of(party) if party != null else Vector2i(-1, -1)
 	var reachable: bool = _reachable.has(cell)
 	var clicked := _building_at(cell)   # 플레이어 건물. 거점(캠프·마을회관·성)은 CAMP_MENU, 그 외는 BUILDING_INFO로 분기.
 	var clicked_party := _player_party_at(cell)   # 그 칸의 플레이어 부대(선택/전환 대상).
@@ -702,24 +702,33 @@ func _player_party_at(cell: Vector2i) -> Party:
 	for p in _units:
 		if p.members.is_empty():
 			continue
-		if terrain.local_to_map(p.position) == cell:
+		if _cell_of(p) == cell:
 			return p
 	return null
 
+## 모든 부대(플레이어 + NPC) 목록. 부대 전체 순회의 단일 출처(_units + _npc_parties 반복 제거).
+func _all_parties() -> Array:
+	return _units + _npc_parties
+
+## 부대(Node2D)가 선 맵 셀. 위치→셀 변환 반복의 단일 출처.
+func _cell_of(p) -> Vector2i:
+	return terrain.local_to_map(p.position)
+
 ## 그 칸에 선 멤버 있는 부대(플레이어·NPC 통틀어)를 반환한다. 없으면 null. 수비 배지·방어 판정에 쓴다.
 func _party_on_cell(cell: Vector2i) -> Party:
-	for p in _units + _npc_parties:
-		if not p.members.is_empty() and terrain.local_to_map(p.position) == cell:
+	for p in _all_parties():
+		if not p.members.is_empty() and _cell_of(p) == cell:
 			return p
 	return null
 
 ## 거점 중심 타일을 지키는 그 거점 세력의 부대(진짜 수비대). 없으면 null(무방비 → 점령 가능).
 ## 다른 세력 부대(격파 후 진입한 공격자 포함)가 서 있어도 그 거점 세력이 아니면 방어로 치지 않는다. → camp-capture.md
 func _camp_defender(camp) -> Party:
-	if camp.territory == null or camp.territory.faction == null:
+	var cf: String = camp.faction_name()
+	if cf == "":
 		return null
 	var holder := _party_on_cell(camp.center_cell())
-	if holder != null and holder.faction_name == camp.territory.faction.name:
+	if holder != null and holder.faction_name == cf:
 		return holder
 	return null
 
@@ -760,7 +769,7 @@ func _empty_adjacent_to(footprint: Array) -> Vector2i:
 
 ## [분할]: 활성 부대 인접 빈 칸에 빈 새 부대를 만들고 분할 패널을 연다(멤버를 나눠 담는다).
 func _split_party() -> void:
-	var cell := _empty_adjacent_to([terrain.local_to_map(party.position)])
+	var cell := _empty_adjacent_to([_cell_of(party)])
 	if cell == Vector2i(-1, -1):
 		return
 	_split_new = _make_player_party("분할 부대", cell)
@@ -810,7 +819,7 @@ func _merge_party(other) -> void:
 ## 그 셀에 선 NPC 부대를 찾는다(없으면 null). 안개에 가려 보이지 않는(visible == false) NPC는 제외한다.
 func _npc_at(cell: Vector2i) -> Party:
 	for p in _npc_parties:
-		if p.visible and terrain.local_to_map(p.position) == cell:
+		if p.visible and _cell_of(p) == cell:
 			return p
 	return null
 
@@ -886,7 +895,7 @@ func _do_demolish(b) -> void:
 func _can_demolish_camp(b) -> bool:
 	if b == null or b.building_type != BuildingTypes.CAMP:
 		return false
-	if b.territory == null or b.territory.faction != _player_faction:
+	if b.faction() != _player_faction:
 		return false
 	return _faction_center_count(_player_faction) > 1   # 마지막 거점이면 불가
 
@@ -918,10 +927,10 @@ func _do_demolish_camp(camp) -> void:
 ## 빈 부대(멤버 0)도 칸을 차지한다 — 새로 편성한 빈 부대가 자리를 지켜 겹침(두 부대가 한 칸)을 막는다.
 func _occupied_cells(exclude) -> Dictionary:
 	var occ := {}
-	for p in _units + _npc_parties:
+	for p in _all_parties():
 		if p == exclude:
 			continue
-		occ[terrain.local_to_map(p.position)] = true
+		occ[_cell_of(p)] = true
 	return occ
 
 ## faction_name 세력이 아닌 성벽 있는 거점들의 footprint 칸 집합({cell: true}). 그 세력에겐 완전 장애물·표적 제외.
@@ -931,7 +940,7 @@ func _wall_blocked_cells(faction_name: String) -> Dictionary:
 	for b in _buildings + _npc_buildings:
 		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
 			continue
-		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
+		var bf: String = b.faction_name()
 		if bf == faction_name:
 			continue   # 같은 세력 성벽은 통행·표적 자유
 		var open_cells := _ladder_corridor(b, faction_name)   # 준비된 사다리가 연 통로 셀
@@ -978,7 +987,7 @@ func _npc_targets(p, party_entries: Array, camp_entries: Array) -> Array:
 	# 표적 우선순위: 근처(NPC_PRIORITY_SCAN) 무방비 적 캠프 > 근처 약한 적 부대 > 나머지(전체 적 셀, 최근접 폴백).
 	var my_power := NpcAi.party_power(p.members)
 	var near := {}
-	for c in HexGrid.cells_within(terrain, terrain.local_to_map(p.position), NPC_PRIORITY_SCAN, MAP_WIDTH, MAP_HEIGHT):
+	for c in HexGrid.cells_within(terrain, _cell_of(p), NPC_PRIORITY_SCAN, MAP_WIDTH, MAP_HEIGHT):
 		near[c] = true
 	var undefended: Array = []
 	for b in _buildings + _npc_buildings:
@@ -986,16 +995,13 @@ func _npc_targets(p, party_entries: Array, camp_entries: Array) -> Array:
 			continue   # 중심 타일에 수비 부대가 있으면 방어됨 — 무방비 목록 제외
 		if b.is_walled():
 			continue   # 성벽 있으면 진입 불가 — 손쉬운 점령 대상 아님 → wall.md
-		var bf := ""
-		if b.territory != null and b.territory.faction != null:
-			bf = b.territory.faction.name
-		if bf != fn and near.has(b.center_cell()):
+		if b.faction_name() != fn and near.has(b.center_cell()):
 			undefended.append(b.center_cell())
 	var weak: Array = []
-	for other in _units + _npc_parties:
+	for other in _all_parties():
 		if other == p or other.members.is_empty() or other.faction_name == fn:
 			continue
-		var ocell := terrain.local_to_map(other.position)
+		var ocell := _cell_of(other)
 		if near.has(ocell) and NpcAi.party_power(other.members) <= my_power:
 			weak.append(ocell)
 	var rest: Array = NpcAi.enemy_cells(fn, party_entries) + NpcAi.enemy_cells(fn, camp_entries)
@@ -1080,14 +1086,14 @@ func _band_cells(source_cells: Array, min_r: int, max_r: int) -> Array:
 ## NPC p가 후퇴해야 하는지 — NPC_RETREAT_SCAN 반경 안 적 부대 중 가장 강한 것과 비교해 교전이 불리하면 참.
 func _should_retreat(p) -> bool:
 	var scan := {}
-	for c in HexGrid.cells_within(terrain, terrain.local_to_map(p.position), NPC_RETREAT_SCAN, MAP_WIDTH, MAP_HEIGHT):
+	for c in HexGrid.cells_within(terrain, _cell_of(p), NPC_RETREAT_SCAN, MAP_WIDTH, MAP_HEIGHT):
 		scan[c] = true
 	var my_power := NpcAi.party_power(p.members)
 	var worst := 0
-	for other in _units + _npc_parties:
+	for other in _all_parties():
 		if other == p or other.members.is_empty() or other.faction_name == p.faction_name:
 			continue
-		if scan.has(terrain.local_to_map(other.position)):
+		if scan.has(_cell_of(other)):
 			worst = maxi(worst, NpcAi.party_power(other.members))
 	return worst > 0 and not NpcAi.should_engage(my_power, worst)
 
@@ -1097,7 +1103,7 @@ func _safe_retreat_cells(fn: String) -> Array:
 	for b in _buildings + _npc_buildings:
 		if not BuildingTypes.is_center(b.building_type):
 			continue
-		if b.territory == null or b.territory.faction == null or b.territory.faction.name != fn:
+		if b.faction_name() != fn:
 			continue
 		if _enemy_near(b.center_cell(), fn, 2):
 			continue   # 적이 가까운 캠프로는 후퇴 안 함
@@ -1109,20 +1115,20 @@ func _enemy_near(cell: Vector2i, fn: String, radius: int) -> bool:
 	var near := {}
 	for c in HexGrid.cells_within(terrain, cell, radius, MAP_WIDTH, MAP_HEIGHT):
 		near[c] = true
-	for other in _units + _npc_parties:
+	for other in _all_parties():
 		if other.members.is_empty() or other.faction_name == fn:
 			continue
-		if near.has(terrain.local_to_map(other.position)):
+		if near.has(_cell_of(other)):
 			return true
 	return false
 
 ## 살아 있는 모든 부대를 {cell, faction} 목록으로. NpcAi.enemy_cells의 입력(세력 필터가 자기 부대를 걸러낸다).
 func _party_entries() -> Array:
 	var out: Array = []
-	for p in _units + _npc_parties:
+	for p in _all_parties():
 		if p.members.is_empty():
 			continue
-		out.append({"cell": terrain.local_to_map(p.position), "faction": p.faction_name})
+		out.append({"cell": _cell_of(p), "faction": p.faction_name})
 	return out
 
 ## 맵의 모든 캠프를 {cell(중심), faction} 목록으로. territory/faction이 없는 고아 캠프는 빈 문자열(방어적 기본값 — 현재는 발생 안 함).
@@ -1131,17 +1137,14 @@ func _camp_entries() -> Array:
 	for b in _buildings + _npc_buildings:
 		if not BuildingTypes.is_center(b.building_type):
 			continue
-		var cf := ""
-		if b.territory != null and b.territory.faction != null:
-			cf = b.territory.faction.name
-		out.append({"cell": b.center_cell(), "faction": cf})
+		out.append({"cell": b.center_cell(), "faction": b.faction_name()})
 	return out
 
 ## 세력 fn의 캠프 중심 NPC_DEFEND_RADIUS 이내로 침입한 적 부대 칸 목록(방어 타깃). 자기 캠프 없으면 빈 배열.
 func _threats_near_own_camp(fn: String, party_entries: Array) -> Array:
 	var near := {}
 	for b in _buildings + _npc_buildings:
-		if BuildingTypes.is_center(b.building_type) and b.territory != null and b.territory.faction != null and b.territory.faction.name == fn:
+		if BuildingTypes.is_center(b.building_type) and b.faction_name() == fn:
 			for cell in HexGrid.cells_within(terrain, b.center_cell(), NPC_DEFEND_RADIUS, MAP_WIDTH, MAP_HEIGHT):
 				near[cell] = true
 	if near.is_empty():
@@ -1154,7 +1157,7 @@ func _threats_near_own_camp(fn: String, party_entries: Array) -> Array:
 
 ## [공격] 근접: 적 인접 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령.
 func _melee_attack(entry: Dictionary) -> void:
-	var start := terrain.local_to_map(party.position)
+	var start := _cell_of(party)
 	var ecell: Vector2i = entry["cell"]
 	var stand := _adjacent_stand(ecell, start)
 	if stand == start:
@@ -1171,7 +1174,7 @@ func _shoot_enemy(enemy) -> void:
 
 ## [흡수]/[파괴]: 캠프 인접 칸으로(필요 시) 이동 후 점령한다. absorb=흡수, false=파괴.
 func _capture_camp(entry: Dictionary, absorb: bool) -> void:
-	var start := terrain.local_to_map(party.position)
+	var start := _cell_of(party)
 	var stand: Vector2i = entry["stand"]
 	if stand == start:
 		_do_capture(entry["camp"], absorb)   # 이미 인접 — 제자리 점령
@@ -1201,7 +1204,7 @@ func _transfer_camp(camp, new_faction) -> void:
 	_clear_ladders(camp)   # 소유권 바뀌면 그 거점 사다리 무효 → wall.md
 	var territory = camp.territory
 	var terr_name: String = territory.name if territory != null else ""
-	var old_name: String = territory.faction.name if (territory != null and territory.faction != null) else ""
+	var old_name: String = camp.faction_name()
 	if territory != null:
 		if territory.faction != null:
 			territory.faction.remove_territory(territory)
@@ -1257,8 +1260,8 @@ func _begin_battle(defender, distance: int, occupy_cell: Vector2i, include_siege
 
 ## 두 부대의 교전 헥스 거리. 인접(또는 같은 칸)이면 1(근접), 아니면 a 기준 헥스 거리(사거리 범위 내). → battle.md
 func _engagement_distance(a, b) -> int:
-	var acell := terrain.local_to_map(a.position)
-	var bcell := terrain.local_to_map(b.position)
+	var acell := _cell_of(a)
+	var bcell := _cell_of(b)
 	if acell == bcell or bcell in terrain.get_surrounding_cells(acell):
 		return 1   # 인접 = 근접 교전
 	var reach: int = maxi(a.attack_range(), 1)
@@ -1495,7 +1498,7 @@ func _open_action_menu() -> void:
 
 ## 활성 부대가 분할 가능한지 — 멤버 2명 이상이고 인접 빈 칸이 있어야 한다.
 func _can_split() -> bool:
-	return party.members.size() >= 2 and _empty_adjacent_to([terrain.local_to_map(party.position)]) != Vector2i(-1, -1)
+	return party.members.size() >= 2 and _empty_adjacent_to([_cell_of(party)]) != Vector2i(-1, -1)
 
 ## [소속] 버튼 노출 조건: 일반부대 + (인접 아군 영웅부대 있음 또는 이미 소속 보유). → party-lord.md
 func _can_manage_lord(p) -> bool:
@@ -1505,11 +1508,11 @@ func _can_manage_lord(p) -> bool:
 
 ## troop 칸에 헥스 인접한 플레이어 영웅부대(멤버 있는 KIND_HERO) 목록. 소속 모달 후보. → party-lord.md
 func _adjacent_player_heroes(troop) -> Array:
-	var cell := terrain.local_to_map(troop.position)
+	var cell := _cell_of(troop)
 	var neighbors := terrain.get_surrounding_cells(cell)
 	var out: Array = []
 	for p in _units:
-		if p.kind == Party.KIND_HERO and not p.members.is_empty() and terrain.local_to_map(p.position) in neighbors:
+		if p.kind == Party.KIND_HERO and not p.members.is_empty() and _cell_of(p) in neighbors:
 			out.append(p)
 	return out
 
@@ -1527,12 +1530,12 @@ func _can_fire() -> bool:
 func _ladder_target_for(p) -> Dictionary:
 	if p == null:
 		return {}
-	var pcell := terrain.local_to_map(p.position)
+	var pcell := _cell_of(p)
 	var neighbors := terrain.get_surrounding_cells(pcell)
 	for b in _buildings + _npc_buildings:
 		if not (BuildingTypes.is_center(b.building_type) and b.is_walled()):
 			continue
-		var bf: String = b.territory.faction.name if (b.territory != null and b.territory.faction != null) else ""
+		var bf: String = b.faction_name()
 		if bf == p.faction_name:
 			continue   # 아군 성벽엔 사다리 안 놓는다
 		for c in b.cells:
@@ -1625,17 +1628,11 @@ func _collapse_wall(building) -> bool:
 	_clear_ladders(building)   # 붕괴된 성벽 사다리 정리 → wall.md
 	return true
 
-## 거점 b의 소유 세력 이름(territory/faction 없으면 ""). 투석 표적 세력 판정(5g). → siege-engines.md
-func _building_faction_name(b) -> String:
-	if b.territory != null and b.territory.faction != null:
-		return b.territory.faction.name
-	return ""
-
 ## faction_name이 공성할 적 세력 성벽 거점 목록(플레이어·NPC 불문, 자기 세력 제외). 5g 투석 표적·밴드 셀 공용. → siege-engines.md
 func _enemy_walled_centers(faction_name: String) -> Array:
 	var out: Array = []
 	for b in _buildings + _npc_buildings:
-		if BuildingTypes.is_center(b.building_type) and b.is_walled() and _building_faction_name(b) != faction_name:
+		if BuildingTypes.is_center(b.building_type) and b.is_walled() and b.faction_name() != faction_name:
 			out.append(b)
 	return out
 
@@ -1658,7 +1655,7 @@ func _npc_try_bombard(attacker) -> bool:
 		return false
 	attacker.mark_attacked()
 	if t["kind"] == "wall":
-		if _building_faction_name(t["ref"]) == _player_faction.name:
+		if t["ref"].faction_name() == _player_faction.name:
 			await _bombard_wall_by(attacker, t["ref"], int(t["dist"]))   # 플레이어 성벽 → 오버레이 관전
 		else:
 			_npc_bombard_wall_headless(attacker, t["ref"])   # 다른 NPC 성벽 → 헤드리스 정산(5g)
@@ -1677,13 +1674,13 @@ func _siege_target_for(attacker) -> Dictionary:
 	var min_r: int = attacker.siege_min_range()
 	if rng <= 0:
 		return {}
-	var dists: Dictionary = HexGrid.bfs_distances(terrain, terrain.local_to_map(attacker.position), rng, MAP_WIDTH, MAP_HEIGHT)
+	var dists: Dictionary = HexGrid.bfs_distances(terrain, _cell_of(attacker), rng, MAP_WIDTH, MAP_HEIGHT)
 	var best := {}
 	var best_d := 1 << 30
-	for p in _units + _npc_parties:   # 적 세력 부대(플레이어·다른 NPC — 5g-B, 자기 부대·자기 세력 제외)
+	for p in _all_parties():   # 적 세력 부대(플레이어·다른 NPC — 5g-B, 자기 부대·자기 세력 제외)
 		if p == attacker or p.members.is_empty() or p.faction_name == attacker.faction_name:
 			continue
-		var ec: Vector2i = terrain.local_to_map(p.position)
+		var ec: Vector2i = _cell_of(p)
 		if dists.has(ec) and int(dists[ec]) >= min_r and int(dists[ec]) < best_d:
 			best_d = int(dists[ec])
 			best = {"kind": "party", "ref": p, "dist": best_d}
@@ -1717,7 +1714,7 @@ func _can_push_ladder(p) -> bool:
 func _building_garrisoned_by(p):
 	if p == null:
 		return null
-	var cell := terrain.local_to_map(p.position)
+	var cell := _cell_of(p)
 	for b in _buildings + _npc_buildings:
 		if BuildingTypes.is_center(b.building_type) and b.center_cell() == cell:
 			return b
@@ -1733,7 +1730,7 @@ func _place_ladder(p) -> void:
 		p.loot_items.erase("grapple_ladder")   # 설치 시 1개 소모 → items.md
 	_ladders.append({
 		"building": t["building"], "target_cell": t["target_cell"],
-		"from_cell": terrain.local_to_map(p.position), "faction": p.faction_name,
+		"from_cell": _cell_of(p), "faction": p.faction_name,
 		"countdown": Siege.LADDER_TURNS, "hooked": hooked,
 	})
 	p.mark_attacked()   # 설치는 그 부대 행동 종료
@@ -1902,7 +1899,7 @@ func _on_turn_ended() -> void:
 		_deselect()
 	_hide_party_info()
 	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _units만 등록).
-	_turn.end_turn(_units + _npc_parties, _territories)
+	_turn.end_turn(_all_parties(), _territories)
 	_tick_production()   # 1차 생산 건물 생산포인트 산출(1÷거리, 거리 기반) → production.md
 	_advance_ladders()   # 사다리 카운트다운 −1(0이면 통로 열림) → wall.md
 	turn_hud.set_turn(_turn.number)
@@ -1983,7 +1980,7 @@ func _plan_group_move(group: Array, party_entries: Array, camp_entries: Array) -
 	var hero_dest := Vector2i(-1, -1)
 	# 영웅: 기존 목표지향 AI.
 	if hero != null:
-		hero_from = terrain.local_to_map(hero.position)
+		hero_from = _cell_of(hero)
 		var hocc := _blocked_for(hero)
 		hero_dest = NpcAi.choose_destination(terrain, hero_from, hero.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, hocc, _npc_targets(hero, party_entries, camp_entries))
 		plans[hero] = HexGrid.reconstruct_path(terrain, hero_from, hero_dest, hero.movement(), MAP_WIDTH, MAP_HEIGHT, hocc)
@@ -1994,7 +1991,7 @@ func _plan_group_move(group: Array, party_entries: Array, camp_entries: Array) -
 	for p in group:
 		if not is_instance_valid(p) or p == hero:
 			continue
-		var start := terrain.local_to_map(p.position)
+		var start := _cell_of(p)
 		var occ := _blocked_for(p)
 		for c in reserved:
 			occ[c] = true
@@ -2028,7 +2025,7 @@ func _move_group(group: Array, plans: Dictionary) -> void:
 			continue
 		any_move = true
 		var dst: Vector2i = path[path.size() - 1]
-		if fog.is_cell_visible(terrain.local_to_map(p.position)) or fog.is_cell_visible(dst):
+		if fog.is_cell_visible(_cell_of(p)) or fog.is_cell_visible(dst):
 			in_view = true
 	if not any_move:
 		return   # 그룹 전원 제자리/해제 → 아무것도 안 함(포커스도 생략)
@@ -2112,7 +2109,7 @@ func _npc_engage(attacker, target, dist: int) -> void:
 
 ## 부대가 플레이어 시야(안개) 안에 있는지 — NPC 이동/공격 연출을 보여줄지 판정.
 func _party_visible(p) -> bool:
-	return is_instance_valid(p) and fog.is_cell_visible(terrain.local_to_map(p.position))
+	return is_instance_valid(p) and fog.is_cell_visible(_cell_of(p))
 
 ## 플레이어 부대 멤버의 경계(alert) 버프를 모두 해제한다. NPC 공격 페이즈가 끝나거나 중단될 때 호출.
 func _clear_player_alert() -> void:
@@ -2126,15 +2123,15 @@ func _adjacent_enemy(attacker):
 	# 근접(사거리 0)은 인접(1)까지, 원거리는 사거리까지 공격 대상으로 본다.
 	var reach: int = maxi(attacker.attack_range(), 1)
 	var in_range := {}
-	for c in HexGrid.cells_within(terrain, terrain.local_to_map(attacker.position), reach, MAP_WIDTH, MAP_HEIGHT):
+	for c in HexGrid.cells_within(terrain, _cell_of(attacker), reach, MAP_WIDTH, MAP_HEIGHT):
 		in_range[c] = true
 	var walls := _wall_blocked_cells(attacker.faction_name)   # 적 성벽 안 수비대는 접근 불가 → 표적 제외 → wall.md
-	for other in _units + _npc_parties:
+	for other in _all_parties():
 		if other == attacker or not is_instance_valid(other) or other.members.is_empty():
 			continue
 		if other.faction_name == attacker.faction_name:
 			continue   # 같은 세력(아군)은 공격 대상 아님(거점 방어 부대로 같은 세력 인접이 생겨 필요)
-		var oc: Vector2i = terrain.local_to_map(other.position)
+		var oc: Vector2i = _cell_of(other)
 		if walls.has(oc):
 			continue   # 성벽 안 수비대는 표적 아님
 		if in_range.has(oc):
@@ -2143,7 +2140,7 @@ func _adjacent_enemy(attacker):
 
 ## attacker에 인접한(또는 그 위) 적 캠프를 찾는다(소유 세력이 다른 것). 수비대 유무는 호출부가 판단. 없으면 null.
 func _adjacent_enemy_camp(attacker):
-	var acell := terrain.local_to_map(attacker.position)
+	var acell := _cell_of(attacker)
 	var fn: String = attacker.faction_name
 	var neighbors := terrain.get_surrounding_cells(acell)
 	for b in _buildings + _npc_buildings:
@@ -2151,10 +2148,7 @@ func _adjacent_enemy_camp(attacker):
 			continue
 		if b.is_walled() and not _breached_by(b, fn):
 			continue   # 성벽 거점은 진입 불가 → 흡수 대상 아님. 단 이 세력이 사다리로 돌파했으면 열린다. → wall.md
-		var bf := ""
-		if b.territory != null and b.territory.faction != null:
-			bf = b.territory.faction.name
-		if bf == fn:
+		if b.faction_name() == fn:
 			continue   # 아군 거점
 		for c in b.cells:
 			if c == acell or c in neighbors:
@@ -2260,14 +2254,14 @@ func _in_command(troop) -> bool:
 	if troop.lord == null or troop.lord.members.is_empty():
 		return false
 	var cr: int = troop.lord.command_range()
-	var lord_cell := terrain.local_to_map(troop.lord.position)
-	var troop_cell := terrain.local_to_map(troop.position)
+	var lord_cell := _cell_of(troop.lord)
+	var troop_cell := _cell_of(troop)
 	return troop_cell in HexGrid.cells_within(terrain, lord_cell, cr, MAP_WIDTH, MAP_HEIGHT)
 
 ## 모든 부대의 command_buffed(지휘 범위 안 여부)를 갱신한다 — 맵 배지·전투 배율의 단일 출처. → command-range.md
 ## 위치가 정착하는 지점(턴 종료·이동 완료·작전 종료·NPC 이동·소속 변경·편성)마다 부른다.
 func _refresh_command_buffs() -> void:
-	for p in _units + _npc_parties:
+	for p in _all_parties():
 		var buffed := _in_command(p)
 		if p.command_buffed != buffed:
 			p.command_buffed = buffed
@@ -2284,7 +2278,7 @@ func _apply_command_flags(party, on: bool) -> void:
 ## hero에 소속된(lord == hero) 멤버 있는 하위부대 목록. 작전(추종) 대상. → squad-stance.md
 func _subordinates_of(hero) -> Array:
 	var out: Array = []
-	for p in _units + _npc_parties:
+	for p in _all_parties():
 		if p.lord == hero and not p.members.is_empty():
 			out.append(p)
 	return out
@@ -2317,7 +2311,7 @@ func _resolve_stance(id: String) -> void:
 	party_action_menu.close()
 	match id:
 		"st_follow":
-			_follow_with_lord(hero, terrain.local_to_map(hero.position), _stance_from_cell)   # 하위부대가 영웅 주변으로 집결
+			_follow_with_lord(hero, _cell_of(hero), _stance_from_cell)   # 하위부대가 영웅 주변으로 집결
 		"st_hold":
 			pass   # 대기 — 하위부대 제자리(방어 버프 미구현)
 		"st_engage":
@@ -2341,7 +2335,7 @@ func _engage_with_lord(hero) -> void:
 			break
 		if not is_instance_valid(f) or not f.can_move():
 			continue   # 앞선 전투에서 이 하위부대가 전멸·해제됐으면 건너뛴다
-		var start := terrain.local_to_map(f.position)
+		var start := _cell_of(f)
 		var targets := _visible_enemy_cells(f.faction_name)
 		# 1) 보이는 적 중 최근접으로 접근(더 가까워질 수 없으면 제자리).
 		if not targets.is_empty():
@@ -2357,7 +2351,7 @@ func _engage_with_lord(hero) -> void:
 		if target != null and is_instance_valid(target) and NpcAi.should_engage(NpcAi.party_power(f.members), NpcAi.party_power(target.members)):
 			f.mark_attacked()
 			var dist := _engagement_distance(f, target)
-			var occ := terrain.local_to_map(target.position) if dist == 1 else Vector2i(-1, -1)   # 근접 승리 시만 점령
+			var occ := _cell_of(target) if dist == 1 else Vector2i(-1, -1)   # 근접 승리 시만 점령
 			await _run_battle(f, target, dist, occ)
 	_stance_busy = false
 
@@ -2365,10 +2359,10 @@ func _engage_with_lord(hero) -> void:
 func _visible_enemy_cells(faction: String) -> Array:
 	var walls := _wall_blocked_cells(faction)
 	var out: Array = []
-	for p in _units + _npc_parties:
+	for p in _all_parties():
 		if p.faction_name == faction or p.members.is_empty() or not p.visible:
 			continue
-		var c: Vector2i = terrain.local_to_map(p.position)
+		var c: Vector2i = _cell_of(p)
 		if walls.has(c):
 			continue
 		out.append(c)
@@ -2389,7 +2383,7 @@ func _enter_charge_target(hero) -> void:
 	for f in _subordinates_of(hero):
 		if not f.can_move():
 			continue
-		var start := terrain.local_to_map(f.position)
+		var start := _cell_of(f)
 		for c in HexGrid.movement_ranges(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _blocked_for(f))["move"]:
 			reach[c] = true
 	var blue: Array[Vector2i] = []
@@ -2405,7 +2399,7 @@ func _pick_charge_target(world_pos: Vector2) -> void:
 	_charge_hero = null
 	var empty: Array[Vector2i] = []
 	overlay.show_ranges(empty, empty)   # 힌트 오버레이 제거
-	if cell != terrain.local_to_map(hero.position):
+	if cell != _cell_of(hero):
 		await _charge_with_lord(hero, cell)
 	if _game_over:
 		return
@@ -2421,7 +2415,7 @@ func _charge_with_lord(hero, target_cell: Vector2i) -> void:
 			break
 		if not is_instance_valid(f) or not f.can_move():
 			continue   # 앞선 전투에서 이 하위부대가 전멸·해제됐으면 건너뛴다
-		var start := terrain.local_to_map(f.position)
+		var start := _cell_of(f)
 		var blocked := _blocked_for(f)
 		var reach: int = maxi(f.attack_range(), 1)
 		# 1) 목표 방향 도달 칸으로 경로를 잡고, 사거리 내 적이 들어오는 첫 지점까지만 전진.
@@ -2438,7 +2432,7 @@ func _charge_with_lord(hero, target_cell: Vector2i) -> void:
 		if target != null and is_instance_valid(target):
 			f.mark_attacked()
 			var dist := _engagement_distance(f, target)
-			var occ := terrain.local_to_map(target.position) if dist == 1 else Vector2i(-1, -1)
+			var occ := _cell_of(target) if dist == 1 else Vector2i(-1, -1)
 			await _run_battle(f, target, dist, occ)
 	_stance_busy = false
 
@@ -2456,7 +2450,7 @@ func _follow_with_lord(hero, hero_cell: Vector2i, from_cell: Vector2i) -> void:
 	for f in followers:
 		if not f.can_move():
 			continue   # 이미 이동/공격했으면 → 그 자리에 남음
-		var f_cell := terrain.local_to_map(f.position)
+		var f_cell := _cell_of(f)
 		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, from_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
 		if dest == f_cell:
 			continue   # 이미 최선 위치(인접) → 이동·턴 소비 없음
@@ -2563,7 +2557,7 @@ func _enter_build_mode(type_id: String, territory: Territory) -> void:
 func _build_vision() -> Dictionary:
 	if _build_type == BuildingTypes.CAMP:
 		var vis := {}
-		for c in HexGrid.cells_within(terrain, terrain.local_to_map(party.position), party.vision(), MAP_WIDTH, MAP_HEIGHT):
+		for c in HexGrid.cells_within(terrain, _cell_of(party), party.vision(), MAP_WIDTH, MAP_HEIGHT):
 			vis[c] = true
 		return vis
 	if BuildingTypes.get_type(_build_type).get("primary_production", false):
@@ -2575,7 +2569,7 @@ func _player_build_vision() -> Dictionary:
 	var vis := BuildPlanner.buildings_vision(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT)
 	for p in _units:
 		if p.faction_name == _player_faction.name and not p.members.is_empty():
-			for c in HexGrid.cells_within(terrain, terrain.local_to_map(p.position), p.vision(), MAP_WIDTH, MAP_HEIGHT):
+			for c in HexGrid.cells_within(terrain, _cell_of(p), p.vision(), MAP_WIDTH, MAP_HEIGHT):
 				vis[c] = true
 	return vis
 
@@ -2655,7 +2649,7 @@ func _nearest_player_center(b):
 	for c in _buildings:
 		if c == b or not (BuildingTypes.is_center(c.building_type) and c.is_complete()):
 			continue
-		if c.territory == null or c.territory.faction != _player_faction:
+		if c.faction() != _player_faction:
 			continue
 		var cc: Vector2i = c.center_cell()
 		if dists.has(cc) and int(dists[cc]) < best_d:
@@ -2692,7 +2686,7 @@ func _player_centers() -> Array:
 	var out: Array = []
 	for c in _buildings:
 		if BuildingTypes.is_center(c.building_type) and c.is_complete() \
-				and c.territory != null and c.territory.faction == _player_faction:
+				and c.faction() == _player_faction:
 			out.append(c)
 	return out
 
