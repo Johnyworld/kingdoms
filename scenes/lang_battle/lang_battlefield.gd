@@ -31,42 +31,27 @@ const SPAWN_XJIT := UNIT_W * 2.5        # 스폰 X 지터 진폭(±) → 좌우 
 const FRAME_PX := 100                   # 시트 한 프레임 크기(정사각)
 const BODY_PX := 17.0                   # 프레임 안 실제 몸통 너비(측정값)
 const SPRITE_SCALE := 16.0 / BODY_PX    # 몸통 ≈16px(내부좌표=바닥 타일 1칸)로 축소
-const WALK_FRAMES := 8
-const IDLE_FRAMES := 6
-const ATTACK_FRAMES := 6   # Attack01 (제자리 전방 찌르기)
-const HURT_FRAMES := 4     # 피격 뒤로 젖힘 → 넉백 비행 자세로 사용
-const DEATH_FRAMES := 4    # 제자리 주저앉기(collapse)
+const WALK_FRAMES := 8      # 걷기 위상 분산용(모든 세트 공통 8프레임)
+const ATTACK_FRAMES := 6    # 근접 공격 기본 프레임 수(_attack_dur 폴백용, 실제는 세트별 _frame_set_specs)
+const DEATH_FRAMES := 4     # 주저앉기 길이 기준(DEATH_COLLAPSE용)
 const WALK_FPS := 10.0
 const IDLE_FPS := 6.0
 const ATTACK_FPS := 18.0
 const HURT_FPS := 12.0
 const DEATH_FPS := 10.0
-const ATTACK_DUR := ATTACK_FRAMES / ATTACK_FPS  # 공격 애니 1회 길이(≈0.33s)
 const HIT_FLASH_DUR := 0.12  # 피격 흰색 플래시 지속(초) — 이 시간동안 flash를 1→0 감쇠
 const HIT_FLASH_SHADER := preload("res://scenes/lang_battle/hit_flash.gdshader")
-# 팀 0=Soldier, 팀 1=Orc (임시 플레이스홀더). 재배포 지양 애셋이지만 개발용.
-const TEX_WALK := {
-	0: preload("res://assets/units/soldier_walk.png"),
-	1: preload("res://assets/units/orc_walk.png"),
+# 스프라이트 세트 — 진영·병종별 캐릭터(Tiny RPG pack, 100×100 프레임). 개발용 플레이스홀더.
+#   A(side0): 경보병=soldier / 경궁병=archer_a(Archer) / 영웅=sword(Swordsman)
+#   B(side1): 경보병=orc / 경궁병=skelarcher(Skeleton Archer) / 영웅=eliteorc(Elite Orc)
+# 세트별 프레임 수가 달라 시트별로 지정한다(_frame_set_specs).
+const UNIT_DIR := "res://assets/units/"
+# 세트별 idle 발끝 texel(중앙 컬럼 solid 측정). 캐릭터마다 프레임 내 발 위치가 달라(대개 ~56),
+# 그림자(pos.y+GROUND_SORT_DY)에 발을 맞추려 스프라이트에 세로 offset을 준다(_foot_offset). 안 그러면 뜬다.
+const FOOT_TEXEL := {
+	"soldier": 56, "orc": 56, "archer_a": 56, "skelarcher": 57, "sword": 56, "eliteorc": 56,
 }
-const TEX_IDLE := {
-	0: preload("res://assets/units/soldier_idle.png"),
-	1: preload("res://assets/units/orc_idle.png"),
-}
-const TEX_ATTACK := {
-	0: preload("res://assets/units/soldier_attack.png"),
-	1: preload("res://assets/units/orc_attack.png"),
-}
-const TEX_HURT := {
-	0: preload("res://assets/units/soldier_hurt.png"),
-	1: preload("res://assets/units/orc_hurt.png"),
-}
-const TEX_DEATH := {
-	0: preload("res://assets/units/soldier_death.png"),
-	1: preload("res://assets/units/orc_death.png"),
-}
-# 경궁병 활 당기기(Soldier_Attack03, 900×100 = 9프레임) — 병사(soldier) 세트에만 추가.
-const TEX_BOW := preload("res://assets/units/archer_bow.png")
+# 경궁병 사격 = 자기 attack 시트를 "bow" 애니로 등록(9프레임). 발사 타이밍 상수는 공용.
 const BOW_FRAMES := 9
 const BOW_FPS := 18.0
 const BOW_DUR := BOW_FRAMES / BOW_FPS       # 활 당기기 1회 길이(≈0.5s)
@@ -84,9 +69,6 @@ const STUCK_TILT_MAX := 0.56                 # 최대각(rad ≈ 32°)
 const ARROW_MISS_SCATTER_X := 18.0           # 빗나간 화살 착탄 좌우 산포(±px) — 목표 주변에 흩뿌림
 const ARROW_MISS_SCATTER_Y := 14.0           # 빗나간 화살 착탄 하향 산포(+px, 아래로만)
 const GROUND_SORT_DY := 8.0                  # 병사 노드 원점 → 발밑(지면 그림자) 거리 — y-sort 기준선
-# 팀1 경궁병 색조(임시 플레이스홀더 — 병사 스프라이트 공유하되 색으로 구분)
-const ARCHER_TINT_1 := Color(1.0, 0.62, 0.55)
-
 # 원본 등속 이동 속도 (px/frame @60fps) → 초당으로 환산(×60, ×1.2 스케일)
 const VX := 3.0 * 1.2 * 60.0   # ≈ 216 px/s (원본 등속 3px/frame)
 const VY := 2.0 * 1.2 * 60.0   # ≈ 144 px/s (원본 2px/frame)
@@ -154,21 +136,66 @@ func _ready() -> void:
 	add_child(_units)
 	_arrows_node = Node2D.new()     # _units 뒤에 추가 → 화살이 병사 위에 렌더
 	add_child(_arrows_node)
-	# 병사(soldier)=활 포함, 오크(orc)=근접 전용. 경궁병은 양 팀 모두 soldier 세트를 색조로 구분해 쓴다.
-	_frames["soldier"] = _build_frames(0, true)
-	_frames["orc"] = _build_frames(1, false)
+	# 진영·병종별 6세트 구성(soldier/orc/archer_a/skelarcher/sword/eliteorc).
+	var specs := _frame_set_specs()
+	for key in specs:
+		_frames[key] = _build_frames(specs[key])
 
-## 시트(가로 나열)로 SpriteFrames 구성. walk/idle=루프, attack/death/bow=1회(마지막 프레임 유지).
-func _build_frames(tex_side: int, with_bow: bool) -> SpriteFrames:
+## 세트키 → 애니 스펙 배열 [ [anim, 파일, 프레임수, fps, loop], ... ]. bow(사격)는 궁병 세트만.
+func _frame_set_specs() -> Dictionary:
+	return {
+		"soldier": [
+			["walk", "soldier_walk.png", 8, WALK_FPS, true],
+			["idle", "soldier_idle.png", 6, IDLE_FPS, true],
+			["attack", "soldier_attack.png", 6, ATTACK_FPS, false],
+			["hurt", "soldier_hurt.png", 4, HURT_FPS, false],
+			["death", "soldier_death.png", 4, DEATH_FPS, false],
+		],
+		"orc": [
+			["walk", "orc_walk.png", 8, WALK_FPS, true],
+			["idle", "orc_idle.png", 6, IDLE_FPS, true],
+			["attack", "orc_attack.png", 6, ATTACK_FPS, false],
+			["hurt", "orc_hurt.png", 4, HURT_FPS, false],
+			["death", "orc_death.png", 4, DEATH_FPS, false],
+		],
+		"archer_a": [
+			["walk", "archer_a_walk.png", 8, WALK_FPS, true],
+			["idle", "archer_a_idle.png", 6, IDLE_FPS, true],
+			["attack", "archer_a_attack.png", 9, ATTACK_FPS, false],
+			["hurt", "archer_a_hurt.png", 4, HURT_FPS, false],
+			["death", "archer_a_death.png", 4, DEATH_FPS, false],
+			["bow", "archer_a_attack.png", 9, BOW_FPS, false],
+		],
+		"skelarcher": [
+			["walk", "skelarcher_walk.png", 8, WALK_FPS, true],
+			["idle", "skelarcher_idle.png", 6, IDLE_FPS, true],
+			["attack", "skelarcher_attack.png", 9, ATTACK_FPS, false],
+			["hurt", "skelarcher_hurt.png", 4, HURT_FPS, false],
+			["death", "skelarcher_death.png", 4, DEATH_FPS, false],
+			["bow", "skelarcher_attack.png", 9, BOW_FPS, false],
+		],
+		"sword": [
+			["walk", "sword_walk.png", 8, WALK_FPS, true],
+			["idle", "sword_idle.png", 6, IDLE_FPS, true],
+			["attack", "sword_attack.png", 7, ATTACK_FPS, false],
+			["hurt", "sword_hurt.png", 5, HURT_FPS, false],
+			["death", "sword_death.png", 4, DEATH_FPS, false],
+		],
+		"eliteorc": [
+			["walk", "eliteorc_walk.png", 8, WALK_FPS, true],
+			["idle", "eliteorc_idle.png", 6, IDLE_FPS, true],
+			["attack", "eliteorc_attack.png", 7, ATTACK_FPS, false],
+			["hurt", "eliteorc_hurt.png", 4, HURT_FPS, false],
+			["death", "eliteorc_death.png", 4, DEATH_FPS, false],
+		],
+	}
+
+## 스펙 배열로 SpriteFrames 구성. walk/idle=루프, attack/hurt/death/bow=1회(마지막 프레임 유지).
+func _build_frames(spec: Array) -> SpriteFrames:
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
-	_add_anim(sf, TEX_WALK[tex_side], "walk", WALK_FRAMES, WALK_FPS, true)
-	_add_anim(sf, TEX_IDLE[tex_side], "idle", IDLE_FRAMES, IDLE_FPS, true)
-	_add_anim(sf, TEX_ATTACK[tex_side], "attack", ATTACK_FRAMES, ATTACK_FPS, false)
-	_add_anim(sf, TEX_HURT[tex_side], "hurt", HURT_FRAMES, HURT_FPS, false)
-	_add_anim(sf, TEX_DEATH[tex_side], "death", DEATH_FRAMES, DEATH_FPS, false)
-	if with_bow:
-		_add_anim(sf, TEX_BOW, "bow", BOW_FRAMES, BOW_FPS, false)
+	for a in spec:
+		_add_anim(sf, load(UNIT_DIR + String(a[1])), String(a[0]), int(a[2]), float(a[3]), bool(a[4]))
 	return sf
 
 func _add_anim(sf: SpriteFrames, tex: Texture2D, anim_name: String, count: int, fps: float, loop: bool) -> void:
@@ -871,7 +898,7 @@ func _auto_strike(s: Dictionary) -> void:
 		_add_push(tgt, push)
 		tgt["hit_t"] = HIT_FLASH_DUR  # 맞는 쪽 흰색 피격 플래시
 	s["strike_t"] = STRIKE_DUR
-	s["attack_t"] = ATTACK_DUR   # 공격 애니 재생 예약
+	s["attack_t"] = _attack_dur(s)  # 공격 애니 재생 예약(세트별 프레임 수 반영 — 7~9프레임 잘림 방지)
 	s["atk_fire"] = true         # 스프라이트가 이번 프레임 attack 0프레임부터 재생
 	# [임시 비활성] ③ 전방 슬래시 이펙트 [0x1860] — 재활성 시 아래 블록 주석 해제
 	#var dir: float = s["face"]
@@ -1167,9 +1194,11 @@ func _sync_sprites() -> void:
 			var spr: AnimatedSprite2D = _sprites.get(id)
 			if spr == null:
 				spr = AnimatedSprite2D.new()
-				spr.sprite_frames = _frames[_sprite_set(s)]
+				var set_key := _sprite_set(s)
+				spr.sprite_frames = _frames[set_key]
 				spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # 픽셀 선명하게
 				spr.scale = Vector2(SPRITE_SCALE, SPRITE_SCALE)
+				spr.offset.y = _foot_offset(set_key)  # 세트별 발끝을 그림자(pos.y+8)에 맞춤(뜨는 문제 보정)
 				var mat := ShaderMaterial.new()          # 피격 흰색 플래시용(병사별 flash 파라미터)
 				mat.shader = HIT_FLASH_SHADER
 				spr.material = mat
@@ -1207,16 +1236,31 @@ func _sync_sprites() -> void:
 			_sprites[id].queue_free()
 			_sprites.erase(id)
 
-## 스프라이트 세트: 경궁병은 양 팀 모두 soldier(활 포함), 근접은 side0=soldier·side1=orc.
+## 스프라이트 세트: 진영·병종별 캐릭터. 영웅(hero 플래그) 우선 판정 후 경궁병·경보병.
+##   A(0): 영웅=sword / 경궁병=archer_a / 경보병=soldier
+##   B(1): 영웅=eliteorc / 경궁병=skelarcher / 경보병=orc
 func _sprite_set(s: Dictionary) -> String:
+	var side: int = s["side"]
+	if s.get("hero", false):
+		return "sword" if side == 0 else "eliteorc"
 	if s.get("kind", "infantry") == "archer":
-		return "soldier"
-	return "soldier" if s["side"] == 0 else "orc"
+		return "archer_a" if side == 0 else "skelarcher"
+	return "soldier" if side == 0 else "orc"
 
-## 팀 색조: 팀1 경궁병만 붉은 색조(병사 스프라이트 공유 구분). 그 외 흰색(원색).
-func _sprite_tint(s: Dictionary) -> Color:
-	if s.get("kind", "infantry") == "archer" and s["side"] == 1:
-		return ARCHER_TINT_1
+## 세트별 근접 공격 애니 길이(초). 시트마다 attack 프레임 수가 달라(6~9) 전역 ATTACK_DUR로 자르면
+## 스윙이 중간에 끊긴다 → 해당 세트 attack 프레임 수 ÷ ATTACK_FPS 로 실제 길이 반영.
+func _attack_dur(s: Dictionary) -> float:
+	var sf: SpriteFrames = _frames.get(_sprite_set(s))
+	var n := sf.get_frame_count("attack") if sf != null else int(ATTACK_FRAMES)
+	return maxf(1.0, float(n)) / ATTACK_FPS
+
+## 세트별 발끝 보정(texel). 발끝(FOOT_TEXEL)이 그림자 기준선(pos.y+GROUND_SORT_DY)에 오도록 스프라이트를 내림.
+func _foot_offset(set_key: String) -> float:
+	var target := 50.0 + GROUND_SORT_DY / SPRITE_SCALE   # 발끝이 와야 할 프레임 texel(중심 50 기준)
+	return target - float(FOOT_TEXEL.get(set_key, target))
+
+## 팀 구분은 이제 스프라이트 자체로 됨(색조 불필요). 알파(소멸)만 modulate에 반영.
+func _sprite_tint(_s: Dictionary) -> Color:
 	return Color.WHITE
 
 ## 루프 애니 전환(같으면 유지, 멈췄으면 재개). walk/idle 전용.
@@ -1369,7 +1413,17 @@ func _draw_shadow(pos: Vector2, s: Dictionary) -> void:
 	var gy: float = pos.y
 	if s["state"] == DYING and s["airborne"]:
 		gy = s["land_y"] + (pos.y - s["pos"].y)  # (pos.y - s.pos.y) = 흔들림 sh.y 보정
-	_px(round(pos.x) - 5, round(gy) + GROUND_SORT_DY, 10, 2, Color(0, 0, 0, 0.28 * a))
+	# 부드러운 타원 그림자 — 바깥(옅음)→안쪽(진함) 3겹으로 소프트 엣지 근사(발밑 pos.y+GROUND_SORT_DY).
+	var c := Vector2(pos.x, gy + GROUND_SORT_DY)
+	_ellipse(c, 6.5, 2.4, Color(0, 0, 0, 0.10 * a))
+	_ellipse(c, 5.0, 1.9, Color(0, 0, 0, 0.15 * a))
+	_ellipse(c, 3.6, 1.4, Color(0, 0, 0, 0.20 * a))
+
+## 타원 채우기(중심 c, 반경 rx·ry). 단위원을 (rx,ry)로 스케일해 그린 뒤 변환 원복.
+func _ellipse(c: Vector2, rx: float, ry: float, col: Color) -> void:
+	draw_set_transform(c, 0.0, Vector2(rx, ry))
+	draw_circle(Vector2.ZERO, 1.0, col)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw_effect(pos: Vector2, side: int, life: float) -> void:
 	var a := clampf(life / 0.22, 0.0, 1.0)
