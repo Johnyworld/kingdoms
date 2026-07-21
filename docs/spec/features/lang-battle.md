@@ -9,7 +9,7 @@
 
 ## 게임 통합 (완전 교체 — 진행 중)
 
-**유닛 데이터 모델도 순수 랑그릿사로 전환**(진행 중) — 부대 = "클래스 + 병력(HP)"를 가진 유닛. Human 스탯/장비 RPG 계층은 M3에서 제거. 매핑 카탈로그는 `scenes/party/game_units.gd`(`GameUnits`):
+**유닛 데이터 모델도 순수 랑그릿사로 전환**(진행 중) — 부대 = "클래스 + 병력(HP)"를 가진 유닛. RPG 전투 수학(M4-A)·장비/전리품 계층(M4-B)은 삭제 완료, 남은 Human 스탯은 M4-C에서 정리. 매핑 카탈로그는 `scenes/party/game_units.gd`(`GameUnits`):
 - 아키타입(hero/light_infantry/light_archer) → lang class_id + HP(병력=`max_hp`)·시야·원거리 여부. 이동력·지휘범위·AT/DF는 lang 클래스(class_stats.txt의 `mv`·`cmd_range`·`at`·`df`), HP·시야는 카탈로그(랑그릿사엔 fog 시야 없음).
 - **Party 스탯이 클래스 기반**(M2): `movement`·`vision`·`command_range`·`attack_range`·`is_ranged`·`melee_power`·`ranged_power`가 멤버 Human 집계가 아니라 `GameUnits`(아키타입)에서 나온다. Human `leadership`·무기·개별 스탯은 이 계산에서 미사용.
 
@@ -24,8 +24,8 @@
 - ✅ **플레이어 전투**(근접·원거리) → **lang 오버레이**(`game.gd._run_lang_overlay`, mode는 거리로).
 - 옛 거점 방어 구조물·병기 시스템은 **제거**됐다 — 옛 `BattleSim`·`combat/battle.gd` 경로도 함께 삭제. 모든 부대 전투가 lang(헤드리스/오버레이)으로 단일화됐다.
   - **presenter 오버레이 API**(`lang_battle.gd`): `overlay_mode`(add_child 전 설정 → `_ready` 자동 로드·입력 내비게이션 끔), `start_overlay(cfg)`(부대 cfg로 전투 재생), `signal finished(a_soldiers, d_soldiers)`(DONE 시 최종 병력수 방출). cfg는 `LangBridge.battle_config(attacker, defender, distance)`가 부대 쌍에서 만든다({a:{kind,count}, b, mode}). 오버레이 입력은 스킵만(재전투·설정복귀 없음).
-  - **game.gd 배선**(`_run_lang_overlay`): lang_battle.tscn(Node2D)을 **CanvasLayer(layer 60)로 감싸** 게임 카메라 무관 스크린 오버레이로 얹고(HudLayer.layer=61), `start_overlay` → `await finished` → 병력수를 `LangBridge.survivors`로 생존 Human에 매핑 → `_run_battle`의 loot·`_apply_survivors`·점령(occupy) 로직 공유. **시각 정확성(위치·레이어)은 실제 플레이로 확인 필요**(헤드리스 검증 불가).
-- ⏳ **지휘 범위 버프·장비 상성·상태이상** → 완전 교체로 전투 판정에서 미사용(장비/약탈 UI는 flavor로 유지). lang 지휘보정(`_cmd_bonus`)과의 통합은 후속.
+  - **game.gd 배선**(`_run_lang_overlay`): lang_battle.tscn(Node2D)을 **CanvasLayer(layer 60)로 감싸** 게임 카메라 무관 스크린 오버레이로 얹고(HudLayer.layer=61), `start_overlay` → `await finished` → 병력수를 `LangBridge.survivors`로 생존 Human에 매핑 → `_run_battle`의 `_apply_survivors`·점령(occupy) 로직 공유. **시각 정확성(위치·레이어)은 실제 플레이로 확인 필요**(헤드리스 검증 불가).
+- ⏳ **지휘 범위 버프** → 전투 판정에서 미사용(플래그만 유지, lang 연동 미정). 장비 상성·상태이상·장비/약탈 UI는 삭제됨(M4-A/B).
 
 ## 진입
 

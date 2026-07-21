@@ -67,41 +67,6 @@ func test_member_label_shows_hp() -> void:
 	var text: String = (panel._member_list.get_child(0) as Label).text
 	assert_string_contains(text, "HP 25/40", "멤버 라벨에 현재/max_hp() HP 표시")
 
-func test_member_label_shows_equipment() -> void:
-	# 공격(AT)·방어(DF) 표시는 전투 수학(CombatResolver) 폐기로 제거 — 무기 이름만 표시.
-	var h := _human("전사", 3, 5)
-	h.weapons = ["sword"]
-	h.armor = ["leather_armor"]
-	panel.open(_party([h]))
-	var text: String = (panel._member_list.get_child(0) as Label).text
-	assert_string_contains(text, "검", "장비 줄에 무기 이름 포함")
-
-func test_member_label_shows_secondary_weapon() -> void:
-	var h := _human("궁사겸용", 3, 5)
-	h.weapons = ["sword", "bow"]             # 주무기 검 + 보조 활
-	panel.open(_party([h]))
-	var text: String = (panel._member_list.get_child(0) as Label).text
-	assert_string_contains(text, "검", "주무기 이름 포함")
-	assert_string_contains(text, "단궁", "보조무기(활) 이름도 표시")
-
-func test_member_label_shows_barehand() -> void:
-	panel.open(_party([_human("맨손이", 3, 5)]))   # weapon "" → 맨손
-	var text: String = (panel._member_list.get_child(0) as Label).text
-	assert_string_contains(text, "맨손", "무기 없으면 '맨손' 표시")
-
-func test_member_label_shows_armor_pieces() -> void:
-	var h := _human("갑옷병", 3, 5)
-	h.armor = ["leather_helm", "leather_armor"]
-	panel.open(_party([h]))
-	var text: String = (panel._member_list.get_child(0) as Label).text
-	assert_string_contains(text, "방어구:", "방어구 줄 표시")
-	assert_string_contains(text, "가죽 투구", "조각 이름 포함")
-	assert_string_contains(text, "가죽 갑옷", "조각 이름 포함")
-
-func test_member_label_no_armor_no_line() -> void:
-	panel.open(_party([_human("맨몸이", 3, 5)]))   # armor []
-	assert_false("방어구:" in (panel._member_list.get_child(0) as Label).text, "맨몸이면 방어구 줄 없음")
-
 func test_empty_party() -> void:
 	# 스탯은 클래스 기반이라 멤버 수와 무관(빈 부대도 클래스 이동력·시야). 멤버 리스트만 빈다.
 	panel.open(_party([]))

@@ -27,7 +27,6 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 			out.append({"id": "split", "label": "분할", "enabled": true})
 	if can_manage_lord:
 		out.append({"id": "lord", "label": "소속", "enabled": true})   # 일반부대 소속 영웅 설정/해제(인접 영웅) → party-lord.md
-	out.append({"id": "equip", "label": "장비", "enabled": true})   # 항상 맨 뒤. 턴 소비 없음(장비 관리 모달).
 	return out
 
 ## 작전 메뉴 버튼(영웅 이동 직후 하위부대 일괄 통솔). [추종][대기][교전][돌격]. → squad-stance.md

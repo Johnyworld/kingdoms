@@ -52,8 +52,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Confirm Dialog (확인 다이얼로그)](features/confirm-dialog.md) — 되돌리기 어려운 동작 전 확인받는 범용 모달(첫 사용처: 건물 철거)
 - [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(첫 소비자: 구성원 메뉴)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
-- [Raid (약탈)](features/raid.md) — 전투로 전멸한 적 부대의 전사자 장비를 승자가 노획(플레이어=선택 패널 / NPC=자동 전량)
-- [Equipment (장비 관리)](features/equipment.md) — 노획 장비를 멤버에게 장착·탈착(무기3·방어구4·방패1 슬롯, 스왑 없음). 행동 메뉴 [장비]로 여는 모달
 - [Lang Battle (랑그릿사 1 오마주 전투 — 게임 정식 전투)](features/lang-battle.md) — 게임의 **정식 전투 시스템**(구 battle.gd 오버레이 대체). 모든 부대 전투가 이 오버레이로 열린다. Resolver(순수 계산)/Presenter(연출) 분리, 원본 RNG·상성·지휘보정·병력바 재현
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 - [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(농장·식량 / 벌목소·목재 / 철광·철 / 금광·금). 생산포인트(1÷거리, 거리 기반) 모델 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 자원 4종 체제
@@ -70,7 +68,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
 - [Stats (능력치 정의)](data/stats.md)
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성
-- [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그. 부대 정보 표시·월드맵 사거리에 사용(전투 판정은 lang 클래스)
 - [Buildings (건물 종류)](data/buildings.md)
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
 
@@ -92,15 +89,12 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 랑그릿사 전투 오버레이 | `scenes/lang_battle/lang_battle.gd` |
 | 부대↔lang 매핑 | `scenes/lang_battle/lang_bridge.gd` |
 | 유닛 카탈로그(클래스·HP) | `scenes/party/game_units.gd` |
-| 아이템(무기·방어구) 카탈로그 | `scenes/item/item_types.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 행동 메뉴 | `scenes/party/party_action_menu.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
 | 구성원 리스트 위젯 | `scenes/members/member_list.gd` |
 | 구성원 메뉴 | `scenes/members/members_menu.gd` |
-| 약탈 패널 | `scenes/loot/loot_menu.gd` |
-| 장비 관리 모달 | `scenes/equip/equip_menu.gd` |
 | 사람(데이터) | `scenes/human/human.gd` |
 | 유닛·부대 카탈로그 | `scenes/party/unit_types.gd` |
 | 건물 | `scenes/building/building.gd` |
@@ -127,5 +121,4 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - **턴/행동력 확장** — 기본 턴 시스템([features/turn.md](features/turn.md))은 도입됨(턴 종료 · 1턴 1이동 · 자원 수입). 남은 것은 행동력(AP) · 공격/전투 행동 · 적 턴(AI) 등으로의 확장이다.
 - **건축 확장** — 건축 코어 로직·리스트 UI·건설 모드 배치([features/building.md](features/building.md))·완성 건물 시야의 fog 반영([features/fog-of-war.md](features/fog-of-war.md))·**캠프 건설**(새 영지 생성)·**철거**([building-info.md#철거](features/building-info.md#철거) — `demolish_refund` 자재 환급)까지 구현됨. 남은 세부: **철거 확인 다이얼로그**, **캠프(거점) 철거**(영지 상실), **건설 중 부분 환급**([building-info.md 미구현](features/building-info.md)).
 - **`entities/Enemy.md`** — 공격 범위가 있으니 적/전투 대상 엔티티가 자연스러운 다음 단계.
-- **`data/items.md`** — 아이템/장비 리스트 (능력치 보정 등).
 - **`features/input-scheme.md`** — 키보드/마우스/게임패드/터치 입력 매핑을 한곳에 정리 (전 플랫폼 배포 목표에 맞춤).

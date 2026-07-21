@@ -58,15 +58,3 @@ func test_button_press_moves_member() -> void:
 	panel.open(orig, newp)
 	(panel._orig_list.get_child(0) as Button).pressed.emit()
 	assert_true(h in newp.members, "버튼 클릭 → 새 부대로 이동")
-
-# --- 노획 장비 분배 ---
-
-func test_loot_section_and_transfer() -> void:
-	var orig := _party_with(2)
-	var newp := _party_with(0)
-	orig.loot_items = ["sword", "bow"]
-	panel.open(orig, newp)
-	assert_gt(panel._loot_list.get_child_count(), 0, "노획 장비 있으면 장비 행 표시")
-	panel._loot_to_new("sword")   # 1개씩
-	assert_false("sword" in orig.loot_items, "원 부대에서 sword 빠짐")
-	assert_true("sword" in newp.loot_items, "새 부대에 sword")

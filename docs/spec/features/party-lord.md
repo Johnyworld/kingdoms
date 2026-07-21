@@ -6,13 +6,13 @@
 
 ## 진입 — `[소속]` 버튼 ([행동 메뉴](party-action-menu.md))
 
-- 플레이어가 **일반부대**를 선택하면 [행동 메뉴](party-action-menu.md)에 **[소속]**이 뜬다(장비 앞).
+- 플레이어가 **일반부대**를 선택하면 [행동 메뉴](party-action-menu.md)에 **[소속]**이 뜬다(맨 뒤).
 - 노출 조건(`game.gd` `_can_manage_lord(party)`): `party.kind == KIND_TROOP` **그리고** (**인접한 아군 영웅부대가 있음** 또는 **이미 소속 보유**(`has_lord`)). 즉 붙일 영웅도 없고 뗄 소속도 없으면 버튼을 숨긴다.
 - 영웅부대(`KIND_HERO`)에는 [소속]이 없다(영웅은 소속을 갖지 않는다).
 
 ## 소속 모달 (`LordMenu`)
 
-`[소속]` → 공용 [Modal](modal.md) 기반 `LordMenu`가 열린다(장비 모달과 같은 컴포지션 패턴, 별도 `.tscn` 없음).
+`[소속]` → 공용 [Modal](modal.md) 기반 `LordMenu`가 열린다(캠프 메뉴와 같은 컴포지션 패턴, 별도 `.tscn` 없음).
 
 - **현재 소속** 라벨: `현재 소속: {영웅 이름}` 또는 `현재 소속: 없음(독립)`.
 - **후보 영웅 버튼**: 그 일반부대에 **인접한 아군 영웅부대** 목록(`game.gd`가 계산해 넘김). 각 버튼 = 그 영웅 이름. 클릭 → `party.set_lord(hero)`(소속 확정) → `changed` 방출 → 닫기.
@@ -45,7 +45,7 @@
 ## 테스트 시나리오
 
 **`[소속]` 버튼** — `test/unit/test_party_action_menu.gd`:
-- [정상] `can_manage_lord=true` → 버튼 목록에 `[소속]` 포함(장비 바로 앞)
+- [정상] `can_manage_lord=true` → 버튼 목록에 `[소속]` 포함(맨 뒤)
 - [경계] `can_manage_lord=false` → `[소속]` 없음
 
 **소속 메서드** — `test/unit/test_party.gd`:

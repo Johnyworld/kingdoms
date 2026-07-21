@@ -52,35 +52,22 @@ func open(party) -> void:
 	_title.text = party.party_name
 	_faction.text = party.faction_name
 	_faction.visible = not party.faction_name.is_empty()   # 세력명이 없으면 줄을 숨긴다.
-	_summary.text = "이동력 %d · 시야 %d · 사거리 %s" % [party.movement(), party.vision(), ItemTypes.range_label(party.attack_range())]
+	_summary.text = "이동력 %d · 시야 %d · 사거리 %s" % [party.movement(), party.vision(), _range_label(party.attack_range())]
 
 	for child in _member_list.get_children():
 		child.free()   # 즉시 제거(다음 프레임까지 낡은 멤버 행이 남지 않도록)
 	for member in party.members:
 		var label := Label.new()
-		var weapon: String = ItemTypes.weapon_name(ItemTypes.primary_weapon(member.weapons))
-		if weapon.is_empty():
-			weapon = "맨손"
-		# 무기를 여럿 들면 주무기 뒤에 보조무기 이름을 (+…)로 덧붙인다.
-		if member.weapons.size() > 1:
-			var extras: Array = []
-			for i in range(1, member.weapons.size()):
-				extras.append(ItemTypes.weapon_name(member.weapons[i]))
-			weapon += " (+%s)" % ", ".join(extras)
-		# 1줄: 이름·HP(현재/최대)·이동·시야, 2줄: 무기.
-		# 공격/방어/회피/막기(구 CombatResolver)는 RPG 전투 수학 폐기로 제거 — 전투는 lang 클래스 판정.
-		label.text = "%s   HP %d/%d   이동 %d / 시야 %d\n  %s" % [
-			member.human_name, member.hit_points, member.max_hp(), member.movement, member.vision,
-			weapon]
-		# 3줄: 착용 방어구 조각 이름(맨몸이면 줄 없음).
-		if not member.armor.is_empty():
-			var pieces: Array = []
-			for a in member.armor:
-				pieces.append(ItemTypes.armor_name(a))
-			label.text += "\n  방어구: %s" % ", ".join(pieces)
+		# 이름·HP(현재/최대)·이동·시야. 장비/무기 표시는 장비 계층 삭제(M4-B)로 제거 — 전투는 lang 클래스.
+		label.text = "%s   HP %d/%d   이동 %d / 시야 %d" % [
+			member.human_name, member.hit_points, member.max_hp(), member.movement, member.vision]
 		_member_list.add_child(label)
 
 	show()
+
+## 사거리 표기. 0 이하 → "근접", 그 외 "사거리 N".
+func _range_label(r: int) -> String:
+	return "근접" if r <= 0 else "사거리 %d" % r
 
 ## 패널을 숨긴다.
 func close() -> void:

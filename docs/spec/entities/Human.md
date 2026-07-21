@@ -52,15 +52,7 @@
 | `apply_rest()` | 휴식 — `hit_points`·`stamina`를 각각 최대의 **25%(반올림)** 만큼 회복(상한 clamp) |
 | `apply_alert()` | 경계 — `stamina`를 최대의 **10%(반올림)** 회복 + `alert = true` |
 
-### 장비 (Equipment)
-
-| 속성 | 변수 | 초기값 | 설명 |
-| --- | --- | --- | --- |
-| 무기 | `weapons` | `[]` | [ItemTypes](../data/items.md) 무기 id **목록(2~3개)**. **첫 원소 = 주무기**. 월드맵 공격거리는 목록 중 최대([Selection & Movement](../features/selection-and-movement.md)). `[]`=맨몸. (구 전투 수학의 무게=회피 페널티는 폐기 — 전투 판정은 lang 클래스) |
-| 방어구 | `armor` | `[]` | 착용 방어구 id 목록(최대 4). 부대 정보 표시용. `[]`=맨몸. (구 전투 수학의 DF 합·상성 분류는 폐기) |
-| 방패 | `shield` | `""` | [ItemTypes](../data/items.md) 방패 id. `""`=없음. 검+방패를 들고도 활을 보조무기로 가질 수 있다. (구 전투 수학의 DF·막기 확률은 폐기) |
-
-슬롯 상한(상수): `MAX_WEAPONS`=`3`(무기), `MAX_ARMOR`=`4`(방어구), 방패는 1개(단일 슬롯). [장비 관리](../features/equipment.md)의 장착이 이 상한을 지킨다.
+> **장비(무기·방어구·방패)는 제거됨(M4-B).** 순수 랑그릿사화 — 유닛의 전투·사거리는 병종(아키타입) lang 클래스([GameUnits](../data/units.md))가 결정하며, 개별 장비 개념은 없다.
 
 ## 동작
 

@@ -7,7 +7,7 @@
 UI 트리는 씬이 아니라 코드(`_build`)로 구성된다.
 (스크립트/노드 이름은 `camp_menu`지만 실제로는 클릭한 건물의 **영지** 정보를 표시한다.)
 
-chrome(딤 배경·제목 바·X·ESC·`ModalStack` 등록 = 지도 입력 차단)은 **공용 [Modal](modal.md)에 위임**하고, 콘텐츠(두 패널)만 `set_content`로 주입한다([구성원 메뉴](members-menu.md)·[장비](equipment.md)와 같은 패턴).
+chrome(딤 배경·제목 바·X·ESC·`ModalStack` 등록 = 지도 입력 차단)은 **공용 [Modal](modal.md)에 위임**하고, 콘텐츠(두 패널)만 `set_content`로 주입한다([구성원 메뉴](members-menu.md)와 같은 패턴).
 
 ## 레이아웃
 

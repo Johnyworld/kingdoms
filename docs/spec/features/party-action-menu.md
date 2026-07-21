@@ -31,8 +31,8 @@
     - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
     - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
     - 활성 부대가 **분할 가능**(멤버 2+ · 인접 빈 칸)하면 `{id="split", label="분할"}`이 추가된다(이동 전만). → [Party Composition](party-composition.md).
-    - **일반부대이고 소속 관리 가능**(`can_manage_lord=true` — 인접 아군 영웅부대 있음 또는 이미 소속 보유)이면 `{id="lord", label="소속"}`이 **장비 바로 앞**에 추가된다([소속 UI](party-lord.md)). 턴 소비 없음.
-  - **맨 뒤에 `{id="equip", label="장비", enabled=true}`**: [장비 관리](equipment.md) 모달을 연다. **행동을 끝내지 않는다**(이동/공격 상태 불변) — 노획 장비 장착·탈착은 턴을 소비하지 않는다.
+    - **일반부대이고 소속 관리 가능**(`can_manage_lord=true` — 인접 아군 영웅부대 있음 또는 이미 소속 보유)이면 `{id="lord", label="소속"}`이 **맨 뒤**에 추가된다([소속 UI](party-lord.md)). 턴 소비 없음.
+  - ([장비] 버튼·장비 관리 모달은 장비 계층 삭제(M4-B)로 제거됨.)
 - `stance_actions() -> Array` — **작전 메뉴**(영웅 이동 직후 하위부대 통솔). 이번 슬라이스는 `[{id="st_follow", label="추종"}, {id="st_hold", label="대기"}]`(둘 다 활성). 교전·돌격은 후속. → [Squad Stance](squad-stance.md).
 - `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
   - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
@@ -88,4 +88,4 @@
 
 ## 관련
 
-- 공격 가능 판정·범위·이동은 [Selection & Movement](selection-and-movement.md), 전투는 [Lang Battle](lang-battle.md), 사거리 표기(`ItemTypes.range_label`)는 [Items](../data/items.md), 정보 패널은 [Party Info](party-info.md).
+- 공격 가능 판정·범위·이동은 [Selection & Movement](selection-and-movement.md), 전투는 [Lang Battle](lang-battle.md), 정보 패널은 [Party Info](party-info.md).

@@ -28,11 +28,6 @@ func test_party_name_settable() -> void:
 
 # --- 병종(월드맵 아이콘 판별) ---
 
-func _armed_human(weapon: String) -> Object:
-	var h := _human()
-	h.weapons = [weapon]
-	return h
-
 func test_is_ranged_true_for_archer_archetype() -> void:
 	assert_true(_troop("light_archer").is_ranged(), "경궁병 아키타입 → 원거리 병종(클래스 기반)")
 
@@ -152,18 +147,6 @@ func test_merge_from_empty_noop() -> void:
 	a.add_member(_human())
 	a.merge_from(_party())   # 빈 부대 병합
 	assert_eq(a.members.size(), 1, "빈 부대 병합은 변화 없음")
-
-func test_merge_from_combines_loot() -> void:
-	# 병합 시 노획 장비도 합쳐져 소실되지 않는다.
-	var a := _party()
-	a.add_member(_human())
-	a.loot_items = ["sword"]
-	var b := _party()
-	b.add_member(_human())
-	b.loot_items = ["bow", "buckler"]
-	a.merge_from(b)
-	assert_eq(a.loot_items, ["sword", "bow", "buckler"], "노획 장비 합쳐짐")
-	assert_true(b.loot_items.is_empty(), "b 노획 장비는 비워짐(이관)")
 
 # --- 병합 가능 판정 (can_merge_with) ---
 
@@ -433,147 +416,6 @@ func test_end_turn_resets_party() -> void:
 	p.mark_moved()
 	tm.end_turn([p], [])
 	assert_false(p.moved_this_turn, "턴 종료 시 부대 이동 상태 리셋")
-
-# --- 노획 장비 (equipment_ids / take_all_equipment) ---
-
-func _equipped_human(weapons: Array, armor: Array, shield := "") -> Object:
-	var h := _human()
-	h.weapons = weapons
-	h.armor = armor
-	h.shield = shield
-	return h
-
-func test_loot_items_empty_at_start() -> void:
-	assert_eq(_party().loot_items.size(), 0, "생성 직후 노획 장비 없음")
-
-func test_equipment_ids_flattens_member_gear() -> void:
-	var p := _party()
-	p.add_member(_equipped_human(["sword", "bow"], ["leather_armor"], "buckler"))
-	assert_eq(p.equipment_ids(), ["sword", "bow", "leather_armor", "buckler"], "무기+방어구+방패 평탄·순서 유지")
-
-func test_equipment_ids_excludes_empty_shield() -> void:
-	var p := _party()
-	p.add_member(_equipped_human(["sword"], [], ""))   # 방패 없음
-	assert_eq(p.equipment_ids(), ["sword"], "빈 방패는 제외")
-
-func test_equipment_ids_keeps_duplicates() -> void:
-	var p := _party()
-	p.add_member(_equipped_human(["sword"], [], ""))
-	p.add_member(_equipped_human(["sword"], [], ""))   # 같은 무기
-	assert_eq(p.equipment_ids(), ["sword", "sword"], "중복 id는 각각 유지")
-
-func test_equipment_ids_empty_when_no_members() -> void:
-	assert_eq(_party().equipment_ids(), [], "멤버 없으면 빈 목록")
-
-func test_take_all_equipment_collects_into_loot() -> void:
-	var winner := _party()
-	var loser := _party()
-	loser.add_member(_equipped_human(["sword"], ["chain_mail"], "kite_shield"))
-	loser.add_member(_equipped_human(["bow"], [], ""))
-	winner.take_all_equipment(loser)
-	assert_eq(winner.loot_items, ["sword", "chain_mail", "kite_shield", "bow"], "패자 장비 전부 loot_items로")
-	assert_eq(loser.equipment_ids(), ["sword", "chain_mail", "kite_shield", "bow"], "source(패자) 장비는 불변")
-
-func test_take_all_equipment_empty_source_noop() -> void:
-	var winner := _party()
-	winner.loot_items = ["sword"]
-	winner.take_all_equipment(_party())   # 멤버 없는 부대
-	assert_eq(winner.loot_items, ["sword"], "장비 없는 source면 변화 없음")
-
-# --- 장비 장착·탈착 (equip_from_loot / unequip_to_loot) ---
-
-func test_can_equip_from_loot_dry_run() -> void:
-	var p := _party()
-	var m := _human()
-	p.add_member(m)
-	p.loot_items = ["sword"]
-	assert_true(p.can_equip_from_loot(m, "sword"), "인벤토리에 있고 빈 슬롯 → 가능")
-	assert_false(p.can_equip_from_loot(m, "bow"), "인벤토리에 없으면 불가")
-	assert_eq(m.weapons, [], "판정만 — 멤버 변화 없음")
-	assert_eq(p.loot_items, ["sword"], "판정만 — 인벤토리 변화 없음")
-	var full := _equipped_human(["sword", "spear", "bow"], [], "")
-	p.add_member(full)
-	assert_false(p.can_equip_from_loot(full, "sword"), "무기 3개면 불가")
-
-func test_equip_weapon_from_loot() -> void:
-	var p := _party()
-	var m := _human()   # 무기 비어 있음
-	p.add_member(m)
-	p.loot_items = ["sword"]
-	assert_true(p.equip_from_loot(m, "sword"), "빈 무기 슬롯에 장착 성공")
-	assert_eq(m.weapons, ["sword"], "멤버 무기에 검")
-	assert_false("sword" in p.loot_items, "인벤토리에서 제거")
-
-func test_equip_armor_and_shield_from_loot() -> void:
-	var p := _party()
-	var m := _human()
-	p.add_member(m)
-	p.loot_items = ["chain_mail", "buckler"]
-	assert_true(p.equip_from_loot(m, "chain_mail"), "방어구 장착")
-	assert_true(p.equip_from_loot(m, "buckler"), "방패 장착(빈 슬롯)")
-	assert_eq(m.armor, ["chain_mail"], "멤버 방어구에 사슬 갑옷")
-	assert_eq(m.shield, "buckler", "멤버 방패에 버클러")
-	assert_eq(p.loot_items, [], "인벤토리 비워짐")
-
-func test_equip_fails_when_slot_full() -> void:
-	var p := _party()
-	var m := _equipped_human(["sword", "spear", "bow"], [], "round_shield")  # 무기 3(꽉), 방패 있음
-	p.add_member(m)
-	p.loot_items = ["mace", "kite_shield"]
-	assert_false(p.equip_from_loot(m, "mace"), "무기 3개면 4번째 장착 실패")
-	assert_false(p.equip_from_loot(m, "kite_shield"), "방패 있으면 장착 실패")
-	assert_eq(p.loot_items, ["mace", "kite_shield"], "실패 시 인벤토리 변화 없음")
-	assert_eq(m.weapons.size(), 3, "무기 그대로 3개")
-
-func test_equip_fails_when_not_in_loot_or_unknown() -> void:
-	var p := _party()
-	var m := _human()
-	p.add_member(m)
-	p.loot_items = ["sword"]
-	assert_false(p.equip_from_loot(m, "bow"), "인벤토리에 없는 장비 실패")
-	assert_false(p.equip_from_loot(m, "없는아이템"), "카탈로그에 없는 id 실패")
-	assert_eq(m.weapons, [], "멤버 무기 변화 없음")
-
-func test_unequip_weapon_to_loot() -> void:
-	var p := _party()
-	var m := _equipped_human(["sword", "bow"], [], "")
-	p.add_member(m)
-	assert_true(p.unequip_to_loot(m, "sword"), "무기 탈착 성공")
-	assert_eq(m.weapons, ["bow"], "검 빠지고 활이 주무기")
-	assert_true("sword" in p.loot_items, "인벤토리로 반환")
-
-func test_unequip_shield_to_loot() -> void:
-	var p := _party()
-	var m := _equipped_human(["sword"], [], "buckler")
-	p.add_member(m)
-	assert_true(p.unequip_to_loot(m, "buckler"), "방패 탈착 성공")
-	assert_eq(m.shield, "", "방패 빔")
-	assert_true("buckler" in p.loot_items, "인벤토리로 반환")
-
-func test_unequip_fails_when_not_equipped() -> void:
-	var p := _party()
-	var m := _equipped_human(["sword"], [], "")
-	p.add_member(m)
-	assert_false(p.unequip_to_loot(m, "bow"), "멤버가 안 가진 장비 탈착 실패")
-	assert_eq(p.loot_items, [], "인벤토리 변화 없음")
-
-# --- 부대 분할 분배 (transfer_loot_to) ---
-
-func test_transfer_loot_to() -> void:
-	var a := _party()
-	var b := _party()
-	a.loot_items = ["sword", "bow"]
-	assert_true(a.transfer_loot_to(b, "sword"), "장비 1개 이동 성공")
-	assert_eq(a.loot_items, ["bow"], "A에서 sword 빠짐")
-	assert_eq(b.loot_items, ["sword"], "B에 sword")
-
-func test_transfer_loot_to_not_held() -> void:
-	var a := _party()
-	var b := _party()
-	a.loot_items = ["sword"]
-	assert_false(a.transfer_loot_to(b, "bow"), "미보유 id는 false")
-	assert_eq(a.loot_items, ["sword"], "A 변화 없음")
-	assert_true(b.loot_items.is_empty(), "B 변화 없음")
 
 # --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
 

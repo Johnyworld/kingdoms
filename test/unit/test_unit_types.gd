@@ -62,18 +62,6 @@ func test_hero_is_demigod() -> void:
 	assert_eq(azel.hit_points, azel.max_hp(), "시작 풀피")
 	assert_gte(azel.hit_points, 100, "영웅 HP 100 이상")
 
-func test_hero_faction_equipment() -> void:
-	var azel = types.make_hero("azel", 0)
-	assert_eq(azel.weapons, ["longsword", "bow"], "아젤 장검+보조 활(override)")
-	assert_eq(azel.shield, "round_shield", "푸른 왕국 라운드 실드")
-	var mage = types.make_hero("balthazar", 0)
-	assert_eq(mage.weapons, ["wand"], "암흑 제국 완드")
-	assert_false(mage.armor.is_empty(), "방어구 세트 적용")
-
-func test_hero_thrower() -> void:
-	var jamila = types.make_hero("qasim", 1)
-	assert_eq(jamila.weapons, ["scimitar", "javelin"], "자밀라 곡도+투창")
-
 func test_hero_party_name() -> void:
 	assert_eq(types.hero_party_name("azel", 0), "아젤 하르윈 부대", "영웅부대명")
 
@@ -97,8 +85,6 @@ func test_make_troop_light_infantry() -> void:
 	for h in t:
 		assert_true(h is Human, "병사는 Human")
 		assert_eq(h.strength, 46, "경보병 힘 46 (하향)")
-		assert_eq(h.weapons, ["spear"], "장창")
-		assert_eq(h.shield, "", "방패 없음(하향)")
 		assert_eq(h.hit_points, h.max_hp(), "풀피")
 		assert_eq(h.hit_points, 23, "경보병 HP 23")
 
@@ -106,15 +92,7 @@ func test_make_troop_light_archer() -> void:
 	var t: Array = types.make_troop("light_archer")
 	assert_eq(t.size(), 10, "경궁병 10명")
 	for h in t:
-		assert_eq(h.weapons, ["bow"], "활")
-		assert_eq(h.shield, "", "방패 없음")
 		assert_eq(h.vision, 7, "시야 7")
-
-func test_troop_members_independent_arrays() -> void:
-	# 각 병사 장비 배열은 독립(.duplicate) — 한 명을 바꿔도 다른 멤버 불변.
-	var t: Array = types.make_troop("light_archer")
-	t[0].weapons.append("sword")
-	assert_eq(t[1].weapons, ["bow"], "다른 병사 무기 불변")
 
 func test_troop_name() -> void:
 	assert_eq(types.troop_name("light_infantry"), "경보병", "경보병 이름")

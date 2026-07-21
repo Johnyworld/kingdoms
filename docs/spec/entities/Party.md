@@ -44,14 +44,6 @@
 | 멤버 | `members` | `Array` | `[]` | 이 부대에 속한 [Human](Human.md) 목록 |
 | 지휘관 | `commander` | `Object` (Human) | `null` | 부대를 이끄는 [Human](Human.md). 멤버 중 하나를 가리킨다. 아직 편성 UI가 없어 생성 시 코드로 지정한다 |
 
-### 노획 장비 (Loot Items)
-
-전투로 전멸시킨 패자 전사자의 장비를 [약탈](../features/raid.md)해 보관한다. 장착되지 않은 채 목록으로만 들고 있다. **분할**([부대 편성](../features/party-composition.md)) 시 분할 패널에서 원 부대 ↔ 새 부대로 나눌 수 있다(`transfer_loot_to`). **병합** 시 노획 장비는 함께 합쳐진다(소실 방지).
-
-| 속성 | 변수 | 타입 | 초기값 | 설명 |
-| --- | --- | --- | --- | --- |
-| 노획 장비 | `loot_items` | `Array` | `[]` | 노획한 장비 아이템 id 목록(무기·방어구·방패, [ItemTypes](../data/items.md)). **중복 허용**(같은 id 여러 개), 용량 제한 없음 |
-
 ### 유도 능력치 (Derived)
 
 멤버들의 능력치에서 계산한다.
@@ -87,12 +79,6 @@
 - `lord_name() -> String` — `lord`의 `commander_name()`. `lord`가 `null`이거나 그 지휘관이 없으면 `"—"`.
 - `set_lord(hero) -> void` — 소속 영웅부대를 지정한다(`lord = hero`). [소속 UI](../features/party-lord.md)가 소속(합류) 확정에 쓴다.
 - `clear_lord() -> void` — 소속을 해제한다(`lord = null`, 독립). [소속 UI](../features/party-lord.md)의 [독립].
-- `equipment_ids() -> Array` — 이 부대 **전 멤버가 장착한 장비 id** 평탄 목록(각 멤버 `weapons` + `armor` + `shield`). 빈 방패(`""`)는 제외, **중복 유지**. [약탈](../features/raid.md) 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
-- `take_all_equipment(source) -> void` — `source.equipment_ids()`를 이 부대 `loot_items`에 전부 더한다(NPC/자동 장비 약탈). `source`는 바뀌지 않는다.
-- `transfer_loot_to(other, id) -> bool` — 이 부대 `loot_items`의 장비 `id` 하나를 `other.loot_items`로 옮긴다. 이 부대가 그 id를 안 가졌으면 `false`(no-op). 성공 시 이 부대에서 그 id 하나 빼고 `other`에 더해 `true`.
-- `can_equip_from_loot(member, id) -> bool` — `member`가 `id`를 장착할 수 있는지 판정(dry-run, 변경 없음). id가 `loot_items`에 있고 슬롯 종류가 명확하며 그 슬롯에 여유가 있으면 `true`. **장착 성공 조건의 단일 출처** — `equip_from_loot`와 [장비 관리 UI](../features/equipment.md)의 `[장착]` 버튼 활성이 모두 이 함수를 쓴다.
-- `equip_from_loot(member, id) -> bool` — 인벤토리(`loot_items`)의 장비 `id`를 `member`에게 장착한다([장비 관리](../features/equipment.md)). `can_equip_from_loot`이 `false`면 no-op으로 `false`. 슬롯은 [`ItemTypes.item_slot`](../data/items.md)로 판별: 무기는 `weapons`(상한 [`MAX_WEAPONS`](Human.md)), 방어구는 `armor`(상한 [`MAX_ARMOR`](Human.md)), 방패는 `shield`(비어 있을 때만). **id가 인벤토리에 없거나 / 슬롯 종류 불명 / 슬롯이 꽉 차면 `false`**(no-op). 성공 시 멤버 슬롯에 넣고 `loot_items`에서 그 id 하나를 빼고 `true`.
-- `unequip_to_loot(member, id) -> bool` — `member`가 장착한 장비 `id`를 빼서 인벤토리(`loot_items`)로 되돌린다. 무기·방어구는 목록에서 그 id 하나 제거(주무기[0]를 빼면 다음 무기가 주무기), 방패는 일치할 때 `""`로. **멤버가 그 장비를 안 갖고 있으면 `false`**(no-op). 성공 시 `loot_items`에 더하고 `true`.
 - `base_movement() -> int` — 아키타입 lang 클래스 `mv`([GameUnits](../data/units.md)). `movement()`가 공유한다.
 - `movement() -> int` — 아키타입 클래스 `mv`([GameUnits](../data/units.md)). 이동 범위·NPC 경로에 반영.
 - `vision() -> int` — 아키타입 카탈로그 시야([GameUnits](../data/units.md)). 전장의 안개 계산에 사용(멤버 수 무관).
@@ -146,20 +132,6 @@
 - [정상] `mark_rested()` 후 `rested_this_turn` 참, `attacked_this_turn` 참(행동 종료), `can_rest()` 거짓
 - [정상] `mark_moved()` 후 `undo_move()` → `moved_this_turn` 거짓, `can_move()` 다시 참
 - [정상] `can_rest()`는 행동 전 참, `mark_attacked()`/`mark_rested()` 후 거짓
-- [정상] `equipment_ids`: 멤버(무기 `["sword","bow"]`·방어구 `["leather_armor"]`·방패 `"buckler"`) → `["sword","bow","leather_armor","buckler"]`(평탄, 순서 유지)
-- [경계] `equipment_ids`는 빈 방패(`shield==""`)를 제외하고, 같은 id 중복은 유지(두 멤버가 `sword`면 두 개); 멤버 없으면 `[]`
-- [정상] `take_all_equipment`: source 멤버 장비 전부가 self `loot_items`에 더해짐(중복 유지), `source`는 불변
-- [경계] `take_all_equipment` 장비 없는 source → `loot_items` 변화 없음
-- [정상] `can_equip_from_loot`: `loot_items`에 `"sword"`·빈 무기 슬롯 → `true`; 무기 3개면 `false`; `loot_items`에 없는 id → `false`(변경 없음)
-- [정상] `equip_from_loot`: `loot_items`에 `"sword"`, 멤버 무기 비었을 때 장착 → `true`, 멤버 `weapons==["sword"]`, `loot_items`에서 제거
-- [정상] `equip_from_loot` 방어구/방패: `"chain_mail"`→멤버 `armor`, `"buckler"`→멤버 `shield`(빈 슬롯)
-- [경계] `equip_from_loot` 슬롯 꽉 참 — 무기 3개(`MAX_WEAPONS`)면 4번째 장착 `false`(no-op); 방패 이미 있으면 `false`; 방어구 4개면 `false`
-- [경계] `equip_from_loot` id가 `loot_items`에 없거나 슬롯 불명(카탈로그 없는 id) → `false`, 변화 없음
-- [정상] `unequip_to_loot`: 멤버 무기 `["sword","bow"]`에서 `"sword"` 탈착 → `true`, 멤버 `["bow"]`, `loot_items`에 `"sword"`
-- [정상] `unequip_to_loot` 방패: 멤버 방패 `"buckler"` 탈착 → `member.shield==""`, `loot_items`에 `"buckler"`
-- [경계] `unequip_to_loot` 멤버가 안 가진 장비 → `false`, 변화 없음
-- [정상] `transfer_loot_to`: A `loot_items`에 `"sword"` → `transfer_loot_to(B, "sword")` = `true`, A에서 빠지고 B에 `"sword"`
-- [경계] `transfer_loot_to` A가 안 가진 id → `false`, 양쪽 변화 없음(중복이면 첫 개만 이동)
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 

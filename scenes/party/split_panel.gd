@@ -10,7 +10,6 @@ var _orig      # 원 부대
 var _new       # 새(분할) 부대
 var _orig_list: VBoxContainer
 var _new_list: VBoxContainer
-var _loot_list: VBoxContainer    # 노획 장비 분배 행(아이템별)
 
 func _ready() -> void:
 	layer = 60
@@ -70,15 +69,6 @@ func _build() -> void:
 	new_col.add_child(_new_list)
 	cols.add_child(new_col)
 
-	# 노획 장비 분배 섹션.
-	vbox.add_child(HSeparator.new())
-	var loot_title := Label.new()
-	loot_title.text = "노획 장비"
-	vbox.add_child(loot_title)
-	_loot_list = VBoxContainer.new()
-	_loot_list.add_theme_constant_override("separation", 4)
-	vbox.add_child(_loot_list)
-
 	vbox.add_child(HSeparator.new())
 	var close_btn := Button.new()
 	close_btn.text = "닫기"
@@ -92,7 +82,7 @@ func open(orig, new) -> void:
 	_refresh()
 	show()
 
-## 멤버·노획 장비 목록을 비우고 다시 채운다.
+## 멤버 목록을 비우고 다시 채운다.
 func _refresh() -> void:
 	for c in _orig_list.get_children():
 		c.free()
@@ -108,69 +98,6 @@ func _refresh() -> void:
 		b.text = "← %s" % h.human_name
 		b.pressed.connect(_to_orig.bind(h))
 		_new_list.add_child(b)
-	_refresh_loot()
-
-## 장비 행: 아이템별 "이름 원N [→][←] 새M". 이름은 ItemTypes.item_name.
-func _refresh_loot() -> void:
-	for c in _loot_list.get_children():
-		c.free()
-	var counts_o := _counts(_orig.loot_items)
-	var counts_n := _counts(_new.loot_items)
-	for id in _union_keys(counts_o, counts_n):
-		var on: int = counts_o.get(id, 0)
-		var nn: int = counts_n.get(id, 0)
-		_loot_list.add_child(_transfer_row(ItemTypes.item_name(id), on, nn, _loot_to_new.bind(id), _loot_to_orig.bind(id)))
-
-## "라벨 원N [→][←] 새M" 한 행. [→]는 원 보유>0일 때만, [←]는 새 보유>0일 때만 활성.
-func _transfer_row(label_text: String, orig_n: int, new_n: int, to_new: Callable, to_orig: Callable) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var name_label := Label.new()
-	name_label.text = label_text
-	name_label.custom_minimum_size = Vector2(90, 0)
-	row.add_child(name_label)
-	var on_label := Label.new()
-	on_label.text = str(orig_n)
-	row.add_child(on_label)
-	var to_new_btn := Button.new()
-	to_new_btn.text = "→"
-	to_new_btn.disabled = orig_n <= 0
-	to_new_btn.pressed.connect(to_new)
-	row.add_child(to_new_btn)
-	var to_orig_btn := Button.new()
-	to_orig_btn.text = "←"
-	to_orig_btn.disabled = new_n <= 0
-	to_orig_btn.pressed.connect(to_orig)
-	row.add_child(to_orig_btn)
-	var nn_label := Label.new()
-	nn_label.text = str(new_n)
-	row.add_child(nn_label)
-	return row
-
-## 두 Dictionary의 키 합집합(첫 등장 순서 유지 — a 먼저, b의 새 키 뒤).
-func _union_keys(a: Dictionary, b: Dictionary) -> Array:
-	var keys: Array = a.keys()
-	for k in b.keys():
-		if not (k in keys):
-			keys.append(k)
-	return keys
-
-## id 목록을 id→개수 Dictionary로.
-func _counts(ids: Array) -> Dictionary:
-	var out: Dictionary = {}
-	for id in ids:
-		out[id] = out.get(id, 0) + 1
-	return out
-
-func _loot_to_new(id: String) -> void:
-	_orig.transfer_loot_to(_new, id)
-	_refresh.call_deferred()
-	changed.emit()
-
-func _loot_to_orig(id: String) -> void:
-	_new.transfer_loot_to(_orig, id)
-	_refresh.call_deferred()
-	changed.emit()
 
 ## 원 부대원을 새 부대로. 리스트 재구성은 지연(버튼 pressed 처리 중 free "locked" 방지).
 func _to_new(human) -> void:

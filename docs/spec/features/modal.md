@@ -7,7 +7,7 @@
 딤 백드롭 + 제목 바 + 우측 상단 X 버튼의 chrome을 제공하고, 콘텐츠는 **호출자가 주입**(컴포지션).
 열려 있는 동안 지도 조작 등 뒤 화면 입력을 막는다.
 
-소비자: [구성원 메뉴](members-menu.md)·[장비](equipment.md)·[캠프 메뉴](camp-menu.md)·[약탈](raid.md)·[확인 다이얼로그](confirm-dialog.md). 남은 자체 chrome 오버레이(결과 화면 등)는 점진적으로 전환한다.
+소비자: [구성원 메뉴](members-menu.md)·[캠프 메뉴](camp-menu.md)·[확인 다이얼로그](confirm-dialog.md). 남은 자체 chrome 오버레이(결과 화면 등)는 점진적으로 전환한다.
 
 ## Modal (`scenes/modal/modal.gd`)
 
@@ -79,4 +79,4 @@
 
 ## 관련
 
-- 소비자: [Members Menu](members-menu.md)·[Equipment](equipment.md)·[Camp Menu](camp-menu.md)(제목=영지 이름)·[Raid](raid.md)(제목=약탈—부대명, `closed` 재방출)·[Confirm Dialog](confirm-dialog.md)(닫힘=취소 수렴, 다른 Modal 위 중첩).
+- 소비자: [Members Menu](members-menu.md)·[Camp Menu](camp-menu.md)(제목=영지 이름)·[Confirm Dialog](confirm-dialog.md)(닫힘=취소 수렴, 다른 Modal 위 중첩).

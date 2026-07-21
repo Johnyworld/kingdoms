@@ -34,11 +34,6 @@ var lord = null
 var members: Array = []   # 이 부대에 속한 Human 목록.
 var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
 
-# --- 노획 장비 ---
-## 전투로 전멸시킨 패자 전사자의 장비 아이템 id 목록(무기·방어구·방패). 장착 안 된 채 보관한다.
-## 중복 허용(같은 id 여러 개), 용량 제한 없음. 멤버에게 장착·탈착(장비 관리)하거나 캠프에서 금으로 판매할 수 있다.
-var loot_items: Array = []
-
 
 const _RADIUS := 12.0
 
@@ -125,89 +120,11 @@ func clear_lord() -> void:
 func command_range() -> int:
 	return GameUnits.command_range(archetype())
 
-## 이 부대 전 멤버가 장착한 장비 id 평탄 목록(각 멤버 weapons + armor + shield). 빈 방패("")는 제외, 중복 유지.
-## 약탈 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
-func equipment_ids() -> Array:
-	var ids: Array = []
-	for h in members:
-		ids.append_array(h.weapons)
-		ids.append_array(h.armor)
-		if h.shield != "":
-			ids.append(h.shield)
-	return ids
-
-## source의 장비(equipment_ids)를 전부 이 부대 loot_items에 더한다(NPC/자동 장비 약탈). source는 바뀌지 않는다.
-func take_all_equipment(source) -> void:
-	loot_items.append_array(source.equipment_ids())
-
-## 이 부대 loot_items의 장비 id 하나를 other.loot_items로 옮긴다(부대 분할 분배). 미보유면 false(no-op).
-func transfer_loot_to(other, id: String) -> bool:
-	if not (id in loot_items):
-		return false
-	loot_items.erase(id)   # 첫 일치 하나
-	other.loot_items.append(id)
-	return true
-
-## member가 인벤토리(loot_items)의 장비 id를 장착할 수 있는지(dry-run). 장착 성공 조건의 단일 출처.
-## id가 인벤토리에 있고, 슬롯 종류가 명확하며, 그 슬롯에 여유가 있어야(무기 MAX_WEAPONS·방어구 MAX_ARMOR·방패 빈칸) true.
-## equip_from_loot의 판정과 장비 관리 UI([장착] 버튼 활성)가 모두 이 함수를 쓴다.
-func can_equip_from_loot(member, id: String) -> bool:
-	if not (id in loot_items):
-		return false
-	match ItemTypes.item_slot(id):
-		ItemTypes.SLOT_WEAPON:
-			return member.weapons.size() < Human.MAX_WEAPONS
-		ItemTypes.SLOT_ARMOR:
-			return member.armor.size() < Human.MAX_ARMOR
-		ItemTypes.SLOT_SHIELD:
-			return member.shield == ""
-		_:
-			return false
-
-## 인벤토리(loot_items)의 장비 id를 member에게 장착한다(장비 관리). 슬롯은 ItemTypes.item_slot로 판별.
-## 스왑 없음 — can_equip_from_loot이 false면 no-op으로 false. 성공 시 슬롯에 넣고 loot_items에서 그 id 하나 제거.
-func equip_from_loot(member, id: String) -> bool:
-	if not can_equip_from_loot(member, id):
-		return false
-	match ItemTypes.item_slot(id):
-		ItemTypes.SLOT_WEAPON:
-			member.weapons.append(id)
-		ItemTypes.SLOT_ARMOR:
-			member.armor.append(id)
-		ItemTypes.SLOT_SHIELD:
-			member.shield = id
-	loot_items.erase(id)   # 첫 일치 하나 제거
-	return true
-
-## member가 장착한 장비 id를 빼서 인벤토리(loot_items)로 되돌린다. 주무기[0]를 빼면 다음 무기가 주무기.
-## 멤버가 그 장비를 안 갖고 있으면 false(no-op). 성공 시 loot_items에 더하고 true.
-func unequip_to_loot(member, id: String) -> bool:
-	match ItemTypes.item_slot(id):
-		ItemTypes.SLOT_WEAPON:
-			if not (id in member.weapons):
-				return false
-			member.weapons.erase(id)
-		ItemTypes.SLOT_ARMOR:
-			if not (id in member.armor):
-				return false
-			member.armor.erase(id)
-		ItemTypes.SLOT_SHIELD:
-			if member.shield != id:
-				return false   # item_slot이 SLOT_SHIELD면 id는 빈 문자열이 아니다(카탈로그 방패 id)
-			member.shield = ""
-		_:
-			return false
-	loot_items.append(id)
-	return true
-
-## 다른 부대(other)의 멤버·노획 장비를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
+## 다른 부대(other)의 멤버를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
 ## 이 부대 지휘관은 유지된다(없으면 add_member가 첫 합류 멤버로 지정). 빈 other면 변화 없음.
-## other의 노획 장비(loot_items)도 합친다(소실 방지).
 func merge_from(other) -> void:
 	for h in other.members.duplicate():
 		add_member(h)
-	loot_items.append_array(other.loot_items)
-	other.loot_items = []
 	other.members = []
 	other.commander = null
 	other.queue_redraw()
@@ -343,7 +260,7 @@ func _draw() -> void:
 		draw_string(font, bpos + Vector2(-tw * 0.5, fs * 0.36), txt,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, a))
 
-	# 토큰 좌하단 병종 아이콘 — 근접=검, 원거리=활(플레이스홀더, 코드 도형). 지휘관 주무기로 판별. → Party.md
+	# 토큰 좌하단 병종 아이콘 — 근접=검, 원거리=활(플레이스홀더, 코드 도형). 병종(archetype)으로 판별. → Party.md
 	_draw_class_icon(a)
 
 ## 좌하단에 병종 아이콘(어두운 배경 원 + 검/활 도형)을 그린다. 에셋 없이 코드 도형 플레이스홀더. → Party.md
