@@ -420,29 +420,7 @@ func _charge_velocity(s: Dictionary) -> Vector2:
 		return Vector2.ZERO
 	return Vector2(signf(dx) * VX, 0.0)  # _move_step 은 X 먼저 → 수평 등속 근사
 
-## 예측 요격: 화살 속도 speed로 from에서 쏜 화살이 (tpos, 속도 tvel) 타겟과 만나는 지점을 2차 방정식으로 푼다.
-## |R + V·T| = speed·T  → (V·V − speed²)T² + 2(R·V)T + R·R = 0. 최소 양수근 T → tpos + V·T. 해 없으면 tpos.
-func _predict_intercept(from: Vector2, tpos: Vector2, tvel: Vector2, speed: float) -> Vector2:
-	var r: Vector2 = tpos - from
-	var a: float = tvel.dot(tvel) - speed * speed
-	var b: float = 2.0 * r.dot(tvel)
-	var c: float = r.dot(r)
-	var t := -1.0
-	if absf(a) < 0.0001:
-		if absf(b) > 0.0001:
-			t = -c / b
-	else:
-		var disc: float = b * b - 4.0 * a * c
-		if disc >= 0.0:
-			var sq: float = sqrt(disc)
-			var t1: float = (-b + sq) / (2.0 * a)
-			var t2: float = (-b - sq) / (2.0 * a)
-			var lo: float = minf(t1, t2)
-			var hi: float = maxf(t1, t2)
-			t = lo if lo > 0.0 else hi   # 최소 양수근
-	if t <= 0.0:
-		return tpos   # 요격 불가(정적/후퇴 등) → 현재 위치
-	return tpos + tvel * t
+## 예측 요격 기하는 순수 함수라 [LangFieldMath](lang_field_math.gd)로 추출(단위 테스트).
 
 ## 활 릴리스 프레임에 호출 — **예측 요격**: 화살과 적이 만나는 지점으로 **고정 포물선** 발사(유도 아님).
 ## 수평 등속 ARROW_VX + 수직 중력 g(정점 ARROW_ARC_PEAK). 정적 타겟/요격 불가면 현재 위치.
@@ -453,7 +431,7 @@ func _spawn_arrow(shooter: Dictionary) -> void:
 	var from: Vector2 = shooter["pos"] + Vector2(shooter["face"] * 5.0, -6.0)
 	var tvel: Vector2 = _charge_velocity(tgt)
 	var is_kill := bool(shooter["arrow_kill"])
-	var aim: Vector2 = _predict_intercept(from, tgt["pos"], tvel, ARROW_VX)
+	var aim: Vector2 = LangFieldMath.predict_intercept(from, tgt["pos"], tvel, ARROW_VX)
 	var to: Vector2 = aim + Vector2(0.0, -4.0)
 	if not is_kill:
 		to += _miss_scatter()   # 빗나감 → 목표 조준점 주변으로 흩뿌려 착탄
@@ -607,16 +585,7 @@ const ROW_SPACE := 16.8   # 3행 사이 세로(상하) 간격 (24의 70%)
 const SEP_DIST := 15.0   # 이 거리보다 가까우면 밀어냄 (스프라이트 몸통 ~16px 감안 — 겹침 완화)
 const SEP_RATE := 9.0    # 분리 속도 계수(초당) — delta 기반으로 부드럽게 수렴(옛 프레임상수 0.4 대체, 미끄러짐 완화)
 
-## 3행 분배: 남는 인원은 아래 행부터 → n=10 이면 [3,3,4].
-func _row_counts(n: int) -> Array:
-	var rows := [n / 3, n / 3, n / 3]
-	var rem := n % 3
-	var ri := 2
-	while rem > 0:
-		rows[ri] += 1
-		ri -= 1
-		rem -= 1
-	return rows
+## 3행 분배는 순수 함수라 [LangFieldMath](lang_field_math.gd)로 추출(단위 테스트). n=10 → [3,3,4].
 
 func _spawn_side(side: int, n: int) -> void:
 	# 스폰은 화면 밖에서 넓게(_spawn_slots) → 돌격해 들어온다. 복귀 위치(home)는 화면 안 진형 자리.
@@ -812,7 +781,7 @@ func others_returned() -> bool:
 func _formation_slots(side: int, n: int) -> Array:
 	var anchor_x := FORM_EDGE_X if side == 0 else (FIELD_W - FORM_EDGE_X)
 	var to_center := 1.0 if side == 0 else -1.0
-	var rows := _row_counts(n)
+	var rows := LangFieldMath.row_counts(n)
 	var out: Array = []
 	for r in range(3):
 		var ry := BASE_Y + (float(r) - 1.0) * ROW_SPACE
@@ -828,7 +797,7 @@ func _spawn_slots(side: int, n: int) -> Array:
 	var edge_x := -SPAWN_EDGE_X if side == 0 else (FIELD_W + SPAWN_EDGE_X)
 	var to_center := 1.0 if side == 0 else -1.0
 	var to_out := -to_center                       # 화면 바깥 방향
-	var rows := _row_counts(n)
+	var rows := LangFieldMath.row_counts(n)
 	var out: Array = []
 	for r in range(3):
 		var ry := BASE_Y + (float(r) - 1.0) * ROW_SPACE

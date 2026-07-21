@@ -76,6 +76,7 @@
 | Resolver | `lang_resolver.gd` | 스탯 조립·상성·지휘보정·교전·명중(§2.1~§2.4). 순수 함수. |
 | Presenter | `lang_battle.gd` | 상태머신으로 결과 재생(§3.2). |
 | 전장 렌더 | `lang_battlefield.gd` | 픽셀아트 전장 + 병사 난투 + 타격 이펙트(§4, §5.1). |
+| 전장 수학 | `lang_field_math.gd` | 렌더러에서 추출한 순수 기하/분배(행 배치·화살 요격 예측). 단위 테스트(M4-D). |
 | HUD | `lang_hud.gd` | 3분할 정보 패널(병력·AT/DF·명중률·VS). |
 
 ## RNG (§2.5)

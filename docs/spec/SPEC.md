@@ -83,6 +83,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 전장의 안개 | `scenes/game/fog.gd` |
 | NPC 이동 AI | `scenes/game/npc_ai.gd` |
 | 랑그릿사 전투 오버레이 | `scenes/lang_battle/lang_battle.gd` |
+| 전장 렌더러(픽셀아트) | `scenes/lang_battle/lang_battlefield.gd` |
+| 전장 순수 기하/분배 수학 | `scenes/lang_battle/lang_field_math.gd` |
 | 부대↔lang 매핑 | `scenes/lang_battle/lang_bridge.gd` |
 | 유닛 카탈로그(클래스·HP) | `scenes/party/game_units.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
