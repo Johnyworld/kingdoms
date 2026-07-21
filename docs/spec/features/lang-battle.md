@@ -9,9 +9,13 @@
 
 ## 게임 통합 (완전 교체 — 진행 중)
 
-`scenes/lang_battle/lang_bridge.gd` (`class_name LangBridge`) — 게임 부대(Party) ↔ lang 전투 유닛 매핑의 단일 출처.
+**유닛 데이터 모델도 순수 랑그릿사로 전환**(진행 중) — 부대 = "클래스 + 병력(HP)"를 가진 유닛. Human 스탯/장비 RPG 계층은 M3에서 제거. 매핑 카탈로그는 `scenes/party/game_units.gd`(`GameUnits`):
+- 아키타입(hero/light_infantry/light_archer) → lang class_id + HP(병력=`max_hp`)·시야·원거리 여부. 이동력·지휘범위·AT/DF는 lang 클래스(class_stats.txt의 `mv`·`cmd_range`·`at`·`df`), HP·시야는 카탈로그(랑그릿사엔 fog 시야 없음).
+- **Party 스탯이 클래스 기반**(M2): `movement`·`vision`·`command_range`·`attack_range`·`is_ranged`·`melee_power`·`ranged_power`가 멤버 Human 집계가 아니라 `GameUnits`(아키타입)에서 나온다. Human `leadership`·무기·개별 스탯은 이 계산에서 미사용.
 
-- **부대 → lang 유닛**(`unit_from_party(party, side)`): `Party.kind == HERO` → 지휘관 클래스(classId 4, `self_cmd=false`, soldiers=`HERO_SOLDIERS` 고정 몫), `troop_type == "light_archer"` → archer(classId 1, kind `"archer"`), 그 외 → infantry(classId 1, kind `"infantry"`). soldiers = 멤버 수, acc_mod·level은 lang_battle.gd 커스텀 유닛과 동일 상수(현재 고정 — 밸런스 튜닝 지점).
+`scenes/lang_battle/lang_bridge.gd` (`class_name LangBridge`) — 게임 부대(Party) ↔ lang 전투 유닛 매핑(전투 결산용). 클래스·병종·HP는 `GameUnits` 위임.
+
+- **부대 → lang 유닛**(`unit_from_party(party, side)`): 클래스·병종·HP는 `GameUnits`(아키타입 = `party.archetype()`). 영웅 → 지휘관 클래스(`self_cmd=false`, soldiers=`GameUnits.max_hp("hero")` 고정 몫), 그 외 → 클래스·kind는 카탈로그, soldiers = 멤버 수(M2 임시 → M3 `party.soldiers`). acc_mod·level은 LangBridge 상수(현재 고정 — 밸런스 튜닝 지점).
 - **lang 결과 → 생존**(`survivors(party, final_soldiers)`): 최종 병력수만큼 멤버를 앞에서부터 유지(영웅은 병력>0이면 Human 1인 생존). `game.gd._apply_survivors` 입력.
 - **치사율 모델**: 게임의 **부대 1회 공격 = lang 1교전**(`resolve_engagement` — 공격 볼리 + 반격 1회). 원작처럼 소모전(한 번에 전멸시키지 않음, 여러 턴 반복 교전).
 

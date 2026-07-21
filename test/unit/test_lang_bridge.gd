@@ -19,7 +19,7 @@ func _party(kind: String, troop_type: String, n: int) -> Node2D:
 
 func test_infantry_unit() -> void:
 	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_TROOP, "light_infantry", 7), 0)
-	assert_eq(u["class_id"], LangBridge.INFANTRY_CLASS, "경보병 classId")
+	assert_eq(u["class_id"], GameUnits.class_id("light_infantry"), "경보병 classId(GameUnits 단일 출처)")
 	assert_eq(u["kind"], "infantry", "병종 infantry")
 	assert_eq(u["max_soldiers"], 7, "soldiers = 멤버 수")
 	assert_eq(u["side"], 0, "side 반영")
@@ -28,15 +28,15 @@ func test_infantry_unit() -> void:
 func test_archer_unit() -> void:
 	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_TROOP, "light_archer", 5), 1)
 	assert_eq(u["kind"], "archer", "병종 archer(근접 상성 페널티 대상)")
-	assert_eq(u["class_id"], LangBridge.ARCHER_CLASS, "경궁병 classId(경보병과 동일 base)")
+	assert_eq(u["class_id"], GameUnits.class_id("light_archer"), "경궁병 classId(경보병과 동일 base)")
 	assert_eq(u["max_soldiers"], 5, "soldiers = 멤버 수")
 	assert_eq(u["side"], 1, "side 반영")
 
 func test_hero_unit() -> void:
 	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_HERO, "", 1), 0)
-	assert_eq(u["class_id"], LangBridge.HERO_CLASS, "영웅 = 지휘관 클래스")
+	assert_eq(u["class_id"], GameUnits.class_id("hero"), "영웅 = 지휘관 클래스")
 	assert_eq(u["kind"], "", "영웅 병종 중립")
-	assert_eq(u["max_soldiers"], LangBridge.HERO_SOLDIERS, "영웅 병력=고정 HP 몫(멤버 수 아님)")
+	assert_eq(u["max_soldiers"], GameUnits.max_hp("hero"), "영웅 병력=고정 HP 몫(멤버 수 아님)")
 	assert_false(u["self_cmd"], "단독 영웅 — 자기 지휘보정 없음")
 
 # --- survivors ---

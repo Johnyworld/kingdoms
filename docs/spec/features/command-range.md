@@ -6,15 +6,14 @@
 
 ## 지휘 범위 — `Party.command_range()`
 
-영웅부대의 지휘 반경(헥스). 영웅 지휘관(`commander`)의 **`leadership`(지휘력)** 스탯으로 결정한다 — 지금까지 미사용이던 스탯에 역할을 준다.
+영웅부대의 지휘 반경(헥스). **부대 아키타입의 lang 클래스 `cmd_range`** 로 결정한다([GameUnits](../data/units.md) → LangData). Human `leadership` 스탯 기반 공식은 [순수 랑그릿사 유닛 모델 전환](lang-battle.md#게임-통합)으로 폐기.
 
 ```
-command_range() = COMMAND_RANGE_BASE + floor(commander.leadership / COMMAND_RANGE_PER)
+command_range() = GameUnits.command_range(archetype())   # = lang 클래스 cmd_range
 ```
 
-- `COMMAND_RANGE_BASE = 2`, `COMMAND_RANGE_PER = 30`.
-- 예: leadership 88 → `2 + 2 = 4`, 42 → `2 + 1 = 3`, 28 → `2 + 0 = 2`. 주력 영웅이 더 넓게 지휘.
-- 지휘관이 없으면(`commander == null`) `0`. 영웅부대가 아니어도 호출은 되지만, 버프 판정은 **일반부대의 `lord`(영웅부대)** 에 대해서만 쓴다.
+- 영웅(클래스 4) `cmd_range = 4`, 경보병·경궁병(클래스 1) `cmd_range = 3`. 아키타입 없으면 `0`.
+- 영웅부대가 아니어도 호출은 되지만, 버프 판정은 **일반부대의 `lord`(영웅부대)** 에 대해서만 쓴다.
 
 ## 버프 판정 — `_in_command(troop)` (`game.gd`)
 
@@ -50,7 +49,7 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 
 | 속성/메서드 | 설명 |
 | --- | --- |
-| `command_range()` | 지휘 반경(헥스). `COMMAND_RANGE_BASE + floor(commander.leadership / COMMAND_RANGE_PER)`, 지휘관 없으면 0 |
+| `command_range()` | 지휘 반경(헥스) = lang 클래스 `cmd_range`(영웅 4·경보병 3), 아키타입 없으면 0 |
 | `command_buffed` | `bool`, 기본 `false`. 지휘 범위 안이라 버프 중인지(맵 배지·전투 플래그의 출처) |
 
 `Human` (`human.gd`): `in_command: bool`(기본 `false`) — 전투 배율 플래그(`CombatResolver`가 읽음).
@@ -77,15 +76,15 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 
 ### 지휘 범위 공식 — `test/unit/test_party.gd`
 
-- [정상] 지휘관 leadership 88 → `command_range() == 4`; 42 → `3`; 28 → `2`
-- [경계] 지휘관 없으면(`commander == null`) `command_range() == 0`
+- [정상] 영웅 부대 → `command_range() == 4`(클래스 4); 경보병 → `3`(클래스 1)
+- [경계] 아키타입 없으면 `command_range() == 0`
 - [정상] 생성 직후 `command_buffed == false`
 
 ### 판정·배지·갱신 (실행 확인)
 
 `_in_command`(부대 거리·lord 위치)·배지 렌더·`_refresh_command_buffs` 호출 시점·전투 직전 플래그 세팅/해제는 씬 트리·터레인 의존이라 실제 실행으로 확인한다.
 
-- 하위부대를 영웅 지휘 범위(예: leadership 88 → 4칸) 안에 두면 배지가 켜지고, 밖으로 나가면 꺼진다.
+- 하위부대를 영웅 지휘 범위(클래스 4 → 4칸) 안에 두면 배지가 켜지고, 밖으로 나가면 꺼진다.
 - 지휘 범위 안 하위부대가 전투하면 공격·방어가 ×1.2(경계까지면 ×1.44)로 적용된다.
 - 영웅부대 자신·소속 없는 독립부대는 배지·버프 없음.
 - NPC 하위부대도 자기 영웅 근처면 버프(배지 표시).
@@ -93,4 +92,4 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 ## 관련
 
 - [Party (부대)](../entities/Party.md) — `lord`·`command_range`·`command_buffed`. [Party Lord](party-lord.md) — 소속 설정. [Squad Stance](squad-stance.md) — 하위부대를 영웅 곁으로 모으는 작전(추종 등).
-- [Combat](combat.md) — 데미지 공식·배율(alert·지휘). [Human](../entities/Human.md) — `leadership`·`in_command`.
+- [Combat](combat.md) — 데미지 공식·배율(alert·지휘). 지휘 범위값은 [GameUnits](../data/units.md) 클래스 `cmd_range`.

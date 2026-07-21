@@ -50,7 +50,7 @@ NPC는 전력을 비교해 무모한 교전을 피하고, 약하면 물러선다
 
 - **원거리 선호 부대**(`attack_range() >= 2` 그리고 `NpcAi.prefers_ranged(melee_power, ranged_power)`)는 적 부대 셀 대신 **적에게서 `[2 ~ attack_range]` 밴드 셀**로 접근한다(`_combat_band_cells`, 5f 밴드 기계 공용). 사거리 안에서 쏘되 적 근접(리치 1)이 못 닿는 거리를 유지 → 적이 붙으면 자연히 물러나는 카이팅.
 - **근접 선호 부대**는 기존대로 적 부대에 **붙는다**(접근).
-- **강점 판정**(`NpcAi.prefers_ranged`): `ranged_power > melee_power`면 원거리 선호(동률·근접 우위면 근접). **부대 파워**(`Party.melee_power()`·`ranged_power()`) = 멤버별 최선 근접/원거리 무기 공격력([weapon_attack](../data/items.md)) 합. 원거리 무기 없는 멤버의 원거리 기여는 0.
+- **강점 판정**(`NpcAi.prefers_ranged`): `ranged_power > melee_power`면 원거리 선호(동률·근접 우위면 근접). **부대 파워**(`Party.melee_power()`·`ranged_power()`) = 병종이 원거리(경궁병)면 원거리 파워 = 클래스 AT × 병력, 근접(경보병/영웅)이면 근접 파워 = 클래스 AT × 병력([GameUnits](../data/units.md)). 반대쪽 파워는 0.
 - 티어 3·4(성벽·폴백)와 무방비 캠프(티어 1)에는 포지셔닝을 적용하지 않는다(건물은 카이팅 대상이 아니고, 폴백은 단순 접근).
 
 ## 수비대 보충 (미구현)

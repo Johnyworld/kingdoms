@@ -33,22 +33,14 @@ func _armed_human(weapon: String) -> Object:
 	h.weapons = [weapon]
 	return h
 
-func test_is_ranged_true_for_bow_commander() -> void:
-	var p := _party()
-	var archer := _armed_human("bow")
-	p.add_member(archer)
-	p.commander = archer
-	assert_true(p.is_ranged(), "지휘관 활(사거리 3) → 원거리 병종")
+func test_is_ranged_true_for_archer_archetype() -> void:
+	assert_true(_troop("light_archer").is_ranged(), "경궁병 아키타입 → 원거리 병종(클래스 기반)")
 
-func test_is_ranged_false_for_melee_commander() -> void:
-	var p := _party()
-	var foot := _armed_human("spear")
-	p.add_member(foot)
-	p.commander = foot
-	assert_false(p.is_ranged(), "지휘관 창(근접) → 근접 병종")
+func test_is_ranged_false_for_melee_archetype() -> void:
+	assert_false(_troop("light_infantry").is_ranged(), "경보병 아키타입 → 근접 병종")
 
 func test_is_ranged_empty_party_defaults_false() -> void:
-	assert_false(_party().is_ranged(), "빈 부대는 근접(기본)")
+	assert_false(_party().is_ranged(), "아키타입 없는 부대는 근접(기본)")
 
 func test_troop_type_defaults_empty() -> void:
 	assert_eq(_party().troop_type, "", "생성 직후 병종은 빈 문자열")
@@ -315,53 +307,38 @@ func test_set_highlight() -> void:
 
 # --- 지휘 범위(command_range) · 지휘 버프(command_buffed) ---
 
-func test_command_range_from_leadership() -> void:
+func test_command_range_from_class() -> void:
+	# 지휘범위는 클래스 기반(lang cmd_range) — 영웅(클래스4)=4, 경보병(클래스1)=3. → game_units.gd
 	var hero := _party()
-	var h := _human()
-	hero.add_member(h)   # 첫 멤버가 지휘관
-	h.leadership = 88
-	assert_eq(hero.command_range(), 4, "88 → 2+floor(88/30)=4")
-	h.leadership = 42
-	assert_eq(hero.command_range(), 3, "42 → 2+floor(42/30)=3")
-	h.leadership = 28
-	assert_eq(hero.command_range(), 2, "28 → 2+floor(28/30)=2")
+	hero.kind = hero.KIND_HERO
+	assert_eq(hero.command_range(), GameUnits.command_range("hero"), "영웅 지휘범위 = 클래스4 cmd_range(4)")
+	assert_eq(_troop("light_infantry").command_range(), GameUnits.command_range("light_infantry"), "경보병 지휘범위 = 클래스1 cmd_range(3)")
 
-func test_command_range_no_commander() -> void:
-	assert_eq(_party().command_range(), 0, "지휘관 없으면 0")
+func test_command_range_no_archetype() -> void:
+	assert_eq(_party().command_range(), 0, "아키타입 없으면 0")
 
 func test_command_buffed_false_by_default() -> void:
 	assert_false(_party().command_buffed, "생성 직후 지휘 버프 없음")
 
-# --- 이동력(min) · 시야(max) 집계 ---
+# --- 이동력 · 시야 · 공격거리 (클래스 기반) → game_units.gd ---
 
-func test_movement_is_min_of_members() -> void:
-	var p := _party()
-	p.add_member(_human(3, 5))
-	p.add_member(_human(2, 5))
-	assert_eq(p.movement(), 2, "이동력은 멤버 중 최소값(가장 느린 멤버)")
+func test_movement_from_class() -> void:
+	var p := _troop("light_infantry")
+	assert_eq(p.movement(), GameUnits.movement("light_infantry"), "이동력 = 클래스 mv(6)")
+	assert_gt(p.movement(), 0, "유효 아키타입이면 이동력 > 0")
 
-func test_movement_zero_without_members() -> void:
-	var p := _party()
-	assert_eq(p.movement(), 0, "멤버 없으면 이동력 0")
+func test_movement_zero_without_archetype() -> void:
+	assert_eq(_party().movement(), 0, "아키타입 없으면 이동력 0(클래스 0)")
 
-func test_vision_is_max_of_members() -> void:
-	var p := _party()
-	p.add_member(_human(3, 5))
-	p.add_member(_human(2, 2))
-	assert_eq(p.vision(), 5, "시야는 멤버 중 최대값")
+func test_vision_from_class() -> void:
+	assert_eq(_troop("light_infantry").vision(), GameUnits.vision("light_infantry"), "시야 = 클래스 카탈로그 시야")
 
-func test_attack_range_is_max_of_members() -> void:
-	var p := _party()
-	var melee := _human()
-	melee.weapons = ["sword"]        # 공격거리 1
-	var archer := _human()
-	archer.weapons = ["sword", "bow"]   # 근접+활 → 최대 사거리 3
-	p.add_member(melee)
-	p.add_member(archer)
-	assert_eq(p.attack_range(), 3, "공격거리는 멤버별 최대 무기 사거리 중 최대")
+func test_attack_range_ranged_vs_melee() -> void:
+	assert_eq(_troop("light_archer").attack_range(), GameUnits.attack_range("light_archer"), "경궁병 공격거리 = 3(원거리)")
+	assert_eq(_troop("light_infantry").attack_range(), 0, "경보병 공격거리 0(근접)")
 
 func test_attack_range_empty_zero() -> void:
-	assert_eq(_party().attack_range(), 0, "멤버 없으면 공격거리 0")
+	assert_eq(_party().attack_range(), 0, "아키타입 없으면 공격거리 0")
 
 # --- 턴당 1이동 상태 ---
 
@@ -602,11 +579,9 @@ func test_transfer_loot_to_not_held() -> void:
 
 var SiegeUnit = load("res://scenes/siege/siege_unit.gd")
 
-## 사람 n명(각 이동력 mv)인 부대.
-func _party_of(n: int, mv := 4) -> Node2D:
-	var p := _party()
-	for i in n:
-		p.add_member(_human(mv))
+## 사람 n명인 부대(경보병 아키타입 — 클래스 기반 이동력·시야). 견인/승무원 게이트 테스트용.
+func _party_of(n: int, _mv := 4) -> Node2D:
+	var p := _troop("light_infantry", n)
 	return p
 
 func test_siege_units_empty_on_create() -> void:
@@ -629,12 +604,6 @@ func test_siege_crew_gate_blocks_move() -> void:
 	var p := _party_of(3, 4)   # 사람 3명 < CREW_MIN 4
 	p.add_siege_unit(SiegeUnit.new())
 	assert_eq(p.movement(), 0, "견인 인력 부족 → 이동 불가")
-
-func test_siege_haul_takes_min_when_crew_slower() -> void:
-	# 사람 기준 이동력이 견인 속도(2)보다 느리면 그 낮은 값이 유지된다.
-	var p := _party_of(4, 1)   # 사람 4명, 이동력 1
-	p.add_siege_unit(SiegeUnit.new())
-	assert_eq(p.movement(), 1, "min(사람 기준 1, 견인 2) = 1")
 
 func test_siege_does_not_affect_vision_range_members() -> void:
 	var p := _party_of(4, 4)   # 사람 이동력·시야 기본
@@ -716,26 +685,18 @@ func test_siege_can_bombard_mixed() -> void:
 
 # --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
 
-func test_melee_power_sums_best_melee() -> void:
-	var p := _party()
-	p.add_member(_equipped_human(["sword"], []))   # 검 공격력 14
-	p.add_member(_equipped_human(["sword"], []))
-	assert_eq(p.melee_power(), 28, "검 든 두 멤버 → 근접 파워 28")
-	assert_eq(p.ranged_power(), 0, "원거리 무기 없음 → 원거리 파워 0")
+func test_melee_power_infantry() -> void:
+	# 클래스 기반: 근접 병종 파워 = 클래스 AT × 병력수, 원거리 파워 0. → game_units.gd
+	var p := _troop("light_infantry", 2)
+	assert_eq(p.melee_power(), GameUnits.base_at("light_infantry") * 2, "경보병 근접 파워 = AT × 병력")
+	assert_eq(p.ranged_power(), 0, "경보병 원거리 파워 0")
 
-func test_ranged_power_sums_best_ranged() -> void:
-	var p := _party()
-	p.add_member(_equipped_human(["bow"], []))   # 활 공격력 12, 근접 없음
-	assert_eq(p.ranged_power(), 12, "활 든 멤버 → 원거리 파워 12")
-	assert_eq(p.melee_power(), 0, "근접 무기 없음 → 근접 파워 0")
+func test_ranged_power_archer() -> void:
+	var p := _troop("light_archer", 3)
+	assert_eq(p.ranged_power(), GameUnits.base_at("light_archer") * 3, "경궁병 원거리 파워 = AT × 병력")
+	assert_eq(p.melee_power(), 0, "경궁병 근접 파워 0")
 
-func test_power_mixed_weapons_count_both() -> void:
+func test_power_no_archetype_zero() -> void:
 	var p := _party()
-	p.add_member(_equipped_human(["sword", "bow"], []))   # 근접 14 + 원거리 12
-	assert_eq(p.melee_power(), 14, "검+활 → 근접 파워 14(검)")
-	assert_eq(p.ranged_power(), 12, "검+활 → 원거리 파워 12(활)")
-
-func test_power_empty_party_zero() -> void:
-	var p := _party()
-	assert_eq(p.melee_power(), 0, "멤버 없으면 근접 0")
-	assert_eq(p.ranged_power(), 0, "멤버 없으면 원거리 0")
+	assert_eq(p.melee_power(), 0, "아키타입 없으면 근접 0")
+	assert_eq(p.ranged_power(), 0, "아키타입 없으면 원거리 0")

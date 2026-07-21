@@ -10,10 +10,11 @@ extends RefCounted
 # class_id 1 = 경보병·경궁병 공통 base(at23/df21). 경궁병은 ranged=true + 근접 병종 상성 페널티(LangResolver).
 # class_id 4 = 지휘관(영웅, at27/df24, cmd_range 4).
 # hp·vision·class 선택은 밸런스 튜닝 지점(현재 병력 10 균일).
+# range = 월드맵 공격거리(헥스). 근접 0, 원거리(경궁병) 3. 사격·NPC 원거리 포지셔닝 판정에 쓴다.
 const ARCHETYPES := {
-	"hero":           {"class_id": 4, "hp": 10, "vision": 6, "ranged": false},
-	"light_infantry": {"class_id": 1, "hp": 10, "vision": 5, "ranged": false},
-	"light_archer":   {"class_id": 1, "hp": 10, "vision": 5, "ranged": true},
+	"hero":           {"class_id": 4, "hp": 10, "vision": 6, "ranged": false, "range": 0},
+	"light_infantry": {"class_id": 1, "hp": 10, "vision": 5, "ranged": false, "range": 0},
+	"light_archer":   {"class_id": 1, "hp": 10, "vision": 5, "ranged": true,  "range": 3},
 }
 
 ## 아키타입 스펙(없는 id면 빈 Dictionary).
@@ -35,6 +36,10 @@ static func vision(arche: String) -> int:
 ## 원거리 병종인지(경궁병). 월드맵 사격·공격거리 판정. 없으면 false.
 static func is_ranged(arche: String) -> bool:
 	return ARCHETYPES.get(arche, {}).get("ranged", false)
+
+## 월드맵 공격거리(헥스). 근접 0, 원거리 3. 없으면 0.
+static func attack_range(arche: String) -> int:
+	return ARCHETYPES.get(arche, {}).get("range", 0)
 
 ## 이동력 = lang 클래스 mv. 아키타입/클래스 없으면 0.
 static func movement(arche: String) -> int:

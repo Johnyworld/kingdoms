@@ -1,6 +1,6 @@
 class_name Party extends Node2D
-## 부대. 맵에서 실제로 움직이는 유닛으로, 여러 Human을 멤버로 거느린다.
-## 이동력은 멤버 중 최소(가장 느린 멤버), 시야는 멤버 중 최대를 따른다.
+## 부대. 맵에서 실제로 움직이는 유닛. 전투·이동력·시야·지휘범위·공격거리는 아키타입(GameUnits→lang 클래스) 기반.
+## (멤버 Human 목록은 병력수/명단으로 남아 있으나 스탯은 미사용 — 순수 랑그릿사 유닛 모델 전환 중, M3에서 정리.)
 ## 맵 토큰으로서 위치·선택·이번 턴 이동 상태·마커 그리기를 담당한다(예전 Human의 역할 이관).
 ## 지금은 임시 플레이스홀더(원형 마커)로 그려지며, 이후 스프라이트로 교체한다.
 
@@ -25,10 +25,6 @@ var kind := KIND_TROOP
 ## 한 부대는 하나의 병종으로 동질하며(병합은 같은 병종끼리만), 병합 가능 판정(can_merge_with)의 기준이다.
 ## 영웅부대는 설정하지 않아 "". is_ranged()(아이콘 전용)와 별개인 명시 필드. → docs/spec/entities/Party.md 병종
 var troop_type := ""
-
-# 지휘 범위 = COMMAND_RANGE_BASE + floor(지휘관 leadership / COMMAND_RANGE_PER). → docs/spec/features/command-range.md
-const COMMAND_RANGE_BASE := 2
-const COMMAND_RANGE_PER := 30
 
 ## 이 일반부대가 소속된 영웅부대(Party) 참조. 독립 부대·영웅부대 자신은 null.
 ## 소속돼도 부대는 독립 토큰으로 자유 이동한다(소속은 메타데이터 — 버프는 미구현). → Party.md 소속(Lord)
@@ -105,12 +101,13 @@ func can_merge_with(other) -> bool:
 		return false
 	return members.size() + other.members.size() <= UnitTypes.TROOP_SIZE
 
-## 이 부대 병종이 원거리인지 — 지휘관(없으면 첫 멤버) 주무기 사거리 ≥ 2면 true. 월드맵 좌하단 병종 아이콘(활/검) 판별. → Party.md
+## 이 부대의 아키타입 id(GameUnits 카탈로그 키). 영웅부대는 "hero", 그 외는 병종(troop_type). → game_units.gd
+func archetype() -> String:
+	return "hero" if kind == KIND_HERO else troop_type
+
+## 이 부대 병종이 원거리인지 — 클래스 기반(경궁병). 월드맵 좌하단 병종 아이콘(활/검)·사격 판별. → Party.md
 func is_ranged() -> bool:
-	var lead = commander if commander != null else (members[0] if not members.is_empty() else null)
-	if lead == null:
-		return false
-	return ItemTypes.weapon_range(ItemTypes.primary_weapon(lead.weapons)) >= 2
+	return GameUnits.is_ranged(archetype())
 
 ## 소속 영웅부대가 있는지(lord != null).
 func has_lord() -> bool:
@@ -128,11 +125,9 @@ func set_lord(hero) -> void:
 func clear_lord() -> void:
 	lord = null
 
-## 영웅부대의 지휘 반경(헥스). 지휘관 leadership 기반. 지휘관 없으면 0. → command-range.md
+## 영웅부대의 지휘 반경(헥스). 클래스 기반(lang cmd_range). → command-range.md
 func command_range() -> int:
-	if commander == null:
-		return 0
-	return COMMAND_RANGE_BASE + int(commander.leadership) / COMMAND_RANGE_PER
+	return GameUnits.command_range(archetype())
 
 ## 이 부대 전 멤버가 장착한 장비 id 평탄 목록(각 멤버 weapons + armor + shield). 빈 방패("")는 제외, 중복 유지.
 ## 약탈 시 패자 전사자 장비 스냅샷으로 쓴다. 멤버·장비 자체는 바꾸지 않는다(읽기 전용).
@@ -222,14 +217,9 @@ func merge_from(other) -> void:
 	other.queue_redraw()
 	queue_redraw()
 
-## 기본 이동력 = 멤버 이동력의 최소값(가장 느린 멤버). 멤버 없으면 0.
+## 기본 이동력 = 클래스 이동력(lang mv). → game_units.gd
 func base_movement() -> int:
-	if members.is_empty():
-		return 0
-	var m: int = members[0].movement
-	for h in members:
-		m = mini(m, h.movement)
-	return m
+	return GameUnits.movement(archetype())
 
 ## 부대 이동력 = 기본 이동력(멤버 최소). 이동 범위·NPC 경로·정보 패널에 쓰인다.
 ## 공성 유닛을 실었으면 견인 규칙을 마저 적용: 사람 < CREW_MIN이면 0(견인 인력 부족),
@@ -300,37 +290,21 @@ func prune_destroyed_siege() -> int:
 	siege_units = kept
 	return removed
 
-## 부대 시야 = 멤버 시야의 최대값. 멤버 없으면 0.
+## 부대 시야 = 클래스 시야(fog). → game_units.gd
 func vision() -> int:
-	if members.is_empty():
-		return 0
-	var v: int = members[0].vision
-	for h in members:
-		v = maxi(v, h.vision)
-	return v
+	return GameUnits.vision(archetype())
 
-## 부대 공격거리 = 멤버 무기 공격거리의 최대값(가장 사거리 긴 멤버). 멤버 없으면 0.
+## 부대 공격거리 = 클래스 공격거리(근접 0·원거리 3). → game_units.gd
 func attack_range() -> int:
-	if members.is_empty():
-		return 0
-	var r := 0
-	for h in members:
-		r = maxi(r, ItemTypes.max_range(h.weapons))
-	return r
+	return GameUnits.attack_range(archetype())
 
-## 부대 근접 파워 = 멤버별 최선 근접 무기 공격력 합(교전 선호 판정, NPC AI). 근접 무기 없는 멤버는 0 기여. → npc-movement.md
+## 부대 근접 파워 = 근접 병종이면 클래스 AT × 병력수, 아니면 0(교전 선호 판정·NPC AI). → npc-movement.md
 func melee_power() -> int:
-	var p := 0
-	for h in members:
-		p += ItemTypes.weapon_attack(ItemTypes.melee_weapon(h.weapons))
-	return p
+	return 0 if GameUnits.is_ranged(archetype()) else GameUnits.base_at(archetype()) * members.size()
 
-## 부대 원거리 파워 = 멤버별 최선 원거리 무기 공격력 합. 원거리 무기(사거리 ≥2) 없는 멤버는 0 기여. → npc-movement.md
+## 부대 원거리 파워 = 원거리 병종이면 클래스 AT × 병력수, 아니면 0. → npc-movement.md
 func ranged_power() -> int:
-	var p := 0
-	for h in members:
-		p += ItemTypes.weapon_attack(ItemTypes.ranged_weapon(h.weapons))
-	return p
+	return GameUnits.base_at(archetype()) * members.size() if GameUnits.is_ranged(archetype()) else 0
 
 ## 토큰 테두리 강조색을 바꾸고 다시 그린다(알파 0 = 없음). NPC 공격 연출. → npc-movement.md
 func set_highlight(color: Color) -> void:
