@@ -3,12 +3,14 @@ extends Control
 ## 게임플레이 씬과 설정 씬은 아직 없으므로 시작/설정은 임시 동작.
 
 @onready var _new_game_button: Button = $NewGameButton
+@onready var _tile_button: Button = $TileButton
 @onready var _start_button: Button = $Menu/StartButton
 @onready var _settings_button: Button = $Menu/SettingsButton
 @onready var _quit_button: Button = $Menu/QuitButton
 
 func _ready() -> void:
 	_new_game_button.pressed.connect(_on_new_game_pressed)
+	_tile_button.pressed.connect(_on_tile_pressed)
 	_start_button.pressed.connect(_on_start_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
@@ -24,6 +26,10 @@ func _ready() -> void:
 ## 전투 테스트: 양 진영 병종·숫자·교전 방식을 고르는 설정 화면으로 진입.
 func _on_new_game_pressed() -> void:
 	SceneManager.change_scene("res://scenes/lang_setup/lang_setup.tscn")
+
+## 타일 보기: 사용 가능한 타일을 격자로 훑어보는 화면으로 진입.
+func _on_tile_pressed() -> void:
+	SceneManager.change_scene("res://scenes/tile_gallery/tile_gallery.tscn")
 
 func _on_start_pressed() -> void:
 	SceneManager.change_scene("res://scenes/game/game.tscn")

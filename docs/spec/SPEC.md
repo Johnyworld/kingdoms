@@ -35,6 +35,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [SceneManager (씬 전환)](features/scene-transition.md)
 - [Splash (스플래시)](features/splash.md)
 - [Title (타이틀 메뉴)](features/title.md)
+- [Tile Gallery (타일 보기)](features/tile-gallery.md) — 사용 가능한 타일을 격자+라벨로 훑어보는 읽기 전용 검사 화면(타이틀 "타일 보기" 버튼)
 - [Map & Camera (맵과 카메라)](features/map-and-camera.md)
 - [Parties (부대 배치)](features/parties.md) — 랑그릿사식 편제: 세력마다 영웅부대 4 + 부하부대 12(경보병2·경궁병1/영웅) = 16부대, 4세력 맵 64부대. 거점 중심에 경보병 1부대(방어)
 - [NPC Bases (NPC 세력 거점)](features/npc-bases.md) — NPC 세력별 수도 영지·캠프 배치, 안개(발견 후 상시 표시)·클릭 정보
