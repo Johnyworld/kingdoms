@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1"]
 [ext_resource type="TileSet" path="res://tiles/terrain_tileset.tres" id="2"]
@@ -10,6 +10,7 @@
 [ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Grass.tres" id="19"]
 [ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Cliff.tres" id="20"]
 [ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Elements.tres" id="21"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Roads.tres" id="22"]
 [ext_resource type="PackedScene" path="res://scenes/party/party.tscn" id="3"]
 [ext_resource type="Script" path="res://scenes/game/range_overlay.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/building/building.gd" id="5"]
@@ -45,6 +46,9 @@ tile_set = ExtResource("18")
 
 [node name="Grass" type="TileMapLayer" parent="TerrainVisual"]
 tile_set = ExtResource("19")
+
+[node name="Roads" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("22")
 
 [node name="Cliff" type="TileMapLayer" parent="TerrainVisual"]
 tile_set = ExtResource("20")

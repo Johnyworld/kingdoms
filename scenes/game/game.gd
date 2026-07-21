@@ -44,6 +44,7 @@ const NPC_BASES := {
 @onready var terrain: TileMapLayer = $TerrainLayer   # 보이지 않는 데이터 레이어(지형타입=source id). 지오메트리·BFS 기준.
 @onready var terrain_visual: Node2D = $TerrainVisual   # LaPetiteTile 오토타일 비주얼 레이어 스택
 @onready var buildings_layer: TileMapLayer = $BuildingsLayer   # 거점 건물 오토타일(세력색) 공유 레이어
+@onready var roads_layer: TileMapLayer = $TerrainVisual/Roads   # 장식용 흙길(거점↔자원지 연결, 이동 무관)
 @onready var camera: Camera2D = $Camera2D
 @onready var party = $Party   # 현재 활성(선택된) 플레이어 부대. 다른 부대 클릭 시 재할당된다. 모든 부대는 _pmgr.units.
 @onready var overlay = $RangeOverlay
@@ -209,6 +210,7 @@ func _generate_map() -> void:
 
 	_place_starting_terrain()
 	_place_river()
+	_place_roads()
 
 	# 카메라 이동 범위(월드 좌표) 계산 — 맵 밖으로 벗어나지 않도록 클램프용.
 	var corner_a := terrain.map_to_local(Vector2i(0, 0))
@@ -246,6 +248,15 @@ func _place_river() -> void:
 		terrain.set_cell(Vector2i(cx, y), Terrain.WATER, Terrain.ATLAS)
 		if y % 2 == 0:   # 군데군데 2칸 폭
 			terrain.set_cell(Vector2i(cx + 1, y), Terrain.WATER, Terrain.ATLAS)
+
+## 장식용 흙길: 플레이어 거점에서 철맥·금맥 자리로 이어지는 길을 Roads 레이어에 그린다.
+## 순수 시각(이동/BFS와 무관). 경로는 HexGrid로 산·물을 우회해 잇는다. → docs/spec/features/map-and-camera.md
+func _place_roads() -> void:
+	var base := PLAYER_BASE
+	for dest in [base + Vector2i(5, -5), base + Vector2i(8, -3)]:   # 철맥·금맥 씨앗(_place_starting_terrain과 동일)
+		var path := HexGrid.reconstruct_path(terrain, base, dest, MAP_WIDTH + MAP_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
+		if path.size() > 1:
+			roads_layer.set_cells_terrain_connect(path, 0, 0)
 
 ## 카메라를 플레이어 거점(남서 모서리) 타일로 이동시킨다.
 func _center_camera() -> void:
