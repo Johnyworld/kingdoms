@@ -23,8 +23,9 @@
 - ✅ **NPC↔NPC 근접 헤드리스**(`game.gd._resolve_battle_headless`, distance ≤ 1·비공성) → `LangResolver.resolve_engagement`(`LangRng` 시드).
 - ⏳ **원거리 헤드리스**(distance ≥ 2) → 아직 `BattleSim`(구 combat). lang 이관은 후속(6-3).
 - ⏳ **공성 헤드리스**(투석기 보유) → 아직 `BattleSim`. lang엔 구조물 전투원 모델이 없어 후속(6-4)에서 결정.
-- ⏳ **플레이어 참여 전투**(오버레이 `_run_battle`) → 아직 `combat/battle.gd`. **presenter 오버레이 API는 완성**(아래) — game.gd 배선(스크린 좌표 통합)은 후속.
+- ✅ **플레이어 근접 전투**(distance≤1·비공성) → **lang 오버레이**(`game.gd._run_lang_overlay`). ⏳ **원거리·공성**은 아직 `combat/battle.gd`(M3-②/③).
   - **presenter 오버레이 API**(`lang_battle.gd`): `overlay_mode`(add_child 전 설정 → `_ready` 자동 로드·입력 내비게이션 끔), `start_overlay(cfg)`(부대 cfg로 전투 재생), `signal finished(a_soldiers, d_soldiers)`(DONE 시 최종 병력수 방출). cfg는 `LangBridge.battle_config(attacker, defender, distance)`가 부대 쌍에서 만든다({a:{kind,count}, b, mode}). 오버레이 입력은 스킵만(재전투·설정복귀 없음).
+  - **game.gd 배선**(`_run_lang_overlay`): lang_battle.tscn(Node2D)을 **CanvasLayer(layer 60)로 감싸** 게임 카메라 무관 스크린 오버레이로 얹고(HudLayer.layer=61), `start_overlay` → `await finished` → 병력수를 `LangBridge.survivors`로 생존 Human에 매핑 → `_run_battle`의 loot·`_apply_survivors`·점령(occupy) 로직 공유. **시각 정확성(위치·레이어)은 실제 플레이로 확인 필요**(헤드리스 검증 불가).
 - ⏳ **지휘 범위 버프·장비 상성·상태이상** → 완전 교체로 전투 판정에서 미사용(장비/약탈 UI는 flavor로 유지). lang 지휘보정(`_cmd_bonus`)과의 통합은 후속.
 
 ## 진입

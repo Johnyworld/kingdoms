@@ -144,6 +144,7 @@ var turn_banner: TurnBanner         # 현재 행동 세력 배너(코드 생성,
 var _npc_turn_active := false       # NPC 턴 진행 중 — 플레이어 좌클릭·턴 종료 잠금. → turn.md
 
 const BATTLE_SCENE := preload("res://scenes/combat/battle.gd")
+const LANG_BATTLE_SCENE := preload("res://scenes/lang_battle/lang_battle.tscn")   # 플레이어 근접 전투 오버레이(lang) → lang-battle.md
 const TITLE_SCENE := "res://scenes/title/title.tscn"
 
 # 건설 모드. 캠프 메뉴에서 건물을 고르면 진입 — 맵을 클릭해 배치한다.
@@ -1000,11 +1001,16 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신 → 전투 배율의 단일 출처. → command-range.md
 	_apply_command_flags(attacker, true)
 	_apply_command_flags(defender, true)
-	var overlay := BATTLE_SCENE.new()
-	add_child(overlay)
-	overlay.start(attacker, defender, distance, include_siege)
-	var result: Array = await overlay.finished   # [a_survivors, b_survivors]
-	overlay.queue_free()
+	# 근접(distance≤1·비공성) = lang 오버레이(완전 교체 전투). 원거리·공성은 아직 combat/battle.gd(M3-②/③). → lang-battle.md
+	var result: Array
+	if not include_siege and distance <= 1:
+		result = await _run_lang_overlay(attacker, defender, distance)
+	else:
+		var overlay := BATTLE_SCENE.new()
+		add_child(overlay)
+		overlay.start(attacker, defender, distance, include_siege)
+		result = await overlay.finished   # [a_survivors, b_survivors]
+		overlay.queue_free()
 	await _resolve_loot(attacker, defender, result[0], result[1])   # 전멸한 패자 전사자 장비 노획(플레이어 승자면 패널)
 	_apply_survivors(attacker, result[0])
 	_apply_survivors(defender, result[1])
@@ -1019,6 +1025,21 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	_update_fog()
 	party_roster.set_parties(_pmgr.units)
 	# 부대 전멸로는 게임 오버되지 않는다(점령 승리만). 승패는 세력 소멸 판정(_update_endgame)에서만 난다.
+
+## lang 근접 전투 오버레이를 띄우고(카메라 무관 CanvasLayer로 감쌈) 종료까지 await, [a생존, d생존] Human 목록 반환.
+## presenter는 부대 cfg로 재생하고 최종 병력수(finished)를 돌려준다 → LangBridge.survivors로 생존 멤버 매핑. → lang-battle.md
+func _run_lang_overlay(attacker, defender, distance: int) -> Array:
+	var layer := CanvasLayer.new()   # Battlefield(Node2D)를 스크린 좌표로(게임 카메라 무관) 얹는다
+	layer.layer = 60
+	add_child(layer)
+	var battle: Node2D = LANG_BATTLE_SCENE.instantiate()
+	battle.overlay_mode = true   # add_child 전 설정 → _ready 자동 로드 안 함
+	layer.add_child(battle)
+	battle.get_node("HudLayer").layer = 61   # 전투 HUD를 전장 위·게임 UI 위로
+	battle.start_overlay(LangBridge.battle_config(attacker, defender, distance))
+	var counts: Array = await battle.finished   # [a_soldiers, d_soldiers]
+	layer.queue_free()
+	return [LangBridge.survivors(attacker, counts[0]), LangBridge.survivors(defender, counts[1])]
 
 ## 세력 소멸 유예 판정(턴 종료마다). 각 세력의 캠프 수로 유예 카운트를 갱신하고, 소멸한 세력은 붕괴시킨다.
 ## 이어서 정복 승리/플레이어 세력 소멸 패배를 판정한다.
