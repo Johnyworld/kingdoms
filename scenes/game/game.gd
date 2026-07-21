@@ -208,6 +208,7 @@ func _generate_map() -> void:
 			terrain.set_cell(Vector2i(x, y), Terrain.PLAINS, Terrain.ATLAS)
 
 	_place_starting_terrain()
+	_place_river()
 
 	# 카메라 이동 범위(월드 좌표) 계산 — 맵 밖으로 벗어나지 않도록 클램프용.
 	var corner_a := terrain.map_to_local(Vector2i(0, 0))
@@ -235,6 +236,16 @@ func _paint_patches(seeds: Array, source_id: int) -> void:
 		terrain.set_cell(center, source_id, Terrain.ATLAS)
 		for n in terrain.get_surrounding_cells(center):
 			terrain.set_cell(n, source_id, Terrain.ATLAS)
+
+## 맵 중앙에 굽이치는 강(WATER)을 배치한다. WATER는 통행 불가라 부대는 돌아가야 한다(다리는 후속).
+## 거점 4곳과 떨어진 중앙, 가장자리엔 안 닿게 해 맵을 완전히 갈라 고립시키지 않는다(양끝으로 우회 가능).
+## Ocean 오토타일이 강가 둑을 자동으로 그린다. → docs/spec/features/map-and-camera.md
+func _place_river() -> void:
+	for y in range(6, 31):
+		var cx := 25 + int(round(3.0 * sin(y * 0.42)))   # 사인 곡선으로 굽이침
+		terrain.set_cell(Vector2i(cx, y), Terrain.WATER, Terrain.ATLAS)
+		if y % 2 == 0:   # 군데군데 2칸 폭
+			terrain.set_cell(Vector2i(cx + 1, y), Terrain.WATER, Terrain.ATLAS)
 
 ## 카메라를 플레이어 거점(남서 모서리) 타일로 이동시킨다.
 func _center_camera() -> void:
