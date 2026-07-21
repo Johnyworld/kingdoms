@@ -157,8 +157,9 @@ func _paint(tsname: String, cells: Array[Vector2i], terrain_set: int, terrain_id
 		_layers[tsname].set_cells_terrain_connect(cells, terrain_set, terrain_id)
 
 func _slot_game_terrain(t: int) -> void:
+	# PAINT 스택이 각 타입의 밑칠(초원 지면/바다)을 이미 포함하므로 그대로 그린다.
+	# (초원 지면을 따로 깔면 물 타입에서 grass가 ocean을 덮어버린다 — 레이어 순서상 ground가 위.)
 	var cells := _block(_origin())
-	_paint("Tileset_Ground", cells, 0, 1)   # 초원 지면 밑칠
 	for op in TerrainRenderer.PAINT[t]:
 		_paint(PAINT_KEY_TS[op[0]], cells, op[1], op[2])
 
