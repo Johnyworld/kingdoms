@@ -31,7 +31,7 @@
 성벽으로 접근이 막히므로, 성벽 있는 **적 거점**은 이번 슬라이스에서 공격·점령 대상이 아니다.
 
 - **점령 제외**: `_compute_camp_targets`가 walled 적 거점은 점령 대상에서 뺀다(무방비여도 성벽이 있으면 진입 불가).
-- **표적 제외**: walled 적 거점 footprint 안에 있는 부대(중심 방어 부대)는 근접·사격 표적에서 제외한다(`_compute_attack_targets`·NPC `_adjacent_enemy`) — 성벽이 안쪽을 보호한다.
+- **표적 제외**: walled 적 거점 footprint 안에 있는 부대(중심 방어 부대)는 근접·사격 표적에서 제외한다(`_compute_attack_targets`·NPC `NpcPlanner.adjacent_enemy`) — 성벽이 안쪽을 보호한다.
 - 결과: 성벽 있는 마을회관·성은 **[사다리](#사다리-공성-siege--gamegd) 통로 돌파** 또는 **[투석](siege-engines.md#투석-공성-성벽)으로 성벽을 부수기** 전에는 함락 불가.
 
 ## 성벽 내구도 (`Building.wall_hp` · `Siege`)
@@ -94,13 +94,13 @@
 
 ### 통로 돌파 (breach)
 
-돌파 경로는 두 가지다: **사다리**(준비 완료된 면) 또는 **성문 파괴**(`gate_broken`). 둘 다 `_wall_blocked_cells`가 해당 통로 칸의 차단을 풀고, `_breached_by`가 참이 되어 [공격·점령](camp-capture.md)이 열린다.
+돌파 경로는 두 가지다: **사다리**(준비 완료된 면) 또는 **성문 파괴**(`gate_broken`). 둘 다 `wall_blocked_cells`가 해당 통로 칸의 차단을 풀고, `breached_by`가 참이 되어 [공격·점령](camp-capture.md)이 열린다.
 
 - **성문 통로**: `gate_broken`이면 **모든 적 세력**에게 `gate_cell` + 중심의 차단을 해제한다(성문은 물리적으로 열린 것 — 세력 무관). `_breached_by(b, faction)`는 사다리 통로 **또는** `b.gate_broken()`이면 참.
-- **준비 완료(`countdown == 0`)** 사다리는 그 `faction`에게 **`target_cell`(ring) + 거점 `center_cell()`**의 성벽 차단을 해제한다(`_wall_blocked_cells`가 그 두 칸을 그 세력엔 막지 않음). 나머지 footprint는 여전히 차단 = **방향 제한**(사다리 통로로만 진입).
+- **준비 완료(`countdown == 0`)** 사다리는 그 `faction`에게 **`target_cell`(ring) + 거점 `center_cell()`**의 성벽 차단을 해제한다(`wall_blocked_cells`가 그 두 칸을 그 세력엔 막지 않음). 나머지 footprint는 여전히 차단 = **방향 제한**(사다리 통로로만 진입).
 - 이후 그 세력은 통로로 진입해 중심 [방어 부대와 전투](battle.md)·[점령](camp-capture.md)한다 — **기존 이동·전투·점령 재사용**. 준비된 사다리가 있으면 walled 거점도 공격·점령 대상 판정에서 그 세력에겐 열린다:
-  - 플레이어: `_compute_camp_targets`가 `_breached_by`면 점령 대상에 포함.
-  - NPC: `_adjacent_enemy_camp`가 `_breached_by`면 흡수 대상에 포함(그 전엔 성벽 거점 제외).
+  - 플레이어: `_compute_camp_targets`가 `breached_by`면 점령 대상에 포함.
+  - NPC: `NpcPlanner.adjacent_enemy_camp`가 `breached_by`면 흡수 대상에 포함(그 전엔 성벽 거점 제외).
 - 거점이 **점령·파괴**되면 그 거점의 사다리를 모두 제거한다.
 
 ## 이번 슬라이스 제외 (미구현)
