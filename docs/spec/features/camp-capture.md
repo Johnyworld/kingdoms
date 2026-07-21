@@ -9,12 +9,12 @@
 
 거점을 지키는 **수비대는 별도 개념이 아니라 그냥 [부대](../entities/Party.md)**다. 방어는 특별한 상태(예전 `stationed`/주둔)가 아니라, **거점 중심 타일 위에 그 거점 세력의 부대가 있음**(`_camp_defender`)으로 창발한다.
 
-- **방어됨** = 중심 타일을 그 거점 세력 부대가 점거 → 점령 전에 먼저 그 부대를 [공격](battle.md)해 격파해야 한다(중심에 진입할 수 없으므로).
+- **방어됨** = 중심 타일을 그 거점 세력 부대가 점거 → 점령 전에 먼저 그 부대를 [공격](lang-battle.md)해 격파해야 한다(중심에 진입할 수 없으므로).
 - **무방비** = 중심 타일에 그 거점 세력 부대가 없음 → 바로 [흡수/파괴] 대상.
 - 다른 세력 부대(격파 후 진입한 공격자 포함)가 중심에 서 있어도 그 거점 세력이 아니면 방어로 치지 않는다.
 - **초기 배치**: 게임 시작 시 각 거점 중심 타일에 경보병 일반부대 1개를 세운다([시작 편제](parties.md)) — 별도 상태 없이 그 자리를 점거해 방어자가 된다. 플레이어·NPC 모두 병력을 안에 두어야 거점이 지켜진다.
 
-**정보 표시** — 완성 **거점**이고 중심 타일에 그 거점 세력 부대가 있으면 중심 아래에 `"수비 N"` 배지(N = 그 부대 인원, `Building.defender_count`, `_refresh_garrison_badges`가 갱신)를 그린다. [거점 정보 패널](building-info.md)에도 `"수비대 N명"`을 표시한다. 성벽 안 중심 방어 부대의 [사다리 밀기](wall.md#사다리-밀기-방어)는 성벽 방어 참조.
+**정보 표시** — 완성 **거점**이고 중심 타일에 그 거점 세력 부대가 있으면 중심 아래에 `"수비 N"` 배지(N = 그 부대 인원, `Building.defender_count`, `_refresh_garrison_badges`가 갱신)를 그린다. [거점 정보 패널](building-info.md)에도 `"수비대 N명"`을 표시한다.
 
 세력 소멸·정복 승리는 [승패](victory.md) 참조(캠프 0 → 10턴 유예 → 소멸).
 
@@ -25,8 +25,7 @@
 - **발견된**(`camp.visible`) NPC 거점만 대상. 미발견(안개) 거점은 제외.
 - 부대가 그 캠프에 **인접 가능**하면 점령 대상 — `_camp_stand(camp, start)`가 설 자리(현재 칸 또는 이동범위 내 인접 칸)를 돌려주면 점령 가능, 없으면(`Vector2i(-1,-1)`) 제외.
   - 판정: 캠프 7칸 중 하나라도 이웃 칸이 (현재 칸 ∪ 이동 도달 칸 `_reachable`)에 있으면 인접 가능. 이미 인접이면 현재 칸을 설 자리로.
-- **[성벽](wall.md) 있는 적 거점은 점령 대상이 아니다** — 적 부대가 footprint에 진입할 수 없어 중심에 도달할 수 없다(사다리·공성병기 = 후속 슬라이스). `_compute_camp_targets`가 walled 적 거점을 건너뛴다.
-- 성벽 없는 거점은 `game.gd`의 `_compute_camp_targets`가 인접 가능한 대상을 기록한다. **그 거점 세력의 부대가 중심을 지키는지(`_camp_defender`)로 갈린다**([거점 방어](#거점-방어-창발--중심-점거)) — 지키면 그 부대를 [공격](일반 부대 전투), **수비 부대가 없는(무방비) 거점만 `_capture_targets`(점령 대상)**. 점령은 **중심 타일 진입**으로 성립하므로, 수비 부대가 있으면 먼저 격파해야 진입·점령할 수 있다(격파 후 중심에 선 공격자는 그 거점 세력이 아니라 방어로 치지 않는다).
+- `game.gd`의 `_compute_camp_targets`가 인접 가능한 대상을 기록한다. **그 거점 세력의 부대가 중심을 지키는지(`_camp_defender`)로 갈린다**([거점 방어](#거점-방어-창발--중심-점거)) — 지키면 그 부대를 [공격](일반 부대 전투), **수비 부대가 없는(무방비) 거점만 `_capture_targets`(점령 대상)**. 점령은 **중심 타일 진입**으로 성립하므로, 수비 부대가 있으면 먼저 격파해야 진입·점령할 수 있다(격파 후 중심에 선 공격자는 그 거점 세력이 아니라 방어로 치지 않는다).
 - 표시: 두 경우 모두 캠프 칸을 [공격 가능 적]과 같은 **빨강 오버레이**로 그린다(MOVE 모드). → [Selection & Movement](selection-and-movement.md).
 
 ## 점령 흐름 (클릭 → 팝업 → 실행)
@@ -46,7 +45,7 @@
 
 ## 소유권 이전 (`_transfer_camp` → `BuildingManager.transfer_camp`)
 
-캠프 점령의 소유권 이전을 플레이어·NPC가 공유하는 `_transfer_camp(camp, new_faction)`으로 처리한다. 도메인(영지 세력 이동·건물/수입 목록 재배치)은 `BuildingManager.transfer_camp`가 맡고 `{territory_name, old_faction_name}`을 반환, game.gd는 사다리 무효·토스트·표시·패배 확인만 한다(`test_building_manager.gd`가 도메인을 커버).
+캠프 점령의 소유권 이전을 플레이어·NPC가 공유하는 `_transfer_camp(camp, new_faction)`으로 처리한다. 도메인(영지 세력 이동·건물/수입 목록 재배치)은 `BuildingManager.transfer_camp`가 맡고 `{territory_name, old_faction_name}`을 반환, game.gd는 토스트·표시·패배 확인만 한다(`test_building_manager.gd`가 도메인을 커버).
 
 - **영지 이전**: [`Territory.transfer_to(new_faction)`](../entities/Territory.md) — 이전 세력에서 제거(`Faction.remove_territory`) → `new_faction`에 편입(`Faction.add_territory`). `faction` setter가 `changed`를 방출한다.
 - **건물 리스트 재배치**(소유주에 따라):

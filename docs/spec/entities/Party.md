@@ -52,24 +52,13 @@
 | --- | --- | --- | --- | --- |
 | 노획 장비 | `loot_items` | `Array` | `[]` | 노획한 장비 아이템 id 목록(무기·방어구·방패, [ItemTypes](../data/items.md)). **중복 허용**(같은 id 여러 개), 용량 제한 없음 |
 
-### 공성 유닛 (Siege Units)
-
-멤버(사람)와 별개로 **공성 유닛**(투석기 등)을 실을 수 있다([Siege Engines](../features/siege-engines.md)). 인구를 차지하지 않는 재사용 장비 유닛이라 시야·공격거리·전투에 영향을 주지 않는다. 실으면 부대가 느려지고(견인 이동), 끌 인력(사람 4명)이 있어야 움직인다.
-
-| 속성 | 변수/메서드 | 타입 | 초기값 | 설명 |
-| --- | --- | --- | --- | --- |
-| 공성 유닛 | `siege_units` | `Array` | `[]` | 실은 [SiegeUnit](../features/siege-engines.md) 목록(투석기 등). `members`와 별개, **인구 비소모** |
-| 공성 유닛 보유 | `has_siege()` | `bool` | — | `siege_units`가 비지 않았는지. 견인 이동 규칙 적용 여부 |
-
-- `add_siege_unit(unit) -> void` — 공성 유닛을 `siege_units`에 추가한다([공성 작업장 생산](../features/siege-engines.md#획득--공성-작업장에서-생산)).
-
 ### 유도 능력치 (Derived)
 
 멤버들의 능력치에서 계산한다.
 
 | 속성 | 메서드 | 규칙 | 설명 |
 | --- | --- | --- | --- |
-| 이동력 | `movement()` | **클래스 `mv`**, **공성 유닛 실으면** 견인 규칙 적용 | 기본 = 아키타입 lang 클래스 `mv`([GameUnits](../data/units.md), 경보병·영웅 6). **공성 유닛 보유 시**([Siege Engines](../features/siege-engines.md)): 사람(`members`) `< SiegeTypes.CREW_MIN`(4)이면 `0`(견인 불가), 아니면 `min(클래스 mv, 견인 이동력 2)`. |
+| 이동력 | `movement()` | **클래스 `mv`** | 아키타입 lang 클래스 `mv`([GameUnits](../data/units.md), 경보병·영웅 6). 멤버 구성과 무관(같은 병종). |
 | 시야 | `vision()` | **클래스 시야** | 아키타입 카탈로그 시야([GameUnits](../data/units.md), 경보병 5·영웅 6). 멤버 수와 무관 |
 | 공격거리 | `attack_range()` | **클래스 공격거리** | 근접 0·원거리(경궁병) 3([GameUnits](../data/units.md)). 월드맵 공격 개시 거리 |
 
@@ -80,7 +69,7 @@
 | 위치 | `position` | Node2D 위치. 맵 토큰으로서 부대가 선 칸 |
 | 선택됨 | `selected` | 선택 상태. `set_selected(value)`로 변경 시 강조 링을 다시 그린다 |
 | 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지 |
-| 이번 턴 공격함 | `attacked_this_turn` | 이번 턴에 이미 공격했는지. 공격은 그 부대의 행동을 끝낸다([전투](../features/battle.md)) |
+| 이번 턴 공격함 | `attacked_this_turn` | 이번 턴에 이미 공격했는지. 공격은 그 부대의 행동을 끝낸다([전투](../features/lang-battle.md)) |
 | 이번 턴 휴식함 | `rested_this_turn` | 이번 턴 `[휴식]`/`[대기]`을 선택했는지([행동 메뉴](../features/party-action-menu.md)). 회복 연동은 `미구현` |
 
 한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다.
@@ -105,12 +94,7 @@
 - `equip_from_loot(member, id) -> bool` — 인벤토리(`loot_items`)의 장비 `id`를 `member`에게 장착한다([장비 관리](../features/equipment.md)). `can_equip_from_loot`이 `false`면 no-op으로 `false`. 슬롯은 [`ItemTypes.item_slot`](../data/items.md)로 판별: 무기는 `weapons`(상한 [`MAX_WEAPONS`](Human.md)), 방어구는 `armor`(상한 [`MAX_ARMOR`](Human.md)), 방패는 `shield`(비어 있을 때만). **id가 인벤토리에 없거나 / 슬롯 종류 불명 / 슬롯이 꽉 차면 `false`**(no-op). 성공 시 멤버 슬롯에 넣고 `loot_items`에서 그 id 하나를 빼고 `true`.
 - `unequip_to_loot(member, id) -> bool` — `member`가 장착한 장비 `id`를 빼서 인벤토리(`loot_items`)로 되돌린다. 무기·방어구는 목록에서 그 id 하나 제거(주무기[0]를 빼면 다음 무기가 주무기), 방패는 일치할 때 `""`로. **멤버가 그 장비를 안 갖고 있으면 `false`**(no-op). 성공 시 `loot_items`에 더하고 `true`.
 - `base_movement() -> int` — 아키타입 lang 클래스 `mv`([GameUnits](../data/units.md)). `movement()`가 공유한다.
-- `movement() -> int` — 기본 = `base_movement()`(아키타입 클래스 `mv`). **공성 유닛을 실었으면**([Siege Engines](../features/siege-engines.md)) 견인 규칙 적용: 사람(`members`) 수가 `SiegeTypes.CREW_MIN`(4) 미만이면 `0`(견인 인력 부족), 아니면 견인 이동력(투석기 2)으로 `min` 상한. 이동 범위·NPC 경로에 반영.
-- `has_siege() -> bool` — `siege_units`가 비지 않았는지. 견인 이동 규칙(`movement`)·[정보 패널](../features/party-info.md) 표시에 쓴다.
-- `add_siege_unit(unit) -> void` — 공성 유닛([SiegeUnit](../features/siege-engines.md))을 `siege_units`에 추가한다([공성 작업장 생산](../features/siege-engines.md)). 인구·멤버에는 영향 없다.
-- `siege_fire_range() -> int` / `siege_min_range() -> int` — 실은 공성 유닛의 **최대/최소 투석 사거리**(없으면 0). [투석](../features/siege-engines.md#투석-공성-성벽) 대상은 이 **밴드**(예: 4~5) 안 거리여야 한다.
-- `siege_attack() -> int` — 실은 공성 유닛의 **최대 공격력**(없으면 0). 투석 데미지 기준값([`Siege.rolled_damage`](../features/wall.md#성벽-내구도-buildingwall_hp--siege)).
-- `prune_destroyed_siege() -> int` — `hit_points <= 0`인 [공성 유닛](../features/siege-engines.md#투석기-피격파괴-방어-카운터플레이)을 `siege_units`에서 제거하고 제거 수를 반환한다([투석 결투](../features/siege-engines.md)에서 파괴된 투석기 정리). 없으면 0.
+- `movement() -> int` — 아키타입 클래스 `mv`([GameUnits](../data/units.md)). 이동 범위·NPC 경로에 반영.
 - `vision() -> int` — 아키타입 카탈로그 시야([GameUnits](../data/units.md)). 전장의 안개 계산에 사용(멤버 수 무관).
 - `attack_range() -> int` — 아키타입 클래스 공격거리(근접 0·원거리 3, [GameUnits](../data/units.md)). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
 - `melee_power() -> int` / `ranged_power() -> int` — 교전 선호 판정([NPC 이동](../features/npc-movement.md))용 파워. 병종이 근접이면 `melee_power = 클래스 AT × members.size()`·`ranged_power = 0`, 원거리(경궁병)면 반대. [GameUnits](../data/units.md) 기반.
@@ -178,12 +162,6 @@
 - [경계] `transfer_loot_to` A가 안 가진 id → `false`, 양쪽 변화 없음(중복이면 첫 개만 이동)
 - [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
-- [정상] 생성 직후 `siege_units` 빈 배열, `has_siege() == false`
-- [정상] `add_siege_unit(SiegeUnit.new())` 후 `siege_units` 크기 1, `has_siege() == true`
-- [정상] 경보병 4명 + 투석기 1대 → `movement() == 2`(견인 속도 상한 min(클래스 mv, 2))
-- [경계] 사람 3명 + 투석기 → `movement() == 0`(견인 인력 부족)
-- [정상] 경보병 4명 + 충차 → `movement() == 1`(충차 견인 상한)
-- [정상] 투석기 추가는 `vision()`·`attack_range()`·`members`에 영향 없음(인구 비소모)
 
 ## 관련
 

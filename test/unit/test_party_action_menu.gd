@@ -77,35 +77,6 @@ func test_capture_actions_both_enabled() -> void:
 	assert_true(_by_id(a, "absorb")["enabled"], "흡수 활성")
 	assert_true(_by_id(a, "destroy")["enabled"], "파괴 활성")
 
-# --- 사다리 (party_actions can_place_ladder / can_push_ladder) ---
-
-func test_party_actions_place_ladder() -> void:
-	# 성벽 적 거점 인접(can_place_ladder) → [사다리 설치]가 [장비] 앞.
-	assert_eq(_ids(PartyActionMenu.party_actions(false, false, false, false, true)), ["shoot", "rest", "alert", "ladder", "equip"], "성벽 적 거점 인접이면 사다리 설치 추가")
-
-func test_party_actions_no_ladder_when_cannot() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(false, false, false, false, false)), ["shoot", "rest", "alert", "equip"], "인접 아니면 사다리 설치 없음")
-
-func test_party_actions_push_ladder() -> void:
-	# 자기 거점 중심 점거 + 그 거점 겨눈 사다리 있음(can_push_ladder) → [사다리 밀기] 포함, [사다리 설치]는 없음.
-	var ids := _ids(PartyActionMenu.party_actions(false, false, false, false, false, true))
-	assert_has(ids, "push_ladder", "겨눈 사다리 있으면 사다리 밀기")
-	assert_does_not_have(ids, "ladder", "설치는 없음")
-
-func test_party_actions_no_push_ladder_when_none() -> void:
-	assert_does_not_have(_ids(PartyActionMenu.party_actions(false, false, false, false, false, false)), "push_ladder", "겨눈 사다리 없으면 밀기 없음")
-
-# --- 투석 (party_actions can_bombard) → docs/spec/features/siege-engines.md ---
-
-func test_party_actions_bombard_when_can() -> void:
-	# 투석기 실음 + 사거리 안 성벽 적 거점(can_bombard) → [투석]이 [장비] 앞.
-	var ids := _ids(PartyActionMenu.party_actions(false, false, false, false, false, false, true))
-	assert_has(ids, "catapult", "투석 가능 시 [투석] 추가")
-	assert_true(ids.find("catapult") < ids.find("equip"), "[투석]은 [장비] 앞")
-
-func test_party_actions_no_bombard_when_cannot() -> void:
-	assert_does_not_have(_ids(PartyActionMenu.party_actions(false, false, false, false, false, false, false)), "catapult", "투석 대상 없으면 [투석] 없음")
-
 # --- 병합 팝업 (merge_actions) ---
 
 func test_merge_actions_button() -> void:
@@ -136,9 +107,9 @@ func test_party_actions_equip_always_last() -> void:
 
 func test_party_actions_lord_when_can_manage() -> void:
 	# 일반부대 + 소속 관리 가능 → [소속]이 장비 바로 앞.
-	var out := PartyActionMenu.party_actions(false, true, false, false, false, false, false, true)
+	var out := PartyActionMenu.party_actions(false, true, false, false, true)
 	assert_eq(_ids(out), ["shoot", "rest", "alert", "lord", "equip"], "소속 버튼이 장비 앞에 추가")
 
 func test_party_actions_no_lord_when_cannot() -> void:
-	var out := PartyActionMenu.party_actions(false, true, false, false, false, false, false, false)
+	var out := PartyActionMenu.party_actions(false, true, false, false, false)
 	assert_false("lord" in _ids(out), "소속 관리 불가 시 [소속] 없음")

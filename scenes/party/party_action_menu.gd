@@ -12,9 +12,9 @@ var _root: Control
 var _panel: PanelContainer
 var _list: VBoxContainer
 
-## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계](+분할·사다리 설치/밀기·투석·소속), 이동 후 [사격][대기](+취소).
-## 노드 비의존. → wall.md · siege-engines.md · party-lord.md
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false) -> Array:
+## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계](+분할·소속), 이동 후 [사격][대기](+취소).
+## 노드 비의존. → party-lord.md  (공성 삭제로 사다리/투석 액션 제거)
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, can_manage_lord := false) -> Array:
 	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
 	if moved:
 		out.append({"id": "wait", "label": "대기", "enabled": true})
@@ -25,12 +25,6 @@ static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_
 		out.append({"id": "alert", "label": "경계", "enabled": true})
 		if can_split:
 			out.append({"id": "split", "label": "분할", "enabled": true})
-	if can_place_ladder:
-		out.append({"id": "ladder", "label": "사다리 설치", "enabled": true})   # 성벽 적 거점 인접 → 공성 → wall.md
-	if can_push_ladder:
-		out.append({"id": "push_ladder", "label": "사다리 밀기", "enabled": true})   # 자기 거점 중심 점거 + 겨눈 사다리 저지(15% 파괴) → wall.md
-	if can_bombard:
-		out.append({"id": "catapult", "label": "투석", "enabled": true})   # 투석기 실음 + 사거리 안 성벽 적 거점 → 투석 → siege-engines.md
 	if can_manage_lord:
 		out.append({"id": "lord", "label": "소속", "enabled": true})   # 일반부대 소속 영웅 설정/해제(인접 영웅) → party-lord.md
 	out.append({"id": "equip", "label": "장비", "enabled": true})   # 항상 맨 뒤. 턴 소비 없음(장비 관리 모달).

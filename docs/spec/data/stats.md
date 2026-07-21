@@ -24,7 +24,7 @@
 
 | 능력치 | 변수 | 초기값 | 비고 |
 | --- | --- | --- | --- |
-| 히트포인트(현재) | `hit_points` | 20 | 현재 생명점. 전투 후에도 지속([Battle](../features/battle.md)). 생성 시 `max_hp()`로 채움 |
+| 히트포인트(현재) | `hit_points` | 20 | 현재 생명점. 전투 후에도 지속([Lang Battle](../features/lang-battle.md)). 생성 시 `max_hp()`로 채움 |
 | 전투 레벨 | `level` | 1 | `max_hp()` 배수. 성장은 `미구현`(1 고정) |
 | 스태미나(현재) | `stamina` | 20 | 생성 시 `max_stamina`로 채움. 소모 시스템 `미구현`(휴식/경계 회복만) |
 | 최대 스태미나 | `max_stamina` | 20 | 상한 |

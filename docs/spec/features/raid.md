@@ -70,4 +70,4 @@
 
 ## 관련
 
-- 노획 장비 모델은 [Party](../entities/Party.md#노획-장비-loot-items). 아이템 이름은 [Items](../data/items.md). 전투 개시·결과 반영 흐름은 [Battle](battle.md).
+- 노획 장비 모델은 [Party](../entities/Party.md#노획-장비-loot-items). 아이템 이름은 [Items](../data/items.md). 전투 개시·결과 반영 흐름은 [Lang Battle](lang-battle.md).

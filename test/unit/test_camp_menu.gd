@@ -84,16 +84,16 @@ func test_population_row_shows_cap() -> void:
 	assert_eq((menu._res_grid.get_child(8) as Label).text, "인구", "5번째 행은 인구")
 	assert_eq((menu._res_grid.get_child(9) as Label).text, "10 / 10", "인구 값은 현재/상한")
 
-# --- 건축 리스트 + 선행 티어 게이트. BUILDABLE 순서 = [farm(0), lumberjack(1), iron_mine(2), gold_mine(3), house(4), siege_workshop(5)]. ---
+# --- 건축 리스트 + 선행 티어 게이트. BUILDABLE 순서 = [farm(0), lumberjack(1), iron_mine(2), gold_mine(3), house(4)]. ---
 
 func _item(idx: int) -> Button:
 	return menu._build_list.get_child(idx) as Button
 
-func test_build_list_six_items_primary_active() -> void:
+func test_build_list_five_items_primary_active() -> void:
 	menu.open(_center("camp"))  # 캠프 티어
 	menu._on_build_pressed()
 	assert_true(menu._build_list.visible, "건축 후 리스트 표시")
-	assert_eq(menu._build_list.get_child_count(), 6, "건축 가능 6종(1차 4 + 집 + 공성 작업장)")
+	assert_eq(menu._build_list.get_child_count(), 5, "건축 가능 5종(1차 4 + 집)")
 	assert_false(_item(0).disabled, "농장(선행 camp)은 캠프 티어부터 활성")
 
 func test_item_text_has_label_and_cost() -> void:
@@ -168,36 +168,6 @@ func test_upgrade_button_emits_signal() -> void:
 	watch_signals(menu)
 	menu._upgrade_btn.pressed.emit()
 	assert_signal_emitted_with_parameters(menu, "upgrade_requested", [c])
-
-# --- 성벽 건설 버튼 ---
-
-func test_wall_button_shown_for_town_hall() -> void:
-	menu.open(_center("town_hall", {"목재": 20, "철": 20}))
-	assert_true(menu._wall_btn.visible, "마을회관 + 자재 충분 → 성벽 건설 버튼 표시")
-	assert_string_contains(menu._wall_btn.text, "성벽 건설", "성벽 건설 텍스트")
-	assert_false(menu._wall_btn.disabled, "자재 충분 → 활성")
-
-func test_wall_button_hidden_for_camp() -> void:
-	menu.open(_center("camp"))
-	assert_false(menu._wall_btn.visible, "캠프(tier 0)는 성벽 불가 → 숨김")
-
-func test_wall_button_hidden_when_already_walled() -> void:
-	var c := _center("town_hall", {"목재": 20, "철": 20})
-	c.wall_level = 1
-	menu.open(c)
-	assert_false(menu._wall_btn.visible, "이미 성벽 → 숨김")
-
-func test_wall_button_disabled_when_poor() -> void:
-	menu.open(_center("town_hall", {"목재": 5}))
-	assert_true(menu._wall_btn.visible, "마을회관이라 표시")
-	assert_true(menu._wall_btn.disabled, "자재 부족(철 없음) → 비활성")
-
-func test_wall_button_emits_signal() -> void:
-	var c := _center("town_hall", {"목재": 20, "철": 20})
-	menu.open(c)
-	watch_signals(menu)
-	menu._wall_btn.pressed.emit()
-	assert_signal_emitted_with_parameters(menu, "wall_requested", [c], "성벽 건설 버튼 → wall_requested(building)")
 
 # --- 캠프 건설 (새 영지) 버튼 ---
 

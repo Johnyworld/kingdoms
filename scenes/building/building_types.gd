@@ -27,20 +27,7 @@ static func next_center(type_id: String) -> String:
 
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 거점(캠프·마을회관·성)은 제외 — 캠프=새 영지(미구현), 마을회관·성=업그레이드.
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
-const BUILDABLE_IDS := ["farm", "lumberjack", "iron_mine", "gold_mine", "house", "siege_workshop"]
-
-# 거점 성벽 1단계 건설 비용(자재). 성벽은 카탈로그 건물이 아니라 거점에 붙는 값(Building.wall_level). → docs/spec/features/wall.md
-const WALL_COST := {"목재": 15, "철": 5}
-
-## 그 거점에 성벽을 지을 수 있는지 — 마을회관·성(tier ≥ 1) + 성벽 없음 + 영지가 WALL_COST 감당. → docs/spec/features/wall.md
-static func can_build_wall(territory, building) -> bool:
-	if territory == null or building == null:
-		return false
-	if center_tier(building.building_type) < 1:
-		return false   # 캠프(tier 0)·비거점은 성벽 불가
-	if building.is_walled():
-		return false   # 이미 성벽 있음(이번 슬라이스 단일 단계)
-	return territory.can_afford(WALL_COST)
+const BUILDABLE_IDS := ["farm", "lumberjack", "iron_mine", "gold_mine", "house"]   # 공성 작업장은 공성 삭제와 함께 제거
 
 const CATALOG := {
 	"camp": {
@@ -179,20 +166,6 @@ const CATALOG := {
 		"primary_production": true,
 		"produces": "금",
 		"buildable_terrains": [Terrain.GOLD_VEIN],
-	},
-	# --- 공성 작업장: 완성 시 그 영지 거점에서 투석기 생산 해금. 턴당 생산 없음. → docs/spec/features/siege-engines.md ---
-	"siege_workshop": {
-		"label": "공성 작업장",
-		"vision": 3,
-		"footprint": 1,
-		"prerequisite": "town_hall",
-		# 외형(어두운 목·철 계열).
-		"fill_color": Color(0.42, 0.38, 0.34, 0.9),
-		"edge_color": Color(0.24, 0.2, 0.16),
-		"tent_color": Color(0.6, 0.5, 0.4),
-		"build_turns": 6,
-		"build_cost": {"목재": 20, "철": 10},
-		"demolish_refund": {"목재": 4, "철": 2},
 	},
 }
 

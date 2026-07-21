@@ -26,14 +26,11 @@
 
 노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
 
-- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, can_place_ladder := false, can_push_ladder := false, can_bombard := false, can_manage_lord := false) -> Array` — **중앙 메뉴**.
+- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, can_manage_lord := false) -> Array` — **중앙 메뉴**.
   - `{id="shoot", label="사격", enabled=can_shoot_any}` 가 항상 첫 버튼.
     - **이동 전**(`moved=false`): `[사격][휴식][경계]` — 휴식·경계는 제자리에서만 가능.
     - **이동 후**(`moved=true`): `[사격][대기]` — 휴식·경계 불가. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
     - 활성 부대가 **분할 가능**(멤버 2+ · 인접 빈 칸)하면 `{id="split", label="분할"}`이 추가된다(이동 전만). → [Party Composition](party-composition.md).
-    - **성벽 있는 적 거점에 인접**(`can_place_ladder=true`)이면 `{id="ladder", label="사다리 설치"}`가 추가된다([성벽 사다리](wall.md#설치-플레이어)).
-    - **자기 거점 중심을 점거했고 그 거점을 겨눈 사다리가 있으면**(`can_push_ladder=true`) `{id="push_ladder", label="사다리 밀기"}`가 추가된다([성벽 사다리 밀기](wall.md#사다리-밀기-방어)). 성벽 방어 부대가 걸린 사다리를 저지한다.
-    - **투석기를 실었고 사거리 안 성벽 적 거점이 있으면**(`can_bombard=true`)이면 `{id="catapult", label="투석"}`이 추가된다([투석 공성](siege-engines.md#투석-공성-성벽)).
     - **일반부대이고 소속 관리 가능**(`can_manage_lord=true` — 인접 아군 영웅부대 있음 또는 이미 소속 보유)이면 `{id="lord", label="소속"}`이 **장비 바로 앞**에 추가된다([소속 UI](party-lord.md)). 턴 소비 없음.
   - **맨 뒤에 `{id="equip", label="장비", enabled=true}`**: [장비 관리](equipment.md) 모달을 연다. **행동을 끝내지 않는다**(이동/공격 상태 불변) — 노획 장비 장착·탈착은 턴을 소비하지 않는다.
 - `stance_actions() -> Array` — **작전 메뉴**(영웅 이동 직후 하위부대 통솔). 이번 슬라이스는 `[{id="st_follow", label="추종"}, {id="st_hold", label="대기"}]`(둘 다 활성). 교전·돌격은 후속. → [Squad Stance](squad-stance.md).
@@ -52,7 +49,7 @@
 
 ## 행동 효과 (`game.gd` + [Human](../entities/Human.md))
 
-- **`[공격]`(근접)**: 적 인접 도달 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령([Battle](battle.md)).
+- **`[공격]`(근접)**: 적 인접 도달 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령([Lang Battle](lang-battle.md)).
 - **`[사격]`(원거리)**: 현재 위치 원거리 전투(이동·점령 없음).
 - **`[휴식]`**(이동 전만): 각 멤버 **hp·스태미나 25% 회복**(`Human.apply_rest()`, `max_hp`/`max_stamina` 상한) 후 턴 종료.
 - **`[경계]`**(이동 전만): 각 멤버 **스태미나 10% 회복(반올림)** + **`alert` 부여**(전투 시 공격력·방어력 ×1.2 — [Combat](combat.md)) 후 턴 종료. alert는 **NPC(적) 턴이 끝난 뒤 해제**(= 내 다음 턴).
@@ -71,8 +68,6 @@
 - [정상] `party_actions(true, false, true)` → `[사격(비활성), 대기, 취소, 장비]`(되돌리기 가능)
 - [정상] `party_actions`의 마지막 버튼은 항상 `{id="equip", enabled=true}`(양쪽 상태 공통)
 - [경계] `party_actions(false, true, true)` → `[사격, 휴식, 경계, 장비]`(이동 전이면 취소 없음)
-- [정상] `party_actions(false, false, false, false, false, true)`(자기 거점 겨눈 사다리) → 목록에 `{id="push_ladder"}` 포함, `{id="ladder"}` 없음
-- [경계] `party_actions(false, false, false, false, false, false)` → `{id="push_ladder"}` 없음
 - [정상] `stance_actions()` → `[추종(st_follow, 활성), 대기(st_hold, 활성)]`([Squad Stance](squad-stance.md))
 - [경계] `stance_actions()`에 교전·돌격(`st_engage`·`st_charge`) 미포함(이번 슬라이스)
 - [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
@@ -94,4 +89,4 @@
 
 ## 관련
 
-- 공격 가능 판정·범위·이동은 [Selection & Movement](selection-and-movement.md), 전투는 [Battle](battle.md), 사거리 표기(`ItemTypes.range_label`)는 [Items](../data/items.md), 정보 패널은 [Party Info](party-info.md).
+- 공격 가능 판정·범위·이동은 [Selection & Movement](selection-and-movement.md), 전투는 [Lang Battle](lang-battle.md), 사거리 표기(`ItemTypes.range_label`)는 [Items](../data/items.md), 정보 패널은 [Party Info](party-info.md).

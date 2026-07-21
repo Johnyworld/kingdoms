@@ -25,15 +25,6 @@ var remaining_turns := 0          # 완성까지 남은 턴. setup에서 build_t
 # game.gd가 그 부대 인원으로 이 값을 채운다. 0이면 배지 없음(무방비). → docs/spec/features/camp-capture.md
 var defender_count := 0
 
-# 성벽 단계. 0=없음, ≥1=성벽(적 접근 차단). 마을회관·성만 [성벽 건설]로 올린다. → docs/spec/features/wall.md
-var wall_level := 0
-
-# 성벽 내구도. 성벽 건설 시 Siege.WALL_MAX_HP로 채우고, 투석으로 깎여 0이면 붕괴(game.gd가 wall_level→0). → docs/spec/features/wall.md
-var wall_hp := 0
-
-# 성문 내구도. 성벽 건설 시 Siege.GATE_MAX_HP로 채우고, 충차·투석으로 깎여 0이면 그 면 통로 개방(성벽 유지). → docs/spec/features/wall.md 성문
-var gate_hp := 0
-
 # 1차 생산 건물 상태. → docs/spec/features/production.md
 var production_points := 0   # 누적 생산포인트. 매 턴 += 1(거리 기반), ≥ 거리면 자원 산출·차감.
 var assigned_center = null   # 자원 입출력·거리 측정 대상 거점(Building). 건설 시 자동, 변경 가능.
@@ -86,25 +77,6 @@ func contains_cell(cell: Vector2i) -> bool:
 ## 건물 중심 셀(시야 계산 기준점).
 func center_cell() -> Vector2i:
 	return _center_cell
-
-## 거점에 성벽이 있는지(적 접근 차단 판정). → docs/spec/features/wall.md
-func is_walled() -> bool:
-	return wall_level > 0
-
-## 성문이 놓인 ring 한 면(footprint 이웃 6칸 중 결정론적 한 칸 — 좌표순 첫 칸). 위치 고정. → wall.md 성문
-func gate_cell() -> Vector2i:
-	var ring: Array[Vector2i] = []
-	for c in cells:
-		if c != _center_cell:
-			ring.append(c)
-	if ring.is_empty():
-		return _center_cell   # footprint 1(성벽 불가 — 실사용 없음)
-	ring.sort_custom(func(a, b): return a.x < b.x if a.x != b.x else a.y < b.y)
-	return ring[0]
-
-## 성문이 부서져 그 면 통로가 열렸는지(성벽 있고 성문 내구도 0). → wall.md 성문
-func gate_broken() -> bool:
-	return is_walled() and gate_hp <= 0
 
 ## 종류 라벨(예: "캠프").
 func label() -> String:
@@ -244,10 +216,6 @@ func _draw() -> void:
 	draw_colored_polygon(tent, tent_color)
 	draw_line(center + Vector2(0, -hh * 0.6), center + Vector2(0, hh * 0.35), edge_color, 1.5, true)
 
-	if is_walled():
-		_draw_wall_ring(center)
-		_draw_gate(center)
-
 	_draw_labels(center - Vector2(0, hh * 0.6))
 
 	# 건설 중이면 남은 턴을, 완성 거점이면 수비 인원을 중심 아래에 표시(둘은 겹치지 않음).
@@ -255,33 +223,6 @@ func _draw() -> void:
 		_draw_construction_badge(center + Vector2(0, hh * 0.7))
 	elif BuildingTypes.is_center(building_type) and defender_count > 0:
 		_draw_garrison_badge(center + Vector2(0, hh * 0.7), defender_count)
-
-## 성문 표시 — gate_cell 방향에 마커. 온전(갈색)→손상(붉게), 부서지면(gate_broken) 열린 색(초록). → docs/spec/features/wall.md 성문
-func _draw_gate(center: Vector2) -> void:
-	var pos := _terrain.map_to_local(gate_cell())
-	var color: Color
-	if gate_broken():
-		color = Color(0.35, 0.75, 0.4)   # 열림(통로)
-	else:
-		var ratio := clampf(float(gate_hp) / float(Siege.GATE_MAX_HP), 0.0, 1.0)
-		color = Color(0.85, 0.25, 0.2).lerp(Color(0.55, 0.4, 0.2), ratio)   # 손상→온전(갈색 문)
-	draw_circle((center + pos) * 0.5, 5.0, color)
-
-## 성벽 링을 그린다 — 중심을 두른 이웃 6칸의 중심을 잇는 육각 테두리(회색 두꺼운 선). → docs/spec/features/wall.md
-func _draw_wall_ring(center: Vector2) -> void:
-	var pts: Array = []
-	for cell in cells:
-		if cell == _center_cell:
-			continue
-		pts.append(_terrain.map_to_local(cell))
-	if pts.size() < 2:
-		return
-	pts.sort_custom(func(a, b): return (a - center).angle() < (b - center).angle())   # 각도순 정렬 → 링 순서
-	pts.append(pts[0])   # 닫힌 고리
-	# 내구도 비율로 색 보간: 온전(회색) → 손상(붉게). → docs/spec/features/wall.md
-	var ratio := clampf(float(wall_hp) / float(Siege.WALL_MAX_HP), 0.0, 1.0)
-	var ring_color := Color(0.85, 0.25, 0.2).lerp(Color(0.62, 0.62, 0.68), ratio)
-	draw_polyline(PackedVector2Array(pts), ring_color, 3.0, true)
 
 ## 수비 인원 표시("수비 N")를 앵커 중앙에 그린다(완성 거점, 중심 점거 방어 부대 있을 때).
 func _draw_garrison_badge(anchor: Vector2, count: int) -> void:

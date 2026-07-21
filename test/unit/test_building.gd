@@ -37,49 +37,6 @@ func test_defender_count_settable() -> void:
 	building.defender_count = 4   # game.gd가 중심 타일 점거 방어 부대 인원으로 채운다
 	assert_eq(building.defender_count, 4, "수비 인원 표시값 설정 가능")
 
-# --- 성벽 (wall_level / is_walled) ---
-
-func test_wall_level_default_zero() -> void:
-	_camp()
-	assert_eq(building.wall_level, 0, "생성 직후 성벽 없음")
-	assert_false(building.is_walled(), "wall_level 0이면 is_walled 거짓")
-	assert_eq(building.wall_hp, 0, "생성 직후 성벽 내구도 0")
-
-func test_is_walled_when_level_set() -> void:
-	_camp()
-	building.wall_level = 1
-	assert_true(building.is_walled(), "wall_level 1이면 is_walled 참")
-
-func test_wall_hp_settable() -> void:
-	_camp()
-	building.wall_hp = 180
-	assert_eq(building.wall_hp, 180, "성벽 내구도 설정 가능")
-
-# --- 성문 (gate_cell / gate_hp / gate_broken) ---
-
-func test_gate_cell_is_ring_cell_and_stable() -> void:
-	_camp()   # footprint 7 (중심 + ring 6)
-	var gc: Vector2i = building.gate_cell()
-	assert_ne(gc, building.center_cell(), "성문은 중심이 아닌 ring 셀")
-	assert_true(gc in building.cells, "성문 셀은 footprint 안")
-	assert_eq(building.gate_cell(), gc, "반복 호출에 동일(결정론적)")
-
-func test_gate_hp_default_and_not_broken() -> void:
-	_camp()
-	assert_eq(building.gate_hp, 0, "생성 직후 성문 내구도 0")
-	assert_false(building.gate_broken(), "성벽 없으면 성문 파괴 아님")
-
-func test_gate_broken_requires_wall_and_zero_hp() -> void:
-	_camp()
-	building.wall_level = 1
-	building.gate_hp = 0
-	assert_true(building.gate_broken(), "성벽 있고 성문 0 → 파괴(통로 개방)")
-	building.gate_hp = 120
-	assert_false(building.gate_broken(), "성문 내구도 남으면 파괴 아님")
-	building.wall_level = 0
-	building.gate_hp = 0
-	assert_false(building.gate_broken(), "성벽 없으면 성문 무의미")
-
 # --- 1차 생산 (생산포인트) → docs/spec/features/production.md ---
 
 func _lumberjack() -> void:
@@ -258,8 +215,6 @@ func test_pop_cap_complete_buildings() -> void:
 
 func test_upgrade_to_next_tier() -> void:
 	_camp()
-	building.wall_level = 1   # 성벽은 업그레이드 후에도 유지되어야 한다
-	building.wall_hp = 180
 	building.upgrade_to("town_hall")
 	assert_eq(building.building_type, "town_hall", "종류가 마을회관으로")
 	assert_eq(building.vision, 6, "시야 6으로 교체")
@@ -267,8 +222,6 @@ func test_upgrade_to_next_tier() -> void:
 	assert_true(building.is_complete(), "업그레이드 후 완성 상태")
 	assert_eq(building.cells.size(), 7, "footprint 7 유지")
 	assert_eq(building.center_cell(), _center(), "위치 유지")
-	assert_eq(building.wall_level, 1, "성벽(wall_level) 유지")
-	assert_eq(building.wall_hp, 180, "성벽 내구도(wall_hp) 유지")
 
 func test_pop_cap_zero_under_construction() -> void:
 	building.setup(terrain, _center(), "house", true)  # 건설 중
@@ -294,7 +247,7 @@ func test_demolish_refund_same_under_construction() -> void:
 # --- 필요인원 (required_pop) — 폐지, 모든 건물 0 ---
 
 func test_required_pop_abolished() -> void:
-	for id in ["siege_workshop", "lumberjack", "iron_mine", "farm", "house", "camp"]:
+	for id in ["lumberjack", "iron_mine", "farm", "house", "camp"]:
 		var b: Node2D = load("res://scenes/building/building.gd").new()
 		add_child_autofree(b)
 		b.setup(terrain, Vector2i(30, 30), id)

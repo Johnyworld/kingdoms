@@ -118,7 +118,7 @@ func test_castle_spec() -> void:
 
 func test_prerequisite_fields() -> void:
 	assert_eq(types.get_type("camp").get("prerequisite", ""), "", "캠프는 선행 없음")
-	for id in ["castle", "house", "siege_workshop"]:
+	for id in ["castle", "house"]:
 		assert_eq(types.get_type(id)["prerequisite"], "town_hall", "%s 선행 = 마을회관" % id)
 	for id in ["farm", "lumberjack", "iron_mine", "gold_mine"]:
 		assert_eq(types.get_type(id)["prerequisite"], "camp", "%s 선행 = 캠프(1차 생산)" % id)
@@ -137,8 +137,8 @@ func test_farm_economy() -> void:
 	assert_eq(spec.get("buildable_terrains", []), [Terrain.GRASS], "농장은 초원에만")
 
 func test_required_pop_abolished() -> void:
-	# required_pop 폐지 — 모든 건물 0(공성 작업장 포함).
-	for id in ["farm", "lumberjack", "iron_mine", "gold_mine", "siege_workshop", "camp", "town_hall", "castle", "house"]:
+	# required_pop 폐지 — 모든 건물 0.
+	for id in ["farm", "lumberjack", "iron_mine", "gold_mine", "camp", "town_hall", "castle", "house"]:
 		assert_eq(types.get_type(id).get("required_pop", 0), 0, "%s 필요인원 0" % id)
 
 func test_camp_economy() -> void:
@@ -167,43 +167,6 @@ func test_is_center() -> void:
 		assert_false(types.is_center(id), "%s는 거점 아님" % id)
 
 func test_buildable_ids() -> void:
-	assert_eq(types.BUILDABLE_IDS, ["farm", "lumberjack", "iron_mine", "gold_mine", "house", "siege_workshop"], "건축 가능 목록(거점·제거 종류 제외)")
+	assert_eq(types.BUILDABLE_IDS, ["farm", "lumberjack", "iron_mine", "gold_mine", "house"], "건축 가능 목록(거점·제거 종류 제외)")
 	for id in ["camp", "town_hall", "castle"]:
 		assert_does_not_have(types.BUILDABLE_IDS, id, "거점 %s는 건축 목록 제외" % id)
-
-# --- 공성 작업장 → docs/spec/features/siege-engines.md ---
-
-func test_siege_workshop_spec() -> void:
-	var spec: Dictionary = types.get_type("siege_workshop")
-	assert_eq(spec.get("label"), "공성 작업장", "라벨")
-	assert_eq(spec.get("footprint"), 1, "footprint 1헥스")
-	assert_eq(spec.get("prerequisite"), "town_hall", "선행 마을회관")
-	assert_eq(spec["build_cost"], {"목재": 20, "철": 10}, "공성 작업장 비용")
-	assert_false(spec.has("production"), "턴당 생산 없음")
-
-# --- 성벽 (WALL_COST / can_build_wall) ---
-
-func _terr(res := {}) -> Object:
-	return load("res://scenes/territory/territory.gd").new("파리", res)
-
-func _bld(type_id: String, walled := false) -> Node2D:
-	var b: Node2D = load("res://scenes/building/building.gd").new()
-	add_child_autofree(b)
-	b.building_type = type_id   # setup 없이 종류만 지정(can_build_wall은 종류·성벽만 본다)
-	b.wall_level = 1 if walled else 0
-	return b
-
-func test_wall_cost_is_materials() -> void:
-	assert_eq(types.WALL_COST, {"목재": 15, "철": 5}, "성벽 비용 = 목재15·철5")
-
-func test_can_build_wall_town_hall_affordable() -> void:
-	assert_true(types.can_build_wall(_terr({"목재": 20, "철": 20}), _bld("town_hall")), "마을회관 + 자재 충분 → 참")
-
-func test_can_build_wall_camp_false() -> void:
-	assert_false(types.can_build_wall(_terr({"목재": 20, "철": 20}), _bld("camp")), "캠프(tier 0)는 성벽 불가")
-
-func test_can_build_wall_already_walled_false() -> void:
-	assert_false(types.can_build_wall(_terr({"목재": 20, "철": 20}), _bld("town_hall", true)), "이미 성벽 → 거짓")
-
-func test_can_build_wall_poor_false() -> void:
-	assert_false(types.can_build_wall(_terr({"목재": 5}), _bld("town_hall")), "자재 부족 → 거짓")

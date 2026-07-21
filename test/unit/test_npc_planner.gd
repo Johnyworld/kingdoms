@@ -10,12 +10,11 @@ const BuildingScript = preload("res://scenes/building/building.gd")
 const PlannerScript = preload("res://scenes/game/npc_planner.gd")
 
 ## NpcPlanner 월드 조회 인터페이스 스텁 — game.gd의 all_parties/all_buildings/party_on_cell/
-## wall_blocked_cells/blocked_for/breached_by와 같은 이름·형태.
+## blocked_for와 같은 이름·형태.
 class WorldStub:
 	var terrain: TileMapLayer
 	var parties: Array = []
 	var buildings: Array = []
-	var walls: Dictionary = {}   # wall_blocked_cells 반환값(테스트가 채움)
 
 	func _init(t: TileMapLayer) -> void:
 		terrain = t
@@ -32,14 +31,8 @@ class WorldStub:
 				return p
 		return null
 
-	func wall_blocked_cells(_fn: String) -> Dictionary:
-		return walls
-
 	func blocked_for(_p) -> Dictionary:
 		return {}
-
-	func breached_by(_b, _fn: String) -> bool:
-		return false
 
 var terrain: TileMapLayer
 var world: WorldStub
@@ -141,13 +134,11 @@ func test_safe_retreat_cells_excludes_threatened_and_enemy() -> void:
 
 # --- 사거리 내 적 탐지(adjacent_enemy) ---
 
-func test_adjacent_enemy_skips_ally_and_walled() -> void:
+func test_adjacent_enemy_skips_ally() -> void:
 	var me := _party("A", _center(), 40)
 	_party("A", _center() + Vector2i(1, 0), 40)   # 아군 — 대상 아님
 	var enemy := _party("B", _center() + Vector2i(-1, 0), 40)
 	assert_eq(planner.adjacent_enemy(me), enemy, "인접 적을 찾는다(아군 제외)")
-	world.walls = {terrain.local_to_map(enemy.position): true}   # 적이 성벽 안
-	assert_null(planner.adjacent_enemy(me), "성벽 안 수비대는 표적 제외")
 
 # --- 표적 우선순위(targets_for) ---
 

@@ -1,8 +1,8 @@
 # Feature: Combat Feedback (전투 연출 — 대미지 숫자·타격 효과)
 
-> 스크립트: `scenes/combat/hit_feedback.gd` (`class_name HitFeedback extends RefCounted`) · `scenes/combat/battle.gd`
+> 스크립트: `scenes/combat/hit_feedback.gd` (`class_name HitFeedback extends RefCounted`)
 
-전투씬([Battle](battle.md)) 오버레이에 **타격의 시각 피드백**을 더한다. 떠오르는 대미지 숫자, 피격 반짝임·흔들림, 공격 돌진, 상태이상 텍스트, 사망 넉백. 판정은 [CombatResolver](combat.md)·[StatusEffects](status-effects.md)가 이미 내며, 이 기능은 그 결과를 **보이게** 만든다.
+전투 오버레이([Lang Battle](lang-battle.md))에 **타격의 시각 피드백**을 더한다. 떠오르는 대미지 숫자, 피격 반짝임·흔들림, 공격 돌진, 상태이상 텍스트, 사망 넉백. 판정은 [CombatResolver](combat.md)·[StatusEffects](status-effects.md)가 이미 내며, 이 기능은 그 결과를 **보이게** 만든다.
 
 **판정 결과 → 텍스트 사양** 매핑만 순수 로직(`HitFeedback`)으로 빼서 단위 테스트하고, 실제 애니메이션(tween)은 프로젝트 관례대로 **실행으로 확인**한다.
 
@@ -24,11 +24,11 @@
 | `r.crit` (치명타) | `str(r.damage)` | `CRIT_COLOR` 노랑 | `true` |
 | 그 외 (평타) | `str(r.damage)` | `HIT_COLOR` 흰색 | `false` |
 
-- 색 상수(초안): `MISS=(0.7,0.7,0.7)`, `BLOCK=(0.6,0.8,1.0)`, `HIT=(1,1,1)`, `CRIT=(1.0,0.85,0.2)`. 출혈 도트 숫자 색 `BLEED=(1.0,0.4,0.4)`, 상태이상 텍스트 색 `STATUS=(1.0,0.6,0.2)`는 `battle.gd`가 쓴다.
+- 색 상수(초안): `MISS=(0.7,0.7,0.7)`, `BLOCK=(0.6,0.8,1.0)`, `HIT=(1,1,1)`, `CRIT=(1.0,0.85,0.2)`. 출혈 도트 숫자 색 `BLEED=(1.0,0.4,0.4)`, 상태이상 텍스트 색 `STATUS=(1.0,0.6,0.2)`는 전투 오버레이가 쓴다.
 
-## 오버레이 연출 (`battle.gd`)
+## 오버레이 연출
 
-토큰(멤버는 **팀 스쿼드 토큰**, 투석기·성벽은 개별 토큰)은 바깥 `Control`(node) 안에 몸통 `ColorRect`(name `body`)를 둔다. `_sync_squad`(멤버)·`_on_siege_hit`(공성/구조물)가 **node.position/라벨**을 갱신하므로, 흔들림·돌진·반짝임은 **node를 건드리지 않고 내부 `body`의 위치/색을 tween**해 충돌을 피한다.
+토큰(멤버는 **팀 스쿼드 토큰**)은 바깥 `Control`(node) 안에 몸통 `ColorRect`(name `body`)를 둔다. `_sync_squad`(멤버)가 **node.position/라벨**을 갱신하므로, 흔들림·돌진·반짝임은 **node를 건드리지 않고 내부 `body`의 위치/색을 tween**해 충돌을 피한다.
 
 | 연출 | 계기 | 방식 |
 | --- | --- | --- |
@@ -38,10 +38,10 @@
 | 흰 반짝임 | 피해 입은 타격(명중·미막힘·피해>0) | 대상 `body.color`를 잠깐 흰색 → 팀색 복귀 |
 | 밀림(근접) + 펜싱 리듬 | 근접 피해 타격 | **위치(pos) 자체가 이동** — 피격자만 공격자 반대쪽으로 `HIT_PUSH_PX`(=`TOKEN_R×2` = 병사 폭, ≈60px) 밀린다(되돌아오지 않음). 공격자는 즉시 안 붙고 `ADVANCE_DELAY`(0.5초) 정지(`approach_hold`) 후 다시 접근해 붙는다. 순간이동 방지: 토큰은 시각 오프셋(`voff`)이 `PUSH_SLIDE_SPEED`(500px/s)로 감쇠하며 부드럽게 슬라이드. |
 | 돌진(lunge) | **근접 공격만**(`_attack`, 사거리 < 2·비투척) | 공격 멤버 `body`를 표적 쪽으로 살짝 냈다 복귀. **궁수·투척은 제자리 발사라 돌진 없음**(자리잡은 대열이 좌우로 흔들리지 않게) |
-| 사망 넉백 | 전투불능(`_kill`, 공격자 위치 전달) | **자기 토큰이 있는 전투원(투석기·성벽/성문)** 한정 — 공격자 반대쪽으로 **껑충 뛰어(위로 아치)** 날아가고 opacity `0.5`로 페이드. 출혈 도트 사망은 페이드만. **멤버(사람)는 개별 넉백 없이 스쿼드 카운트·HP 바가 줄어**든다 |
+| 사망 넉백 | 전투불능(`_kill`, 공격자 위치 전달) | **자기 토큰이 있는 전투원** 한정 — 공격자 반대쪽으로 **껑충 뛰어(위로 아치)** 날아가고 opacity `0.5`로 페이드. 출혈 도트 사망은 페이드만. **멤버(사람)는 개별 넉백 없이 스쿼드 카운트·HP 바가 줄어**든다 |
 
 - 수치는 초안: 떠오름 높이 ~40px·0.7초, 반짝임 ~0.12초, 근접 밀림 ~10px/타(위치 이동), 돌진 ~10px·0.12초, 사망 넉백 ~60px 뒤로·아치 높이 ~30px·0.35초·opacity 0.5.
-- **원거리/투척/공성 피격**은 위치 이동 없이 **반짝임(`_flash`)만** — 자리잡은 궁수 대열이 흔들리지 않게.
+- **원거리/투척 피격**은 위치 이동 없이 **반짝임(`_flash`)만** — 자리잡은 궁수 대열이 흔들리지 않게.
 - 연출은 관전 편의일 뿐 **판정·생존 결과에 영향을 주지 않는다**(피해는 이미 `_attack`/도트에서 적용됨).
 
 ## 미구현 (범위 밖)
@@ -74,4 +74,4 @@
 
 ## 관련
 
-- 판정: [Combat](combat.md), 상태이상: [Status Effects](status-effects.md), 전투씬 흐름: [Battle](battle.md).
+- 판정: [Combat](combat.md), 상태이상: [Status Effects](status-effects.md), 전투 오버레이 흐름: [Lang Battle](lang-battle.md).

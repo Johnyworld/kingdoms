@@ -53,7 +53,7 @@
 `_engage_with_lord(hero)`(async) — 하위부대들을 **하나씩 순차로** 가까운 적에게 접근시키고, 사거리 안이면 전투를 벌인다. 전투 오버레이가 모달(`_run_battle`의 `_in_battle`)이라 한 부대씩 `await`한다. 기존 NPC 공격 페이즈(`_npc_unit_act`)와 같은 원리·같은 전투 경로를 재사용한다.
 
 각 하위부대(`can_move()`)에 대해:
-1. **대상**: 보이는 적 부대 칸(`_visible_enemy_cells(hero.faction_name)` — 세력 다르고 멤버 있고 `visible`, 적 세력 성벽 안 수비대 제외).
+1. **대상**: 보이는 적 부대 칸(`_visible_enemy_cells(hero.faction_name)` — 세력 다르고 멤버 있고 `visible`).
 2. **접근**: `NpcAi.choose_destination(...)`로 가장 가까운 적 방향의 도달 칸을 골라 이동(더 가까워질 수 없으면 제자리). 이동하면 `mark_moved()` + `await _move_party_await(f, path)`(칸당 애니메이션 + 시야 개방).
 3. **교전 판정**: 이동/제자리 후 `_adjacent_enemy(f)`(사거리 `max(attack_range,1)` 내 적)가 있고 `NpcAi.should_engage(내 전력, 적 전력)`(전력 ≥ 0.7배)이면 전투. 불리하면 접근만(전투 없음).
 4. **전투**: `f.mark_attacked()` 후 `await _run_battle(f, target, dist, occupy)`. `dist = _engagement_distance(f, target)` — **1(근접)이면 승리 시 적 칸 점령(`occupy = 적 칸`), 2+(원거리 사격)이면 점령 없음(`(-1,-1)`)**. 원거리 무기 부대는 사거리 안이면 붙지 않고 제자리 사격이 된다.
@@ -121,7 +121,7 @@ static func attack_move_stop(terrain, path, enemy_cells, reach, map_w, map_h) ->
 - `_engage_with_lord(hero) -> void`(async) — 교전 시퀀스(접근→사거리 내 전투, 부대별 순차 await).
 - `_charge_with_lord(hero, target_cell) -> void`(async) — 돌격 어택무브 시퀀스(목표 방향 접근→정지 지점 교전).
 - `_pick_charge_target(world_pos) -> void`(async) — 목표 지정 모드에서 맵 클릭을 목표로 잡아 `_charge_with_lord` 실행(영웅 칸 클릭은 취소).
-- `_visible_enemy_cells(faction) -> Array` — 보이는 적 부대 칸 목록(성벽 안 수비대 제외). 교전·돌격 대상.
+- `_visible_enemy_cells(faction) -> Array` — 보이는 적 부대 칸 목록. 교전·돌격 대상.
 - `_move_party_await(p, path) -> void`(async) — 한 부대를 경로 따라 이동하고 완료까지 await.
 
 ## 미구현

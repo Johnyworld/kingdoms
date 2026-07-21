@@ -174,30 +174,6 @@ func test_build_pay_iron_mine_no_labor() -> void:
 	assert_eq(t.resources["목재"], 5, "목재 15 차감")
 	assert_eq(t.resources["인구"], 10, "인구 차감 없음")
 
-func test_build_pay_siege_workshop_no_labor() -> void:
-	var t := _territory("파리", {"인구": 10, "목재": 30, "철": 30})
-	t.build_pay("siege_workshop")
-	assert_eq(t.resources["목재"], 10, "목재 20 차감")
-	assert_eq(t.resources["철"], 20, "철 10 차감")
-	assert_eq(t.resources["인구"], 10, "required_pop 폐지 — 인구 차감 없음")
-
-# --- 완성 건물 판정 (공성 작업장 생산 게이트) → docs/spec/features/siege-engines.md ---
-
-func test_has_completed_building_true() -> void:
-	var t := _territory()
-	t.add_building(_typed_building(Vector2i(30, 30), "siege_workshop"))   # 완성
-	assert_true(t.has_completed_building("siege_workshop"), "완성 작업장 있으면 참")
-
-func test_has_completed_building_under_construction() -> void:
-	var t := _territory()
-	t.add_building(_typed_building(Vector2i(31, 31), "siege_workshop", true))   # 건설 중
-	assert_false(t.has_completed_building("siege_workshop"), "건설 중 작업장만 있으면 거짓")
-
-func test_has_completed_building_absent() -> void:
-	var t := _territory()
-	t.add_building(_typed_building(Vector2i(32, 32), "farm"))
-	assert_false(t.has_completed_building("siege_workshop"), "작업장 없으면 거짓")
-
 # --- changed 시그널 (event-driven UI 갱신의 근거) → docs/spec/entities/Territory.md ---
 
 func test_changed_on_resource_mutations() -> void:

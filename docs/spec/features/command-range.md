@@ -30,7 +30,7 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 - `Human.in_command: bool`(기본 `false`). 참이면 전투 공격력·방어력에 `COMMAND_MULT = 1.2`를 곱한다.
 - `CombatResolver.attack_power(h)` / `defense(h)`: 배율 = `(alert면 ×ALERT_MULT) × (in_command이면 ×COMMAND_MULT)`. **alert와 곱셈 중첩**(경계+지휘 = ×1.44, 내림).
 - **수명(alert와 동일)**: 전투 직전 양측 부대의 멤버에 세팅하고, 전투가 끝나면 해제한다.
-  - `_run_battle`·`_resolve_battle_headless`(부대 vs 부대), `_bombard_wall_by`·`_bombard_gate_by`(성벽·성문 포격, 방어자 구조물이라 공격 부대에만) 진입 시 `_apply_command_flags(attacker, true)`(+ `defender`), 종료 시 `false`. **멤버가 전투에 참여하는 모든 경로**에 붙인다.
+  - `_run_battle`·`_resolve_battle_headless`(부대 vs 부대) 진입 시 `_apply_command_flags(attacker, true)`(+ `defender`), 종료 시 `false`. **멤버가 전투에 참여하는 모든 경로**에 붙인다.
   - `_apply_command_flags(party, on)`: `party`의 각 멤버 `in_command = on and party.command_buffed`(아래 배지 상태 재사용).
 - **모든 세력** 적용 — 플레이어·NPC 모두 자기 영웅 근처 부대가 강해진다(전투 경로가 대칭이라 자동).
 

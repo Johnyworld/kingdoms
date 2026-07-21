@@ -9,9 +9,6 @@ signal build_selected(type_id: String, territory: Territory)
 ## 업그레이드 버튼 클릭 시 방출. game.gd가 받아 거점을 다음 티어로 업그레이드한다.
 signal upgrade_requested(building: Building)
 
-## 성벽 건설 버튼 클릭 시 방출. game.gd가 받아 자재 지불 + wall_level 설정을 처리한다. → wall.md
-signal wall_requested(building: Building)
-
 ## 캠프 건설 버튼 클릭 시 방출. game.gd가 받아 새 영지 캠프 건설 모드(부대 시야 배치)로 진입한다.
 signal found_camp_requested(territory: Territory)
 
@@ -25,7 +22,6 @@ var _res_grid: GridContainer
 var _faction_label: Label  # 메뉴 패널 상단 세력명(세력 색상)
 var _build_btn: Button     # "건축" 버튼 — 누르면 리스트로 전환
 var _upgrade_btn: Button   # 거점 업그레이드 버튼(다음 티어 있을 때만)
-var _wall_btn: Button      # 성벽 건설 버튼(마을회관·성 + 성벽 없을 때만) → wall.md
 var _found_camp_btn: Button  # 캠프 건설(새 영지) 버튼
 var _demolish_btn: Button    # 캠프 철거 버튼(can_demolish일 때만)
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
@@ -91,12 +87,6 @@ func _build_menu_panel() -> Control:
 	_upgrade_btn.hide()
 	vbox.add_child(_upgrade_btn)
 
-	# 성벽 건설 버튼(마을회관·성 + 성벽 없을 때만 표시). open()에서 갱신.
-	_wall_btn = Button.new()
-	_wall_btn.pressed.connect(func() -> void: wall_requested.emit(_building))
-	_wall_btn.hide()
-	vbox.add_child(_wall_btn)
-
 	# 캠프 건설(새 영지) 버튼 — 활성 부대 시야에 새 캠프를 세운다. open()에서 활성 여부 갱신.
 	_found_camp_btn = Button.new()
 	_found_camp_btn.pressed.connect(func() -> void: found_camp_requested.emit(_territory))
@@ -158,7 +148,6 @@ func _refresh() -> void:
 	_build_list.hide()
 	_build_btn.show()
 	_refresh_upgrade_button()
-	_refresh_wall_button()
 	_refresh_found_camp_button()
 	_demolish_btn.visible = _can_demolish()
 
@@ -221,15 +210,6 @@ func _refresh_upgrade_button() -> void:
 	_upgrade_btn.text = "%s으로 업그레이드  %s" % [spec.get("label", next_id), _format_cost(spec.get("build_cost", {}))]
 	_upgrade_btn.disabled = not BuildPlanner.can_upgrade(_territory, _building)
 	_upgrade_btn.show()
-
-## 성벽 건설 버튼 갱신: 마을회관·성 + 성벽 없을 때만 표시(라벨=비용, 자재 감당 시 활성). → wall.md
-func _refresh_wall_button() -> void:
-	if _building == null or BuildingTypes.center_tier(_building.building_type) < 1 or _building.is_walled():
-		_wall_btn.hide()   # 캠프·비거점·이미 성벽이면 숨김
-		return
-	_wall_btn.text = "성벽 건설  %s" % _format_cost(BuildingTypes.WALL_COST)
-	_wall_btn.disabled = not BuildingTypes.can_build_wall(_territory, _building)
-	_wall_btn.show()
 
 ## 캠프 건설(새 영지) 버튼 갱신: 라벨(비용)과 활성 여부(여는 영지가 캠프 비용 감당 가능한지).
 func _refresh_found_camp_button() -> void:

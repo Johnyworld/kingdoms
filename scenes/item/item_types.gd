@@ -49,10 +49,8 @@ const SHIELDS := {
 	"tower_shield": {"name": "타워 실드", "defense": 12, "block": 40, "weight": 8, "value": 24},
 }
 
-# 도구: 장착하지 않는 소지 아이템(슬롯 없음). 부대 loot_items에 담고 캠프 구매로 산다. → docs/spec/data/items.md
-const TOOLS := {
-	"grapple_ladder": {"name": "고리 사다리", "value": 12},   # 사다리 설치 시 소모 → 방어자 밀기 확률 −5%p(wall.md)
-}
+# 도구: 장착하지 않는 소지 아이템(슬롯 없음). 현재 비어 있음(고리 사다리는 공성 삭제와 함께 제거). → docs/spec/data/items.md
+const TOOLS := {}
 
 # 상성표: 방어구 분류 → { 데미지 타입(DT_*) → 배율 }. 기획 원본과 동일.
 const AFFINITY := {

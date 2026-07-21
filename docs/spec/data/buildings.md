@@ -25,7 +25,6 @@
 | `lumberjack` | 벌목소 | 3 | 1 | (없음) | 짙은 녹갈색 계열 |
 | `iron_mine` | 철광 | 3 | 1 | (없음) | 회청색(철) 계열 |
 | `gold_mine` | 금광 | 3 | 1 | (없음) | 황금색 계열 |
-| `siege_workshop` | 공성 작업장 | 3 | 1 | (없음) | 어두운 목·철 계열 |
 
 ### 건설 · 경제
 
@@ -46,7 +45,6 @@
 | `lumberjack` | 3 | 목재 5 | 목재 1 | — | **[1차 생산](../features/production.md)** — `produces 목재`, `buildable_terrains [숲]`, footprint 1 |
 | `iron_mine` | 5 | 목재 15 | 목재 2 | — | **[1차 생산](../features/production.md)** — `produces 철`, `buildable_terrains [철맥]` |
 | `gold_mine` | 6 | 목재 15 / 철 5 | 목재 2 / 철 1 | — | **[1차 생산](../features/production.md)** — `produces 금`, `buildable_terrains [금맥]` |
-| `siege_workshop` | 6 | 목재 20 / 철 10 | 목재 4 / 철 2 | — | 완성 시 그 영지 거점에서 [투석기 생산](../features/siege-engines.md) 해금 |
 
 > **건설비 수치는 플레이성/부트스트랩용 초안**이다. 캠프 시작 자원(목재 40·식량 50·철 10·금 0)만으로 마을회관 업그레이드·초기 생산 건물을 지을 수 있게 잡았다. 성은 목재·철을 생산으로 모아야 도달한다. 경제 밸런스가 갖춰지면 재조정한다.
 
@@ -57,7 +55,7 @@
 - **캠프 건설 → 새 영지 생성**은 [캠프 건설](../features/building.md#캠프-건설-새-영지-확장)에서 구현됨(활성 부대 시야에 배치, 새 영지 자원 0). (flat 턴당 생산은 폐지 — 생산은 [1차 생산](../features/production.md) 참조.)
 - **`footprint`은 [배치 유효성](../features/building.md#배치-유효성-buildplanner)에 반영된다** — `BuildPlanner.footprint`/`can_place`가 종류별 헥스 수로 판정하고, `Building.setup`이 그만큼 점유 셀을 잡는다.
 - **인구 상한(`pop_cap`)**: 종류가 영지 [인구 상한](../entities/Territory.md#인구-상한population_cap)에 더하는 값(없으면 0). **거점 티어에서 나온다** — 캠프 `0`, 마을회관 `10`, 성 `20`(집 `+2`로 보조). 완성 건물만 상한에 기여한다(`Building.pop_cap()`은 건설 중이면 0). 매 턴 종료 시 영지 인구가 상한까지 +1씩 [자연 증가](turn.md)한다. **캠프 티어는 인구 상한 0** — 마을회관으로 업그레이드해야 인구가 생긴다. 인구의 소비처(병력 충원)는 [미구현(후속)](resources.md#인구-병력-예약).
-- **소형 건물·성벽·업그레이드는 목재/철을 요구**한다. 캠프 시작 자원(목재 40·철 10)으로 [성벽](../features/wall.md)·마을회관 업그레이드·초기 생산 건물을 지을 수 있고, 이후 벌목소·철광으로 목재·철을 보충한다.
+- **소형 건물·업그레이드는 목재/철을 요구**한다. 캠프 시작 자원(목재 40·철 10)으로 마을회관 업그레이드·초기 생산 건물을 지을 수 있고, 이후 벌목소·철광으로 목재·철을 보충한다.
 
 ### 필요인원 (`required_pop`) — 폐지
 
@@ -88,25 +86,17 @@
 | `iron_mine` | `camp` | 거점 tier ≥ 0 (〃) |
 | `gold_mine` | `camp` | 거점 tier ≥ 0 (〃) |
 | `house` | `town_hall` | 거점 tier ≥ 1 (마을회관 이상) |
-| `siege_workshop` | `town_hall` | 거점 tier ≥ 1 (마을회관 이상) |
 
 - 거점 자신(`camp`/`town_hall`/`castle`)의 `prerequisite` 필드는 업그레이드 경로(`next_center`)로 대체되어 게이트에는 쓰이지 않는다(카탈로그엔 남아 있음).
-- 체인: **캠프 →(업그레이드) 마을회관 →(업그레이드) 성**. **1차 생산(농장·벌목소·철광·금광)은 캠프 티어부터** 해금. 집·공성 작업장은 마을회관 티어부터.
+- 체인: **캠프 →(업그레이드) 마을회관 →(업그레이드) 성**. **1차 생산(농장·벌목소·철광·금광)은 캠프 티어부터** 해금. 집은 마을회관 티어부터.
 - **배치 규칙**([1차 생산](../features/production.md#배치-규칙-build_planner--gamegd)): 1차 생산 = 지형 제한(`buildable_terrains`) + 건물∪부대 시야. 기타 건물 = 마을회관 인접.
 - 병영 등 군사 체인, 병력 충원(인구 소비)은 아직 **미구현**.
-
-### 성벽 (`WALL_COST`)
-
-거점 [성벽](../features/wall.md)은 카탈로그 건물이 아니라 거점에 붙는 값(`Building.wall_level`)이지만, 건설 비용은 여기 `BuildingTypes.WALL_COST` 상수로 둔다.
-
-- `WALL_COST := {목재: 15, 철: 5}` — 성벽 1단계 건설 비용(자재 Dictionary). *이번 슬라이스 단일 단계.*
-- `can_build_wall(territory, building) -> bool` — **거점 tier ≥ town_hall**(마을회관·성) + **성벽 없음**(`not building.is_walled()`) + `territory.can_afford(WALL_COST)`면 참. 캠프·이미 성벽·자재 부족·영지 없음이면 거짓.
 
 ## 동작
 
 - `BuildingTypes.CAMP` — 캠프 종류 id 상수(`"camp"`).
 - `BuildingTypes.FARM` — 농장 종류 id 상수(`"farm"`).
-- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["farm", "lumberjack", "iron_mine", "gold_mine", "house", "siege_workshop"]`. **거점(캠프·마을회관·성)은 제외** — 캠프는 [새 영지 건설](../features/building.md#캠프-건설-새-영지-확장)(별도 버튼), 마을회관·성은 [업그레이드](#거점-업그레이드)로만 도달. 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
+- `BuildingTypes.BUILDABLE_IDS` — **건축(캠프 메뉴)에서 지을 수 있는 종류 id 목록**. 현재 `["farm", "lumberjack", "iron_mine", "gold_mine", "house"]`. **거점(캠프·마을회관·성)은 제외** — 캠프는 [새 영지 건설](../features/building.md#캠프-건설-새-영지-확장)(별도 버튼), 마을회관·성은 [업그레이드](#거점-업그레이드)로만 도달. 선행 미충족 종류는 리스트에 뜨되 **비활성**이다([건축](../features/building.md)).
 - `BuildingTypes.get_type(type_id) -> Dictionary` — 종류 스펙 반환. 없는 id면 빈 Dictionary.
 - `BuildingTypes.CENTER_IDS` — **거점(center)** 종류 목록 `["camp", "town_hall", "castle"]`(티어 순). 세력의 전략 앵커. **승리·점령·수비대·[캠프 메뉴](../features/camp-menu.md) 판정이 이 세트를 기준**으로 한다.
 - `BuildingTypes.is_center(type_id) -> bool` — 그 종류가 거점인지(`type_id in CENTER_IDS`). 세 티어 중 하나라도 세력이 가지면 유지된다([승패](../features/victory.md)).
@@ -123,8 +113,8 @@
 - [정상] `get_type("farm").label == "농장"`, `vision == 4`, `footprint == 1`, 외형 색상 키 존재, 초기 `resources` 없음(빈/미정의)
 - [정상] `get_type("farm")`의 `build_turns == 3`, `build_cost == {목재5}`, `demolish_refund == {목재1}`, `production == {}`(flat 없음 — [1차 생산](../features/production.md))
 - [정상] 1차 생산 — `farm`: `primary_production==true`, `produces=="식량"`, `buildable_terrains==[초원]`; `lumberjack`: `produces=="목재"`, `[숲]`; `iron_mine`: `produces=="철"`, `[철맥]`; `gold_mine`: `produces=="금"`, `[금맥]`
-- [정상] 필요인원 폐지 — 모든 건물 `required_pop == 0`(키 없거나 0). `siege_workshop`도 0
-- [경계] 비-생산 건물 — `house`·`camp`·`siege_workshop`: `primary_production` false/미정의, `produces==""`, `buildable_terrains==[]`
+- [정상] 필요인원 폐지 — 모든 건물 `required_pop == 0`(키 없거나 0)
+- [경계] 비-생산 건물 — `house`·`camp`: `primary_production` false/미정의, `produces==""`, `buildable_terrains==[]`
 - [경계] 제거된 종류는 빈 Dictionary: `get_type("quarry")`·`get_type("silver_mine")`·`get_type("sawmill")`·`get_type("smelter")` 등 == `{}`
 - [정상] `get_type("camp")`의 `build_turns == 8`, `build_cost == {목재10, 식량10}`, `demolish_refund == {목재2}`
 - [정상] `get_type("house")` — `label == "집"`, `vision == 2`, `footprint == 1`, `build_turns == 4`, `build_cost == {목재8, 식량4}`, `pop_cap == 2`, `production` 없음(생산 아님), 외형 색상 키 존재
@@ -136,11 +126,9 @@
 - [정상] `get_type("gold_mine")` — `label == "금광"`, `build_cost == {목재15, 철5}`, `produces == "금"`, `buildable_terrains == [금맥]`
 - [정상] `get_type("town_hall")` — `label == "마을회관"`, `vision == 6`, `footprint == 7`, `build_turns == 8`, `build_cost == {목재20, 식량20}`, `prerequisite == "camp"`, `production` 없음(빈/미정의)
 - [정상] `get_type("castle")` — `label == "성"`, `vision == 8`, `footprint == 7`, `build_turns == 12`, `build_cost == {목재40, 식량30, 철20}`, `demolish_refund == {목재4, 철2}`, `prerequisite == "town_hall"`, `production` 없음
-- [정상] `WALL_COST == {목재15, 철5}`(자재 Dictionary)
-- [정상] `can_build_wall` — 마을회관 거점 + 자재 충분 → 참; [경계] 캠프(tier 0) → 거짓, 이미 성벽(`wall_level=1`) → 거짓, 자재 부족 → 거짓
-- [정상] 선행 필드 — `get_type("camp").prerequisite == ""`, `farm`·`lumberjack`·`iron_mine`·`gold_mine`의 `prerequisite == "camp"`, `house`·`siege_workshop`의 `prerequisite == "town_hall"`
+- [정상] 선행 필드 — `get_type("camp").prerequisite == ""`, `farm`·`lumberjack`·`iron_mine`·`gold_mine`의 `prerequisite == "camp"`, `house`의 `prerequisite == "town_hall"`
 - [경계] `get_type("없는id")`는 빈 Dictionary
-- [정상] `BUILDABLE_IDS`가 `["farm", "lumberjack", "iron_mine", "gold_mine", "house", "siege_workshop"]`(거점 3종 미포함, 제거된 종류 미포함)
+- [정상] `BUILDABLE_IDS`가 `["farm", "lumberjack", "iron_mine", "gold_mine", "house"]`(거점 3종 미포함, 제거된 종류 미포함)
 - [정상] `is_center` — `camp`·`town_hall`·`castle`는 참; `farm`·`house`·`lumberjack`·`iron_mine`·`없는id`는 거짓
 - [정상] `CENTER_IDS == ["camp", "town_hall", "castle"]`
 

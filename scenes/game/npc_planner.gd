@@ -3,7 +3,7 @@ extends RefCounted
 ## NPC 부대 의사결정 계층 — 표적 선정·후퇴 판단·포지셔닝·그룹 이동 계획. game.gd에서 분리했다.
 ## 실행·연출(이동 애니메이션·전투 오버레이·카메라·안개)은 game.gd가 맡고, 여기는 "어디로/누구를"만 정한다.
 ## 월드 상태는 world(덕 타이핑 — game.gd 또는 테스트 스텁)의 좁은 조회 인터페이스로만 읽는다:
-##   all_parties() · all_buildings() · party_on_cell(cell) · wall_blocked_cells(fn) · blocked_for(party) · breached_by(b, fn)
+##   all_parties() · all_buildings() · party_on_cell(cell) · blocked_for(party)
 ## 순수 티어 선택·목적지 계산은 NpcAi(static)를 그대로 쓴다. → docs/spec/features/npc-movement.md
 
 # NPC가 자기 캠프를 방어하는 반경(헥스). 이 안에 적 부대가 들어오면 그 침입자를 요격 우선한다.
@@ -69,8 +69,6 @@ func targets_for(p, p_party_entries: Array, p_camp_entries: Array) -> Array:
 	for b in world.all_buildings():
 		if not BuildingTypes.is_center(b.building_type) or world.party_on_cell(b.center_cell()) != null:
 			continue   # 중심 타일에 수비 부대가 있으면 방어됨 — 무방비 목록 제외
-		if b.is_walled():
-			continue   # 성벽 있으면 진입 불가 — 손쉬운 점령 대상 아님 → wall.md
 		if b.faction_name() != fn and near.has(b.center_cell()):
 			undefended.append(b.center_cell())
 	var weak: Array = []
@@ -81,14 +79,12 @@ func targets_for(p, p_party_entries: Array, p_camp_entries: Array) -> Array:
 		if near.has(ocell) and NpcAi.party_power(other.members) <= my_power:
 			weak.append(ocell)
 	var rest: Array = NpcAi.enemy_cells(fn, p_party_entries) + NpcAi.enemy_cells(fn, p_camp_entries)
-	# 성벽 공성 티어: 시즈 부대는 사거리 밴드(4~5) 포격 위치(5f/5g), 비시즈 부대는 성벽에 붙어 사다리(사다리 우선). → npc-movement.md
-	var wall_target: Array = _siege_band_cells(p) if p.has_siege() else _wall_assault_cells(p)
 	# 교전 포지셔닝: 원거리 선호 부대는 약한 적 부대의 [2~attack_range] 밴드로(거리 유지), 근접 선호는 붙는다. → npc-movement.md
 	var weak_target: Array = weak
 	if _party_prefers_ranged(p):
 		var band := _combat_band_cells(p, weak)
 		weak_target = band if not band.is_empty() else weak   # 밴드 셀 없으면(막힌 지형 등) 접근으로 폴백
-	var advance := NpcAi.prioritize([undefended, weak_target, wall_target, rest])
+	var advance := NpcAi.prioritize([undefended, weak_target, rest])
 	var defend := _threats_near_own_camp(fn, p_party_entries)
 	return NpcAi.select_targets(advance, defend)
 
@@ -136,16 +132,12 @@ func adjacent_enemy(attacker):
 	var in_range := {}
 	for c in HexGrid.cells_within(terrain, _cell_of(attacker), reach, map_w, map_h):
 		in_range[c] = true
-	var walls: Dictionary = world.wall_blocked_cells(attacker.faction_name)   # 적 성벽 안 수비대는 접근 불가 → 표적 제외 → wall.md
 	for other in world.all_parties():
 		if other == attacker or not is_instance_valid(other) or other.members.is_empty():
 			continue
 		if other.faction_name == attacker.faction_name:
 			continue   # 같은 세력(아군)은 공격 대상 아님(거점 방어 부대로 같은 세력 인접이 생겨 필요)
-		var oc: Vector2i = _cell_of(other)
-		if walls.has(oc):
-			continue   # 성벽 안 수비대는 표적 아님
-		if in_range.has(oc):
+		if in_range.has(_cell_of(other)):
 			return other
 	return null
 
@@ -157,42 +149,12 @@ func adjacent_enemy_camp(attacker):
 	for b in world.all_buildings():
 		if not BuildingTypes.is_center(b.building_type):
 			continue
-		if b.is_walled() and not world.breached_by(b, fn):
-			continue   # 성벽 거점은 진입 불가 → 흡수 대상 아님. 단 이 세력이 사다리로 돌파했으면 열린다. → wall.md
 		if b.faction_name() == fn:
 			continue   # 아군 거점
 		for c in b.cells:
 			if c == acell or c in neighbors:
 				return b
 	return null
-
-## attacker의 투석 사거리 밴드(min~fire) 안 최근접 표적. {kind:"wall"/"party", ref, dist} 또는 빈 Dictionary. → siege-engines.md
-## 성벽은 적 세력 전체(플레이어·다른 NPC, 5g), 부대는 적 세력 전체(5g-B). 성문 셀은 제외(NPC는 성벽만 공격).
-func siege_target_for(attacker) -> Dictionary:
-	if not attacker.has_siege():
-		return {}
-	var fire_r: int = attacker.siege_fire_range()
-	var min_r: int = attacker.siege_min_range()
-	if fire_r <= 0:
-		return {}
-	var dists: Dictionary = HexGrid.bfs_distances(terrain, _cell_of(attacker), fire_r, map_w, map_h)
-	var best := {}
-	var best_d := 1 << 30
-	for p in world.all_parties():   # 적 세력 부대(플레이어·다른 NPC — 5g-B, 자기 부대·자기 세력 제외)
-		if p == attacker or p.members.is_empty() or p.faction_name == attacker.faction_name:
-			continue
-		var ec: Vector2i = _cell_of(p)
-		if dists.has(ec) and int(dists[ec]) >= min_r and int(dists[ec]) < best_d:
-			best_d = int(dists[ec])
-			best = {"kind": "party", "ref": p, "dist": best_d}
-	for b in _enemy_walled_centers(attacker.faction_name):   # 적 세력 성벽 거점(플레이어·다른 NPC 불문 — 5g)
-		for c in b.cells:
-			if c == b.gate_cell():
-				continue   # 성문 셀은 NPC 표적 제외 — NPC는 성벽만 공격(성문 공격 AI는 후속) → siege-engines.md
-			if dists.has(c) and int(dists[c]) >= min_r and int(dists[c]) < best_d:
-				best_d = int(dists[c])
-				best = {"kind": "wall", "ref": b, "dist": best_d}
-	return best
 
 ## 원거리 무기 우위 부대인지 — 사거리 2+ 이고 원거리 파워 > 근접 파워. 교전 시 거리 유지 여부 판정. → npc-movement.md
 func _party_prefers_ranged(p) -> bool:
@@ -212,34 +174,7 @@ func _combat_band_cells(p, party_cells: Array) -> Array:
 			nearest = c
 	return _band_cells([nearest], 2, p.attack_range())   # 근접(리치 1) 밖·사거리 안
 
-## p에서 가장 가까운(월드 거리 — _approach 척도) 적 세력 성벽 거점. 없으면 null. 시즈 밴드·사다리 공성 공용. → npc-movement.md
-func _nearest_enemy_walled_center(p):
-	var pw: Vector2 = p.position
-	var target = null
-	var best_d := INF
-	for b in _enemy_walled_centers(p.faction_name):
-		var d := pw.distance_to(terrain.map_to_local(b.center_cell()))
-		if d < best_d:
-			best_d = d
-			target = b
-	return target
-
-## 비시즈 부대 p가 사다리로 공성할 성벽 거점(가장 가까운 적 세력)의 footprint 셀 — 접근하면 인접에 멈춰 사다리 설치. 없으면 빈 배열. → wall.md
-func _wall_assault_cells(p) -> Array:
-	var target = _nearest_enemy_walled_center(p)
-	return target.cells if target != null else []
-
-## 투석기 실은 NPC p가 자리잡을 밴드 셀 — 가장 가까운 적 세력 성벽 거점의 사거리 밴드(4~5) 안 셀. → siege-engines.md
-func _siege_band_cells(p) -> Array:
-	var fire_r: int = p.siege_fire_range()
-	if fire_r <= 0:
-		return []
-	var target = _nearest_enemy_walled_center(p)
-	if target == null:
-		return []
-	return _band_cells(target.cells, p.siege_min_range(), fire_r)
-
-## source_cells에서 헥스 거리 [min_r ~ max_r] 밴드 안 셀 목록(다중 시작 BFS, 지형 무시). 시즈·교전 포지셔닝 공용. → npc-movement.md
+## source_cells에서 헥스 거리 [min_r ~ max_r] 밴드 안 셀 목록(다중 시작 BFS, 지형 무시). 교전 포지셔닝용. → npc-movement.md
 func _band_cells(source_cells: Array, min_r: int, max_r: int) -> Array:
 	var dist := {}
 	var frontier: Array[Vector2i] = []
@@ -313,12 +248,4 @@ func _threats_near_own_camp(fn: String, p_party_entries: Array) -> Array:
 	for e in p_party_entries:
 		if e["faction"] != fn and near.has(e["cell"]):
 			out.append(e["cell"])
-	return out
-
-## faction_name이 공성할 적 세력 성벽 거점 목록(플레이어·NPC 불문, 자기 세력 제외). 5g 투석 표적·밴드 셀 공용. → siege-engines.md
-func _enemy_walled_centers(faction_name: String) -> Array:
-	var out: Array = []
-	for b in world.all_buildings():
-		if BuildingTypes.is_center(b.building_type) and b.is_walled() and b.faction_name() != faction_name:
-			out.append(b)
 	return out

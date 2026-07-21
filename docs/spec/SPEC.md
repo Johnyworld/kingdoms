@@ -15,8 +15,7 @@
 ## 씬 흐름
 
 ```
-Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶ Game
-                                  ├──(새 게임)──▶ Lang Battle (격리 실험, test/lang1battle)
+Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶ Game ──(부대 전투)──▶ Lang Battle (정식 전투 오버레이)
                                   └──(설정)─────▶ (준비 중)
 ```
 
@@ -54,17 +53,14 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(첫 소비자: 구성원 메뉴)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Combat (전투 판정)](features/combat.md) — 능력치 기반 1회 공방·3회 교대 교전 순수 로직
-- [Battle (전투씬·개시·복귀)](features/battle.md) — 인접 적 클릭 개시 → 실시간 관전 오버레이(**부대 단위 시각 집약** — 팀당 스쿼드 토큰 1개, 멤버 시뮬은 개별) → 사상자 반영·복귀
 - [Raid (약탈)](features/raid.md) — 전투로 전멸한 적 부대의 전사자 장비를 승자가 노획(플레이어=선택 패널 / NPC=자동 전량)
 - [Equipment (장비 관리)](features/equipment.md) — 노획 장비를 멤버에게 장착·탈착(무기3·방어구4·방패1 슬롯, 스왑 없음). 행동 메뉴 [장비]로 여는 모달
 - [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
 - [Combat Feedback (전투 연출)](features/combat-feedback.md) — 대미지 숫자·타격 반짝임·흔들림·돌진·상태이상 텍스트·사망 넉백
-- [Lang Battle (랑그릿사 1 오마주 전투 — 격리 실험)](features/lang-battle.md) — 브랜치 `test/lang1battle`. 기존 게임과 분리된 별도 전투 씬(더미 10:10). Resolver(순수 계산)/Presenter(연출) 분리, 원본 RNG·상성·지휘보정·병력바 재현
+- [Lang Battle (랑그릿사 1 오마주 전투 — 게임 정식 전투)](features/lang-battle.md) — 게임의 **정식 전투 시스템**(구 battle.gd 오버레이 대체). 모든 부대 전투가 이 오버레이로 열린다. Resolver(순수 계산)/Presenter(연출) 분리, 원본 RNG·상성·지휘보정·병력바 재현
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 - [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(농장·식량 / 벌목소·목재 / 철광·철 / 금광·금). 생산포인트(1÷거리, 거리 기반) 모델 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 자원 4종 체제
 - [Camp Capture (캠프 점령·방어)](features/camp-capture.md) — 거점 방어=중심 타일 점거 부대(창발, 별도 상태 없음)·"수비 N" 배지 / 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
-- [Wall / 성벽 (거점 방어 구조물)](features/wall.md) — 마을회관·성 성벽(`wall_level`) 적 접근 차단 + 사다리 공성(3턴·밀기 15%·통로 돌파) + 성문(`gate_hp` 120, 충차로 파괴 시 그 면 통로 개방·성벽 유지)
-- [Siege Engines / 공성병기 (부대 소속 공성 유닛)](features/siege-engines.md) — 투석기(공격 50·HP 60) 등 인구 비소모 재사용 유닛. 공성 작업장 생산·견인 이동(2·사람 4명+)·[투석](사거리 4~5·선택 모드)으로 성벽(내구도 180)을 랜덤 피해(30~70)로 깎아 평균 3~6발에 붕괴하거나, 성벽·적 부대를 battle.gd 통합 전투에서 폭격(최대 5명·유닛별 명중 0.1·양쪽 투석기 상호 반격·적 투석기 우선 대포병 결투로 투석기 피격·파괴, 성벽=구조물 전투원). 충차(근접·**성문 전용**·고화력 90·저내구 40, 성문(120) ~2발 파괴→그 면 통로 개방(성벽 유지), 수비 반격에 취약). **⚠️ 생산 경로 제거됨(주둔 제거와 함께, 재구축 예정) — 현재 게임 내 공성 병기 생성 경로 없음, 시스템 코드는 휴면**
 - [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 분할·병합으로 재조직
 - [Party Lord (소속 영웅)](features/party-lord.md) — 일반부대의 소속 영웅부대 설정/해제 UI([소속] 버튼 → 모달, 소속=인접 영웅 필요·해제 자유·턴 무소비)
 - [Squad Stance (부대 작전 — 이동 후 하위부대 명령)](features/squad-stance.md) — 영웅 이동 직후 작전 메뉴 [추종][대기][교전][돌격]로 하위부대 일괄 통솔. 교전=최근접 적 접근·신중 전투, 돌격=목표 1지점 어택무브(공격적)
@@ -79,7 +75,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성
 - [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그 + 상성표. 전투 AT·DF·상성에 사용
 - [Buildings (건물 종류)](data/buildings.md)
-- [Siege Units (공성 유닛 카탈로그)](data/siege-units.md) — 투석기 등 공성 유닛(`SiegeTypes`). 이름·견인 이동력·생산 비용
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
 
 ## 파일 매핑
@@ -100,9 +95,9 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 전투 판정 | `scenes/combat/combat_resolver.gd` |
 | 상태이상(순수) | `scenes/combat/status_effects.gd` |
 | 전투 연출(순수 텍스트 매핑) | `scenes/combat/hit_feedback.gd` |
-| 전투씬 오버레이 | `scenes/combat/battle.gd` |
-| 전투 공간 판정 | `scenes/combat/battle_field.gd` |
-| 헤드리스 전투 결산 | `scenes/combat/battle_sim.gd` |
+| 랑그릿사 전투 오버레이 | `scenes/lang_battle/lang_battle.gd` |
+| 부대↔lang 매핑 | `scenes/lang_battle/lang_bridge.gd` |
+| 유닛 카탈로그(클래스·HP) | `scenes/party/game_units.gd` |
 | 아이템(무기·방어구) 카탈로그 | `scenes/item/item_types.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |

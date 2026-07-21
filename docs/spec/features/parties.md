@@ -34,12 +34,7 @@
   - **턴 리셋** — 턴 종료 시 NPC 부대도 `reset_turn`. → [Turn](turn.md).
   - **부대 일람 제외** — 일람은 우리 세력 부대만.
   - **정보 패널** — 보이는 NPC 클릭 시 정보 표시(선택 없음). → [Party Info](party-info.md).
-  - **이동·공격** — [NPC Movement](npc-movement.md)·[Battle](battle.md) 공격 페이즈.
-
-## 시작 투석기 (폐지)
-
-이전에는 플레이어 부대·NPC 부대에 **시작 [투석기](siege-engines.md) 1대**를 실어 줬으나, **영웅부대(1명)는 견인 인력(`SiegeTypes.CREW_MIN`=4) 부족으로 투석기를 못 끈다**. 편제가 영웅 중심으로 바뀌며 **시작 투석기 자동 지급은 폐지**했다. 투석기는 [공성 작업장 생산](siege-engines.md#획득--공성-작업장에서-생산)으로만 획득한다(기존 mechanic 유지). *(NPC 방어 포격 시작분(5c)도 이번엔 없음 — 후속.)*
-거점 **시작 [성벽](wall.md)**(공성 시험용 스캐폴딩)은 그대로 둔다.
+  - **이동·공격** — [NPC Movement](npc-movement.md)·[Lang Battle](lang-battle.md) 공격 페이즈.
 
 ## 미구현
 

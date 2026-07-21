@@ -7,7 +7,7 @@
 
 ## 무기 (`ItemTypes.WEAPONS`)
 
-`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법` — 값은 상수 `ItemTypes.DT_SLASH/DT_PIERCE/DT_BLUNT/DT_RANGED/DT_MAGIC`(카탈로그·[상성표](#상성표)·치명 상태이상 매핑([Status Effects](../features/status-effects.md) `CRIT_INFLICT`)의 단일 출처). `value`는 기준가(상거래 제거로 **현재 미사용**). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투씬([Battle](../features/battle.md))에서 쓴다:
+`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법` — 값은 상수 `ItemTypes.DT_SLASH/DT_PIERCE/DT_BLUNT/DT_RANGED/DT_MAGIC`(카탈로그·[상성표](#상성표)·치명 상태이상 매핑([Status Effects](../features/status-effects.md) `CRIT_INFLICT`)의 단일 출처). `value`는 기준가(상거래 제거로 **현재 미사용**). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투 오버레이([Lang Battle](../features/lang-battle.md))에서 쓴다:
 - **`reach`(근접거리)** — 전투씬 근접 공격 개시 거리(원본 무기.md). **클수록 리치가 길어 먼저 사거리에 진입 = 선제 공격**. 맨손 1.0.
 - **`attack_speed`(공격속도)** — 1회 공격에 걸리는 초(민첩 0 기준). 낮을수록 빠름. 최종 공격 간격은 민첩으로 단축([Combat](../features/combat.md) `attack_interval`).
 - **`throw_range`**(선택, 기본 0) — **던지는 무기**의 전투씬 투척 사거리. 활과 달리 월드맵 `range`는 1이지만 접근 중 이 거리부터 투척한다.
@@ -63,13 +63,7 @@
 
 ## 도구 (`ItemTypes.TOOLS`)
 
-장착하지 않는(슬롯 없음) 소지 아이템. 부대 `loot_items`에 담는다(고리 사다리 등). `{id: {name, value}}`. (상거래 제거로 구매처는 없음 — 노획으로만 획득.)
-
-| id | 이름 | 가치 | 효과 |
-| --- | --- | --- | --- |
-| `grapple_ladder` | 고리 사다리 | 12 | 소지 부대가 [사다리를 설치](../features/wall.md#사다리-공성-siege--gamegd)하면 **1개 소모**하고 그 사다리를 `hooked`로 — 방어자 [사다리 밀기](../features/wall.md#사다리-밀기-방어) 성공 확률 −5%p(15%→10%) |
-
-- `item_slot("grapple_ladder") == ""`(장착 불가). `item_name`·`item_value`는 무기·방어구·방패에 이어 **도구도 통합 조회**한다.
+장착하지 않는(슬롯 없음) 소지 아이템 카탈로그. **현재 비어 있다(`TOOLS = {}`)** — 유일한 항목이 관련 기능 제거와 함께 삭제됐다. `item_name`·`item_slot`·`item_value` 통합 조회는 도구 카탈로그도 훑도록 남아 있으나(재도입 대비), 지금은 조회할 항목이 없다.
 
 ## 상성표 (`ItemTypes.AFFINITY`)
 
@@ -98,7 +92,7 @@
 - `primary_weapon(weapons: Array) -> String` — 주무기(목록 첫 원소). 비면 `""`(맨손).
 - `ranged_weapon(weapons: Array) -> String` — 목록 중 **공격거리 ≥ 2인 첫 무기**(활·완드 등). 없으면 `""`.
 - `throwing_weapon(weapons: Array) -> String` — 목록 중 **`throw_range` > 0인 첫 무기**(투창 등). 없으면 `""`.
-- `melee_weapon(weapons: Array) -> String` — 목록 중 **공격거리 < 2인 첫 무기**(근접). 없으면 `""`(순수 원거리). 근접 모드 궁수가 적이 근접하면 전환할 무기 판별에 쓴다([Battle](../features/battle.md)).
+- `melee_weapon(weapons: Array) -> String` — 목록 중 **공격거리 < 2인 첫 무기**(근접). 없으면 `""`(순수 원거리). 근접 모드 궁수가 적이 근접하면 전환할 무기 판별에 쓴다([Lang Battle](../features/lang-battle.md)).
 - `max_range(weapons: Array) -> int` — 목록 무기 공격거리의 **최대값**(부대 월드맵 사거리). 비면 `0`(맨손 근접). 근접만이면 0, 활 소지면 3 등.
 - `active_weapon(weapons: Array, ranged_mode: bool) -> String` — 전투에서 실제 쓸 무기. `ranged_mode`면 `ranged_weapon`(없으면 `""` → 공격 불가), 아니면 `primary_weapon`.
 - `armor_defense(id) -> int` / `armor_class(id) -> String` / `armor_name(id) -> String` / `armor_weight(id) -> int` — 없는 id면 `0` / `""` / `""` / `0`.
@@ -141,9 +135,9 @@
 - [정상] `armor_class_of`는 방어력이 가장 큰 조각의 분류(예: 가죽 세트 → `가죽`)
 - [경계] `armor_class_of([])` → `""`
 - [정상] `affinity("판금", "마법") == 1.3`, `affinity("사슬", "참격") == 0.7`
-- [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패), `item_name("grapple_ladder") == "고리 사다리"`(도구); [예외] `item_name("") == ""`, 없는 id → `""`
-- [정상] `item_slot("sword") == "weapon"`, `item_slot("chain_mail") == "armor"`, `item_slot("buckler") == "shield"`; [경계] `item_slot("grapple_ladder") == ""`(도구는 장착 불가); [예외] `item_slot("") == ""`, 없는 id → `""`
-- [정상] `item_value("sword") == 14`(무기=공격력), `item_value("chain_mail") == 28`(방어구=방어력×2), `item_value("tower_shield") == 24`(방패), `item_value("grapple_ladder") == 12`(도구); [예외] `item_value("") == 0`, 없는 id → `0`
+- [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패); [예외] `item_name("") == ""`, 없는 id → `""`
+- [정상] `item_slot("sword") == "weapon"`, `item_slot("chain_mail") == "armor"`, `item_slot("buckler") == "shield"`; [예외] `item_slot("") == ""`, 없는 id → `""`
+- [정상] `item_value("sword") == 14`(무기=공격력), `item_value("chain_mail") == 28`(방어구=방어력×2), `item_value("tower_shield") == 24`(방패); [예외] `item_value("") == 0`, 없는 id → `0`
 - [예외] 없는 분류/타입 → `affinity` `1.0`
 
 ## 관련

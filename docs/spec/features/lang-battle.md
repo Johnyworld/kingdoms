@@ -19,10 +19,10 @@
 - **lang 결과 → 생존**(`survivors(party, final_soldiers)`): 최종 병력수만큼 멤버를 앞에서부터 유지(영웅은 병력>0이면 Human 1인 생존). `game.gd._apply_survivors` 입력.
 - **치사율 모델**: 게임의 **부대 1회 공격 = lang 1교전**(`resolve_engagement` — 공격 볼리 + 반격 1회). 원작처럼 소모전(한 번에 전멸시키지 않음, 여러 턴 반복 교전).
 
-**현재 통합 상태(단계적)**:
-- ✅ **NPC↔NPC 비공성 헤드리스**(`game.gd._resolve_battle_headless`) → lang: 근접(≤1) `resolve_engagement`, 원거리(≥2) `resolve_ranged`(궁병 side만 1볼리, `LangRng` 시드).
-- ⏳ **공성**(투석기 보유·플레이어 투석/성문) → 아직 `BattleSim`/`combat/battle.gd`. lang엔 구조물 전투원 모델이 없어 M3-③에서 결정.
-- ✅ **플레이어 비공성 전투**(근접·원거리) → **lang 오버레이**(`game.gd._run_lang_overlay`, mode는 거리로). ⏳ **공성**만 아직 `combat/battle.gd`(M3-③).
+**현재 통합 상태**:
+- ✅ **NPC↔NPC 헤드리스**(`game.gd._resolve_battle_headless`) → lang: 근접(≤1) `resolve_engagement`, 원거리(≥2) `resolve_ranged`(궁병 side만 1볼리, `LangRng` 시드).
+- ✅ **플레이어 전투**(근접·원거리) → **lang 오버레이**(`game.gd._run_lang_overlay`, mode는 거리로).
+- 옛 거점 방어 구조물·병기 시스템은 **제거**됐다 — 옛 `BattleSim`·`combat/battle.gd` 경로도 함께 삭제. 모든 부대 전투가 lang(헤드리스/오버레이)으로 단일화됐다.
   - **presenter 오버레이 API**(`lang_battle.gd`): `overlay_mode`(add_child 전 설정 → `_ready` 자동 로드·입력 내비게이션 끔), `start_overlay(cfg)`(부대 cfg로 전투 재생), `signal finished(a_soldiers, d_soldiers)`(DONE 시 최종 병력수 방출). cfg는 `LangBridge.battle_config(attacker, defender, distance)`가 부대 쌍에서 만든다({a:{kind,count}, b, mode}). 오버레이 입력은 스킵만(재전투·설정복귀 없음).
   - **game.gd 배선**(`_run_lang_overlay`): lang_battle.tscn(Node2D)을 **CanvasLayer(layer 60)로 감싸** 게임 카메라 무관 스크린 오버레이로 얹고(HudLayer.layer=61), `start_overlay` → `await finished` → 병력수를 `LangBridge.survivors`로 생존 Human에 매핑 → `_run_battle`의 loot·`_apply_survivors`·점령(occupy) 로직 공유. **시각 정확성(위치·레이어)은 실제 플레이로 확인 필요**(헤드리스 검증 불가).
 - ⏳ **지휘 범위 버프·장비 상성·상태이상** → 완전 교체로 전투 판정에서 미사용(장비/약탈 UI는 flavor로 유지). lang 지휘보정(`_cmd_bonus`)과의 통합은 후속.
@@ -223,7 +223,7 @@ CHARGE (화면 밖 넓은 대형에서 즉시 돌격 + 하단 숫자 동시)
 원본은 16비트 도트 그래픽이다. 이를 위해 `Battlefield` 노드를 384×216 논리 공간에서
 **안티앨리어싱 없는 `draw_rect` 픽셀로만** 그린 뒤 씬에서 `scale = ×5` 로 확대(→1920×1080)한다.
 draw_rect 는 하드엣지라 확대해도 도트가 선명하다(SubViewport 불필요).
-- 지형: 녹색 이끼 석조 벽돌 바닥 + 상단 성벽/구덩이 + 나무 사다리(원본 요새 맵 오마주). `_draw` 로 그린다.
+- 지형: 녹색 이끼 석조 벽돌 바닥 + 상단 석벽/구덩이 + 나무 발판(원본 요새 맵 오마주, 순수 배경 장식). `_draw` 로 그린다.
 - 병사: **`AnimatedSprite2D` 스프라이트**로 그린다(§아래 "병사 스프라이트"). 그림자·타격 섬광만 `_draw`.
   - **발밑 그림자**(`_draw_shadow`): 발끝(`pos.y+GROUND_SORT_DY`)에 **부드러운 타원**(`_ellipse` 3겹 — 바깥 옅음→안쪽 진함으로 소프트 엣지 근사). 스프라이트엔 베이크 그림자가 없으므로(no-shadow 애셋) 이 그림자 하나만 보인다. 넉백 비행 중엔 지면(`land_y`)에 고정(점프 연출).
 - 하단 HUD 는 가독성을 위해 풀해상도 CanvasLayer 로 별도(3분할 금테 패널·포트레이트).

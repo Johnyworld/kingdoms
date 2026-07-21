@@ -4,7 +4,7 @@
 
 두 [부대](../entities/Party.md)의 [멤버](../entities/Human.md)가 벌이는 교전을 **능력치로 판정하는 순수 로직**이다. 씬·시각 요소 없이 데이터만 다뤄 시드 RNG로 결정적으로 테스트한다(HexGrid·ClickRouter와 같은 헬퍼 패턴).
 
-기획 원본 `docs/table/시스템/전투.md`(랑그릿사식)의 규칙 중 **현재 구현된 능력치·장비로 가능한 부분**을 옮겼다. 이 판정 로직을 시간 기반 전투씬([Battle](battle.md))이 사용한다(이동·타겟팅·사상자 반영은 거기서 구현).
+기획 원본 `docs/table/시스템/전투.md`(랑그릿사식)의 규칙 중 **현재 구현된 능력치·장비로 가능한 부분**을 옮겼다. 실시간 전투 오버레이는 [Lang Battle](lang-battle.md)로 교체됐고(옛 `battle.gd` 오버레이는 제거), `CombatResolver`는 이제 **[부대 정보 패널](party-info.md)(`party_info.gd`)에서 멤버 능력치(AT/DF/회피/막기)를 표시**하는 데 쓰인다(`human.gd`도 참조). 즉 이 순수 판정 로직은 **화면 표시용 스탯 계산**의 단일 출처로 남는다.
 
 ## 계산 스탯
 
@@ -22,7 +22,7 @@
 
 `attack_power`·`hit_damage`·`resolve_hit`·`resolve_engagement`는 사용할 무기 id를 **선택 인자**로 받는다(생략 시 `ItemTypes.primary_weapon` = 주무기). 원거리 전투에서 활로 쏠 때는 호출부가 활 id를 넘긴다.
 
-**버프 제외 기본값의 단일 출처** — `base_attack_power(h, weapon := "")` / `base_defense(h)`가 버프 이전 공식(위 표의 AT/DF에서 배율 제외)을 제공하고, 실효값 `attack_power`/`defense`는 `기본값 × 버프 배율`로 이를 재사용한다. [전투 HUD](battle.md)의 "기본능력"·"지휘보정"(델타) 표시도 이 함수를 쓴다(공식 재구현 금지).
+**버프 제외 기본값의 단일 출처** — `base_attack_power(h, weapon := "")` / `base_defense(h)`가 버프 이전 공식(위 표의 AT/DF에서 배율 제외)을 제공하고, 실효값 `attack_power`/`defense`는 `기본값 × 버프 배율`로 이를 재사용한다. [부대 정보 패널](party-info.md)의 "기본능력"·"지휘보정"(델타) 표시도 이 함수를 쓴다(공식 재구현 금지).
 | 명중(%) | `max(MIN_HIT, 90 − 회피율)` | 명중 하한 `MIN_HIT`(10%) — 회피가 아무리 높아도 **최소 10%는 맞는다**(회피형 영웅 불사 방지). 상한 clamp는 없음(회피 음수면 100 초과 → 항상 명중) |
 | 치명타(%) | `행운 × 0.5` | |
 
@@ -41,7 +41,7 @@
 
 ## 공격 간격 (`attack_interval`, 시간 기반 전투)
 
-전투씬([Battle](battle.md))은 정해진 시간(10초) 동안 각 유닛이 **자기 공격 간격마다 1회 공격**(`resolve_hit`)한다. 교전을 3공방으로 묶던 옛 `resolve_engagement`는 폐기했다.
+`attack_interval`은 시간 기반 전투에서 각 유닛이 **자기 공격 간격마다 1회 공격**(`resolve_hit`)하도록 간격(초)을 계산한다. 교전을 3공방으로 묶던 옛 `resolve_engagement`는 폐기했다. *(옛 `battle.gd` 오버레이가 이 간격을 썼고, 현재 실시간 전투는 [Lang Battle](lang-battle.md)로 교체됨.)*
 
 - `attack_interval(h, weapon := "") -> float` = `max(0.4, 무기 기본 공격속도 × (1 − 민첩 × 0.005))`.
   - 무기 기본 공격속도(초)는 [ItemTypes](../data/items.md) `weapon_attack_speed`. `weapon` 생략 시 주무기.
