@@ -17,16 +17,16 @@
 
 | id | 상수 | 라벨 | 이동 | 비주얼 렌더(레이어·terrain) |
 | --- | --- | --- | --- | --- |
-| 0 | `PLAINS` | 초원 | 기본 (이동력 그대로) | Ground=GroundGrass + Grass=Light |
+| 0 | `PLAINS` | 초원 | 기본 (이동력 그대로) | Ground=GroundGrass + Grass=Light + 성긴 덤불 산재(Decoration Tree_Bush) |
 | 1 | `FOREST` | 숲 | 이동력 **1/2 올림**(`ceil`) | Ground=GroundGrass + Grass=Dark + Decoration=Tree_Pines |
 | 2 | `SWAMP` | 습지 | 이동력 **1/2 내림**(`floor`) | Ground=GroundGrass + GroundOverlay=Swamp |
 | 3 | `MOUNTAIN` | 산 | **진입·통과 불가** | Ground=GroundRock + Cliff=CliffRock + Decoration=Mountain_Basic |
 | 4 | `DESERT` | 사막 | 기본 (이동력 그대로) | Ground=GroundGrass + GroundOverlay=SandTile |
 | 7 | `WATER` | 물 | **진입·통과 불가** | Ocean=Shallow + Waves |
-| 8 | `IRON_VEIN` | 철맥 | 기본 (철광 지형) | 초원으로 렌더(아이콘은 후속) |
-| 9 | `GOLD_VEIN` | 금맥 | 기본 (금광 지형) | 초원으로 렌더(아이콘은 후속) |
+| 8 | `IRON_VEIN` | 철맥 | 기본 (철광 지형) | Ground=Grass + Decoration=Mountain_Basic (회색 바위 노두) |
+| 9 | `GOLD_VEIN` | 금맥 | 기본 (금광 지형) | Ground=Grass + Decoration=Mountain_SandDune (노란 사구) |
 
-> **생산 지형**은 **초원(농장·식량)·숲(벌목소·목재)·철맥(철광)·금맥(금광)** 넷([production.md](../features/production.md)의 `buildable_terrains` 대상). 철맥·금맥은 게임 데이터로 유지하되 이번 렌더 슬라이스에선 **초원 타일로 그린다**(전용 아이콘/deposit 분리는 후속 슬라이스).
+> **생산 지형**은 **초원(농장·식량)·숲(벌목소·목재)·철맥(철광)·금맥(금광)** 넷([production.md](../features/production.md)의 `buildable_terrains` 대상). 철맥·금맥은 초원 위에 **바위 노두(철맥=회색, 금맥=노란 사구)** 표식을 얹어 광산 자리를 한눈에 보이게 한다(통행은 가능 — 표식은 Decoration 장식일 뿐 이동/판정에 영향 없음).
 > **남은 id는 재번호하지 않는다**(철맥 8·금맥 9 유지 — 타일셋 참조 안정). id 5·6·10은 공백(제거된 돌·동물·은맥). 데이터 타일셋의 옛 SVG 소스는 보이지 않는 레이어라 렌더에 안 쓰이며 **미사용**으로 남는다(에셋 정리는 후속).
 
 ## 이동 규칙 (`move_cap`)
@@ -61,8 +61,8 @@
 
 ## 미구현 / TODO (후속 슬라이스)
 
-- **장식**: 숲=나무(Decoration set0 Tree_Pines)·산=산봉우리(set1 Mountain_Basic) 완료. 도로·성벽은 미구현(도로/성벽 지형 개념 자체가 게임에 없음).
-- **철맥·금맥 아이콘/deposit 분리**: 현재는 초원으로 렌더. base 지형 + 자원 deposit 표식 분리는 후속.
+- **장식**: 숲=나무(Decoration set0 Tree_Pines)·산=산봉우리(set1 Mountain_Basic)·초원=성긴 덤불 산재(set0 Tree_Bush, 결정적 해시 ~1/11)·철맥·금맥=바위 표식 완료. 도로·성벽은 미구현(도로/성벽 지형 개념 자체가 게임에 없음).
+- **철맥·금맥 deposit 데이터 분리**: 현재는 초원 위에 Decoration 바위/사구 **표식**을 얹어 렌더(구현됨). base 지형과 자원 deposit을 별개 데이터로 완전 분리하는 것은 후속.
 - **해안 전환(SandShore)**: 물↔육지 경계 SandShore 레이어는 씬에 두었으나 아직 미도색.
 - **옛 SVG 타일 제거**: 데이터 레이어가 참조하는 `assets/tiles/*_hex.svg`는 렌더에 안 쓰이나 아직 남아 있다.
 - **맵 생성기**: 시작 지점 근처 방향별 소규모 덩어리(서=숲·동=습지·북=사막·남=산·남동=호수 + 철맥·금맥) 고정 배치만. 절차적 생성·바이옴은 미구현.

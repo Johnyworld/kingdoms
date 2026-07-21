@@ -81,20 +81,24 @@ func test_plains_paints_ground_and_grass() -> void:
 	assert_true(plains in ground, "초원 칸은 Ground에")
 	assert_true(plains in grass, "초원 칸은 Grass(잔디)에")
 
-func test_vein_and_unknown_render_as_plains() -> void:
-	# 철맥·금맥은 초원(Ground+Grass)으로 렌더, 미지정 id(-1)도 default=초원.
+func test_vein_shows_rock_marker_on_grass() -> void:
+	# 철맥·금맥은 초원(Ground+Grass) 위에 Decoration 바위 표식을 얹는다. 미지정(-1)은 순수 초원.
 	for y in H:
 		for x in W:
 			_data.set_cell(Vector2i(x, y), Terrain.PLAINS, Terrain.ATLAS)
 	_data.set_cell(Vector2i(1, 1), Terrain.IRON_VEIN, Terrain.ATLAS)
 	_data.set_cell(Vector2i(2, 1), Terrain.GOLD_VEIN, Terrain.ATLAS)
-	_data.erase_cell(Vector2i(3, 1))   # 미도색(-1)
+	_data.erase_cell(Vector2i(3, 1))   # 미도색(-1) → 순수 초원
 	_renderer.repaint(_data, W, H)
 	var ground: Array = _layers["ground"].get_used_cells()
 	var grass: Array = _layers["grass"].get_used_cells()
+	var deco: Array = _layers["decoration"].get_used_cells()
 	for c in [Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1)]:
-		assert_true(c in ground, "철맥·금맥·미도색은 초원처럼 Ground에: %s" % c)
-		assert_true(c in grass, "철맥·금맥·미도색은 초원처럼 Grass에: %s" % c)
+		assert_true(c in ground, "철맥·금맥·미도색은 초원 Ground에: %s" % c)
+		assert_true(c in grass, "철맥·금맥·미도색은 초원 Grass에: %s" % c)
+	assert_true(Vector2i(1, 1) in deco, "철맥은 Decoration 바위 표식")
+	assert_true(Vector2i(2, 1) in deco, "금맥은 Decoration 사구 표식")
+	assert_false(Vector2i(3, 1) in deco, "미지정(순수 초원)은 Decoration 없음")
 	assert_eq(_layers["ocean"].get_used_cells().size(), 0, "물 없음 → Ocean 비움")
 
 func test_repaint_clears_previous() -> void:
@@ -106,4 +110,14 @@ func test_repaint_clears_previous() -> void:
 	_renderer.repaint(_data, W, H)
 	assert_eq(_layers["ocean"].get_used_cells().size(), 0, "물 없으면 Ocean 비움")
 	assert_eq(_layers["cliff"].get_used_cells().size(), 0, "산 없으면 Cliff 비움")
-	assert_eq(_layers["decoration"].get_used_cells().size(), 0, "숲·산 없으면 Decoration 비움")
+	# Decoration은 초원 덤불 산재가 있으므로 비지 않는다 — 산재만 남는지는 별도 테스트에서 확인.
+
+func test_plains_scatter_is_sparse() -> void:
+	# 전 칸 초원 → Decoration에 덤불이 일부(성기게)만 깔린다: 0 < 덤불 < 전체.
+	for y in H:
+		for x in W:
+			_data.set_cell(Vector2i(x, y), Terrain.PLAINS, Terrain.ATLAS)
+	_renderer.repaint(_data, W, H)
+	var deco: int = _layers["decoration"].get_used_cells().size()
+	assert_gt(deco, 0, "초원에 덤불이 일부 흩뿌려짐")
+	assert_lt(deco, W * H, "모든 칸이 아니라 성기게(일부만)")
