@@ -21,9 +21,9 @@ static func hit_text(r: Dictionary) -> Dictionary:
 		return {"text": str(r["damage"]), "color": CRIT_COLOR, "big": true}
 	return {"text": str(r["damage"]), "color": HIT_COLOR, "big": false}
 
-## 상태이상 id → 떠오를 텍스트. 미지정 id는 "".
+## 상태이상 id(StatusEffects.BLEED/STUN) → 떠오를 텍스트. 미지정 id는 "".
 static func status_text(id: String) -> String:
 	match id:
-		"bleed": return "출혈!"
-		"stun": return "기절!"
+		StatusEffects.BLEED: return "출혈!"
+		StatusEffects.STUN: return "기절!"
 		_: return ""

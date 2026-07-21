@@ -310,7 +310,7 @@ func _sync_node(u: Dictionary, delta: float) -> void:
 	_refresh_hp_bar(u)
 	if StatusEffects.is_stunned(u["effects"]):
 		u["node"].modulate = Color(0.6, 0.6, 0.6, 1.0)
-	elif u["effects"].has("bleed"):
+	elif u["effects"].has(StatusEffects.BLEED):
 		u["node"].modulate = Color(1.0, 0.5, 0.5, 1.0)
 	else:
 		u["node"].modulate = Color(1.0, 1.0, 1.0, 1.0)

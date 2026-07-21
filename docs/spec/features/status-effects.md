@@ -13,7 +13,8 @@
 | 출혈 | `bleed` | **참격** 무기 치명타 명중 | `3.0`초 | 초당 `3` 피해(스택당) | O — 재부여 시 지속 리셋 + 스택 +1(상한 `3` = 9dps) |
 | 기절 | `stun` | **타격** 무기 치명타 명중 | `2.0`초 | 그동안 **공격 불가** | X — 재부여 시 지속만 리셋 |
 
-- 데미지타입 → 효과: `참격 → bleed`, `타격 → stun`, 그 외(`자돌·원거리·마법`) → 없음.
+- 데미지타입 → 효과: `참격 → bleed`, `타격 → stun`, 그 외(`자돌·원거리·마법`) → 없음. 매핑은 데이터 맵 `CRIT_INFLICT`(`ItemTypes.DT_* → StatusEffects.BLEED/STUN`) — 새 연동은 이 맵에만 추가한다.
+- 효과 id는 상수 `StatusEffects.BLEED`/`STUN`이 단일 출처 — 부여(`apply`)·조회(`is_stunned`)·연출 텍스트([HitFeedback](combat-feedback.md))·전투씬 tint(battle.gd)가 공유한다.
 - 부여는 **치명타로 피해가 실제로 들어간 타격**에서만(빗나감·방패 막기는 부여 없음).
 
 ## 순수 API (`status_effects.gd`)

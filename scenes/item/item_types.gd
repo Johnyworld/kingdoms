@@ -3,18 +3,30 @@ class_name ItemTypes
 ## 기획 원본(docs/table/아이템/무기.md·방어구.md)에서 전투에 쓰는 필드만 옮긴 부분집합이다.
 ## 무게·공격거리·근접거리·생산비용·가치·부위 등은 미수록(관련 기능 도입 시 추가).
 
-# 무기: id → {name, attack, damage_type(참격|자돌|타격|원거리|마법), weight, range, reach, attack_speed, throw_range?}.
+# 데미지 타입 상수 — 무기 카탈로그(damage_type)·상성표(AFFINITY)·치명 상태이상(StatusEffects.CRIT_INFLICT)의 단일 출처.
+const DT_SLASH := "참격"
+const DT_PIERCE := "자돌"
+const DT_BLUNT := "타격"
+const DT_RANGED := "원거리"
+const DT_MAGIC := "마법"
+
+# 장비 슬롯 상수 — item_slot 반환값과 장착 슬롯 판정(Party.can_equip_from_loot 등)의 단일 출처.
+const SLOT_WEAPON := "weapon"
+const SLOT_ARMOR := "armor"
+const SLOT_SHIELD := "shield"
+
+# 무기: id → {name, attack, damage_type(DT_*), weight, range, reach, attack_speed, throw_range?}.
 # reach(근접거리)=전투씬 근접 공격 개시 거리(원본 무기.md), 클수록 리치 김=선제. attack_speed=1회 공격 초(민첩 0 기준).
 const WEAPONS := {
-	"sword": {"name": "검", "attack": 14, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.2, "attack_speed": 2.0, "value": 14},
-	"longsword": {"name": "장검", "attack": 18, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.4, "attack_speed": 2.2, "value": 18},
-	"scimitar": {"name": "곡도", "attack": 15, "damage_type": "참격", "weight": 3, "range": 0, "reach": 1.1, "attack_speed": 1.8, "value": 15},
-	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": "참격", "weight": 4, "range": 0, "reach": 1.1, "attack_speed": 2.6, "value": 16},
-	"spear": {"name": "장창", "attack": 15, "damage_type": "자돌", "weight": 3, "range": 0, "reach": 2.0, "attack_speed": 2.4, "value": 15},
-	"mace": {"name": "모닝스타", "attack": 19, "damage_type": "타격", "weight": 5, "range": 0, "reach": 1.1, "attack_speed": 2.8, "value": 19},
-	"javelin": {"name": "투창", "attack": 10, "damage_type": "원거리", "weight": 2, "range": 0, "reach": 1.3, "attack_speed": 2.0, "throw_range": 2, "value": 10},
-	"bow": {"name": "단궁", "attack": 12, "damage_type": "원거리", "weight": 2, "range": 3, "reach": 0.7, "attack_speed": 3.3, "value": 12},
-	"wand": {"name": "완드", "attack": 8, "damage_type": "마법", "weight": 1, "range": 2, "reach": 0.5, "attack_speed": 2.6, "value": 8},
+	"sword": {"name": "검", "attack": 14, "damage_type": DT_SLASH, "weight": 3, "range": 0, "reach": 1.2, "attack_speed": 2.0, "value": 14},
+	"longsword": {"name": "장검", "attack": 18, "damage_type": DT_SLASH, "weight": 4, "range": 0, "reach": 1.4, "attack_speed": 2.2, "value": 18},
+	"scimitar": {"name": "곡도", "attack": 15, "damage_type": DT_SLASH, "weight": 3, "range": 0, "reach": 1.1, "attack_speed": 1.8, "value": 15},
+	"battleaxe": {"name": "전투도끼", "attack": 16, "damage_type": DT_SLASH, "weight": 4, "range": 0, "reach": 1.1, "attack_speed": 2.6, "value": 16},
+	"spear": {"name": "장창", "attack": 15, "damage_type": DT_PIERCE, "weight": 3, "range": 0, "reach": 2.0, "attack_speed": 2.4, "value": 15},
+	"mace": {"name": "모닝스타", "attack": 19, "damage_type": DT_BLUNT, "weight": 5, "range": 0, "reach": 1.1, "attack_speed": 2.8, "value": 19},
+	"javelin": {"name": "투창", "attack": 10, "damage_type": DT_RANGED, "weight": 2, "range": 0, "reach": 1.3, "attack_speed": 2.0, "throw_range": 2, "value": 10},
+	"bow": {"name": "단궁", "attack": 12, "damage_type": DT_RANGED, "weight": 2, "range": 3, "reach": 0.7, "attack_speed": 3.3, "value": 12},
+	"wand": {"name": "완드", "attack": 8, "damage_type": DT_MAGIC, "weight": 1, "range": 2, "reach": 0.5, "attack_speed": 2.6, "value": 8},
 }
 
 # 방어구: id → {name, defense, armor_class(천|가죽|사슬|판금), weight, value}.
@@ -42,12 +54,12 @@ const TOOLS := {
 	"grapple_ladder": {"name": "고리 사다리", "value": 12},   # 사다리 설치 시 소모 → 방어자 밀기 확률 −5%p(wall.md)
 }
 
-# 상성표: 방어구 분류 → { 데미지 타입 → 배율 }. 기획 원본과 동일.
+# 상성표: 방어구 분류 → { 데미지 타입(DT_*) → 배율 }. 기획 원본과 동일.
 const AFFINITY := {
-	"천": {"참격": 1.2, "자돌": 1.2, "타격": 1.0, "원거리": 1.2, "마법": 0.6},
-	"가죽": {"참격": 0.9, "자돌": 1.0, "타격": 1.1, "원거리": 0.9, "마법": 1.0},
-	"사슬": {"참격": 0.7, "자돌": 0.8, "타격": 1.1, "원거리": 0.8, "마법": 1.1},
-	"판금": {"참격": 0.5, "자돌": 0.6, "타격": 0.9, "원거리": 0.6, "마법": 1.3},
+	"천": {DT_SLASH: 1.2, DT_PIERCE: 1.2, DT_BLUNT: 1.0, DT_RANGED: 1.2, DT_MAGIC: 0.6},
+	"가죽": {DT_SLASH: 0.9, DT_PIERCE: 1.0, DT_BLUNT: 1.1, DT_RANGED: 0.9, DT_MAGIC: 1.0},
+	"사슬": {DT_SLASH: 0.7, DT_PIERCE: 0.8, DT_BLUNT: 1.1, DT_RANGED: 0.8, DT_MAGIC: 1.1},
+	"판금": {DT_SLASH: 0.5, DT_PIERCE: 0.6, DT_BLUNT: 0.9, DT_RANGED: 0.6, DT_MAGIC: 1.3},
 }
 
 ## 무기 공격력(없는 id면 0).
@@ -165,15 +177,15 @@ static func item_name(id: String) -> String:
 		return TOOLS[id]["name"]
 	return ""
 
-## 그 아이템이 들어가는 장비 슬롯 분류: 무기="weapon", 방어구="armor", 방패="shield", 없으면 "".
+## 그 아이템이 들어가는 장비 슬롯 분류: 무기=SLOT_WEAPON, 방어구=SLOT_ARMOR, 방패=SLOT_SHIELD, 없으면 "".
 ## 장비 관리([Equipment](equipment.md))에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
 static func item_slot(id: String) -> String:
 	if WEAPONS.has(id):
-		return "weapon"
+		return SLOT_WEAPON
 	if ARMORS.has(id):
-		return "armor"
+		return SLOT_ARMOR
 	if SHIELDS.has(id):
-		return "shield"
+		return SLOT_SHIELD
 	return ""
 
 ## 아이템 기준가(금). 무기→방어구→방패 순으로 value를 찾고, 세 곳 어디에도 없으면 0. 상거래([Trade](trade.md) — 판매가, 구매가 ×2)에 쓴다.

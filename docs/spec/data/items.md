@@ -7,7 +7,7 @@
 
 ## 무기 (`ItemTypes.WEAPONS`)
 
-`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법`([방어구 상성](#상성표)에 사용). `value`는 기준가(상거래 제거로 **현재 미사용**). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투씬([Battle](../features/battle.md))에서 쓴다:
+`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법` — 값은 상수 `ItemTypes.DT_SLASH/DT_PIERCE/DT_BLUNT/DT_RANGED/DT_MAGIC`(카탈로그·[상성표](#상성표)·치명 상태이상 매핑([Status Effects](../features/status-effects.md) `CRIT_INFLICT`)의 단일 출처). `value`는 기준가(상거래 제거로 **현재 미사용**). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투씬([Battle](../features/battle.md))에서 쓴다:
 - **`reach`(근접거리)** — 전투씬 근접 공격 개시 거리(원본 무기.md). **클수록 리치가 길어 먼저 사거리에 진입 = 선제 공격**. 맨손 1.0.
 - **`attack_speed`(공격속도)** — 1회 공격에 걸리는 초(민첩 0 기준). 낮을수록 빠름. 최종 공격 간격은 민첩으로 단축([Combat](../features/combat.md) `attack_interval`).
 - **`throw_range`**(선택, 기본 0) — **던지는 무기**의 전투씬 투척 사거리. 활과 달리 월드맵 `range`는 1이지만 접근 중 이 거리부터 투척한다.
@@ -107,7 +107,7 @@
 - `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
 - `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
 - `item_name(id) -> String` — 무기·방어구·방패·도구 카탈로그를 통합 조회한 이름. 무기→방어구→방패→도구 순으로 찾고, 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
-- `item_slot(id) -> String` — 그 아이템이 들어가는 장비 슬롯 분류. 무기면 `"weapon"`, 방어구면 `"armor"`, 방패면 `"shield"`, 세 곳 어디에도 없으면 `""`. [장비 관리](../features/equipment.md)에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
+- `item_slot(id) -> String` — 그 아이템이 들어가는 장비 슬롯 분류. 무기면 `SLOT_WEAPON`(`"weapon"`), 방어구면 `SLOT_ARMOR`(`"armor"`), 방패면 `SLOT_SHIELD`(`"shield"`), 세 곳 어디에도 없으면 `""`. 슬롯 문자열은 상수 `ItemTypes.SLOT_*`가 단일 출처 — 장착 판정([Party](../entities/Party.md)의 `can_equip_from_loot`/`equip_from_loot`/`unequip_to_loot`)도 같은 상수로 분기한다. [장비 관리](../features/equipment.md)에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
 - `item_value(id) -> int` — 그 아이템의 기준가. 무기→방어구→방패→도구 순으로 `value`를 찾고, 어디에도 없으면 `0`. (상거래 제거로 **현재 호출처 없음** — 함수·필드는 재도입 대비 유지.)
 
 ## 미수록 / 미구현

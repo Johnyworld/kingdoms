@@ -164,11 +164,11 @@ func can_equip_from_loot(member, id: String) -> bool:
 	if not (id in loot_items):
 		return false
 	match ItemTypes.item_slot(id):
-		"weapon":
+		ItemTypes.SLOT_WEAPON:
 			return member.weapons.size() < Human.MAX_WEAPONS
-		"armor":
+		ItemTypes.SLOT_ARMOR:
 			return member.armor.size() < Human.MAX_ARMOR
-		"shield":
+		ItemTypes.SLOT_SHIELD:
 			return member.shield == ""
 		_:
 			return false
@@ -179,11 +179,11 @@ func equip_from_loot(member, id: String) -> bool:
 	if not can_equip_from_loot(member, id):
 		return false
 	match ItemTypes.item_slot(id):
-		"weapon":
+		ItemTypes.SLOT_WEAPON:
 			member.weapons.append(id)
-		"armor":
+		ItemTypes.SLOT_ARMOR:
 			member.armor.append(id)
-		"shield":
+		ItemTypes.SLOT_SHIELD:
 			member.shield = id
 	loot_items.erase(id)   # 첫 일치 하나 제거
 	return true
@@ -192,17 +192,17 @@ func equip_from_loot(member, id: String) -> bool:
 ## 멤버가 그 장비를 안 갖고 있으면 false(no-op). 성공 시 loot_items에 더하고 true.
 func unequip_to_loot(member, id: String) -> bool:
 	match ItemTypes.item_slot(id):
-		"weapon":
+		ItemTypes.SLOT_WEAPON:
 			if not (id in member.weapons):
 				return false
 			member.weapons.erase(id)
-		"armor":
+		ItemTypes.SLOT_ARMOR:
 			if not (id in member.armor):
 				return false
 			member.armor.erase(id)
-		"shield":
+		ItemTypes.SLOT_SHIELD:
 			if member.shield != id:
-				return false   # item_slot이 "shield"면 id는 빈 문자열이 아니다(카탈로그 방패 id)
+				return false   # item_slot이 SLOT_SHIELD면 id는 빈 문자열이 아니다(카탈로그 방패 id)
 			member.shield = ""
 		_:
 			return false

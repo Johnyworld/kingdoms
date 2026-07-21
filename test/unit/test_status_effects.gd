@@ -6,9 +6,11 @@ extends GutTest
 
 func test_on_crit_slash_bleed() -> void:
 	assert_eq(StatusEffects.on_crit("참격"), "bleed", "참격 치명타 → 출혈")
+	assert_eq(StatusEffects.on_crit(ItemTypes.DT_SLASH), StatusEffects.BLEED, "상수 경유도 동일(단일 출처)")
 
 func test_on_crit_blunt_stun() -> void:
 	assert_eq(StatusEffects.on_crit("타격"), "stun", "타격 치명타 → 기절")
+	assert_eq(StatusEffects.on_crit(ItemTypes.DT_BLUNT), StatusEffects.STUN, "상수 경유도 동일(단일 출처)")
 
 func test_on_crit_others_none() -> void:
 	assert_eq(StatusEffects.on_crit("자돌"), "", "자돌은 상태이상 없음")
