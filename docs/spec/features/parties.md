@@ -1,6 +1,8 @@
 # Feature: Parties (부대 배치)
 
-> 스크립트: `scenes/game/game.gd` (`_setup_parties`, `_build_faction_army`, `_place_army`) · `scenes/party/unit_types.gd`
+> 스크립트: `scenes/game/game.gd` (`_setup_parties`, `_build_faction_army`, `_place_army`) · **`scenes/party/party_manager.gd`** (`PartyManager` — 부대 목록 `units`/`npc_parties` 단일 출처·노드 생성 `new_party`/`make_party`·전멸 반영 `apply_survivors`·세력 소멸 제거·칸 조회) · `scenes/party/unit_types.gd`
+
+**계층 분리**: `PartyManager`(부대 생명주기 — 목록·생성·전멸/소멸 제거·칸 조회. 테스트는 `test_party_manager.gd`) ← `game.gd`(편성·배치·선택 상태·일람 갱신·패배 확인·연출). game.gd의 `all_parties`/`party_on_cell`은 PartyManager 위임(NpcPlanner·SiegeSystem 월드 조회 겸용). `apply_survivors`는 ALIVE/WIPED_NPC/WIPED_PLAYER를 반환하고, 활성 부대 재할당 등 WIPED_PLAYER 후처리는 game.gd가 한다.
 
 게임 시작 시 [유닛 카탈로그](../data/units.md)에서 [부대](../entities/Party.md)를 생성해 맵에 배치한다.
 **랑그릿사식 편제** — 각 세력이 **영웅부대 4 + 부하부대 12 = 16부대**로 시작한다(4세력 = 맵 64부대).
@@ -26,8 +28,8 @@
 
 ## 세력 구분 (플레이어 vs NPC)
 
-- **플레이어 세력**(`PLAYER_ID` = `azel`, 푸른 왕국)의 16부대는 모두 `_units`에 넣는다 — **선택·이동·AI·부대 일람** 대상.
-- **NPC 3세력**(`NPC_IDS`)의 48부대는 `_npc_parties`에 넣는다.
+- **플레이어 세력**(`PLAYER_ID` = `azel`, 푸른 왕국)의 16부대는 모두 `PartyManager.units`에 넣는다 — **선택·이동·AI·부대 일람** 대상.
+- **NPC 3세력**(`NPC_IDS`)의 48부대는 `PartyManager.npc_parties`에 넣는다.
   - **안개 반영** — 플레이어 시야 안일 때만 토큰 표시. NPC는 플레이어 시야를 밝히지 않는다. → [Fog of War](fog-of-war.md).
   - **턴 리셋** — 턴 종료 시 NPC 부대도 `reset_turn`. → [Turn](turn.md).
   - **부대 일람 제외** — 일람은 우리 세력 부대만.
@@ -44,6 +46,14 @@
 - 목표 지향 NPC AI·NPC 영지 확장·유닛 충돌 고도화. *(다음 단계)*
 - 소속 부대 버프(영웅 근처 소속 부대). → [Party 소속](../entities/Party.md#소속-lord).
 - 64부대 규모의 성능 최적화(안개 합산·NPC AI·헤드리스 전투 루프).
+
+## 테스트 시나리오 — PartyManager (`test/unit/test_party_manager.gd`)
+
+- [정상] `make_party` — host에 노드 부착, 이름/세력/셀 설정, 빈 부대로 시작(목록 등록은 호출부)
+- [정상] 칸 조회 — `party_on_cell`/`player_party_at`/`npc_at`(안개 visible 필터)/`all`; 멤버 0 부대는 조회 제외
+- [정상] `first_living_unit` — 빈 부대 건너뛰고 멤버 있는 첫 부대
+- [정상] `apply_survivors` — 생존(교체+지휘관 재지정)=ALIVE / 전멸 시 목록 제거·free 예약(WIPED_PLAYER·WIPED_NPC) / 해제된 부대=INVALID
+- [정상] `remove_party` — 어느 목록에 있든 제거+free; `eliminate_faction_parties` — 그 세력 NPC 부대만 제거
 
 ## 테스트
 

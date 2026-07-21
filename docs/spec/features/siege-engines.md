@@ -115,7 +115,7 @@
 5f는 로빙 NPC가 **플레이어** 표적만 공성했다. **5g는 표적을 적 세력 전체로 넓혀 NPC가 다른 NPC의 성벽 거점(5g-A)·부대(5g-B)도 공성**하게 한다 — NPC 왕국끼리 서로 무너뜨리고 점령하는 창발. 플레이어가 안 보는 전투이므로 **오버레이 없이 헤드리스**로 정산한다(기존 [헤드리스 결산](battle.md#헤드리스-전투-결산-battle_simgd-순수) 관례와 일관 — 토스트 없음, 성벽 링만 다시 그림).
 
 - **표적 확장(성벽)**: `NpcPlanner.siege_target_for`·`_siege_band_cells`의 **성벽 거점 스캔**을 `BuildingManager.buildings`(플레이어) → `BuildingManager.buildings + BuildingManager.npc_buildings` 중 **자기 세력이 아닌** 거점 전체로 넓힌다(`_enemy_walled_centers`).
-- **표적 확장(부대, 5g-B)**: `NpcPlanner.siege_target_for`의 **부대 스캔**도 `_units`(플레이어) → `_units + _npc_parties` 중 **자기 세력·자기 부대 제외** 전체로 넓힌다 — NPC가 다른 NPC 부대를 밴드에서 투석. 유닛 볼리는 헤드리스([BattleSim 투석 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수))로 정산.
+- **표적 확장(부대, 5g-B)**: `NpcPlanner.siege_target_for`의 **부대 스캔**도 `PartyManager.units`(플레이어) → `PartyManager.units + PartyManager.npc_parties` 중 **자기 세력·자기 부대 제외** 전체로 넓힌다 — NPC가 다른 NPC 부대를 밴드에서 투석. 유닛 볼리는 헤드리스([BattleSim 투석 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수))로 정산.
 - **헤드리스 성벽 투석(`_npc_bombard_wall_headless`)**: `_npc_try_bombard`에서 표적 성벽이 **플레이어 소유면 기존 오버레이**(`_bombard_wall_by`), **다른 NPC 소유면 헤드리스**로 분기. 헤드리스는 attacker의 **공성 유닛마다 1발**씩(전투당 1발 규칙과 동일) `Siege.rolled_damage`를 굴려 합산(`Siege.total_bombard_damage`)한 flat 피해를 `wall_hp`에서 뺀다(`Siege.wall_after_hit`). 성벽은 반격 없고(구조물·부동), 성벽 뒤 수비대는 미참여(붕괴 전 보호 규칙 — 오버레이 `defender=null`과 동일).
 - **붕괴·점령**: 헤드리스 정산 후 `Siege.wall_broken(wall_hp)`면 붕괴 처리(오버레이와 공유 — `wall_level=0`·`wall_hp=0`·[사다리 정리](wall.md#통로-돌파-breach)·재그리기). `is_walled()==false`가 되면 기존 흡수 AI(`NpcPlanner.adjacent_enemy_camp`)가, 수비대가 있으면 먼저 부대 전투(헤드리스 BattleSim) 후 점령한다(창발 흐름).
 - **헤드리스 부대 투석 결투(5g-B, `_resolve_battle_headless`)**: `_npc_try_bombard`에서 표적 부대가 **플레이어면 기존 오버레이**(`_run_battle(..., include_siege=true)`), **다른 NPC면 헤드리스**(`_resolve_battle_headless`)로 분기. 헤드리스는 양측 `siege_units`를 [BattleSim 투석 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수)에 넘겨 밴드(4~5)면 전투당 1발씩 상호 포격(적 투석기 우선·명중 0.1·flat 피해)·투석기 hp 이월. 전투 후 양 부대 `prune_destroyed_siege()`.
@@ -181,7 +181,7 @@
 - **5e NPC 투석기 생산** — ❌ **제거됨**([주둔 제거](camp-capture.md)) — `_npc_produce_siege`·`NpcAi.should_produce_siege` 삭제(재구축 예정).
 - **5f 로빙 positioning 공격형 공성** — (이 문서) `NpcPlanner.targets_for`에 밴드 티어(`prioritize([undefended, weak, band, rest])`)를 끼워 가장 가까운 적 성벽 거점의 사거리 밴드(4~5)에 자리잡고 능동 포격. ⏸️ **현재 휴면** — NPC가 투석기를 얻을 경로가 없음(로직은 잔존, 후속 공성 재구축 시 재활성).
 - **5g-A NPC↔NPC 성벽 공성** — (이 문서) 투석 성벽 표적을 적 세력 전체(`_enemy_walled_centers`)로 확장 + NPC 소유 성벽은 헤드리스 정산(`_npc_bombard_wall_headless`·`Siege.total_bombard_damage`)으로 `wall_hp` 감소·붕괴. ✅
-- **5g-B NPC↔NPC 부대 투석 결투** — (이 문서) 투석 부대 표적을 적 세력 전체(`_units + _npc_parties`, 자기 세력·자기 부대 제외)로 확장 + NPC 부대는 헤드리스([BattleSim 투석 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수)·`bombard_pick`)로 상호 포격·투석기 피격·파괴 이월. ✅
+- **5g-B NPC↔NPC 부대 투석 결투** — (이 문서) 투석 부대 표적을 적 세력 전체(`PartyManager.units + PartyManager.npc_parties`, 자기 세력·자기 부대 제외)로 확장 + NPC 부대는 헤드리스([BattleSim 투석 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수)·`bombard_pick`)로 상호 포격·투석기 피격·파괴 이월. ✅
 - **5h 충차(근접 성문 파쇄)** — (이 문서 [충차](#충차-근접-성문-파쇄)) 성문 전용·근접(밴드 1)·고화력(90)·저내구(40) 공성 유닛. 초기엔 성벽을 직접 쳤으나 **성문 시스템 도입으로 성문 타격으로 재타깃**(역할 정리: 충차→성문, 투석기→성벽·성문·유닛). 표적 리스트(`targets`·`siege_can_bombard`), [성문](wall.md#성문-gate) 파괴 시 그 면 통로 개방(성벽 유지), 방어 거점 타격 시 수비 반격(`Siege.ram_counter_damage`)으로 취약. 플레이어만. ✅
 - **후속**: NPC 충차/성문 공격 AI, NPC 작업장 건설 AI, 전력 기반 시즈 결정, 공성탑.
 

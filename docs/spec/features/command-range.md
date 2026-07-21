@@ -40,7 +40,7 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 플레이어가 버프 상태를 **눈으로 보고** 부대를 지휘관 곁에 모으도록 토큰에 표시한다.
 
 - `Party.command_buffed: bool`(기본 `false`). 참이면 토큰에 **지휘 배지**(작은 금색 표식)를 그린다(`_draw`).
-- `_refresh_command_buffs()`(`game.gd`): `_units + _npc_parties`의 각 부대에 `command_buffed = _in_command(p)`를 세팅하고, 값이 바뀌면 다시 그린다.
+- `_refresh_command_buffs()`(`game.gd`): `PartyManager.units + PartyManager.npc_parties`의 각 부대에 `command_buffed = _in_command(p)`를 세팅하고, 값이 바뀌면 다시 그린다.
 - **갱신 시점**(위치가 정착하는 지점): 턴 종료, 플레이어 이동 완료, 추종·교전·돌격 시퀀스 종료, NPC 이동 완료, 소속 변경(`_on_lord_changed`), 부대 분할·병합.
 - 전투 직전 `_run_battle`도 먼저 `_refresh_command_buffs()`를 불러 `command_buffed`를 최신화한 뒤 `_apply_command_flags`가 그 값을 읽는다(전투 데미지의 단일 출처).
 

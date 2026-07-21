@@ -1,6 +1,6 @@
 # Feature: Party Composition (부대 편성 — 다중 부대)
 
-> 스크립트: `scenes/game/game.gd` (`_units`, `party`(활성 부대), `_player_party_at`, `_split_party`, `_merge_targets`) · `scenes/party/split_panel.gd` (`SplitPanel`) · `scenes/party/party.gd` (`merge_from`)
+> 스크립트: `scenes/game/game.gd` (`PartyManager.units`, `party`(활성 부대), `_player_party_at`, `_split_party`, `_merge_targets`) · `scenes/party/split_panel.gd` (`SplitPanel`) · `scenes/party/party.gd` (`merge_from`)
 
 플레이어가 **여러 부대**를 거느리고, 각각을 선택해 조작한다. 지금까지는 단일 부대(`party`) 전제였으나,
 이 기능으로 **다중 부대 + 선택** 토대를 놓고, **분할·병합**으로 부대를 재조직한다. (거점 방어 부대도 하나의 부대라, 새 부대는 그 부대를 **분할**해 만든다.)
@@ -9,25 +9,25 @@
 
 `game.gd`가 단일 `party`를 전제하던 것을 다음으로 일반화한다(동작은 부대 1개일 때 이전과 동일).
 
-- `_units: Array` — **모든 플레이어 부대**. 시작 시 아젤 부대 1개(`$Party` 노드). 안개 시야·턴 리셋·부대 일람·점유·NPC 타깃 판정은 이 목록 전체를 순회한다.
+- `PartyManager.units: Array` — **모든 플레이어 부대**(목록 단일 출처 — 부대 생명주기는 `scenes/party/party_manager.gd`). 시작 시 아젤 부대 1개(`$Party` 노드). 안개 시야·턴 리셋·부대 일람·점유·NPC 타깃 판정은 이 목록 전체를 순회한다.
 - `party` — **현재 활성(선택된) 플레이어 부대**. 시작은 `$Party`, 다른 플레이어 부대를 클릭하면 그 부대로 **재할당**된다(선택 대상 전환). 이동·공격·사격·점령·휴식·경계·범위 표시·행동 메뉴는 모두 활성 `party`에 대해 동작한다.
-- `_selected: bool` — 활성 부대가 선택(범위·메뉴 표시) 상태인지. `party`는 선택 해제해도 마지막 활성 부대를 계속 가리킨다(fog/점유는 `party`가 아니라 `_units`를 쓰므로 안전).
+- `_selected: bool` — 활성 부대가 선택(범위·메뉴 표시) 상태인지. `party`는 선택 해제해도 마지막 활성 부대를 계속 가리킨다(fog/점유는 `party`가 아니라 `PartyManager.units`를 쓰므로 안전).
 - **선택**: 플레이어 부대 칸 클릭 → 그 부대를 활성(`party`)으로 바꾸고 선택. 같은 부대 재클릭은 기존 동작(메뉴 복귀). 빈 곳/해제 클릭 → 선택 해제(`party`는 유지).
 - **클릭 판정**: `_player_party_at(cell)` — 그 칸에 선 플레이어 부대(멤버 있는 것)를 찾는다. `ClickRouter`의 `on_party`는 "클릭 칸에 플레이어 부대가 있는가"로 일반화된다.
-- **안개**: `_update_fog`가 모든 `_units`의 시야원을 합친다(+ 완성 건물). → [Fog of War](fog-of-war.md).
-- **점유·타깃**: 이동 장애물·NPC 접근 타깃은 `_units + _npc_parties`.
-- **전투**: 플레이어가 방어하는 전투 판정은 `공격 대상 in _units`(단일 `== party` 대신).
-- **빈 부대**: 멤버 0명 부대는 토큰 미표시·일람 제외([Party](../entities/Party.md) `_draw`·[Party Roster](party-roster.md)). `_units`에는 남되 선택·이동은 무의미(멤버 0 → 이동력 0).
+- **안개**: `_update_fog`가 모든 `PartyManager.units`의 시야원을 합친다(+ 완성 건물). → [Fog of War](fog-of-war.md).
+- **점유·타깃**: 이동 장애물·NPC 접근 타깃은 `PartyManager.units + PartyManager.npc_parties`.
+- **전투**: 플레이어가 방어하는 전투 판정은 `공격 대상 in PartyManager.units`(단일 `== party` 대신).
+- **빈 부대**: 멤버 0명 부대는 토큰 미표시·일람 제외([Party](../entities/Party.md) `_draw`·[Party Roster](party-roster.md)). `PartyManager.units`에는 남되 선택·이동은 무의미(멤버 0 → 이동력 0).
 
 ## 부대 분할 (`_split_party` + `SplitPanel`)
 
 선택한 부대의 멤버 일부를 인접 칸의 **새 부대**로 나눈다(재조직 — 턴 소비 없음).
 
 - **[분할]** — 부대 [행동 메뉴](party-action-menu.md)의 버튼. 활성 부대의 **멤버가 2명 이상**이고 **인접 빈 칸**이 있을 때만 활성.
-- `game.gd` `_split_party()`: 활성 부대 인접 빈 칸(`_empty_adjacent_cell` 재사용, 캠프가 아니라 부대 기준)에 **빈 새 부대**를 만들어 `_units`에 넣고, **분할 패널**(`SplitPanel`)을 연다. 새 부대는 원 부대의 **병종([`troop_type`](../entities/Party.md#정체-identity))을 물려받는다**(같은 부대를 나눈 것이므로 동질 — 분할 후 다시 병합할 수 있다).
+- `game.gd` `_split_party()`: 활성 부대 인접 빈 칸(`_empty_adjacent_cell` 재사용, 캠프가 아니라 부대 기준)에 **빈 새 부대**를 만들어 `PartyManager.units`에 넣고, **분할 패널**(`SplitPanel`)을 연다. 새 부대는 원 부대의 **병종([`troop_type`](../entities/Party.md#정체-identity))을 물려받는다**(같은 부대를 나눈 것이므로 동질 — 분할 후 다시 병합할 수 있다).
 - **분할 패널**(`scenes/party/split_panel.gd`, 코드 UI CanvasLayer — 두 목록 패턴): 왼쪽 **원 부대**·오른쪽 **새 부대**. 멤버 버튼 클릭으로 양쪽을 오간다(`Party.add_member`/`remove_member`). 변경 시 `changed` 시그널 → `game.gd`가 일람·안개 갱신.
 - **노획 장비 분배**: 멤버 목록 아래 **장비** 섹션 — 아이템별(이름 묶음) 행 `이름 · 원N [→][←] 새M`. `[→]`/`[←]`가 **1개씩** 원↔새로 옮긴다(`Party.transfer_loot_to`). 용량 제한 없음. 두 부대 장비의 합집합으로 행을 만들고, 옮길 때마다 목록을 재구성한다. (화물 제거로 자원 분배 섹션은 폐지.)
-- **닫을 때**: 새 부대가 **비어 있으면**(멤버 0명 — 분할 취소) 그 새 부대를 제거하되, **새 부대로 옮겨둔 노획 장비는 원 부대로 회수**한다(소실 방지). `_units`에서 빼고 free, **소비 없음**. 멤버가 있으면 분할 확정 — **원 부대·새 부대 둘 다 이번 턴 행동을 끝낸다**(`mark_attacked`, 재조직 비용). 다음 턴 리셋.
+- **닫을 때**: 새 부대가 **비어 있으면**(멤버 0명 — 분할 취소) 그 새 부대를 제거하되, **새 부대로 옮겨둔 노획 장비는 원 부대로 회수**한다(소실 방지). `PartyManager.units`에서 빼고 free, **소비 없음**. 멤버가 있으면 분할 확정 — **원 부대·새 부대 둘 다 이번 턴 행동을 끝낸다**(`mark_attacked`, 재조직 비용). 다음 턴 리셋.
 
 ## 부대 병합 (`_merge_targets` + `Party.merge_from`)
 
@@ -36,7 +36,7 @@
 - **병합 제약**: **같은 병종([`troop_type`](../entities/Party.md#정체-identity))끼리만**, **일반부대(`KIND_TROOP`)끼리만**, 그리고 **합쳐도 인원 상한([`TROOP_SIZE`](../data/units.md#상수), 10)을 넘지 않을 때만** 병합할 수 있다(예: 4+6·5+5 가능, 6+5 불가). 영웅부대는 지휘관 1인 단독이라 **병합 자체가 없다**(대상도, 개시도 불가). 판정은 [`Party.can_merge_with(other)`](../entities/Party.md#동작)이 단일 출처.
 - **대상 판정**(`_update_ranges` → `_compute_merge_targets`): 활성 부대 칸에 **인접**하고 멤버가 있는 **다른 플레이어 부대** 중 [`party.can_merge_with(p)`](../entities/Party.md#동작)이 참인 것만. cell → party. (병합 불가한 부대는 대상에서 빠져 **[병합] 팝업이 뜨지 않는다**.)
 - **클릭**: 활성 부대 선택 상태에서 인접 아군 부대 칸을 클릭 → **[병합] 팝업**([공격] 팝업과 같은 `PartyActionMenu`). (선택 중 인접 아군 클릭은 전환 대신 병합 팝업 — 전환하려면 먼저 선택 해제.)
-- **[병합]**: `Party.merge_from(other)` — 그 아군 부대(other)의 멤버를 **활성 부대로 흡수**하고, other는 `_units`에서 빼고 free한다. 활성 부대는 자리를 지키고 병력이 합쳐진다. 병합 후 활성 부대는 **이번 턴 행동을 끝낸다**(`mark_attacked`). 대상이 같은 병종으로 걸러졌으므로 병합 후에도 부대는 **하나의 병종으로 동질**하게 유지된다.
+- **[병합]**: `Party.merge_from(other)` — 그 아군 부대(other)의 멤버를 **활성 부대로 흡수**하고, other는 `PartyManager.units`에서 빼고 free한다. 활성 부대는 자리를 지키고 병력이 합쳐진다. 병합 후 활성 부대는 **이번 턴 행동을 끝낸다**(`mark_attacked`). 대상이 같은 병종으로 걸러졌으므로 병합 후에도 부대는 **하나의 병종으로 동질**하게 유지된다.
 
 ## 새 동작 (엔티티)
 

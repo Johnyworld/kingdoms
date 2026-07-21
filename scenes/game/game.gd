@@ -15,8 +15,6 @@ const ZOOM_MAX := 3.0
 const ZOOM_STEP := 0.1
 const PAN_ZOOM_SPEED := 0.05   # 트랙패드 두 손가락 스크롤(PanGesture) delta.y → 줌 배율 계수
 
-const PARTY_SCENE := preload("res://scenes/party/party.tscn")
-
 # 부대 이동 애니메이션. 칸당 이동 시간(플레이어·NPC 공유) / 같은 세력 내 NPC 부대 시작 간격(스태거).
 const MOVE_STEP_TIME := 0.12
 const NPC_PARTY_STAGGER := 0.2
@@ -43,7 +41,7 @@ const NPC_BASES := {
 
 @onready var terrain: TileMapLayer = $TerrainLayer
 @onready var camera: Camera2D = $Camera2D
-@onready var party = $Party   # 현재 활성(선택된) 플레이어 부대. 다른 부대 클릭 시 재할당된다. 모든 부대는 _units.
+@onready var party = $Party   # 현재 활성(선택된) 플레이어 부대. 다른 부대 클릭 시 재할당된다. 모든 부대는 _pmgr.units.
 @onready var overlay = $RangeOverlay
 @onready var building = $Building
 @onready var camp_menu = $CampMenu
@@ -96,8 +94,8 @@ var lord_menu: LordMenu                      # 소속 모달(코드 생성, _rea
 
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
 var _turn := TurnManager.new()
-var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
-var _npc_parties: Array = []    # NPC 부대. 안개 표시·턴 리셋·턴 종료 시 이동(NpcAi) 대상. 일람은 제외.
+# 부대 생명주기(목록 단일 출처·생성·전멸/소멸 제거·칸 조회). _ready에서 생성 → parties.md
+var _pmgr: PartyManager
 # 건물·영지 도메인(목록 단일 출처·소유권 이전·철거·1차 생산·개척). _ready에서 생성 → production.md · building.md
 var _bmgr: BuildingManager
 var _player_faction: Faction    # 플레이어 세력(캠프 흡수 시 영지 편입 대상). _setup_factions에서 설정.
@@ -158,6 +156,7 @@ func _ready() -> void:
 	_npc_planner = NpcPlanner.new(terrain, MAP_WIDTH, MAP_HEIGHT, _rng, self)
 	_siege = SiegeSystem.new(terrain, _rng, self)
 	_bmgr = BuildingManager.new(terrain, MAP_WIDTH, MAP_HEIGHT, self)
+	_pmgr = PartyManager.new(terrain, self)
 	_generate_map()
 	_center_camera()
 	overlay.setup(terrain)
@@ -174,10 +173,10 @@ func _ready() -> void:
 	building.gate_hp = Siege.GATE_MAX_HP
 	_bmgr.buildings = [building]
 	_setup_factions()
-	_setup_parties()   # 세력별 군대(영웅4+부하12=16) 생성·배치. _units·_npc_parties·party 설정 → parties.md
+	_setup_parties()   # 세력별 군대(영웅4+부하12=16) 생성·배치. _pmgr.units·_pmgr.npc_parties·party 설정 → parties.md
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
 	_update_fog()   # 시야 + 수비 배지 갱신
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 	party_roster.party_selected.connect(_on_party_focused)
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
@@ -295,12 +294,12 @@ func _camp_resources() -> Dictionary:
 
 ## 부대를 유닛 카탈로그에서 생성한다.
 ## 각 세력의 군대(영웅부대 4 + 부하부대 12 = 16)를 생성해 거점 주변에 배치한다. → parties.md
-## 플레이어 16부대는 _units, NPC 3세력 48부대는 _npc_parties. 활성 부대(party)는 플레이어 첫 영웅.
+## 플레이어 16부대는 _pmgr.units, NPC 3세력 48부대는 _pmgr.npc_parties. 활성 부대(party)는 플레이어 첫 영웅.
 func _setup_parties() -> void:
-	_units = _build_faction_army(UnitTypes.PLAYER_ID, party)
-	party = _units[0]
+	_pmgr.units = _build_faction_army(UnitTypes.PLAYER_ID, party)
+	party = _pmgr.units[0]
 	for id in UnitTypes.NPC_IDS:
-		_npc_parties.append_array(_build_faction_army(id, null))
+		_pmgr.npc_parties.append_array(_build_faction_army(id, null))
 
 ## 한 세력의 16부대(영웅 4 + 각 영웅마다 경보병2·경궁병1)를 생성·배치하고 배열로 반환한다.
 ## reuse가 주어지면 첫 영웅부대로 그 노드를 재사용한다(플레이어 $Party). 부하부대의 lord=소속 영웅부대.
@@ -347,11 +346,9 @@ func _faction_center_building(faction_id: String) -> Building:
 		return building
 	return _bmgr.npc_buildings[UnitTypes.NPC_IDS.find(faction_id)]
 
-## 빈 새 부대 노드를 만들어 트리에 넣는다(기본 kind=troop, 금색). 카탈로그 정보는 호출부가 채운다.
+## 빈 새 부대 노드(PartyManager 위임). 카탈로그 정보는 호출부가 채운다.
 func _new_party() -> Party:
-	var p: Party = PARTY_SCENE.instantiate()
-	add_child(p)
-	return p
+	return _pmgr.new_party()
 
 ## 세력 부대들을 거점 주변에 배치한다. 첫 경보병 1부대를 거점 중심에 세워(중심 점거 = 방어),
 ## 나머지는 영웅별로 부하부대를 묶어 성 안쪽 부채꼴 앵커에 각각 흩어 배치한다(그룹끼리 떨어뜨림). → parties.md · camp-capture.md
@@ -427,7 +424,7 @@ func _update_ranges() -> void:
 func _compute_merge_targets(start: Vector2i) -> void:
 	_merge_targets = {}
 	var neighbors := terrain.get_surrounding_cells(start)
-	for p in _units:
+	for p in _pmgr.units:
 		if p == party or p.members.is_empty() or not party.can_merge_with(p):
 			continue
 		var pcell := _cell_of(p)
@@ -447,7 +444,7 @@ func _compute_bombard_targets(start: Vector2i) -> void:
 		return
 	var dists: Dictionary = HexGrid.bfs_distances(terrain, start, rng, MAP_WIDTH, MAP_HEIGHT)
 	if party.siege_can_bombard("unit"):   # 유닛 표적(충차만 실은 부대는 제외) → siege-engines.md
-		for p in _npc_parties:   # 적 부대(유닛 투석)
+		for p in _pmgr.npc_parties:   # 적 부대(유닛 투석)
 			if not p.visible or p.members.is_empty():
 				continue
 			var ec: Vector2i = _cell_of(p)
@@ -486,7 +483,7 @@ func _compute_attack_targets(start: Vector2i) -> void:
 			shoot_area[c] = true
 			_shoot_area_cells.append(c)   # SHOOT 모드에서 사거리 전체를 빨강으로 표시
 	var walls := wall_blocked_cells(party.faction_name)   # 적 세력 성벽 안 부대는 표적 제외(성벽이 보호) → wall.md
-	for p in _npc_parties:
+	for p in _pmgr.npc_parties:
 		if not p.visible:
 			continue
 		var ec: Vector2i = _cell_of(p)
@@ -554,7 +551,7 @@ func _refresh_overlay() -> void:
 ## 모든 시야원(플레이어 부대 전부 + 맵의 모든 완성 건물)을 합쳐 현재 시야 셀을 계산하고 안개를 갱신한다.
 func _update_fog() -> void:
 	var visible := {}
-	for u in _units:
+	for u in _pmgr.units:
 		if u.members.is_empty():
 			continue   # 사라진(빈) 부대는 시야 없음
 		for c in HexGrid.cells_within(terrain, _cell_of(u), u.vision(), MAP_WIDTH, MAP_HEIGHT):
@@ -571,7 +568,7 @@ func _update_fog() -> void:
 ## NPC 부대 토큰은 플레이어 현재 시야 안에 있을 때만 보이고, 시야 밖이면 안개에 가려 숨긴다.
 ## (NPC는 시야를 밝히지 않으므로 _update_fog 시야 합산에는 넣지 않는다.)
 func _update_npc_visibility() -> void:
-	for p in _npc_parties:
+	for p in _pmgr.npc_parties:
 		p.visible = fog.is_cell_visible(_cell_of(p))
 
 ## NPC 거점(캠프)은 한 번 발견(탐험)하면 계속 보인다(정적 구조물). 미발견이면 안개에 가려 숨긴다.
@@ -690,18 +687,13 @@ func _handle_click(world_pos: Vector2) -> void:
 func _building_at(cell: Vector2i) -> Building:
 	return _bmgr.building_at(cell)
 
-## 그 칸에 선 플레이어 부대(멤버 있는 것)를 찾는다(없으면 null). 클릭 선택 판정에 쓴다.
+## 그 칸에 선 플레이어 부대(PartyManager 위임). 클릭 선택 판정에 쓴다.
 func _player_party_at(cell: Vector2i) -> Party:
-	for p in _units:
-		if p.members.is_empty():
-			continue
-		if _cell_of(p) == cell:
-			return p
-	return null
+	return _pmgr.player_party_at(cell)
 
-## 모든 부대(플레이어 + NPC) 목록. 부대 전체 순회·NpcPlanner 월드 조회의 단일 출처.
+## 모든 부대(플레이어 + NPC) 목록. NpcPlanner·SiegeSystem 월드 조회 겸용(PartyManager 위임).
 func all_parties() -> Array:
-	return _units + _npc_parties
+	return _pmgr.all()
 
 ## 맵의 모든 건물(플레이어 + NPC 거점) 목록. NpcPlanner·SiegeSystem 월드 조회 겸용(BuildingManager 위임).
 func all_buildings() -> Array:
@@ -711,12 +703,9 @@ func all_buildings() -> Array:
 func _cell_of(p) -> Vector2i:
 	return terrain.local_to_map(p.position)
 
-## 그 칸에 선 멤버 있는 부대(플레이어·NPC 통틀어)를 반환한다. 없으면 null. 수비 배지·방어 판정에 쓴다.
+## 그 칸에 선 멤버 있는 부대(PartyManager 위임 — NpcPlanner·SiegeSystem 월드 조회 겸용).
 func party_on_cell(cell: Vector2i) -> Party:
-	for p in all_parties():
-		if not p.members.is_empty() and _cell_of(p) == cell:
-			return p
-	return null
+	return _pmgr.party_on_cell(cell)
 
 ## 거점 중심 타일을 지키는 그 거점 세력의 부대(진짜 수비대). 없으면 null(무방비 → 점령 가능).
 ## 다른 세력 부대(격파 후 진입한 공격자 포함)가 서 있어도 그 거점 세력이 아니면 방어로 치지 않는다. → camp-capture.md
@@ -739,14 +728,9 @@ func _refresh_garrison_badges() -> void:
 		b.defender_count = gp.members.size() if gp != null else 0
 		b.queue_redraw()
 
-## 플레이어 세력의 빈 새 부대를 만들어 셀에 둔다(금색·플레이어 소속). 빈 부대라 채우기 전엔 토큰 안 보임.
+## 플레이어 세력의 빈 새 부대를 셀에 만든다(PartyManager 위임). 빈 부대라 채우기 전엔 토큰 안 보임.
 func _make_player_party(pname: String, cell: Vector2i) -> Party:
-	var p: Party = PARTY_SCENE.instantiate()
-	add_child(p)
-	p.party_name = pname
-	p.faction_name = _player_faction.name
-	p.position = terrain.map_to_local(cell)
-	return p
+	return _pmgr.make_party(pname, _player_faction.name, cell)
 
 ## footprint(부대·캠프 발자국)에 인접한(발자국 밖) 빈 칸을 하나 찾는다. 맵 안·미점유·산 아님. 없으면 (-1,-1).
 func _empty_adjacent_to(footprint: Array) -> Vector2i:
@@ -771,15 +755,15 @@ func _split_party() -> void:
 		return
 	_split_new = _make_player_party("분할 부대", cell)
 	_split_new.troop_type = party.troop_type   # 병종 물려받음(동질 — 분할 후 다시 병합 가능). → party-composition.md
-	_units.append(_split_new)
+	_pmgr.units.append(_split_new)
 	party_action_menu.close()
 	split_panel.open(party, _split_new)
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 	_update_fog()
 
 ## 분할 패널에서 멤버가 이동하면 일람·안개를 갱신한다.
 func _on_split_changed() -> void:
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 	_update_fog()
 
 ## 분할 패널을 닫으면: 새 부대가 비면(아무도 안 옮김) 취소로 제거(소비 없음),
@@ -789,13 +773,12 @@ func _on_split_closed() -> void:
 		if _split_new.members.is_empty():
 			# 취소 — 새 부대로 옮겨둔 노획 장비를 원 부대로 회수(소실 방지) 후 제거.
 			party.loot_items.append_array(_split_new.loot_items)
-			_units.erase(_split_new)
-			_split_new.queue_free()
+			_pmgr.remove_party(_split_new)
 		else:
 			party.mark_attacked()          # 분할 확정 → 양쪽 이번 턴 종료
 			_split_new.mark_attacked()
 	_split_new = null
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 	_update_fog()
 	if _selected and not party.members.is_empty():
 		_select()   # 멤버 변동 반영(범위·메뉴 갱신)
@@ -805,20 +788,16 @@ func _on_split_closed() -> void:
 ## [병합]: 인접 아군 부대 other를 활성 부대로 흡수하고 other를 맵에서 제거한다(턴 소비 없음).
 func _merge_party(other) -> void:
 	party.merge_from(other)
-	_units.erase(other)
-	other.queue_free()
+	_pmgr.remove_party(other)
 	party.mark_attacked()   # 병합(재조직) → 이번 턴 행동 종료
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 	_update_fog()
 	if _selected:
 		_select()   # 병력 증가 반영(범위·메뉴 갱신 — 행동 종료라 메뉴는 닫힘)
 
-## 그 셀에 선 NPC 부대를 찾는다(없으면 null). 안개에 가려 보이지 않는(visible == false) NPC는 제외한다.
+## 그 셀에 선 보이는 NPC 부대(PartyManager 위임). 클릭 정보 표시에 쓴다.
 func _npc_at(cell: Vector2i) -> Party:
-	for p in _npc_parties:
-		if p.visible and _cell_of(p) == cell:
-			return p
-	return null
+	return _pmgr.npc_at(cell)
 
 ## 그 셀을 포함하는 발견된 NPC 거점(BuildingManager 위임). 클릭 라우팅에 쓴다.
 func _npc_building_at(cell: Vector2i) -> Building:
@@ -971,7 +950,7 @@ func _do_capture(camp, absorb: bool) -> void:
 		_deselect()
 	_hide_party_info()
 	_update_fog()
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 
 ## 소유권 이전(점령 흡수, 플레이어·NPC 공용): 도메인(영지 세력 이동·목록 재배치)은 BuildingManager,
 ## 여기선 사다리 무효·알림·표시·패배 확인만. 라벨색·시야는 이후 _update_fog가 반영.
@@ -1048,7 +1027,7 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	if occupy_cell != Vector2i(-1, -1) and is_instance_valid(defender) and defender.members.is_empty() and is_instance_valid(attacker) and not attacker.members.is_empty():
 		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
 	_update_fog()
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 	# 부대 전멸로는 게임 오버되지 않는다(점령 승리만). 승패는 세력 소멸 판정(_update_endgame)에서만 난다.
 
 ## 세력 소멸 유예 판정(턴 종료마다). 각 세력의 캠프 수로 유예 카운트를 갱신하고, 소멸한 세력은 붕괴시킨다.
@@ -1090,12 +1069,9 @@ func _faction_center_count(faction) -> int:
 				n += 1
 	return n
 
-## 세력 소멸(붕괴): 그 세력 소속 NPC 부대를 맵에서 제거한다. 플레이어 세력이면 부대는 그대로 둔다(패배 처리).
+## 세력 소멸(붕괴): 그 세력 소속 NPC 부대 제거(PartyManager 위임) 후 안개 갱신. 플레이어 세력이면 부대는 그대로(패배 처리).
 func _eliminate_faction(faction) -> void:
-	for p in _npc_parties.duplicate():
-		if p.faction_name == faction.name:
-			_npc_parties.erase(p)
-			p.queue_free()
+	_pmgr.eliminate_faction_parties(faction.name)
 	_update_fog()   # 제거된 NPC 부대 반영(일람은 우리 세력만이라 갱신 불필요)
 
 ## 정복 승리/플레이어 세력 소멸 판정 → 결과 오버레이.
@@ -1179,38 +1155,22 @@ func _resolve_loot(attacker, defender, a_survivors: Array, b_survivors: Array) -
 	else:
 		winner.take_all_equipment(loser)
 
-## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, 전멸(생존자 0)한 부대는 NPC·플레이어 모두 맵에서 제거.
+## 전투 결과(생존자)를 부대에 반영한다 — 데이터·제거는 PartyManager, 여기선 플레이어 전멸 후처리만.
 ## 전멸한 게 활성 party였으면 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null — 부대 0이어도 패배 아님, 세력 소멸은 거점 0에서만).
 func _apply_survivors(p, survivors: Array) -> void:
-	if not is_instance_valid(p):
-		return   # await(노획 패널 등) 사이 이미 해제된 부대면 반영할 것도 없음(하드닝 일관성). → _run_battle
-	p.members = survivors
-	if not (p.commander in survivors):
-		p.commander = survivors[0] if not survivors.is_empty() else null
-	p.queue_redraw()   # 사상 반영 후 토큰 다시 그림 — 인원수 배지가 갱신되도록(누락 시 초기값 고착). → battle.md
-	if not survivors.is_empty():
-		return
-	# 전멸 — 부대를 맵에서 제거한다(NPC·플레이어 모두 껍데기 안 남김).
-	if p in _npc_parties:
-		_npc_parties.erase(p)
-		p.queue_free()
-	elif p in _units:
-		_units.erase(p)
-		if party == p:   # 활성 부대가 전멸 → 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null)
-			if _selected:
-				_deselect()
-			_hide_party_info()
-			party = _first_living_unit()   # 부대 0이면 null(패배 아님 — 세력 소멸은 거점 0에서만)
-		p.queue_free()
-		party_roster.set_parties(_units)
-		_check_immediate_defeat()   # 부대 전멸 — 거점도 없으면 즉시 패배
+	if _pmgr.apply_survivors(p, survivors) != PartyManager.WIPED_PLAYER:
+		return   # 생존/NPC 전멸/이미 해제 — 추가 후처리 없음
+	if party == p:   # 활성 부대가 전멸 → 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null)
+		if _selected:
+			_deselect()
+		_hide_party_info()
+		party = _first_living_unit()   # 부대 0이면 null(패배 아님 — 세력 소멸은 거점 0에서만)
+	party_roster.set_parties(_pmgr.units)
+	_check_immediate_defeat()   # 부대 전멸 — 거점도 없으면 즉시 패배
 
-## _units 중 멤버가 있는(살아있는) 첫 부대. 없으면 null. 활성 부대 재할당에 쓴다.
+## 살아있는 첫 플레이어 부대(PartyManager 위임). 활성 부대 재할당에 쓴다.
 func _first_living_unit():
-	for u in _units:
-		if not u.members.is_empty():
-			return u
-	return null
+	return _pmgr.first_living_unit()
 
 ## 주인공 부대를 선택하고 이동 범위·공격 가능 적·중앙 메뉴를 표시한다.
 func _select() -> void:
@@ -1265,14 +1225,14 @@ func _adjacent_player_heroes(troop) -> Array:
 	var cell := _cell_of(troop)
 	var neighbors := terrain.get_surrounding_cells(cell)
 	var out: Array = []
-	for p in _units:
+	for p in _pmgr.units:
 		if p.kind == Party.KIND_HERO and not p.members.is_empty() and _cell_of(p) in neighbors:
 			out.append(p)
 	return out
 
 ## 소속 변경 후 — 부대 일람을 갱신한다(소속 표시 확장 대비). 턴 소비 없음. → party-lord.md
 func _on_lord_changed() -> void:
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 	_refresh_command_buffs()   # 소속이 바뀌면 지휘 범위 버프 배지도 즉시 갱신. → command-range.md
 
 ## 이번 턴 사격 가능한지 — 아직 공격을 안 했으면 사격 가능(이동만 했어도 가능).
@@ -1309,7 +1269,7 @@ func _bombard_wall_by(attacker, building, distance: int) -> void:
 	else:
 		toast.show_message("성벽 −%d (%d/%d)" % [from_hp - building.wall_hp, building.wall_hp, Siege.WALL_MAX_HP])
 	building.queue_redraw()   # 성벽 링 색(내구도) 갱신·붕괴 시 제거
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 
 ## [투석]→성문(플레이어): 활성 부대가 성문을 타격. 부대 행동 종료 후 통합 전투 + 충차 반격. → wall.md 성문
 func _bombard_gate(building, distance: int) -> void:
@@ -1341,7 +1301,7 @@ func _bombard_gate_by(attacker, building, distance: int) -> void:
 		toast.show_message("성문 −%d (%d/%d)" % [from_hp - building.gate_hp, building.gate_hp, Siege.GATE_MAX_HP])
 	building.queue_redraw()   # 성문 표시 갱신
 	_apply_ram_counter(attacker, building)   # 충차(근접)면 수비 반격으로 내구도 차감·파괴 → siege-engines.md
-	party_roster.set_parties(_units)
+	party_roster.set_parties(_pmgr.units)
 
 ## 충차(근접)로 방어 거점을 타격하면 수비대가 반격해 충차 내구도를 깎는다(HP≤0이면 파괴). 무방비 거점이면 반격 없음. → siege-engines.md
 func _apply_ram_counter(attacker, building) -> void:
@@ -1374,7 +1334,7 @@ func _npc_try_bombard(attacker) -> bool:
 			await _bombard_wall_by(attacker, t["ref"], int(t["dist"]))   # 플레이어 성벽 → 오버레이 관전
 		else:
 			_npc_bombard_wall_headless(attacker, t["ref"])   # 다른 NPC 성벽 → 헤드리스 정산(5g)
-	elif t["ref"] in _units:
+	elif t["ref"] in _pmgr.units:
 		await _run_battle(attacker, t["ref"], int(t["dist"]), Vector2i(-1, -1), true)   # 플레이어 부대 → 오버레이 관전
 	else:
 		_resolve_battle_headless(attacker, t["ref"], int(t["dist"]))   # 다른 NPC 부대 → 헤드리스 투석 결투(5g-B)
@@ -1548,7 +1508,7 @@ func _on_turn_ended() -> void:
 	if _selected:
 		_deselect()
 	_hide_party_info()
-	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _units만 등록).
+	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _pmgr.units만 등록).
 	_turn.end_turn(all_parties(), _bmgr.territories)
 	_bmgr.tick_production()   # 1차 생산 건물 생산포인트 산출(1÷거리, 거리 기반) → production.md
 	_advance_ladders()   # 사다리 카운트다운 −1(0이면 통로 열림) → wall.md
@@ -1581,7 +1541,7 @@ func _move_npcs() -> void:
 	# 세력 등장 순서 + 세력별 전체 NPC 부대. 그룹 묶기는 hero_groups가 한다.
 	var factions: Array = []
 	var by_faction: Dictionary = {}
-	for p in _npc_parties:
+	for p in _pmgr.npc_parties:
 		var f: String = p.faction_name
 		if not by_faction.has(f):
 			by_faction[f] = []
@@ -1616,7 +1576,7 @@ func _move_npcs() -> void:
 					return
 				if _game_over:
 					return
-				if not is_instance_valid(attacker) or not (attacker in _npc_parties):
+				if not is_instance_valid(attacker) or not (attacker in _pmgr.npc_parties):
 					continue   # 앞 전투로 제거됨.
 				await _npc_unit_act(attacker)
 	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
@@ -1711,7 +1671,7 @@ func _npc_engage(attacker, target, dist: int) -> void:
 		attacker.set_highlight(HL_ATTACKER)
 		target.set_highlight(HL_TARGET)
 		await get_tree().create_timer(NPC_ENGAGE_FOCUS).timeout
-	if target in _units:
+	if target in _pmgr.units:
 		await _run_battle(attacker, target, dist)   # 플레이어 방어 → 오버레이 관전
 	else:
 		_resolve_battle_headless(attacker, target, dist)   # NPC끼리 → 씬 없이 즉시 결산
@@ -1727,7 +1687,7 @@ func _party_visible(p) -> bool:
 
 ## 플레이어 부대 멤버의 경계(alert) 버프를 모두 해제한다. NPC 공격 페이즈가 끝나거나 중단될 때 호출.
 func _clear_player_alert() -> void:
-	for u in _units:
+	for u in _pmgr.units:
 		for m in u.members:
 			m.alert = false
 
@@ -2100,11 +2060,11 @@ func _on_party_focused(focused_party) -> void:
 func _on_members_requested() -> void:
 	members_menu.open(_player_faction_members())
 
-## 우리 세력의 모든 부대(필드 + 거점 방어)에 속한 군인(Human)을 모은다. 모든 플레이어 부대는 _units에 있다.
+## 우리 세력의 모든 부대(필드 + 거점 방어)에 속한 군인(Human)을 모은다. 모든 플레이어 부대는 _pmgr.units에 있다.
 func _player_faction_members() -> Array:
 	if _player_faction == null:
 		return []
-	return MembersMenu.collect_faction_members(_units, _player_faction.name)
+	return MembersMenu.collect_faction_members(_pmgr.units, _player_faction.name)
 
 ## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
 ## 건물을 지을 수 있는 영역(영지 시야) 윤곽선을 파랑으로 표시한다 — 시야는 배치 중 변하지 않으므로 한 번만 계산한다.
@@ -2143,7 +2103,7 @@ func _build_vision() -> Dictionary:
 ## 플레이어 건물 시야 ∪ 플레이어 부대 시야 합집합(1차 생산 건물 배치 범위). → production.md
 func _player_build_vision() -> Dictionary:
 	var vis := BuildPlanner.buildings_vision(terrain, _bmgr.buildings, MAP_WIDTH, MAP_HEIGHT)
-	for p in _units:
+	for p in _pmgr.units:
 		if p.faction_name == _player_faction.name and not p.members.is_empty():
 			for c in HexGrid.cells_within(terrain, _cell_of(p), p.vision(), MAP_WIDTH, MAP_HEIGHT):
 				vis[c] = true
