@@ -1,13 +1,26 @@
-# Lang Battle (랑그릿사 1 오마주 전투 — 격리 실험)
+# Lang Battle (랑그릿사 1 오마주 전투)
 
-> **격리 실험 기능.** 기존 게임(Game/Combat/Battle)과 **완전히 분리**된 별도 전투 씬이다.
-> 브랜치 `test/lang1battle`에서 랑그릿사 1(메가드라이브) 전투 로직·연출을 오마주해
-> 처음부터 새로 구현했다. 기존 캐릭터/부대 데이터를 전혀 참조하지 않고 **더미 데이터**로
-> 10:10 교전을 재생한다.
+> **게임 정식 전투로 확정(2026-07-21).** 원래 기존 게임과 분리된 격리 실험이었으나, `LangResolver`(랑그릿사 MD1 재현 — class_id·matchup·결정론적)를 **게임의 정식 전투 판정으로 완전 교체**하기로 결정. 기존 `combat/`(CombatResolver — Human 스탯·장비 상성·상태이상)은 단계적으로 폐기한다.
+> 브랜치 `test/lang1battle`에서 랑그릿사 1(메가드라이브) 전투 로직·연출을 오마주해 처음부터 새로 구현했다.
 >
 > 참고 자료: 북미판 팬 영문 ROM 리버스 엔지니어링 스펙(사용자 제공) + 실기 영상.
 > 원본 스프라이트/팔레트/음악/텍스트 등 창작 에셋은 재배포하지 않고 **도형 플레이스홀더**로
 > 대체한다. 사용하는 것은 게임 메커니즘·수치·공식(아이디어/사실)뿐이다.
+
+## 게임 통합 (완전 교체 — 진행 중)
+
+`scenes/lang_battle/lang_bridge.gd` (`class_name LangBridge`) — 게임 부대(Party) ↔ lang 전투 유닛 매핑의 단일 출처.
+
+- **부대 → lang 유닛**(`unit_from_party(party, side)`): `Party.kind == HERO` → 지휘관 클래스(classId 4, `self_cmd=false`, soldiers=`HERO_SOLDIERS` 고정 몫), `troop_type == "light_archer"` → archer(classId 1, kind `"archer"`), 그 외 → infantry(classId 1, kind `"infantry"`). soldiers = 멤버 수, acc_mod·level은 lang_battle.gd 커스텀 유닛과 동일 상수(현재 고정 — 밸런스 튜닝 지점).
+- **lang 결과 → 생존**(`survivors(party, final_soldiers)`): 최종 병력수만큼 멤버를 앞에서부터 유지(영웅은 병력>0이면 Human 1인 생존). `game.gd._apply_survivors` 입력.
+- **치사율 모델**: 게임의 **부대 1회 공격 = lang 1교전**(`resolve_engagement` — 공격 볼리 + 반격 1회). 원작처럼 소모전(한 번에 전멸시키지 않음, 여러 턴 반복 교전).
+
+**현재 통합 상태(단계적)**:
+- ✅ **NPC↔NPC 근접 헤드리스**(`game.gd._resolve_battle_headless`, distance ≤ 1·비공성) → `LangResolver.resolve_engagement`(`LangRng` 시드).
+- ⏳ **원거리 헤드리스**(distance ≥ 2) → 아직 `BattleSim`(구 combat). lang 이관은 후속(6-3).
+- ⏳ **공성 헤드리스**(투석기 보유) → 아직 `BattleSim`. lang엔 구조물 전투원 모델이 없어 후속(6-4)에서 결정.
+- ⏳ **플레이어 참여 전투**(오버레이 `_run_battle`) → 아직 `combat/battle.gd`. lang presenter 오버레이화는 후속(6-2).
+- ⏳ **지휘 범위 버프·장비 상성·상태이상** → 완전 교체로 전투 판정에서 미사용(장비/약탈 UI는 flavor로 유지). lang 지휘보정(`_cmd_bonus`)과의 통합은 후속.
 
 ## 진입
 

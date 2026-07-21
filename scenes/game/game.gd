@@ -1098,18 +1098,30 @@ func _trigger_game_over(title: String, subtitle: String) -> void:
 func _on_result_dismissed() -> void:
 	SceneManager.change_scene(TITLE_SCENE)
 
-## NPC끼리 전투를 화면 없이 즉시 결산한다(BattleSim). 사상자만 반영.
+## NPC끼리 전투를 화면 없이 즉시 결산한다. 근접=lang 1교전(LangResolver), 원거리·공성=BattleSim(구 combat). 사상자만 반영. → lang-battle.md
 func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
-	_refresh_command_buffs()                  # 지휘 범위 갱신 후 양측 버프 플래그 세팅(NPC끼리도 지휘 버프 적용). → command-range.md
+	_refresh_command_buffs()                  # 지휘 범위 갱신 후 양측 버프 플래그 세팅(BattleSim 경로만 소비). → command-range.md
 	_apply_command_flags(attacker, true)
 	_apply_command_flags(defender, true)
-	# 양측 공성 유닛도 넘겨 밴드(4~5)면 투석 볼리를 함께 결산(NPC↔NPC 투석기 결투 — 5g-B). → battle.md
-	var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, distance, attacker.siege_units, defender.siege_units)
-	_resolve_loot(attacker, defender, result["a"], result["b"])   # NPC 승자 → 전량 자동(패널 없음)
+	var a_surv: Array
+	var d_surv: Array
+	if attacker.has_siege() or defender.has_siege() or distance >= 2:
+		# 공성·원거리 헤드리스는 당분간 BattleSim(구 combat) 유지 — lang 이관은 6-3(원거리)·6-4(공성). → lang-battle.md
+		# 양측 공성 유닛도 넘겨 밴드(4~5)면 투석 볼리를 함께 결산(NPC↔NPC 투석기 결투 — 5g-B). → battle.md
+		var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, distance, attacker.siege_units, defender.siege_units)
+		a_surv = result["a"]
+		d_surv = result["b"]
+	else:
+		# 근접 NPC↔NPC — lang 1교전(공격 볼리 + 반격, 소모전). 완전 교체 전투 판정. → lang-battle.md 게임 통합
+		var rng := LangRng.new(_rng.randi())
+		var res := LangResolver.resolve_engagement(rng, LangBridge.unit_from_party(attacker, 0), LangBridge.unit_from_party(defender, 1))
+		a_surv = LangBridge.survivors(attacker, res["final_a_soldiers"])
+		d_surv = LangBridge.survivors(defender, res["final_d_soldiers"])
+	_resolve_loot(attacker, defender, a_surv, d_surv)   # NPC 승자 → 전량 자동(패널 없음)
 	attacker.prune_destroyed_siege()   # 볼리로 파괴된 투석기 제거(전멸 부대 queue_free 전에 처리)
 	defender.prune_destroyed_siege()
-	_apply_survivors(attacker, result["a"])
-	_apply_survivors(defender, result["b"])
+	_apply_survivors(attacker, a_surv)
+	_apply_survivors(defender, d_surv)
 	_apply_command_flags(attacker, false)     # 지휘 버프 플래그 해제. → command-range.md
 	_apply_command_flags(defender, false)
 
