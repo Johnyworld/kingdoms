@@ -1,7 +1,14 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1"]
 [ext_resource type="TileSet" path="res://tiles/terrain_tileset.tres" id="2"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Ocean.tres" id="14"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_WavesAnimation.tres" id="15"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_SandShore.tres" id="16"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Ground.tres" id="17"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_GroundOverlay.tres" id="18"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Grass.tres" id="19"]
+[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Cliff.tres" id="20"]
 [ext_resource type="PackedScene" path="res://scenes/party/party.tscn" id="3"]
 [ext_resource type="Script" path="res://scenes/game/range_overlay.gd" id="4"]
 [ext_resource type="Script" path="res://scenes/building/building.gd" id="5"]
@@ -17,7 +24,32 @@
 [node name="Game" type="Node2D"]
 script = ExtResource("1")
 
+[node name="TerrainVisual" type="Node2D" parent="."]
+texture_filter = 1
+
+[node name="Ocean" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("14")
+
+[node name="Waves" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("15")
+
+[node name="SandShore" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("16")
+
+[node name="Ground" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("17")
+
+[node name="GroundOverlay" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("18")
+
+[node name="Grass" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("19")
+
+[node name="Cliff" type="TileMapLayer" parent="TerrainVisual"]
+tile_set = ExtResource("20")
+
 [node name="TerrainLayer" type="TileMapLayer" parent="."]
+visible = false
 tile_set = ExtResource("2")
 
 [node name="Building" type="Node2D" parent="."]

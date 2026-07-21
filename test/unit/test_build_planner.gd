@@ -207,13 +207,13 @@ func test_can_place_terrain_restricted() -> void:
 	var vis := {spot: true}
 	terrain.set_cell(spot, Terrain.FOREST, Terrain.ATLAS)
 	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1, [Terrain.FOREST]), "숲이면 벌목소 배치 가능")
-	terrain.set_cell(spot, Terrain.GRASS, Terrain.ATLAS)
+	terrain.set_cell(spot, Terrain.PLAINS, Terrain.ATLAS)
 	assert_false(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1, [Terrain.FOREST]), "초원이면 벌목소 불가")
 
 func test_can_place_no_terrain_restriction() -> void:
 	var spot := Vector2i(10, 10)
 	var vis := {spot: true}
-	terrain.set_cell(spot, Terrain.GRASS, Terrain.ATLAS)
+	terrain.set_cell(spot, Terrain.PLAINS, Terrain.ATLAS)
 	assert_true(BuildPlanner.can_place(terrain, spot, MAP, MAP, vis, {}, 1, []), "제한 없으면 지형 무관")
 
 # --- 마을회관 인접 셀 (비-생산 건물 배치) ---

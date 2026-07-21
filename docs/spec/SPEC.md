@@ -8,7 +8,7 @@
 
 - **엔진**: Godot 4.7, GL Compatibility (전 플랫폼 배포 목표)
 - **해상도**: 1920×1080 기준, `canvas_items` 스트레치 / `expand` 종횡비
-- **좌표계**: 뾰족한 위/아래(pointy-top) 헥스 타일, 타일 크기 64×46
+- **좌표계**: 헥스 타일(16×16, LaPetiteTile). 지형 데이터/렌더 분리 → [Terrain](data/terrain.md)
 - **진입점**: `res://scenes/splash/splash.tscn`
 - **싱글턴(Autoload)**: `SceneManager` — 모든 씬 전환을 페이드로 처리
 
@@ -103,7 +103,9 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 턴 매니저 | `scenes/turn/turn_manager.gd` |
 | 턴 HUD | `scenes/turn/turn_hud.gd` |
 | 지형 카탈로그 | `scenes/game/terrain.gd` |
-| 지형 타일셋 | `tiles/terrain_tileset.tres` |
+| 지형 렌더러 | `scenes/game/terrain_renderer.gd` |
+| 지형 데이터 타일셋 | `tiles/terrain_tileset.tres` (숨김 데이터 레이어) |
+| 지형 비주얼 타일셋 | `assets/tiles/lapetite/Tilesets/*.tres` (LaPetiteTile 오토타일) |
 
 ---
 

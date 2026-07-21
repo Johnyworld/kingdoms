@@ -101,7 +101,7 @@ const CATALOG := {
 		# 1차 생산: 초원 위에 지어 생산포인트(1÷거리)로 식량을 캔다. flat production·required_pop 없음. → production.md
 		"primary_production": true,
 		"produces": "식량",
-		"buildable_terrains": [Terrain.GRASS],
+		"buildable_terrains": [Terrain.PLAINS],
 	},
 	# --- 소형 생산 건물(footprint 1). 필요직업/인원은 미구현(다음 슬라이스). ---
 	"house": {

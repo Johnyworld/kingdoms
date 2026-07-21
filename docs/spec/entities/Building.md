@@ -105,7 +105,7 @@
 - [정상] `setup(.., "farm", true)` → `is_complete() == false`, `remaining_turns == build_turns`
 - [정상] `advance_construction()`를 build_turns회 → 완성(`is_complete()`), 완성되는 호출만 `true`
 - [경계] 완성된 건물에 `advance_construction()` → `false`, 상태 불변
-- [정상] 1차 생산: 농장 `is_primary_production()`·`produces()=="식량"`·`buildable_terrains()==[Terrain.GRASS]`
+- [정상] 1차 생산: 농장 `is_primary_production()`·`produces()=="식량"`·`buildable_terrains()==[Terrain.PLAINS]`
 - (생산 산출은 `tick_production`(1차)로 검증 — [production.md](../features/production.md))
 - [정상] 기본 `territory == null`
 - [정상] 영지(이름·세력 포함)에 편입되면 `map_label_lines()` = [영지명(흰색), 세력명(세력색)] 2줄

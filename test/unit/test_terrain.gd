@@ -5,7 +5,7 @@ extends GutTest
 # --- move_cap ---
 
 func test_grass_and_desert_keep_full_movement() -> void:
-	assert_eq(Terrain.move_cap(Terrain.GRASS, 3), 3, "초원은 이동력 그대로")
+	assert_eq(Terrain.move_cap(Terrain.PLAINS, 3), 3, "초원은 이동력 그대로")
 	assert_eq(Terrain.move_cap(Terrain.DESERT, 3), 3, "사막은 이동력 그대로")
 
 func test_unknown_source_treated_as_grass() -> void:
@@ -24,22 +24,25 @@ func test_swamp_halves_round_down() -> void:
 	assert_eq(Terrain.move_cap(Terrain.SWAMP, 4), 2, "습지: floor(4/2)=2")
 	assert_eq(Terrain.move_cap(Terrain.SWAMP, 1), 0, "습지: floor(1/2)=0 (이동력 1이면 진입 불가)")
 
-func test_mountain_unreachable() -> void:
+func test_mountain_and_water_unreachable() -> void:
 	assert_eq(Terrain.move_cap(Terrain.MOUNTAIN, 5), -1, "산은 도달 거리 -1")
+	assert_eq(Terrain.move_cap(Terrain.WATER, 5), -1, "물은 도달 거리 -1")
 
 # --- is_passable / label ---
 
-func test_only_mountain_impassable() -> void:
+func test_mountain_and_water_impassable() -> void:
 	assert_false(Terrain.is_passable(Terrain.MOUNTAIN), "산은 진입 불가")
-	for id in [Terrain.GRASS, Terrain.FOREST, Terrain.SWAMP, Terrain.DESERT]:
-		assert_true(Terrain.is_passable(id), "산 외 지형은 진입 가능: %d" % id)
+	assert_false(Terrain.is_passable(Terrain.WATER), "물은 진입 불가")
+	for id in [Terrain.PLAINS, Terrain.FOREST, Terrain.SWAMP, Terrain.DESERT]:
+		assert_true(Terrain.is_passable(id), "산·물 외 지형은 진입 가능: %d" % id)
 
-func test_impassable_list_is_mountain() -> void:
-	assert_eq(Terrain.IMPASSABLE, [Terrain.MOUNTAIN], "이동 통과 불가 목록은 산뿐")
+func test_impassable_list_is_mountain_and_water() -> void:
+	assert_eq(Terrain.IMPASSABLE, [Terrain.MOUNTAIN, Terrain.WATER], "이동 통과 불가 목록은 산·물")
 
 func test_labels() -> void:
 	assert_eq(Terrain.label(Terrain.FOREST), "숲")
 	assert_eq(Terrain.label(Terrain.MOUNTAIN), "산")
+	assert_eq(Terrain.label(Terrain.WATER), "물")
 	assert_eq(Terrain.label(-1), "초원", "알 수 없는 지형은 초원 라벨")
 
 # --- 생산 지형(철맥·금맥) → docs/spec/features/production.md ---

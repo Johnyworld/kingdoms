@@ -10,9 +10,11 @@ const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)
 
 # 줌 배율(값이 작을수록 확대). 0.5 = 확대, 1 = 기본, 3 = 축소.
 # Camera2D.zoom 은 값이 클수록 확대되므로 실제로는 (1 / 배율)로 변환해 적용한다.
-const ZOOM_MIN := 0.5
-const ZOOM_MAX := 3.0
-const ZOOM_STEP := 0.1
+# 16px 픽셀아트 헥스 기준. 값이 작을수록 확대(camera.zoom = 1/_zoom_level).
+# 0.125 = 8×(타일 128px, 최대 확대) ~ 1.0 = 1×(전체 맵 조망).
+const ZOOM_MIN := 0.125
+const ZOOM_MAX := 1.0
+const ZOOM_STEP := 0.05
 const PAN_ZOOM_SPEED := 0.05   # 트랙패드 두 손가락 스크롤(PanGesture) delta.y → 줌 배율 계수
 
 # 부대 이동 애니메이션. 칸당 이동 시간(플레이어·NPC 공유) / 같은 세력 내 NPC 부대 시작 간격(스태거).
@@ -39,7 +41,8 @@ const NPC_BASES := {
 	"qasim": Vector2i(MAP_WIDTH - 1 - MARGIN, MAP_HEIGHT - 1 - MARGIN),    # 남동(SE) — 사막 술탄국(동)
 }
 
-@onready var terrain: TileMapLayer = $TerrainLayer
+@onready var terrain: TileMapLayer = $TerrainLayer   # 보이지 않는 데이터 레이어(지형타입=source id). 지오메트리·BFS 기준.
+@onready var terrain_visual: Node2D = $TerrainVisual   # LaPetiteTile 오토타일 비주얼 레이어 스택
 @onready var camera: Camera2D = $Camera2D
 @onready var party = $Party   # 현재 활성(선택된) 플레이어 부대. 다른 부대 클릭 시 재할당된다. 모든 부대는 _pmgr.units.
 @onready var overlay = $RangeOverlay
@@ -55,7 +58,8 @@ const NPC_BASES := {
 
 var _min_pos: Vector2
 var _max_pos: Vector2
-var _zoom_level := 1.0
+var _zoom_level := 0.33   # 기본 ~3× 확대 → 16px 타일이 화면상 48px
+var _terrain_renderer: TerrainRenderer   # 데이터 레이어 → 비주얼 레이어 렌더
 
 # 현재 이동 가능한 목적지 셀 집합(지형 상한 반영) → true. 클릭 이동 판정에 사용.
 var _reachable: Dictionary = {}
@@ -145,7 +149,17 @@ func _ready() -> void:
 	_npc_planner = NpcPlanner.new(terrain, MAP_WIDTH, MAP_HEIGHT, _rng, self)
 	_bmgr = BuildingManager.new(terrain, MAP_WIDTH, MAP_HEIGHT, self)
 	_pmgr = PartyManager.new(terrain, self)
+	_terrain_renderer = TerrainRenderer.new({
+		"ocean": $TerrainVisual/Ocean,
+		"waves": $TerrainVisual/Waves,
+		"sandshore": $TerrainVisual/SandShore,
+		"ground": $TerrainVisual/Ground,
+		"overlay": $TerrainVisual/GroundOverlay,
+		"grass": $TerrainVisual/Grass,
+		"cliff": $TerrainVisual/Cliff,
+	})
 	_generate_map()
+	_terrain_renderer.repaint(terrain, MAP_WIDTH, MAP_HEIGHT)   # 데이터 → 비주얼 오토타일
 	_center_camera()
 	overlay.setup(terrain)
 	build_preview.setup(terrain)
@@ -189,7 +203,7 @@ func _ready() -> void:
 func _generate_map() -> void:
 	for y in MAP_HEIGHT:
 		for x in MAP_WIDTH:
-			terrain.set_cell(Vector2i(x, y), Terrain.GRASS, Terrain.ATLAS)
+			terrain.set_cell(Vector2i(x, y), Terrain.PLAINS, Terrain.ATLAS)
 
 	_place_starting_terrain()
 
@@ -200,7 +214,7 @@ func _generate_map() -> void:
 	_max_pos = Vector2(max(corner_a.x, corner_b.x), max(corner_a.y, corner_b.y))
 
 ## 플레이어 거점(남서 모서리) 근처에 방향별 지형 덩어리를 배치한다.
-## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산. 캠프(중심 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
+## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산 · 남동쪽=호수(물). 캠프(중심 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
 ## (y가 커질수록 남쪽, x가 커질수록 동쪽.)
 func _place_starting_terrain() -> void:
 	var center := PLAYER_BASE
@@ -208,6 +222,7 @@ func _place_starting_terrain() -> void:
 	_paint_patches([center + Vector2i(6, -1), center + Vector2i(8, 2)], Terrain.SWAMP)      # 동쪽 습지
 	_paint_patches([center + Vector2i(0, -6), center + Vector2i(2, -7)], Terrain.DESERT)    # 북쪽 사막
 	_paint_patches([center + Vector2i(0, 7), center + Vector2i(-2, 8)], Terrain.MOUNTAIN)   # 남쪽 산
+	_paint_patches([center + Vector2i(4, 5), center + Vector2i(5, 6)], Terrain.WATER)       # 남동쪽 호수(물)
 	# 생산 지형(철맥·금맥). 거점 주변에 흩어 배치 → 철광·금광 자리. → production.md
 	_paint_patches([center + Vector2i(5, -5)], Terrain.IRON_VEIN)    # 철맥 → 철광
 	_paint_patches([center + Vector2i(8, -3)], Terrain.GOLD_VEIN)    # 금맥 → 금광
@@ -223,6 +238,7 @@ func _paint_patches(seeds: Array, source_id: int) -> void:
 func _center_camera() -> void:
 	camera.position = terrain.map_to_local(PLAYER_BASE)
 	camera.make_current()
+	_set_zoom(_zoom_level)   # 시작 줌 배율을 카메라에 적용(16px 픽셀아트 기본 ~3× 확대)
 
 ## 플레이어 + NPC 세력·영지·거점을 유닛 카탈로그에서 만든다.
 ## 플레이어: 세력 "푸른 왕국" → 영지 "창천성"에 남서 모서리 캠프를 넣는다(자원 수입 대상 _bmgr.territories).

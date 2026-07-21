@@ -1,0 +1,156 @@
+[gd_resource type="TileSet" load_steps=9 format=3 uid="uid://t1fq0kcfrkt"]
+
+[ext_resource type="Texture2D" uid="uid://bi87oldhednvy" path="res://assets/tiles/lapetite/Textures/Tileset_Ground/Tileset_Ground_SandOverlay.png" id="1_ivbko"]
+[ext_resource type="Texture2D" uid="uid://cymj7bh47tq73" path="res://assets/tiles/lapetite/Textures/Tileset_Ground/Tileset_Ground_SnowOverlay.png" id="2_exjys"]
+[ext_resource type="Texture2D" uid="uid://duf5aa2qecpdy" path="res://assets/tiles/lapetite/Textures/Tileset_Ground/Tileset_Ground_SwampOverlay.png" id="3_gypjh"]
+[ext_resource type="Texture2D" uid="uid://vb8huqyr7svu" path="res://assets/tiles/lapetite/Textures/Tileset_Ground/Tileset_Ground_OasisOverlay.png" id="4_x8yiv"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_03cw5"]
+texture = ExtResource("1_ivbko")
+4:5/0 = 0
+4:5/0/terrain_set = 0
+4:5/0/terrain = 1
+4:5/0/probability = 0.25
+5:5/0 = 0
+5:5/0/terrain_set = 0
+5:5/0/terrain = 1
+5:5/0/probability = 0.25
+4:6/0 = 0
+4:6/0/terrain_set = 0
+4:6/0/terrain = 1
+4:6/0/probability = 0.25
+5:6/0 = 0
+5:6/0/terrain_set = 0
+5:6/0/terrain = 1
+5:6/0/probability = 0.25
+4:7/0 = 0
+4:7/0/terrain_set = 0
+4:7/0/terrain = 0
+4:7/0/probability = 0.25
+5:7/0 = 0
+5:7/0/terrain_set = 0
+5:7/0/terrain = 0
+5:7/0/probability = 0.25
+4:8/0 = 0
+4:8/0/terrain_set = 0
+4:8/0/terrain = 0
+4:8/0/probability = 0.25
+5:8/0 = 0
+5:8/0/terrain_set = 0
+5:8/0/terrain = 0
+5:8/0/probability = 0.25
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_83nav"]
+texture = ExtResource("2_exjys")
+4:5/0 = 0
+4:5/0/terrain_set = 0
+4:5/0/terrain = 3
+4:5/0/probability = 0.25
+5:5/0 = 0
+5:5/0/terrain_set = 0
+5:5/0/terrain = 3
+5:5/0/probability = 0.25
+5:6/0 = 0
+5:6/0/terrain_set = 0
+5:6/0/terrain = 3
+5:6/0/probability = 0.25
+4:6/0 = 0
+4:6/0/terrain_set = 0
+4:6/0/terrain = 3
+4:6/0/probability = 0.25
+4:7/0 = 0
+4:7/0/terrain_set = 0
+4:7/0/terrain = 2
+4:7/0/probability = 0.25
+5:7/0 = 0
+5:7/0/terrain_set = 0
+5:7/0/terrain = 2
+5:7/0/probability = 0.25
+4:8/0 = 0
+4:8/0/terrain_set = 0
+4:8/0/terrain = 2
+4:8/0/probability = 0.25
+5:8/0 = 0
+5:8/0/terrain_set = 0
+5:8/0/terrain = 2
+5:8/0/probability = 0.25
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_rvck7"]
+texture = ExtResource("3_gypjh")
+4:5/0 = 0
+4:5/0/terrain_set = 0
+4:5/0/terrain = 4
+4:5/0/probability = 0.167
+5:5/0 = 0
+5:5/0/terrain_set = 0
+5:5/0/terrain = 4
+5:5/0/probability = 0.167
+5:6/0 = 0
+5:6/0/terrain_set = 0
+5:6/0/terrain = 4
+5:6/0/probability = 0.167
+4:6/0 = 0
+4:6/0/terrain_set = 0
+4:6/0/terrain = 4
+4:6/0/probability = 0.167
+4:7/0 = 0
+4:7/0/terrain_set = 0
+4:7/0/terrain = 4
+4:7/0/probability = 0.167
+5:7/0 = 0
+5:7/0/terrain_set = 0
+5:7/0/terrain = 4
+5:7/0/probability = 0.167
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_34jdr"]
+texture = ExtResource("4_x8yiv")
+0:0/size_in_atlas = Vector2i(3, 2)
+0:0/0 = 0
+0:0/0/terrain_set = 0
+0:0/0/terrain = 5
+0:0/0/probability = 0.166
+3:0/size_in_atlas = Vector2i(3, 2)
+3:0/0 = 0
+3:0/0/terrain_set = 0
+3:0/0/terrain = 5
+3:0/0/probability = 0.166
+3:2/size_in_atlas = Vector2i(3, 2)
+3:2/0 = 0
+3:2/0/terrain_set = 0
+3:2/0/terrain = 5
+3:2/0/probability = 0.166
+3:4/size_in_atlas = Vector2i(3, 2)
+3:4/0 = 0
+3:4/0/terrain_set = 0
+3:4/0/terrain = 5
+3:4/0/probability = 0.166
+0:2/size_in_atlas = Vector2i(3, 2)
+0:2/0 = 0
+0:2/0/terrain_set = 0
+0:2/0/terrain = 5
+0:2/0/probability = 0.166
+0:4/size_in_atlas = Vector2i(3, 2)
+0:4/0 = 0
+0:4/0/terrain_set = 0
+0:4/0/terrain = 5
+0:4/0/probability = 0.166
+
+[resource]
+tile_shape = 3
+terrain_set_0/mode = 1
+terrain_set_0/terrain_0/name = "SandTile"
+terrain_set_0/terrain_0/color = Color(0.70633924, 0.5947963, 0, 1)
+terrain_set_0/terrain_1/name = "SandOverlay"
+terrain_set_0/terrain_1/color = Color(0.41759804, 0.38275903, 0, 1)
+terrain_set_0/terrain_2/name = "SnowTile"
+terrain_set_0/terrain_2/color = Color(0.46875, 0.5, 0.25, 1)
+terrain_set_0/terrain_3/name = "SnowOverlay"
+terrain_set_0/terrain_3/color = Color(0.375, 0.5, 0.25, 1)
+terrain_set_0/terrain_4/name = "SwampOverlay"
+terrain_set_0/terrain_4/color = Color(0.28125, 0.5, 0.25, 1)
+terrain_set_0/terrain_5/name = "OasisOverlay"
+terrain_set_0/terrain_5/color = Color(0.25, 0.5, 0.3125, 1)
+sources/0 = SubResource("TileSetAtlasSource_03cw5")
+sources/2 = SubResource("TileSetAtlasSource_83nav")
+sources/3 = SubResource("TileSetAtlasSource_rvck7")
+sources/4 = SubResource("TileSetAtlasSource_34jdr")

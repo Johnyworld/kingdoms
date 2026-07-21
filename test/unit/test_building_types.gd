@@ -134,7 +134,7 @@ func test_farm_economy() -> void:
 	assert_eq(spec.get("production", {}).size(), 0, "농장 flat 생산 없음")
 	assert_true(spec.get("primary_production", false), "농장은 1차 생산")
 	assert_eq(spec.get("produces", ""), "식량", "농장 산출 식량")
-	assert_eq(spec.get("buildable_terrains", []), [Terrain.GRASS], "농장은 초원에만")
+	assert_eq(spec.get("buildable_terrains", []), [Terrain.PLAINS], "농장은 초원에만")
 
 func test_required_pop_abolished() -> void:
 	# required_pop 폐지 — 모든 건물 0.
