@@ -1001,9 +1001,9 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신 → 전투 배율의 단일 출처. → command-range.md
 	_apply_command_flags(attacker, true)
 	_apply_command_flags(defender, true)
-	# 근접(distance≤1·비공성) = lang 오버레이(완전 교체 전투). 원거리·공성은 아직 combat/battle.gd(M3-②/③). → lang-battle.md
+	# 비공성(근접·원거리) = lang 오버레이(완전 교체 전투). 공성만 아직 combat/battle.gd(M3-③). → lang-battle.md
 	var result: Array
-	if not include_siege and distance <= 1:
+	if not include_siege:
 		result = await _run_lang_overlay(attacker, defender, distance)
 	else:
 		var overlay := BATTLE_SCENE.new()
@@ -1119,23 +1119,31 @@ func _trigger_game_over(title: String, subtitle: String) -> void:
 func _on_result_dismissed() -> void:
 	SceneManager.change_scene(TITLE_SCENE)
 
-## NPC끼리 전투를 화면 없이 즉시 결산한다. 근접=lang 1교전(LangResolver), 원거리·공성=BattleSim(구 combat). 사상자만 반영. → lang-battle.md
+## NPC끼리 전투를 화면 없이 즉시 결산한다. 비공성=lang(근접 resolve_engagement·원거리 resolve_ranged), 공성=BattleSim(구 combat). → lang-battle.md
 func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
 	_refresh_command_buffs()                  # 지휘 범위 갱신 후 양측 버프 플래그 세팅(BattleSim 경로만 소비). → command-range.md
 	_apply_command_flags(attacker, true)
 	_apply_command_flags(defender, true)
 	var a_surv: Array
 	var d_surv: Array
-	if attacker.has_siege() or defender.has_siege() or distance >= 2:
-		# 공성·원거리 헤드리스는 당분간 BattleSim(구 combat) 유지 — lang 이관은 6-3(원거리)·6-4(공성). → lang-battle.md
+	if attacker.has_siege() or defender.has_siege():
+		# 공성 헤드리스는 당분간 BattleSim(구 combat) 유지 — lang 이관은 M3-③(구조물 전투원 모델 없음). → lang-battle.md
 		# 양측 공성 유닛도 넘겨 밴드(4~5)면 투석 볼리를 함께 결산(NPC↔NPC 투석기 결투 — 5g-B). → battle.md
 		var result := BattleSim.resolve_battle(attacker.members, defender.members, _rng, distance, attacker.siege_units, defender.siege_units)
 		a_surv = result["a"]
 		d_surv = result["b"]
 	else:
-		# 근접 NPC↔NPC — lang 1교전(공격 볼리 + 반격, 소모전). 완전 교체 전투 판정. → lang-battle.md 게임 통합
+		# 비공성 NPC↔NPC = lang(완전 교체). 근접(≤1)=1교전 공방, 원거리(≥2)=사격(궁병 side만 1볼리, 소모전). → lang-battle.md
 		var rng := LangRng.new(_rng.randi())
-		var res := LangResolver.resolve_engagement(rng, LangBridge.unit_from_party(attacker, 0), LangBridge.unit_from_party(defender, 1))
+		var a_unit := LangBridge.unit_from_party(attacker, 0)
+		var d_unit := LangBridge.unit_from_party(defender, 1)
+		var res: Dictionary
+		if distance >= 2:
+			var a_rounds := 1 if GameUnits.is_ranged(attacker.archetype()) else 0
+			var d_rounds := 1 if GameUnits.is_ranged(defender.archetype()) else 0
+			res = LangResolver.resolve_ranged(rng, a_unit, d_unit, a_rounds, d_rounds)
+		else:
+			res = LangResolver.resolve_engagement(rng, a_unit, d_unit)
 		a_surv = LangBridge.survivors(attacker, res["final_a_soldiers"])
 		d_surv = LangBridge.survivors(defender, res["final_d_soldiers"])
 	_resolve_loot(attacker, defender, a_surv, d_surv)   # NPC 승자 → 전량 자동(패널 없음)

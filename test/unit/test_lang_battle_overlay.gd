@@ -58,6 +58,14 @@ func test_hero_vs_infantry_overlay() -> void:
 	assert_eq(_fin_count, 1, "영웅 vs 경보병 오버레이 종료")
 	assert_between(_fin_a, 0, 10, "영웅측 병력 범위")
 
+func test_ranged_overlay_finishes() -> void:
+	# 원거리(경궁병 → 경보병, mode ranged) 오버레이도 종료·finished 방출.
+	battle.start_overlay(_cfg("archer", 10, "infantry", 10, "ranged"))
+	_drive_to_done()
+	assert_eq(_fin_count, 1, "원거리(사격) 오버레이 종료")
+	assert_between(_fin_a, 0, 10, "궁병측 병력 범위")
+	assert_between(_fin_b, 0, 10, "표적측 병력 범위")
+
 # --- LangBridge.battle_config (부대 → 오버레이 cfg) ---
 
 func _party(kind: String, troop_type: String, n: int) -> Node2D:
