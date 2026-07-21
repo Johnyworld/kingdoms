@@ -167,7 +167,7 @@ func _ready() -> void:
 	build_preview.setup(terrain)
 	build_area.setup(terrain)
 	# 첫 거점은 마을회관 티어로 시작(캠프에서 한 번 업그레이드된 상태) — 인구 상한 10, 시작부터 생산 건물 해금.
-	building.setup(terrain, PLAYER_BASE, "town_hall", false, buildings_layer)
+	building.setup(terrain, _placement_cell("PlayerBase", PLAYER_BASE), "town_hall", false, buildings_layer)
 	_bmgr.buildings = [building]
 	_setup_factions()
 	_setup_parties()   # 세력별 군대(영웅4+부하12=16) 생성·배치. _pmgr.units·_pmgr.npc_parties·party 설정 → parties.md
@@ -308,9 +308,19 @@ func _derive_type(cell: Vector2i) -> int:
 		return Terrain.SWAMP if o.terrain == 4 else Terrain.DESERT   # t4=SwampOverlay, 그 외=모래류
 	return Terrain.PLAINS
 
-## 카메라를 플레이어 거점(남서 모서리) 타일로 이동시킨다.
+## 거점 배치 마커(Placements/<이름>)가 있으면 그 칸을, 없으면 기본 좌표를 쓴다.
+## 손맵에서 에디터로 마커를 원하는 칸에 드래그하면 거점이 거기 생긴다(부대는 소속 거점 근처에 배치).
+func _placement_cell(marker_name: String, fallback: Vector2i) -> Vector2i:
+	var m: Node2D = get_node_or_null("Placements/%s" % marker_name)
+	if m != null:
+		var cell := terrain.local_to_map(terrain.to_local(m.global_position))   # 노드 오프셋 무관하게 월드→셀
+		if cell.x >= 0 and cell.x < MAP_WIDTH and cell.y >= 0 and cell.y < MAP_HEIGHT:
+			return cell   # 맵 밖 마커는 무시하고 기본 좌표 사용(거점이 맵 밖에 생기지 않게)
+	return fallback
+
+## 카메라를 플레이어 거점 타일로 이동시킨다.
 func _center_camera() -> void:
-	camera.position = terrain.map_to_local(PLAYER_BASE)
+	camera.position = terrain.map_to_local(_placement_cell("PlayerBase", PLAYER_BASE))
 	camera.make_current()
 	_set_zoom(_zoom_level)   # 시작 줌 배율을 카메라에 적용(16px 픽셀아트 기본 ~3× 확대)
 
@@ -328,7 +338,7 @@ func _setup_factions() -> void:
 	_factions = [_player_faction]
 
 	for id in UnitTypes.NPC_IDS:
-		_bmgr.npc_buildings.append(_setup_npc_base(id, NPC_BASES[id]))
+		_bmgr.npc_buildings.append(_setup_npc_base(id, _placement_cell(id, NPC_BASES[id])))
 
 ## NPC 세력 하나의 거점을 만든다: 세력 → 수도 영지 → 완성 캠프(중심 base_cell). 캠프 노드를 반환한다.
 ## 세력·영지는 캠프의 territory 참조로 살아 있게 유지된다(_bmgr.npc_buildings가 캠프 노드를 보유).

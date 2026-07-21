@@ -18,7 +18,9 @@
      - **강**(`_place_river`): 맵 중앙 사인 곡선 `WATER`(거점 4곳과 떨어짐·가장자리 미접촉 → 맵을 완전히 가르지 않아 양끝 우회 가능). 통행 불가 자연 장벽(다리는 후속), Ocean 오토타일이 둑 렌더.
      - **길**(`_place_roads`): 거점↔철맥·금맥 잇는 장식 흙길(`Roads` 레이어, `HexGrid.reconstruct_path` 우회 경로). 순수 시각 — 이동/BFS 무관(이동 보너스는 후속).
 - 데이터 레이어(`TerrainLayer`)는 런타임에 항상 `visible = false`.
-- **한계**: 거점·부대·세력 등 엔티티는 아직 코드로 고정 배치(손맵과 무관) — 엔티티까지는 후속 [맵 데이터 포맷]. 철맥·금맥은 겉보기 구분 불가라 비주얼 손맵에선 초원으로 취급.
+- **거점 배치 마커**(`Placements/PlayerBase`·`batur`·`balthazar`·`qasim`, Marker2D): `_placement_cell`이 마커가 있으면 그 칸(`local_to_map`으로 스냅)을, 없으면 기본 모서리 좌표(`PLAYER_BASE`/`NPC_BASES`)를 거점 위치로 쓴다. 에디터에서 마커를 원하는 칸으로 드래그하면 거점 + 소속 부대가 거기 생긴다(부대는 `_faction_center_building` 기준 배치).
+- **레이어 잠금**: TerrainVisual의 지형 레이어·TerrainLayer·BuildingsLayer는 에디터 Lock(`metadata/_edit_lock_`)이 걸려 있어 실수로 이동되지 않는다(칠할 땐 Scene 트리에서 선택).
+- **한계**: 부대 **개별** 스폰 지점은 아직 미지원(거점 단위 배치). 철맥·금맥은 겉보기 구분 불가라 비주얼 손맵에선 초원으로 취급. 완전한 엔티티 배치는 후속 [맵 데이터 포맷].
 
 ## 카메라
 
