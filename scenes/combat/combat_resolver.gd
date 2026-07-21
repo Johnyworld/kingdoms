@@ -24,16 +24,23 @@ static func _buff_mult(h) -> float:
 		m *= COMMAND_MULT
 	return m
 
-## 공격력 AT = 무기 공격력 + floor(힘/5). weapon 생략 시 주무기. alert·in_command 버프면 각 ×1.2(내림).
-static func attack_power(h, weapon := "") -> int:
+## 버프 제외 기본 공격력 = 무기 공격력 + floor(힘/5). weapon 생략 시 주무기.
+## 공식의 단일 출처 — 실효값(attack_power)과 HUD 기본능력/버프 델타 표시가 함께 쓴다.
+static func base_attack_power(h, weapon := "") -> int:
 	var w: String = weapon if weapon != "" else ItemTypes.primary_weapon(h.weapons)
-	var at := ItemTypes.weapon_attack(w) + int(h.strength) / 5   # 정수 나눗셈(내림)
-	return int(at * _buff_mult(h))
+	return ItemTypes.weapon_attack(w) + int(h.strength) / 5   # 정수 나눗셈(내림)
 
-## 방어력 DF = 착용 방어구 방어력 합 + 방패 방어력. alert·in_command 버프면 각 ×1.2(내림).
+## 버프 제외 기본 방어력 = 착용 방어구 방어력 합 + 방패 방어력. base_attack_power와 같은 단일 출처.
+static func base_defense(h) -> int:
+	return ItemTypes.total_defense(h.armor) + ItemTypes.shield_defense(h.shield)
+
+## 공격력 AT = 기본 공격력 × 버프. alert·in_command 버프면 각 ×1.2(내림).
+static func attack_power(h, weapon := "") -> int:
+	return int(base_attack_power(h, weapon) * _buff_mult(h))
+
+## 방어력 DF = 기본 방어력 × 버프. alert·in_command 버프면 각 ×1.2(내림).
 static func defense(h) -> int:
-	var df := ItemTypes.total_defense(h.armor) + ItemTypes.shield_defense(h.shield)
-	return int(df * _buff_mult(h))
+	return int(base_defense(h) * _buff_mult(h))
 
 ## 막기 확률(%) = 방패 막기 확률. 방패 없으면 0.
 static func block_chance(h) -> int:

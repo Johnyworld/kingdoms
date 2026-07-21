@@ -445,13 +445,6 @@ func _panel_df(team: String) -> int:
 	var c = _commander(team)
 	return CombatResolver.defense(c) if c != null else 0
 
-## 버프 제외 기본 AT/DF(표시용). CombatResolver 공식의 버프 이전 값을 재현한다(읽기 전용).
-func _base_at(h) -> int:
-	return ItemTypes.weapon_attack(ItemTypes.primary_weapon(h.weapons)) + int(h.strength) / 5
-
-func _base_df(h) -> int:
-	return ItemTypes.total_defense(h.armor) + ItemTypes.shield_defense(h.shield)
-
 ## 중앙 보정 박스 순환 항목 — 항상 "기본능력", 어느 한쪽이라도 지휘 버프면 "지휘보정" 추가. 레벨/지형은 미구현이라 생략. → battle.md
 func _modifier_labels() -> Array:
 	var labels := ["기본능력"]
@@ -490,9 +483,11 @@ func _modifier_text(label: String) -> String:
 		return ""
 	if label == "지휘보정":
 		return "AT +%d / +%d\nDF +%d / +%d" % [
-			_panel_at("a") - _base_at(ca), _panel_at("b") - _base_at(cb),
-			_panel_df("a") - _base_df(ca), _panel_df("b") - _base_df(cb)]
-	return "AT %d vs %d\nDF %d vs %d" % [_base_at(ca), _base_at(cb), _base_df(ca), _base_df(cb)]
+			_panel_at("a") - CombatResolver.base_attack_power(ca), _panel_at("b") - CombatResolver.base_attack_power(cb),
+			_panel_df("a") - CombatResolver.base_defense(ca), _panel_df("b") - CombatResolver.base_defense(cb)]
+	return "AT %d vs %d\nDF %d vs %d" % [
+		CombatResolver.base_attack_power(ca), CombatResolver.base_attack_power(cb),
+		CombatResolver.base_defense(ca), CombatResolver.base_defense(cb)]
 
 ## 양 팀 멤버를 y 순서로 짝지어 duel(상대 짝)을 배정한다 — 각자 자기 짝을 향해 흩어져 돌격 → 전장 전체에 난투 분산.
 ## 인원이 다르면 순환(mod)으로 나눠 붙인다. 짝이 죽으면 최근접 적으로 폴백(_target_for). → battle.md

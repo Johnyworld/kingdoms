@@ -21,6 +21,8 @@
 | 회피율(%) | `민첩 × 0.5 − 총장비무게 × 0.3` | 총장비무게 = **보유 무기 전부** + 방어구 + 방패 무게(`equip_weight`). 무기 여럿을 들면 그만큼 무겁다. 지형 보정 `미구현` |
 
 `attack_power`·`hit_damage`·`resolve_hit`·`resolve_engagement`는 사용할 무기 id를 **선택 인자**로 받는다(생략 시 `ItemTypes.primary_weapon` = 주무기). 원거리 전투에서 활로 쏠 때는 호출부가 활 id를 넘긴다.
+
+**버프 제외 기본값의 단일 출처** — `base_attack_power(h, weapon := "")` / `base_defense(h)`가 버프 이전 공식(위 표의 AT/DF에서 배율 제외)을 제공하고, 실효값 `attack_power`/`defense`는 `기본값 × 버프 배율`로 이를 재사용한다. [전투 HUD](battle.md)의 "기본능력"·"지휘보정"(델타) 표시도 이 함수를 쓴다(공식 재구현 금지).
 | 명중(%) | `max(MIN_HIT, 90 − 회피율)` | 명중 하한 `MIN_HIT`(10%) — 회피가 아무리 높아도 **최소 10%는 맞는다**(회피형 영웅 불사 방지). 상한 clamp는 없음(회피 음수면 100 초과 → 항상 명중) |
 | 치명타(%) | `행운 × 0.5` | |
 
@@ -70,6 +72,7 @@
 - [정상] `crit_chance` = `행운 × 0.5`
 - [정상] `hit_damage(공격자, 방어자, crit)` = `floor(max(1, AT−DF) × 상성 × (1.5 if crit else 1.0))` — 최소 1
 - [정상] 상성 반영 — 마법 무기 vs 판금(1.3) > vs 맨몸(1.0); 참격 vs 사슬(0.7) 감소
+- [정상] `base_attack_power`/`base_defense` — 버프(`alert`·`in_command`)가 켜져도 불변, 실효값 = `기본 × 버프`(같은 공식 출처)
 - [정상] `alert` 버프 — `alert=true`면 `attack_power`·`defense`가 ×1.2(내림), `false`면 원값 ([경계](party-action-menu.md))
 - [정상] `in_command` 버프 — `in_command=true`면 `attack_power`·`defense`가 ×1.2(내림) ([지휘 범위](command-range.md))
 - [정상] `alert`·`in_command` 둘 다면 ×1.44(내림) — 곱셈 중첩

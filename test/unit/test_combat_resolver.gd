@@ -25,6 +25,22 @@ func _rng(seed_val := 1) -> RandomNumberGenerator:
 	r.seed = seed_val
 	return r
 
+# --- 버프 제외 기본 AT/DF (base_attack_power / base_defense — HUD 표시·실효값의 단일 출처) ---
+
+func test_base_attack_power_ignores_buffs() -> void:
+	var h := _human(78, 0, 0, 40, "sword")   # 검(14) + floor(78/5)=15 → 29
+	assert_eq(CombatResolver.base_attack_power(h), 29, "기본 AT = 무기 + floor(힘/5)")
+	h.alert = true
+	h.in_command = true
+	assert_eq(CombatResolver.base_attack_power(h), 29, "버프가 있어도 기본 AT 불변")
+	assert_eq(CombatResolver.attack_power(h), int(29 * 1.44), "실효 AT = 기본 × 버프(같은 공식 출처)")
+
+func test_base_defense_ignores_buffs() -> void:
+	var d := _human(0, 0, 0, 40, "", ["leather_armor"])   # DF 8
+	assert_eq(CombatResolver.base_defense(d), 8, "기본 DF = 방어구 + 방패")
+	d.alert = true
+	assert_eq(CombatResolver.base_defense(d), 8, "버프가 있어도 기본 DF 불변")
+
 # --- 경계 버프 (alert → AT·DF ×1.2) ---
 
 func test_attack_power_alert_buff() -> void:
