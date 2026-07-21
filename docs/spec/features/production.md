@@ -1,6 +1,6 @@
 # Feature: Primary Production (1차 생산 건물 · 생산포인트)
 
-> 스크립트: `scenes/building/building.gd`(생산포인트·배정 거점) · `scenes/building/building_types.gd`(`primary_production`·`produces`·`buildable_terrains`) · `scenes/game/game.gd`(거리 계산·턴 산출·거점 배정 UI) · `scenes/building/building_info.gd`(생산력 표시)
+> 스크립트: `scenes/building/building.gd`(생산포인트·배정 거점) · `scenes/building/building_types.gd`(`primary_production`·`produces`·`buildable_terrains`) · **`scenes/building/building_manager.gd`**(`BuildingManager` — 거리 계산 `center_distance`·턴 산출 `tick_production`·배정 `assign_production_building`/`cycle_production_center`·배치/개척 `place_building`/`found_camp`·건물/영지 목록) · `scenes/game/game.gd`(건설 모드 UI·위임 호출) · `scenes/building/building_info.gd`(생산력 표시)
 
 **1차 생산 건물**은 지형 위에 지어 자원을 캐는 건물이다. **[자원 4종](../data/resources.md)에 1:1 대응**한다:
 
@@ -35,8 +35,8 @@
 
 ## 거리 (경로 거리)
 
-- `distance` = 건물 중심(`center_cell`)에서 배정 거점 중심까지의 **경로 거리**(헥스 스텝 BFS, `Terrain.IMPASSABLE`(산 등) 우회). `game.gd._center_distance`가 `HexGrid.bfs_distances(.., Terrain.IMPASSABLE)`로 계산한다(터레인 의존).
-- 산 등으로 **경로가 없으면 distance 0 → 생산 정지**(도달 가능한 거점에 배정해야 생산). 최근접 거점 자동 배정도 같은 규칙(`_nearest_player_center`).
+- `distance` = 건물 중심(`center_cell`)에서 배정 거점 중심까지의 **경로 거리**(헥스 스텝 BFS, `Terrain.IMPASSABLE`(산 등) 우회). `BuildingManager.center_distance`가 `HexGrid.bfs_distances(.., Terrain.IMPASSABLE)`로 계산한다(터레인 의존).
+- 산 등으로 **경로가 없으면 distance 0 → 생산 정지**(도달 가능한 거점에 배정해야 생산). 최근접 거점 자동 배정도 같은 규칙(`BuildingManager.nearest_player_center`).
 - (숲/습지 이동 가중치는 부대 이동의 도달-상한 모델이라 경로 비용 누적과 달라, 거리엔 반영하지 않는다 — 스텝 수로 단순화.)
 
 ## 배치 규칙 (`build_planner` · `game.gd`)
@@ -81,7 +81,16 @@
 - [경계] `buildable_terrains=[]`(제한 없음) → 지형 무관
 - [정상] `town_hall_adjacent_cells(...)` — 완성 마을회관/성 footprint에 인접한 셀 집합; 캠프만 있으면 빈 집합
 
-> **시야 합집합(건물∪부대)**·거점 자동 배정(최근접)·거점 변경·이동경로 거리·턴 산출 누적·생산력 패널은 `game.gd`·터레인·UI 의존이라 **실제 실행/헤드리스로 확인**한다. `can_place`는 호출자가 합친 `vision_cells`를 받아 지형·겹침·범위만 판정한다.
+### 도메인(BuildingManager) — `test/unit/test_building_manager.gd`
+- [정상] `place_building`(1차 생산) → 최근접 완성 플레이어 거점 배정 + 그 거점 영지 편입 + 건설 중 생성·목록 등록
+- [정상] `place_building`(비생산, 예: 집) → 배정 없음, 지정 영지 편입
+- [정상] `center_distance` — 같은 행 3칸 = 3; `cycle_production_center` — 다음 거점으로 배정·영지 이동, 거점 1개면 불가
+- [정상] `tick_production` — 완성 벌목소(거리 3) 3턴 → 배정 거점 영지 목재 +1
+- [정상] `found_camp` — "전초기지 N" 단조 증가, 건설 중 캠프·플레이어 세력 편입·목록 등록
+- [정상] `transfer_camp` — NPC→플레이어(수입 편입)/플레이어→NPC(수입 제외) 목록 재배치, `{territory_name, old_faction_name}` 반환
+- [정상] `destroy_camp`/`demolish_building`(salvage 환급)/`demolish_camp_territory`(영지 통째 제거·세력 분리)
+
+> **시야 합집합(건물∪부대)**·건설 모드 입력·생산력 패널은 `game.gd`·UI 의존이라 **실제 실행으로 확인**한다. `can_place`는 호출자가 합친 `vision_cells`를 받아 지형·겹침·범위만 판정한다.
 
 ## 관련
 

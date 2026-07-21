@@ -114,7 +114,7 @@
 
 5f는 로빙 NPC가 **플레이어** 표적만 공성했다. **5g는 표적을 적 세력 전체로 넓혀 NPC가 다른 NPC의 성벽 거점(5g-A)·부대(5g-B)도 공성**하게 한다 — NPC 왕국끼리 서로 무너뜨리고 점령하는 창발. 플레이어가 안 보는 전투이므로 **오버레이 없이 헤드리스**로 정산한다(기존 [헤드리스 결산](battle.md#헤드리스-전투-결산-battle_simgd-순수) 관례와 일관 — 토스트 없음, 성벽 링만 다시 그림).
 
-- **표적 확장(성벽)**: `NpcPlanner.siege_target_for`·`_siege_band_cells`의 **성벽 거점 스캔**을 `_buildings`(플레이어) → `_buildings + _npc_buildings` 중 **자기 세력이 아닌** 거점 전체로 넓힌다(`_enemy_walled_centers`).
+- **표적 확장(성벽)**: `NpcPlanner.siege_target_for`·`_siege_band_cells`의 **성벽 거점 스캔**을 `BuildingManager.buildings`(플레이어) → `BuildingManager.buildings + BuildingManager.npc_buildings` 중 **자기 세력이 아닌** 거점 전체로 넓힌다(`_enemy_walled_centers`).
 - **표적 확장(부대, 5g-B)**: `NpcPlanner.siege_target_for`의 **부대 스캔**도 `_units`(플레이어) → `_units + _npc_parties` 중 **자기 세력·자기 부대 제외** 전체로 넓힌다 — NPC가 다른 NPC 부대를 밴드에서 투석. 유닛 볼리는 헤드리스([BattleSim 투석 볼리](battle.md#헤드리스-전투-결산-battle_simgd-순수))로 정산.
 - **헤드리스 성벽 투석(`_npc_bombard_wall_headless`)**: `_npc_try_bombard`에서 표적 성벽이 **플레이어 소유면 기존 오버레이**(`_bombard_wall_by`), **다른 NPC 소유면 헤드리스**로 분기. 헤드리스는 attacker의 **공성 유닛마다 1발**씩(전투당 1발 규칙과 동일) `Siege.rolled_damage`를 굴려 합산(`Siege.total_bombard_damage`)한 flat 피해를 `wall_hp`에서 뺀다(`Siege.wall_after_hit`). 성벽은 반격 없고(구조물·부동), 성벽 뒤 수비대는 미참여(붕괴 전 보호 규칙 — 오버레이 `defender=null`과 동일).
 - **붕괴·점령**: 헤드리스 정산 후 `Siege.wall_broken(wall_hp)`면 붕괴 처리(오버레이와 공유 — `wall_level=0`·`wall_hp=0`·[사다리 정리](wall.md#통로-돌파-breach)·재그리기). `is_walled()==false`가 되면 기존 흡수 AI(`NpcPlanner.adjacent_enemy_camp`)가, 수비대가 있으면 먼저 부대 전투(헤드리스 BattleSim) 후 점령한다(창발 흐름).

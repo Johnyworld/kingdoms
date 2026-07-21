@@ -30,7 +30,7 @@
 
 - 진입: `_build_mode = true`, 건설할 종류·비용 지불 영지를 기억한다. **건설 가능 영역**(영지 시야) 윤곽선을 계산해 표시한다(아래 `BuildArea`).
 - **마우스 이동**: 커서 아래 셀을 중심으로 **종류의 footprint만큼**(7헥스 또는 1헥스) **미리보기**를 그린다(`BuildPreview`). 배치 가능하면 초록, 불가하면 빨강.
-  - 배치 가능 판정 = `BuildPlanner.can_place(..., hexes)`. `hexes`는 건설할 종류의 카탈로그 `footprint`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)` — 플레이어 건물(`_buildings`) + [NPC 거점](npc-bases.md)(`_npc_buildings`)을 합쳐 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
+  - 배치 가능 판정 = `BuildPlanner.can_place(..., hexes)`. `hexes`는 건설할 종류의 카탈로그 `footprint`. 시야 = `BuildPlanner.territory_vision(영지)`, 점유 = `BuildPlanner.occupied_cells(맵의 모든 건물)` — 플레이어 건물(`BuildingManager.buildings`) + [NPC 거점](npc-bases.md)(`BuildingManager.npc_buildings`)을 합쳐 적 캠프 발자국 위에 겹쳐 짓지 못하게 한다.
 - **좌클릭**: 배치 가능한 자리(`can_place`)이고 **조건 충족**(`BuildPlanner.can_build` — 선행·자재)이면 → `territory.build_pay(type_id)`(자재 차감) → 그 자리에 **건설 중** 건물 생성(`Building.setup(.., true)`) → 영지에 편입(`add_building`) → 건설 모드 종료. 불가한 자리면 무시(모드 유지).
 - **우클릭 / ESC**: 건설 모드 취소(미리보기·영역 윤곽선 제거).
 - 건설 모드 중에는 유닛 선택·이동·캠프 메뉴 열기 등 일반 클릭이 동작하지 않는다.
@@ -119,7 +119,7 @@
 - **진입**: 캠프 메뉴의 **"캠프 건설 (새 영지)"** 버튼(`camp_menu`) → `found_camp_requested(territory)` 방출 → `game.gd`가 캠프 건설 모드로 진입. 버튼은 여는 영지가 캠프 비용(목재10·식량10)을 감당하면(`BuildPlanner.can_build(territory, "camp")`) 활성.
 - **배치 = 활성 부대 시야**: 일반 건물은 영지 시야 안에 짓지만, **캠프는 활성 [부대](../entities/Party.md)의 시야 반경**(`party.vision()`, 부대 위치 기준) 안에 짓는다(`game.gd`가 `_build_type == "camp"`면 배치 영역·`can_place` 시야를 부대 시야로 바꾼다). footprint 7.
 - **부대 필요**: 활성 부대가 비어(멤버 0) 있으면 시야가 없어 배치가 불가능하므로, 건설 모드에 **진입하지 않고** 안내 토스트("캠프를 세우려면 부대가 필요하다")를 띄운다(`_on_found_camp_requested`).
-- **새 영지 생성(`game.gd` `_found_camp`)**: 여는 영지가 `build_pay("camp")`로 비용 지불 → 새 `Territory`(이름 `"전초기지 N"`, **자원 0·인구 0**) 생성 → 플레이어 세력 편입 → **건설 중** 캠프 배치(`Building.setup(.., true)`) → 새 영지에 편입 → `_buildings`·`_territories`(턴 대상)에 등록 → [안개](fog-of-war.md) 갱신.
+- **새 영지 생성(`BuildingManager.found_camp` — game.gd가 건설 모드에서 위임 호출)**: 여는 영지가 `build_pay("camp")`로 비용 지불 → 새 `Territory`(이름 `"전초기지 N"`, **자원 0·인구 0**) 생성 → 플레이어 세력 편입 → **건설 중** 캠프 배치(`Building.setup(.., true)`) → 새 영지에 편입 → BuildingManager의 `buildings`·`territories`(턴 수입 대상)에 등록 → [안개](fog-of-war.md) 갱신.
 - 새 캠프는 **수비대가 없다**(무방비) — [캠프 메뉴 편성](camp-menu.md)으로 부대 병력을 옮겨 방어한다. 완성되면 시야 5. 캠프라 [승리·점령](victory.md)에 기여(거점 tier 0).
 - **악용 방지**: 새 영지 시작 자원 0(싼 캠프로 자원을 복사하지 못함). 캠프 티어는 [인구 상한](../entities/Territory.md#인구-상한population_cap) 0이라 인구도 0에서 시작.
 - **유예(미구현)**: 새 전초기지의 **경제 개발**(마을회관 업그레이드로 인구 확보)은 영지 자원이 0이고 **영지 간 자원 이전이 없어** 아직 불가 — 이번 슬라이스는 시야·영토 클레임·부대 수비까지. NPC의 캠프 건설도 미구현.

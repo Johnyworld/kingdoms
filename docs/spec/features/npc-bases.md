@@ -19,9 +19,9 @@
 - 수도명은 카탈로그 `territory` 필드에서 읽는다(NPC의 `territory`가 이전엔 `""`였으나 위 이름으로 채운다).
 - 세력 색은 부대 색(`color`)과 같다. 캠프 라벨에 영지명(흰색)·세력명(세력색)이 표시된다([Building](../entities/Building.md) `map_label_lines`).
 - 초기 자원은 플레이어와 동일하게 캠프 카탈로그(`BuildingTypes.CAMP`)의 `resources`를 복사해 영지에 넣는다.
-  - **NPC 자원 수입·소비는 아직 미사용** — NPC 영지는 턴 종료 수입(`_territories`)에 넣지 않는다. *(NPC 경제 미구현)*
+  - **NPC 자원 수입·소비는 아직 미사용** — NPC 영지는 턴 종료 수입(`BuildingManager.territories`)에 넣지 않는다. *(NPC 경제 미구현)*
 - 캠프는 **완성 상태**로 생성한다(건설 중 아님).
-- NPC 캠프는 플레이어 캠프·농장과 별도로 `_npc_buildings` 배열에 담는다(플레이어 `_buildings`와 구분).
+- NPC 캠프는 플레이어 캠프·농장과 별도로 `BuildingManager.npc_buildings` 배열에 담는다(플레이어 `BuildingManager.buildings`와 구분).
 
 ## 배치 위치 (모서리)
 
@@ -42,7 +42,7 @@
 
 NPC 거점은 NPC 부대와 같은 원칙으로 안개를 따른다. → [Fog of War](fog-of-war.md).
 
-- NPC 거점은 플레이어 시야를 **밝히지 않는다** — 적 건물이므로 `_update_fog`의 시야 합산(`buildings_vision`)에 넣지 않는다(플레이어 `_buildings`만 합산).
+- NPC 거점은 플레이어 시야를 **밝히지 않는다** — 적 건물이므로 `_update_fog`의 시야 합산(`buildings_vision`)에 넣지 않는다(플레이어 `BuildingManager.buildings`만 합산).
 - **발견 전엔 가려지고, 한 번 발견하면 계속 표시된다**(정적 구조물). 판정 기준은 **탐험됨**(`fog.is_cell_explored`) — 거점의 7칸 중 하나라도 탐험된 적이 있으면 발견으로 본다.
   - 이는 NPC **부대**가 **현재 시야**(`is_cell_visible`)로만 보이는 것과 다르다(부대는 움직이므로 지나가면 다시 숨지만, 거점은 한 번 보면 계속 안다).
   - 발견됐지만 현재 시야 밖인 거점은 탐험됨 안개(반투명 검정) 아래로 지형처럼 흐릿하게 남는다.

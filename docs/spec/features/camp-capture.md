@@ -40,18 +40,18 @@
 3. **실행**:
    - **흡수**(`_transfer_camp(camp, _player_faction)`) — 영지를 점령한 세력으로 이전(플레이어·NPC 공용, 아래 [소유권 이전](#소유권-이전-_transfer_camp) 참고).
    - **파괴**(`_destroy_camp`) — 캠프를 제거:
-     - 영지에서 건물 제거(`Territory.remove_building`), `_npc_buildings`에서 제거, 노드 `queue_free`.
+     - 영지에서 건물 제거(`Territory.remove_building`), `BuildingManager.npc_buildings`에서 제거, 노드 `queue_free`.
      - 영지·세력은 남지만 캠프 0개가 된다(→ [세력 소멸](victory.md)).
    - 실행 후 안개·부대 일람 갱신, 선택 해제.
 
-## 소유권 이전 (`_transfer_camp`)
+## 소유권 이전 (`_transfer_camp` → `BuildingManager.transfer_camp`)
 
-캠프 점령의 소유권 이전을 플레이어·NPC가 공유하는 `_transfer_camp(camp, new_faction)`으로 처리한다.
+캠프 점령의 소유권 이전을 플레이어·NPC가 공유하는 `_transfer_camp(camp, new_faction)`으로 처리한다. 도메인(영지 세력 이동·건물/수입 목록 재배치)은 `BuildingManager.transfer_camp`가 맡고 `{territory_name, old_faction_name}`을 반환, game.gd는 사다리 무효·토스트·표시·패배 확인만 한다(`test_building_manager.gd`가 도메인을 커버).
 
 - **영지 이전**: 이전 세력에서 제거(`Faction.remove_territory`) → `new_faction`에 편입(`Faction.add_territory`).
 - **건물 리스트 재배치**(소유주에 따라):
-  - `new_faction`이 **플레이어**면 캠프를 `_buildings`로 옮기고(플레이어 시야를 밝히고 건축 점유·[캠프 메뉴](camp-menu.md) 대상), 영지를 `_territories`에 넣어 턴 수입을 받게 한다.
-  - `new_faction`이 **NPC**면 캠프를 `_npc_buildings`로 옮기고, 영지를 `_territories`에서 뺀다(수입 제외). 이후 표시는 탐험 기준([NPC Bases](npc-bases.md) `_update_npc_building_visibility`).
+  - `new_faction`이 **플레이어**면 캠프를 `BuildingManager.buildings`로 옮기고(플레이어 시야를 밝히고 건축 점유·[캠프 메뉴](camp-menu.md) 대상), 영지를 `BuildingManager.territories`에 넣어 턴 수입을 받게 한다.
+  - `new_faction`이 **NPC**면 캠프를 `BuildingManager.npc_buildings`로 옮기고, 영지를 `BuildingManager.territories`에서 뺀다(수입 제외). 이후 표시는 탐험 기준([NPC Bases](npc-bases.md) `_update_npc_building_visibility`).
 - 라벨색이 새 세력색으로 바뀐다(`map_label_lines`는 `territory.faction.color` 사용). 이전 직후 `visible = true`, `_update_fog`가 최종 표시를 정한다.
 
 ## NPC 점령 (`game.gd` `_npc_unit_act`)

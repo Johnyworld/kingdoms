@@ -98,10 +98,8 @@ var lord_menu: LordMenu                      # 소속 모달(코드 생성, _rea
 var _turn := TurnManager.new()
 var _units: Array = []          # 턴당 1회 이동하는 부대(주인공 부대 등).
 var _npc_parties: Array = []    # NPC 부대. 안개 표시·턴 리셋·턴 종료 시 이동(NpcAi) 대상. 일람은 제외.
-var _territories: Array = []    # 자원 수입을 받는 영지(플레이어). NPC 영지는 미포함(경제 미사용).
-var _outpost_count := 0         # 캠프 건설로 만든 전초기지 수(이름 단조 증가 카운터).
-var _buildings: Array = []      # 플레이어 건물(캠프 + 건설된 농장). 겹침 검사·시야 합산·추적용.
-var _npc_buildings: Array = []  # NPC 세력 거점(캠프). 안개(탐험됨) 표시 + 클릭 정보 대상. 시야 합산 제외.
+# 건물·영지 도메인(목록 단일 출처·소유권 이전·철거·1차 생산·개척). _ready에서 생성 → production.md · building.md
+var _bmgr: BuildingManager
 var _player_faction: Faction    # 플레이어 세력(캠프 흡수 시 영지 편입 대상). _setup_factions에서 설정.
 var _factions: Array = []       # 모든 세력(플레이어 + NPC). 세력 소멸/정복 승리 판정 대상.
 
@@ -159,6 +157,7 @@ func _ready() -> void:
 	_rng.randomize()
 	_npc_planner = NpcPlanner.new(terrain, MAP_WIDTH, MAP_HEIGHT, _rng, self)
 	_siege = SiegeSystem.new(terrain, _rng, self)
+	_bmgr = BuildingManager.new(terrain, MAP_WIDTH, MAP_HEIGHT, self)
 	_generate_map()
 	_center_camera()
 	overlay.setup(terrain)
@@ -173,7 +172,7 @@ func _ready() -> void:
 	building.wall_level = 1   # 시작 성벽(공성 시험용) → siege-engines.md
 	building.wall_hp = Siege.WALL_MAX_HP
 	building.gate_hp = Siege.GATE_MAX_HP
-	_buildings = [building]
+	_bmgr.buildings = [building]
 	_setup_factions()
 	_setup_parties()   # 세력별 군대(영웅4+부하12=16) 생성·배치. _units·_npc_parties·party 설정 → parties.md
 	fog.setup(terrain, MAP_WIDTH, MAP_HEIGHT)
@@ -257,22 +256,23 @@ func _center_camera() -> void:
 	camera.make_current()
 
 ## 플레이어 + NPC 세력·영지·거점을 유닛 카탈로그에서 만든다.
-## 플레이어: 세력 "푸른 왕국" → 영지 "창천성"에 남서 모서리 캠프를 넣는다(자원 수입 대상 _territories).
-## NPC 3세력: 나머지 세 모서리에 수도 영지 + 완성 캠프를 배치한다(_npc_buildings, 경제 미사용).
+## 플레이어: 세력 "푸른 왕국" → 영지 "창천성"에 남서 모서리 캠프를 넣는다(자원 수입 대상 _bmgr.territories).
+## NPC 3세력: 나머지 세 모서리에 수도 영지 + 완성 캠프를 배치한다(_bmgr.npc_buildings, 경제 미사용).
 func _setup_factions() -> void:
 	var spec := UnitTypes.get_faction(UnitTypes.PLAYER_ID)
 	var territory := Territory.new(spec["territory"], _camp_resources())
 	_player_faction = Faction.new(spec["faction"], spec["color"])
+	_bmgr.player_faction = _player_faction   # 소유권·수입·생산 배정 판정 기준
 	_player_faction.add_territory(territory)
 	territory.add_building(building)
-	_territories = [territory]
+	_bmgr.territories = [territory]
 	_factions = [_player_faction]
 
 	for id in UnitTypes.NPC_IDS:
-		_npc_buildings.append(_setup_npc_base(id, NPC_BASES[id]))
+		_bmgr.npc_buildings.append(_setup_npc_base(id, NPC_BASES[id]))
 
 ## NPC 세력 하나의 거점을 만든다: 세력 → 수도 영지 → 완성 캠프(중심 base_cell). 캠프 노드를 반환한다.
-## 세력·영지는 캠프의 territory 참조로 살아 있게 유지된다(_npc_buildings가 캠프 노드를 보유).
+## 세력·영지는 캠프의 territory 참조로 살아 있게 유지된다(_bmgr.npc_buildings가 캠프 노드를 보유).
 func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
 	var spec := UnitTypes.get_faction(id)
 	var territory := Territory.new(spec["territory"], _camp_resources())
@@ -345,7 +345,7 @@ func _build_faction_army(faction_id: String, reuse) -> Array:
 func _faction_center_building(faction_id: String) -> Building:
 	if faction_id == UnitTypes.PLAYER_ID:
 		return building
-	return _npc_buildings[UnitTypes.NPC_IDS.find(faction_id)]
+	return _bmgr.npc_buildings[UnitTypes.NPC_IDS.find(faction_id)]
 
 ## 빈 새 부대 노드를 만들어 트리에 넣는다(기본 kind=troop, 금색). 카탈로그 정보는 호출부가 채운다.
 func _new_party() -> Party:
@@ -511,7 +511,7 @@ func _cell_melee_reachable(enemy_cell: Vector2i, start: Vector2i) -> bool:
 func _compute_camp_targets(start: Vector2i) -> void:
 	_capture_targets = {}
 	_capture_cells = []
-	for camp in _npc_buildings:
+	for camp in _bmgr.npc_buildings:
 		if not camp.visible:
 			continue   # 미발견(안개) 거점은 대상 아님
 		if camp.is_walled() and not breached_by(camp, party.faction_name):
@@ -560,7 +560,7 @@ func _update_fog() -> void:
 		for c in HexGrid.cells_within(terrain, _cell_of(u), u.vision(), MAP_WIDTH, MAP_HEIGHT):
 			visible[c] = true
 	# 완성 건물(캠프·농장 등)의 시야. 건설 중 건물은 buildings_vision이 제외한다.
-	for c in BuildPlanner.buildings_vision(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT):
+	for c in BuildPlanner.buildings_vision(terrain, _bmgr.buildings, MAP_WIDTH, MAP_HEIGHT):
 		visible[c] = true
 	fog.update_visible(visible)
 	_update_npc_visibility()
@@ -578,7 +578,7 @@ func _update_npc_visibility() -> void:
 ## 부대와 달리 현재 시야가 아니라 탐험됨(fog.is_cell_explored)으로 판정 — 7칸 중 하나라도 본 적 있으면 발견.
 ## (NPC 거점도 플레이어 시야를 밝히지 않으므로 _update_fog 시야 합산에는 넣지 않는다.)
 func _update_npc_building_visibility() -> void:
-	for b in _npc_buildings:
+	for b in _bmgr.npc_buildings:
 		b.visible = _base_discovered(b)
 
 ## 거점의 7칸(중심 + 이웃) 중 하나라도 탐험된 적 있으면 발견으로 본다.
@@ -686,12 +686,9 @@ func _handle_click(world_pos: Vector2) -> void:
 			_deselect()
 			_hide_party_info()
 
-## 셀을 점유한 건물을 찾는다(없으면 null). 캠프·건설된 농장 모두 _buildings에 있다.
+## 셀을 점유한 플레이어 건물(BuildingManager 위임). 클릭 라우팅에 쓴다.
 func _building_at(cell: Vector2i) -> Building:
-	for b in _buildings:
-		if b.contains_cell(cell):
-			return b
-	return null
+	return _bmgr.building_at(cell)
 
 ## 그 칸에 선 플레이어 부대(멤버 있는 것)를 찾는다(없으면 null). 클릭 선택 판정에 쓴다.
 func _player_party_at(cell: Vector2i) -> Party:
@@ -706,9 +703,9 @@ func _player_party_at(cell: Vector2i) -> Party:
 func all_parties() -> Array:
 	return _units + _npc_parties
 
-## 맵의 모든 건물(플레이어 + NPC 거점) 목록. 건물 전체 순회·NpcPlanner 월드 조회의 단일 출처.
+## 맵의 모든 건물(플레이어 + NPC 거점) 목록. NpcPlanner·SiegeSystem 월드 조회 겸용(BuildingManager 위임).
 func all_buildings() -> Array:
-	return _buildings + _npc_buildings
+	return _bmgr.all()
 
 ## 부대(Node2D)가 선 맵 셀. 위치→셀 변환 반복의 단일 출처.
 func _cell_of(p) -> Vector2i:
@@ -823,12 +820,9 @@ func _npc_at(cell: Vector2i) -> Party:
 			return p
 	return null
 
-## 그 셀을 포함하는 NPC 거점(캠프)을 찾는다(없으면 null). 아직 발견 안 돼 가려진(visible == false) 거점은 제외한다.
+## 그 셀을 포함하는 발견된 NPC 거점(BuildingManager 위임). 클릭 라우팅에 쓴다.
 func _npc_building_at(cell: Vector2i) -> Building:
-	for b in _npc_buildings:
-		if b.visible and b.contains_cell(cell):
-			return b
-	return null
+	return _bmgr.npc_building_at(cell)
 
 ## 우측 상단에 건물 정보 패널을 띄운다. 부대 정보·일람은 감춘다(캠프 메뉴와 같은 규칙). 선택 중이면 해제.
 ## 플레이어 건물(BUILDING_INFO)·NPC 거점(NPC_BASE_INFO)이 공유한다.
@@ -837,7 +831,7 @@ func _open_building_info(b, can_demolish := false) -> void:
 		_deselect()
 	party_info.close()
 	party_roster.hide()
-	var dist: int = _center_distance(b) if b.is_primary_production() else 0
+	var dist: int = _bmgr.center_distance(b) if b.is_primary_production() else 0
 	building_info.open(b, can_demolish, dist)
 
 ## 건물 정보 패널의 철거 버튼 → 영지에서 제거·자재 환급 → 맵/추적 목록에서 제거 → 안개 갱신 → 패널 닫기.
@@ -879,15 +873,12 @@ func _refund_text(b) -> String:
 		parts.append("%s %d" % [res, refund[res]])
 	return "환급: " + ", ".join(parts)
 
-## 실제 철거(확인 다이얼로그 [철거] 확정 콜백): 영지 제거·환급 → 추적 목록 제거 → 노드 free → 안개·패널 정리.
+## 실제 철거(확인 다이얼로그 [철거] 확정 콜백): 도메인은 BuildingManager, 여기선 패널·안개 정리만.
 func _do_demolish(b) -> void:
 	if not is_instance_valid(b):
 		return   # 다이얼로그가 열린 사이 다른 경로로 건물이 제거됐으면 무시
-	if b.territory != null:
-		b.territory.demolish(b)   # 영지에서 떼고 refund_on_demolish 환급(완성 salvage / 건설 중 비례)
-	_buildings.erase(b)
+	_bmgr.demolish_building(b)   # 영지 제거·환급 → 목록 제거 → 노드 지연 free
 	building_info.close()
-	b.queue_free.call_deferred()
 	_update_fog()   # 철거된 건물 시야 제거
 
 ## 캠프 철거 가능 판정: 캠프(tier 0)·내 세력 영지·마지막 거점 아님(세력 소멸 방지)일 때만.
@@ -904,21 +895,11 @@ func _on_camp_demolish_requested(camp) -> void:
 	var terr_name: String = camp.territory.name if camp.territory != null else "영지"
 	confirm_dialog.open("「%s」 캠프를 철거하고 영지를 포기할까요?" % terr_name, "철거", _do_demolish_camp.bind(camp))
 
-## 캠프 철거 확정: 그 영지의 모든 건물을 제거하고 영지를 세력·게임에서 분리한다(영지 통째 상실, 환급 없음).
+## 캠프 철거 확정(영지 통째 상실, 환급 없음): 도메인은 BuildingManager, 여기선 메뉴·안개·알림만.
 func _do_demolish_camp(camp) -> void:
 	if not is_instance_valid(camp):
 		return
-	var territory = camp.territory
-	var terr_name: String = territory.name if territory != null else "영지"
-	if territory != null:
-		for b in territory.buildings.duplicate():   # 캠프 포함 모든 건물
-			_buildings.erase(b)
-			territory.remove_building(b)
-			if is_instance_valid(b):
-				b.queue_free.call_deferred()
-		if territory.faction != null:
-			territory.faction.remove_territory(territory)   # 세력에서 영지 분리
-		_territories.erase(territory)   # 수입·플레이어 영지 목록에서 제외
+	var terr_name := _bmgr.demolish_camp_territory(camp)
 	camp_menu.close_menu()
 	_update_fog()
 	toast.show_message("%s 철거 — 영지 포기" % terr_name)
@@ -992,45 +973,24 @@ func _do_capture(camp, absorb: bool) -> void:
 	_update_fog()
 	party_roster.set_parties(_units)
 
-## 소유권 이전(점령 흡수, 플레이어·NPC 공용): 캠프의 영지를 new_faction으로 옮기고 건물 리스트를 재배치한다.
-## 플레이어면 _buildings(시야·건축·수입 획득), NPC면 _npc_buildings(수입 제외). 라벨색·시야는 이후 _update_fog가 반영.
+## 소유권 이전(점령 흡수, 플레이어·NPC 공용): 도메인(영지 세력 이동·목록 재배치)은 BuildingManager,
+## 여기선 사다리 무효·알림·표시·패배 확인만. 라벨색·시야는 이후 _update_fog가 반영.
 func _transfer_camp(camp, new_faction) -> void:
 	_clear_ladders(camp)   # 소유권 바뀌면 그 거점 사다리 무효 → wall.md
-	var territory = camp.territory
-	var terr_name: String = territory.name if territory != null else ""
-	var old_name: String = camp.faction_name()
-	if territory != null:
-		if territory.faction != null:
-			territory.faction.remove_territory(territory)
-		new_faction.add_territory(territory)
+	var r := _bmgr.transfer_camp(camp, new_faction)
 	# 알림: 플레이어가 얻으면 점령, 플레이어가 잃으면 함락(NPC↔NPC는 조용히).
 	if new_faction == _player_faction:
-		toast.show_message("%s 점령!" % terr_name)
-	elif old_name == _player_faction.name:
-		toast.show_message("%s 함락!" % terr_name)
-	_buildings.erase(camp)
-	_npc_buildings.erase(camp)
-	if new_faction == _player_faction:
-		_buildings.append(camp)
-		if territory != null and not (territory in _territories):
-			_territories.append(territory)   # 플레이어 영지는 턴 수입 대상
-	else:
-		_npc_buildings.append(camp)
-		if territory != null:
-			_territories.erase(territory)    # 잃은 영지는 수입에서 제외
+		toast.show_message("%s 점령!" % r["territory_name"])
+	elif r["old_faction_name"] == _player_faction.name:
+		toast.show_message("%s 함락!" % r["territory_name"])
 	camp.visible = true       # 이전 직후 표시(NPC 캠프는 _update_npc_building_visibility가 탐험 기준으로 재조정)
 	camp.queue_redraw()       # 라벨색을 새 세력색으로 갱신
 	_check_immediate_defeat()   # 플레이어가 캠프를 뺏겼으면 — 부대도 없으면 즉시 패배
 
-## 파괴: 캠프를 영지·맵에서 제거한다(획득 없음). 영지·세력은 남지만 캠프 0개가 된다(소멸 판정은 다음 슬라이스).
+## 파괴: 캠프를 영지·맵에서 제거(BuildingManager 위임 — 획득 없음). 여기선 사다리 정리·알림만.
 func _destroy_camp(camp) -> void:
 	_clear_ladders(camp)   # 파괴된 거점 사다리 제거 → wall.md
-	var terr_name: String = camp.territory.name if camp.territory != null else ""
-	if camp.territory != null:
-		camp.territory.remove_building(camp)
-	_npc_buildings.erase(camp)
-	camp.queue_free()
-	toast.show_message("%s 파괴!" % terr_name)   # 플레이어만 파괴 → 항상 플레이어 행동
+	toast.show_message("%s 파괴!" % _bmgr.destroy_camp(camp))   # 플레이어만 파괴 → 항상 플레이어 행동
 
 ## 적 인접 칸: 이미 인접이면 현재 칸, 아니면 인접한 도달 칸 하나, 없으면 현재 칸.
 func _adjacent_stand(enemy_cell: Vector2i, start: Vector2i) -> Vector2i:
@@ -1589,8 +1549,8 @@ func _on_turn_ended() -> void:
 		_deselect()
 	_hide_party_info()
 	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _units만 등록).
-	_turn.end_turn(all_parties(), _territories)
-	_tick_production()   # 1차 생산 건물 생산포인트 산출(1÷거리, 거리 기반) → production.md
+	_turn.end_turn(all_parties(), _bmgr.territories)
+	_bmgr.tick_production()   # 1차 생산 건물 생산포인트 산출(1÷거리, 거리 기반) → production.md
 	_advance_ladders()   # 사다리 카운트다운 −1(0이면 통로 열림) → wall.md
 	turn_hud.set_turn(_turn.number)
 	_update_fog()   # 건설 완료 농장 시야 + NPC 현재 위치 표시를 안개에 반영.
@@ -2178,11 +2138,11 @@ func _build_vision() -> Dictionary:
 		return vis
 	if BuildingTypes.get_type(_build_type).get("primary_production", false):
 		return _player_build_vision()   # 1차 생산 = 건물∪부대 시야
-	return BuildPlanner.town_hall_adjacent_cells(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT)   # 기타 = 마을회관 인접
+	return BuildPlanner.town_hall_adjacent_cells(terrain, _bmgr.buildings, MAP_WIDTH, MAP_HEIGHT)   # 기타 = 마을회관 인접
 
 ## 플레이어 건물 시야 ∪ 플레이어 부대 시야 합집합(1차 생산 건물 배치 범위). → production.md
 func _player_build_vision() -> Dictionary:
-	var vis := BuildPlanner.buildings_vision(terrain, _buildings, MAP_WIDTH, MAP_HEIGHT)
+	var vis := BuildPlanner.buildings_vision(terrain, _bmgr.buildings, MAP_WIDTH, MAP_HEIGHT)
 	for p in _units:
 		if p.faction_name == _player_faction.name and not p.members.is_empty():
 			for c in HexGrid.cells_within(terrain, _cell_of(p), p.vision(), MAP_WIDTH, MAP_HEIGHT):
@@ -2236,107 +2196,20 @@ func _try_place(cell: Vector2i) -> void:
 		return
 	_build_territory.build_pay(_build_type)   # 자재 차감
 	if _build_type == BuildingTypes.CAMP:
-		_found_camp(cell)   # 캠프는 새 영지 생성
+		_bmgr.found_camp(cell)   # 캠프는 새 영지("전초기지 N") 생성 → production.md
+		_update_fog()
 	else:
-		var b := Building.new()
-		add_child(b)
-		b.setup(terrain, cell, _build_type, true)   # 건설 중으로 생성
-		if b.is_primary_production():
-			_assign_production_building(b)   # 최근접 거점 배정(거리 계산·소속 영지) → production.md
-		else:
-			_build_territory.add_building(b)
-		_buildings.append(b)
+		_bmgr.place_building(cell, _build_type, _build_territory)   # 건설 중 생성 + 배정/편입 + 등록
 	_exit_build_mode()
 
-## 1차 생산 건물을 최근접 플레이어 거점에 배정한다: 소속 영지 = 그 거점 영지(거리 기반 생산, 인원 없음). → production.md
-func _assign_production_building(b) -> void:
-	var center = _nearest_player_center(b)
-	if center == null or center.territory == null:
-		_build_territory.add_building(b)   # 폴백(거점 없음)
-		return
-	b.assigned_center = center
-	center.territory.add_building(b)
-
-## b에서 이동력 경로(BFS)로 가장 가까운 완성 플레이어 거점. 없으면 null. → production.md
-func _nearest_player_center(b):
-	var dists: Dictionary = HexGrid.bfs_distances(terrain, b.center_cell(), MAP_WIDTH + MAP_HEIGHT, MAP_WIDTH, MAP_HEIGHT, Terrain.IMPASSABLE)
-	var best = null
-	var best_d := 1 << 30
-	for c in _buildings:
-		if c == b or not (BuildingTypes.is_center(c.building_type) and c.is_complete()):
-			continue
-		if c.faction() != _player_faction:
-			continue
-		var cc: Vector2i = c.center_cell()
-		if dists.has(cc) and int(dists[cc]) < best_d:
-			best_d = int(dists[cc])
-			best = c
-	return best
-
-## 1차 생산 건물 ↔ 배정 거점 경로 거리(헥스 스텝 BFS, 산 등 이동 불가 지형 우회). 배정 없거나 도달 불가면 0(생산 정지). → production.md
-func _center_distance(b) -> int:
-	if b.assigned_center == null:
-		return 0
-	var dists: Dictionary = HexGrid.bfs_distances(terrain, b.center_cell(), MAP_WIDTH + MAP_HEIGHT, MAP_WIDTH, MAP_HEIGHT, Terrain.IMPASSABLE)
-	return int(dists.get(b.assigned_center.center_cell(), 0))
-
-## [거점 변경] — 다음 플레이어 거점으로 배정을 옮긴다(소속 영지 이동, 거리 재계산). 인원 개념 없음. → production.md
+## [거점 변경] — 다음 플레이어 거점으로 배정을 옮긴다(BuildingManager 위임). 바뀌었으면 패널 갱신. → production.md
 func _on_center_change(b) -> void:
-	if not b.is_primary_production():
-		return
-	var centers := _player_centers()
-	if centers.size() <= 1:
-		return
-	var idx: int = centers.find(b.assigned_center)
-	var next = centers[(idx + 1) % centers.size()]
-	if next == b.assigned_center:
-		return
-	if b.territory != null:
-		b.territory.buildings.erase(b)
-	b.assigned_center = next
-	next.territory.add_building(b)   # 소속 영지 = 새 거점 영지(양방향 포인터)
-	_refresh_building_info(b)
-
-## 완성 플레이어 거점 목록(배정 대상). → production.md
-func _player_centers() -> Array:
-	var out: Array = []
-	for c in _buildings:
-		if BuildingTypes.is_center(c.building_type) and c.is_complete() \
-				and c.faction() == _player_faction:
-			out.append(c)
-	return out
+	if _bmgr.cycle_production_center(b):
+		_refresh_building_info(b)
 
 ## 건물 정보 패널을 현재 상태(거리 갱신)로 다시 그린다.
 func _refresh_building_info(b) -> void:
-	building_info.open(b, building_info._demolish_btn.visible, _center_distance(b))
-
-## 턴 종료 시 완성 1차 생산 건물의 생산포인트를 산출해 배정 거점 영지 자원에 더한다. → production.md
-func _tick_production() -> void:
-	for b in _buildings:
-		if not (b.is_complete() and b.is_primary_production()) or b.assigned_center == null:
-			continue
-		var produced: int = b.tick_production(_center_distance(b))
-		if produced > 0 and b.assigned_center.territory != null:
-			var res: String = b.produces()
-			b.assigned_center.territory.resources[res] = b.assigned_center.territory.resources.get(res, 0) + produced
-
-## 새 영지를 개척한다: 자원 0인 새 영지를 플레이어 세력에 편입하고, 건설 중 캠프를 그 자리에 세운다.
-## 비용은 여는 영지가 이미 지불(build_pay). 새 영지는 인구·자원 0(전초기지), 수비대 없음(부대 편성으로 방어).
-func _found_camp(cell: Vector2i) -> void:
-	var territory := Territory.new(_next_outpost_name(), {})
-	_player_faction.add_territory(territory)
-	var b := Building.new()
-	add_child(b)
-	b.setup(terrain, cell, BuildingTypes.CAMP, true)   # 건설 중 캠프
-	territory.add_building(b)
-	_buildings.append(b)
-	_territories.append(territory)
-	_update_fog()
-
-## 새 전초기지 영지 이름("전초기지 N"). 단조 증가 카운터라 영지를 잃어도 이름이 겹치지 않는다.
-func _next_outpost_name() -> String:
-	_outpost_count += 1
-	return "전초기지 %d" % _outpost_count
+	building_info.open(b, building_info._demolish_btn.visible, _bmgr.center_distance(b))
 
 ## 줌 조절: 마우스 휠 / 트랙패드 두 손가락 스크롤 / 트랙패드 핀치.
 ## 값이 작을수록 확대이므로, 확대 = _zoom_level 감소.

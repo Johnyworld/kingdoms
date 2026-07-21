@@ -68,7 +68,7 @@
 
 - **철거 가능 판정은 `game.gd`가 한다**: `BUILDING_INFO`(플레이어 건물)면 `not BuildingTypes.is_center(building_type)`일 때 `can_demolish = true`, `NPC_BASE_INFO`(적 거점)면 항상 `false`. `_open_building_info(building, can_demolish)`로 넘긴다. 플레이어 **거점**(캠프·마을회관·성)은 [캠프 메뉴](camp-menu.md)로 라우팅되므로 이 패널의 철거 대상이 아니다.
 - **철거 확인 게이트(`game.gd`)**: `demolish_requested`를 받으면 바로 철거하지 않고 [확인 다이얼로그](confirm-dialog.md)를 띄운다(`_on_demolish_requested` → `confirm_dialog.open(메시지, "철거", _do_demolish.bind(building))`). 메시지는 `"「<건물이름>」 철거 — 환급: <자재>"`(`refund_on_demolish`를 `자원 수량` 나열, 없으면 `"환급 없음"`). **[철거] 확인** → 콜백으로 실제 철거 실행. **[취소]/배경** → 아무 일 없음(콜백 미호출).
-- **철거 실행(`game.gd` `_do_demolish`)**: `building.territory.demolish(building)`([Territory](../entities/Territory.md#동작) — 영지에서 떼고 `demolish_refund` 환급) → `_buildings`에서 제거 → 노드 `queue_free`(지연 해제) → [안개](fog-of-war.md)·라벨 갱신(`_update_fog`) → 패널 닫기.
+- **철거 실행(`game.gd` `_do_demolish`)**: `BuildingManager.demolish_building` — 영지에서 떼고 환급([Territory](../entities/Territory.md#동작) `demolish`) → `buildings` 목록 제거 → 노드 `queue_free`(지연 해제) → [안개](fog-of-war.md)·라벨 갱신(`_update_fog`) → 패널 닫기.
 - **건설 중 건물도 철거 가능**(건설 취소). 환급은 **낸 `build_cost`를 진행도 비례로 회수**(`refund_on_demolish` — 안 쓴 자재만, [Building](../entities/Building.md#동작)). 완성 건물은 `demolish_refund`(salvage). 미리보기 메시지도 이 실제 환급을 보여준다.
 - 집을 철거하면 [인구 상한](../entities/Territory.md#인구-상한population_cap)이 내려간다 — 현재 인구가 상한을 초과해도 강제로 줄이지는 않는다([grow_population](turn.md)이 증가만 멈춤).
 
@@ -78,7 +78,7 @@
 
 - **철거 가능 판정(`game.gd` `_can_demolish_camp`)**: ① 건물이 **`camp`(tier 0)** ② **내 세력**(`territory.faction == _player_faction`) 영지 ③ **마지막 거점 아님**(`_faction_center_count(_player_faction) > 1` — 자기 세력 소멸 방지) — 셋 다 참일 때만 `can_demolish=true`로 [캠프 메뉴](camp-menu.md)를 연다. **마을회관·성은 항상 거짓**(다운그레이드 미구현).
 - **확인**: `demolish_requested`를 받으면 [확인 다이얼로그](confirm-dialog.md)를 띄운다(`"「<영지명>」 캠프를 철거하고 영지를 포기할까요?"`, 확인 라벨 `"철거"`). [철거] 확인 시 `_do_demolish_camp(camp)`.
-- **철거 실행(`game.gd` `_do_demolish_camp`)**: 그 **영지의 모든 건물**(캠프+농장·집 등)을 `_buildings`·맵에서 제거하고 `queue_free` → `Faction.remove_territory(territory)`([Faction](../entities/Faction.md) — 세력에서 영지 분리) → `_territories`에서 제거([안개](fog-of-war.md)·수입 대상 제외) → `toast` 알림 → 캠프 메뉴 닫기.
+- **철거 실행(`game.gd` `_do_demolish_camp`)**: 도메인은 `BuildingManager.demolish_camp_territory` — 그 **영지의 모든 건물**(캠프+농장·집 등)을 `buildings`·맵에서 제거하고 `queue_free` → `Faction.remove_territory(territory)`([Faction](../entities/Faction.md) — 세력에서 영지 분리) → `territories`에서 제거([안개](fog-of-war.md)·수입 대상 제외) → `toast` 알림 → 캠프 메뉴 닫기.
 - **환급 없음** — 영지 통째 포기라 그 영지의 자원·금도 함께 상실한다.
 - **유예(미구현)**: 마을회관·성 철거(또는 다운그레이드), 캠프 철거 부분 환급, NPC의 캠프 철거.
 

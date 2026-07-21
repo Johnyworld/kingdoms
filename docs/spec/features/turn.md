@@ -25,11 +25,11 @@
   3. 각 `territory`에 대해 `territory.grow_population()` — 인구를 상한까지 +1(자연 증가).
   4. 각 `territory`에 대해 `territory.advance_construction()` — 건설 중 건물을 1턴 진행.
   - 새로 완성된 집의 인구 상한은 **다음 턴부터** 인구 증가(3)에 반영된다(건설 진행 4가 인구 증가 뒤).
-  - **자원 생산은 `end_turn` 밖**에서 처리한다 — [1차 생산포인트](production.md)는 지형·거리·거점 의존이라 `game.gd`가 턴 종료 시(`_tick_production`) 실행한다. (예전 flat `collect_income`·2차 가공은 폐지.)
+  - **자원 생산은 `end_turn` 밖**에서 처리한다 — [1차 생산포인트](production.md)는 지형·거리·거점 의존이라 `game.gd`가 턴 종료 시 `BuildingManager.tick_production`으로 실행한다. (예전 flat `collect_income`·2차 가공은 폐지.)
 
 ## 자원 생산 (턴 종료, `game.gd`)
 
-- flat 생산(`Territory.collect_income`/`Building.production`)과 2차 가공(`_tick_processing`)은 **폐지**됐다. 모든 건물 생산이 [1차 생산(생산포인트, 거리 기반)](production.md)으로 단일화됐고, `game.gd._tick_production`이 턴 종료 시 배정 거점 영지 자원에 반영한다.
+- flat 생산(`Territory.collect_income`/`Building.production`)과 2차 가공(`_tick_processing`)은 **폐지**됐다. 모든 건물 생산이 [1차 생산(생산포인트, 거리 기반)](production.md)으로 단일화됐고, `BuildingManager.tick_production`이 턴 종료 시(game.gd가 위임 호출) 배정 거점 영지 자원에 반영한다.
 
 ## 턴 종료 버튼 (`turn_hud.gd`)
 
