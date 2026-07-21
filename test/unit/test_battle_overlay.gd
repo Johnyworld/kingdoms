@@ -50,6 +50,10 @@ func _run(delta := 0.1, max_frames := 300) -> void:
 func test_member_battle_finishes_without_crash() -> void:
 	var atk := _party("공격", 3, 90, "battleaxe", Color.RED)
 	var deff := _party("방어", 3, 10, "sword", Color.BLUE)
+	# 승패 단언(아래 "우세")이 RNG에 흔들리지 않게 격차를 압도적으로: 민첩 0 → 회피 없음(피격 ~91%)·최저 공속.
+	# (기본 민첩 80이면 명중 ~51%라 드물게 약팀이 우세해 플레이키했다 — 시드는 battle.start가 randomize해 고정 불가.)
+	for m in deff.members:
+		m.agility = 0
 	battle.start(atk, deff, 1)   # 근접 교전
 	assert_eq(_member_token_count(), 6, "멤버 6명(3+3) 각각 렌더 토큰")
 	_run()
