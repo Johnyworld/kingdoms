@@ -25,6 +25,22 @@ static func unit_from_party(party, side: int) -> Dictionary:
 		u["self_cmd"] = false   # 단독 영웅 — 자기 지휘보정 없음(base 27/24 유지)
 	return u
 
+## 부대 쌍 → lang presenter 오버레이 설정({a:{kind,count}, b:{kind,count}, mode}). 설정 화면 cfg와 같은 형식.
+## kind는 presenter 라벨(hero/archer/infantry), count는 병력, mode는 거리로(≥2 원거리). game.gd 오버레이 전투에 쓴다.
+static func battle_config(attacker, defender, distance: int) -> Dictionary:
+	return {
+		"a": _cfg_side(attacker),
+		"b": _cfg_side(defender),
+		"mode": "ranged" if distance >= 2 else "melee",
+	}
+
+## 부대 한 쪽의 오버레이 cfg 항목. 영웅→"hero"(HP 고정), 경궁병→"archer", 그 외→"infantry"; count=병력.
+static func _cfg_side(party) -> Dictionary:
+	var arche: String = party.archetype()
+	var kind := "hero" if arche == "hero" else ("archer" if GameUnits.is_ranged(arche) else "infantry")
+	var count: int = GameUnits.max_hp(arche) if arche == "hero" else party.members.size()
+	return {"kind": kind, "count": count}
+
 ## lang 결과 최종 병력수(final_soldiers) → 생존 Human 목록. 멤버 앞에서부터 그 수만큼 유지.
 ## 영웅 부대는 Human 1인이라 병력수>0이면 생존(멤버 유지), 0이면 전멸([]). game.gd _apply_survivors 입력.
 static func survivors(party, final_soldiers: int) -> Array:

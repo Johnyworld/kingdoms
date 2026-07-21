@@ -23,7 +23,8 @@
 - ✅ **NPC↔NPC 근접 헤드리스**(`game.gd._resolve_battle_headless`, distance ≤ 1·비공성) → `LangResolver.resolve_engagement`(`LangRng` 시드).
 - ⏳ **원거리 헤드리스**(distance ≥ 2) → 아직 `BattleSim`(구 combat). lang 이관은 후속(6-3).
 - ⏳ **공성 헤드리스**(투석기 보유) → 아직 `BattleSim`. lang엔 구조물 전투원 모델이 없어 후속(6-4)에서 결정.
-- ⏳ **플레이어 참여 전투**(오버레이 `_run_battle`) → 아직 `combat/battle.gd`. lang presenter 오버레이화는 후속(6-2).
+- ⏳ **플레이어 참여 전투**(오버레이 `_run_battle`) → 아직 `combat/battle.gd`. **presenter 오버레이 API는 완성**(아래) — game.gd 배선(스크린 좌표 통합)은 후속.
+  - **presenter 오버레이 API**(`lang_battle.gd`): `overlay_mode`(add_child 전 설정 → `_ready` 자동 로드·입력 내비게이션 끔), `start_overlay(cfg)`(부대 cfg로 전투 재생), `signal finished(a_soldiers, d_soldiers)`(DONE 시 최종 병력수 방출). cfg는 `LangBridge.battle_config(attacker, defender, distance)`가 부대 쌍에서 만든다({a:{kind,count}, b, mode}). 오버레이 입력은 스킵만(재전투·설정복귀 없음).
 - ⏳ **지휘 범위 버프·장비 상성·상태이상** → 완전 교체로 전투 판정에서 미사용(장비/약탈 UI는 flavor로 유지). lang 지휘보정(`_cmd_bonus`)과의 통합은 후속.
 
 ## 진입
