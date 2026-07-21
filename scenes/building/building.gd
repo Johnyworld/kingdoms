@@ -115,6 +115,7 @@ func faction():
 	return territory.faction if territory != null else null
 
 ## 소속 세력 이름(영지 경유 위임). 영지가 없거나 무소속이면 "". 세력 판정의 단일 출처.
+## 주의: 이름이 빈 문자열인 세력은 무소속과 구분되지 않는다(세력 이름은 카탈로그에서 항상 비어 있지 않음).
 func faction_name() -> String:
 	var f = faction()
 	return f.name if f != null else ""
