@@ -12,19 +12,14 @@ var _root: Control
 var _panel: PanelContainer
 var _list: VBoxContainer
 
-## 부대 메뉴 버튼. 이동 전 [사격][휴식][경계](+분할·소속), 이동 후 [사격][대기](+취소).
-## 노드 비의존. → party-lord.md  (공성 삭제로 사다리/투석 액션 제거)
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_split := false, can_manage_lord := false) -> Array:
+## 부대 메뉴 버튼. 이동 전 [사격](+소속), 이동 후 [사격][대기](+취소).
+## 노드 비의존. → party-lord.md  (휴식·경계·분할은 순수 랑그릿사화(M4-C)로 제거 — 개별 병사 HP 없음)
+static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_manage_lord := false) -> Array:
 	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
 	if moved:
 		out.append({"id": "wait", "label": "대기", "enabled": true})
 		if can_undo:
 			out.append({"id": "undo", "label": "취소", "enabled": true})
-	else:
-		out.append({"id": "rest", "label": "휴식", "enabled": true})
-		out.append({"id": "alert", "label": "경계", "enabled": true})
-		if can_split:
-			out.append({"id": "split", "label": "분할", "enabled": true})
 	if can_manage_lord:
 		out.append({"id": "lord", "label": "소속", "enabled": true})   # 일반부대 소속 영웅 설정/해제(인접 영웅) → party-lord.md
 	return out

@@ -375,21 +375,6 @@ func test_reset_turn_restores_attack() -> void:
 func test_can_rest_by_default() -> void:
 	assert_true(_party().can_rest(), "생성 직후 휴식 가능")
 
-func test_mark_rested_ends_actions() -> void:
-	var p := _party()
-	p.mark_rested()
-	assert_true(p.rested_this_turn, "mark_rested 후 휴식함 표시")
-	assert_true(p.attacked_this_turn, "휴식은 행동을 끝낸다")
-	assert_false(p.can_rest(), "휴식 후 재휴식 불가")
-	assert_false(p.can_attack(), "휴식 후 공격 불가")
-
-func test_mark_rested_keeps_moved() -> void:
-	# 이동 후 대기 → moved 유지(회복 슬라이스에서 이동/대기 구분에 쓰인다).
-	var p := _party()
-	p.mark_moved()
-	p.mark_rested()
-	assert_true(p.moved_this_turn, "이동 후 대기는 moved 유지")
-
 func test_undo_move_restores_move() -> void:
 	var p := _party()
 	p.mark_moved()
@@ -405,10 +390,9 @@ func test_attacked_blocks_rest() -> void:
 
 func test_reset_turn_restores_rest() -> void:
 	var p := _party()
-	p.mark_rested()
+	p.mark_attacked()
 	p.reset_turn()
-	assert_false(p.rested_this_turn, "reset 후 휴식 안 함으로 리셋")
-	assert_true(p.can_rest(), "reset 후 다시 휴식 가능")
+	assert_true(p.can_rest(), "reset 후 다시 행동 가능")
 
 func test_end_turn_resets_party() -> void:
 	var tm: Object = load("res://scenes/turn/turn_manager.gd").new()

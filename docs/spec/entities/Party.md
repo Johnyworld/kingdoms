@@ -18,7 +18,7 @@
 | 소속 세력 | `faction_name` | `""` | 부대가 속한 [세력](Faction.md) 이름. 정보 패널에 표시해 아군/적을 구분한다. 카탈로그 생성 시 설정 |
 | 토큰 색 | `token_color` | `Color(0.92, 0.78, 0.35)` (금색) | 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다 |
 | 종류 | `kind` | `"troop"` | 부대 종류(랑그릿사식 이분화). `KIND_HERO`(`"hero"`, 영웅부대 — 지휘관 1명 단독) / `KIND_TROOP`(`"troop"`, 일반부대 — 동일 능력치 병사 다수, 기본 [10명](../data/units.md)). **멤버 수로 파생하지 않고 명시 저장**(전투 사상으로 인원이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → [Units](../data/units.md) |
-| 병종 | `troop_type` | `""` | 이 부대의 **병종**(아키타입) id. 값은 [병종 카탈로그](../data/units.md)의 archetype id(`"light_infantry"` 경보병 / `"light_archer"` 경궁병 …). 일반부대 생성·[분할](../features/party-composition.md) 시 설정하며(분할된 새 부대는 원 부대 병종을 물려받음), 한 부대는 **하나의 병종으로 동질**하다(병합은 같은 병종끼리만 → 혼합 안 됨). **[병합 가능 판정](../features/party-composition.md)의 기준**. 영웅부대는 설정하지 않아 `""`(병합 없음). `is_ranged()`(아키타입 기반 근접/원거리 아이콘 판별)는 이 `troop_type`을 [GameUnits](../data/units.md) 카탈로그로 조회한다 |
+| 병종 | `troop_type` | `""` | 이 부대의 **병종**(아키타입) id. 값은 [병종 카탈로그](../data/units.md)의 archetype id(`"light_infantry"` 경보병 / `"light_archer"` 경궁병 …). 일반부대 생성 시 설정하며, 한 부대는 **하나의 병종으로 동질**하다(병합은 같은 병종끼리만 → 혼합 안 됨). **[병합 가능 판정](../features/party-composition.md)의 기준**. 영웅부대는 설정하지 않아 `""`(병합 없음). `is_ranged()`(아키타입 기반 근접/원거리 아이콘 판별)는 이 `troop_type`을 [GameUnits](../data/units.md) 카탈로그로 조회한다 |
 
 ### 소속 (Lord)
 
@@ -62,14 +62,13 @@
 | 선택됨 | `selected` | 선택 상태. `set_selected(value)`로 변경 시 강조 링을 다시 그린다 |
 | 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지 |
 | 이번 턴 공격함 | `attacked_this_turn` | 이번 턴에 이미 공격했는지. 공격은 그 부대의 행동을 끝낸다([전투](../features/lang-battle.md)) |
-| 이번 턴 휴식함 | `rested_this_turn` | 이번 턴 `[휴식]`/`[대기]`을 선택했는지([행동 메뉴](../features/party-action-menu.md)). 회복 연동은 `미구현` |
 
 한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다.
 
 ## 동작
 
 - `add_member(human) -> void` — 멤버를 `members`에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다. **지휘관이 없으면**(빈 부대의 첫 멤버) 그 멤버를 지휘관으로 삼는다. 다시 그린다.
-- `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. [부대 분할](../features/party-composition.md)·전투 사상자 반영에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
+- `remove_member(human) -> void` — 멤버를 `members`에서 뺀다. 그 멤버가 지휘관이면 남은 첫 멤버로 재지정하고(없으면 `null`), 다시 그린다. 없는 멤버면 no-op. 전투 사상자 반영에 쓴다. 멤버가 0이 되면 토큰을 그리지 않는다(`_draw`가 빈 부대는 생략).
 - `commander_name() -> String` — 지휘관의 `human_name`. 지휘관이 없으면(`null`) `"—"`. 부대 일람([Party Roster](../features/party-roster.md)) 표시에 사용.
 - `is_hero() -> bool` — 영웅부대인지(`kind == KIND_HERO`). 일반부대는 거짓.
 - `shows_member_count() -> bool` — 토큰에 남은 인원수 배지를 그릴지(`kind == KIND_TROOP` 그리고 멤버 있음). 영웅부대·빈 부대는 거짓. `_draw`가 이 판정으로 배지를 그린다.
@@ -89,11 +88,10 @@
 - `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn and not attacked_this_turn` — 공격했으면 이동 불가).
 - `can_attack() -> bool` — 이번 턴에 공격 가능한지(`not attacked_this_turn` — 이동만 했으면 아직 가능).
 - `mark_moved() -> void` — 이동 완료 표시(`moved_this_turn = true`). 흐리게 다시 그린다.
-- `mark_attacked() -> void` — 공격 완료 표시(`attacked_this_turn = true`). 흐리게 다시 그린다.
-- `mark_rested() -> void` — 휴식/대기 표시. `rested_this_turn = true` + `attacked_this_turn = true`(행동 종료). `moved_this_turn`은 유지. 흐리게 다시 그린다.
+- `mark_attacked() -> void` — 공격 완료 표시(`attacked_this_turn = true`, 행동 종료). 흐리게 다시 그린다. [대기]도 이걸 쓴다.
 - `undo_move() -> void` — 이동 되돌리기. `moved_this_turn = false`(다시 이동 가능)로 되돌리고 불투명하게 다시 그린다. 위치 복원·시야 갱신은 `game.gd`([행동 메뉴](../features/party-action-menu.md) `[취소]`).
-- `can_rest() -> bool` — 휴식 가능 여부(`not attacked_this_turn` — 아직 행동을 끝내지 않았으면 가능).
-- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`·`rested_this_turn`를 모두 `false`로 되돌리고 불투명하게 다시 그린다.
+- `can_rest() -> bool` — 아직 행동(대기 등)이 가능한지(`not attacked_this_turn`). 선택 가능 판정에 쓴다.
+- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`를 `false`로 되돌리고 불투명하게 다시 그린다.
 - `_draw()` — 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다. [지휘 버프](../features/command-range.md) 중이면 토큰 **위**에 금색 갈매기 배지, `shows_member_count()`면 토큰 **우하단**에 남은 인원수(`members.size()`, 1~10) 배지(어두운 배경 원 + 흰 숫자)를 그린다. 플레이어·보이는 NPC 일반부대 모두에 표시(사상자로 줄어든 병력 확인). 그리고 토큰 **좌하단**에 **병종 아이콘**(`_draw_class_icon` — `is_ranged()`(아키타입 기반)면 활, 아니면 검)을 그린다(멤버 있는 모든 부대, 영웅 포함).
 
 ## 테스트 시나리오
@@ -129,10 +127,9 @@
 - [정상] 생성 직후 `moved_this_turn`·`attacked_this_turn` 거짓, `can_move()`·`can_attack()` 참
 - [정상] `mark_moved()` 후 `moved_this_turn` 참, `can_move()` 거짓, `can_attack()`는 **여전히 참**(이동 후 공격 가능)
 - [정상] `mark_attacked()` 후 `can_attack()` 거짓, `can_move()`도 거짓(공격이 이동도 끝냄)
-- [정상] `mark_rested()` 후 `rested_this_turn` 참, `attacked_this_turn` 참(행동 종료), `can_rest()` 거짓
 - [정상] `mark_moved()` 후 `undo_move()` → `moved_this_turn` 거짓, `can_move()` 다시 참
-- [정상] `can_rest()`는 행동 전 참, `mark_attacked()`/`mark_rested()` 후 거짓
-- [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참, `rested_this_turn` 거짓
+- [정상] `can_rest()`는 행동 전 참, `mark_attacked()` 후 거짓
+- [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참
 - [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
 
 ## 관련

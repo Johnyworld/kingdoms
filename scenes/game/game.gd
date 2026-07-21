@@ -52,7 +52,6 @@ const NPC_BASES := {
 @onready var party_info = $PartyInfo
 @onready var party_roster = $PartyRoster
 @onready var building_info = $BuildingInfo
-@onready var members_menu = $MembersMenu
 
 var _min_pos: Vector2
 var _max_pos: Vector2
@@ -129,8 +128,6 @@ var _in_battle := false
 var _game_over := false
 var result_overlay: ResultOverlay   # 결과 화면(코드 생성, _ready에서 추가)
 var confirm_dialog: ConfirmDialog   # 확인 다이얼로그(코드 생성, _ready에서 추가). 철거 등 확인용(동작은 open 콜백).
-var split_panel: SplitPanel         # 부대 분할 패널(코드 생성, _ready에서 추가)
-var _split_new = null               # 분할 중 새로 만든 부대(닫을 때 비어 있으면 취소·제거)
 var toast: Toast                    # 점령/함락 알림(코드 생성, _ready에서 추가)
 var turn_banner: TurnBanner         # 현재 행동 세력 배너(코드 생성, _ready에서 추가). → turn.md
 var _npc_turn_active := false       # NPC 턴 진행 중 — 플레이어 좌클릭·턴 종료 잠금. → turn.md
@@ -170,7 +167,6 @@ func _ready() -> void:
 	camp_menu.demolish_requested.connect(_on_camp_demolish_requested)
 	building_info.demolish_requested.connect(_on_demolish_requested)
 	building_info.center_change_requested.connect(_on_center_change)
-	members_menu.open_requested.connect(_on_members_requested)
 	party_action_menu = PartyActionMenu.new()   # 코드 생성 UI(camp_menu와 달리 .tscn 노드 없음)
 	add_child(party_action_menu)
 	party_action_menu.action_selected.connect(_on_party_action)
@@ -183,10 +179,6 @@ func _ready() -> void:
 	result_overlay.dismissed.connect(_on_result_dismissed)
 	confirm_dialog = ConfirmDialog.new()   # 확인 다이얼로그(코드 생성). 동작은 open의 콜백으로 넘긴다.
 	add_child(confirm_dialog)
-	split_panel = SplitPanel.new()   # 부대 분할 패널(코드 생성)
-	add_child(split_panel)
-	split_panel.changed.connect(_on_split_changed)
-	split_panel.closed.connect(_on_split_closed)
 	toast = Toast.new()   # 점령/함락 알림(코드 생성)
 	add_child(toast)
 	turn_banner = TurnBanner.new()   # 현재 행동 세력 배너(코드 생성). → turn.md
@@ -643,62 +635,6 @@ func _refresh_garrison_badges() -> void:
 		b.defender_count = gp.members.size() if gp != null else 0
 		b.queue_redraw()
 
-## 플레이어 세력의 빈 새 부대를 셀에 만든다(PartyManager 위임). 빈 부대라 채우기 전엔 토큰 안 보임.
-func _make_player_party(pname: String, cell: Vector2i) -> Party:
-	return _pmgr.make_party(pname, _player_faction.name, cell)
-
-## footprint(부대·캠프 발자국)에 인접한(발자국 밖) 빈 칸을 하나 찾는다. 맵 안·미점유·산 아님. 없으면 (-1,-1).
-func _empty_adjacent_to(footprint: Array) -> Vector2i:
-	var occ := _occupied_cells(null)
-	for cc in footprint:
-		for n in terrain.get_surrounding_cells(cc):
-			if n in footprint:
-				continue
-			if n.x < 0 or n.y < 0 or n.x >= MAP_WIDTH or n.y >= MAP_HEIGHT:
-				continue
-			if occ.has(n):
-				continue
-			if terrain.get_cell_source_id(n) == Terrain.MOUNTAIN:
-				continue   # 산엔 배치 안 함(이동 불가 지형)
-			return n
-	return Vector2i(-1, -1)
-
-## [분할]: 활성 부대 인접 빈 칸에 빈 새 부대를 만들고 분할 패널을 연다(멤버를 나눠 담는다).
-func _split_party() -> void:
-	var cell := _empty_adjacent_to([_cell_of(party)])
-	if cell == Vector2i(-1, -1):
-		return
-	_split_new = _make_player_party("분할 부대", cell)
-	_split_new.troop_type = party.troop_type   # 병종 물려받음(동질 — 분할 후 다시 병합 가능). → party-composition.md
-	_pmgr.units.append(_split_new)
-	party_action_menu.close()
-	split_panel.open(party, _split_new)
-	party_roster.set_parties(_pmgr.units)
-	_update_fog()
-
-## 분할 패널에서 멤버가 이동하면 일람·안개를 갱신한다.
-func _on_split_changed() -> void:
-	party_roster.set_parties(_pmgr.units)
-	_update_fog()
-
-## 분할 패널을 닫으면: 새 부대가 비면(아무도 안 옮김) 취소로 제거(소비 없음),
-## 확정이면 원·새 부대 둘 다 이번 턴 행동 종료(재조직 비용). 이어서 선택 상태를 갱신한다.
-func _on_split_closed() -> void:
-	if _split_new != null:
-		if _split_new.members.is_empty():
-			# 취소 — 아무도 안 옮긴 새 부대 제거(소비 없음).
-			_pmgr.remove_party(_split_new)
-		else:
-			party.mark_attacked()          # 분할 확정 → 양쪽 이번 턴 종료
-			_split_new.mark_attacked()
-	_split_new = null
-	party_roster.set_parties(_pmgr.units)
-	_update_fog()
-	if _selected and not party.members.is_empty():
-		_select()   # 멤버 변동 반영(범위·메뉴 갱신)
-	else:
-		_deselect()
-
 ## [병합]: 인접 아군 부대 other를 활성 부대로 흡수하고 other를 맵에서 제거한다(턴 소비 없음).
 func _merge_party(other) -> void:
 	party.merge_from(other)
@@ -1063,13 +999,9 @@ func _open_action_menu() -> void:
 	_clear_popup_targets()
 	if party.can_rest():
 		var can_undo: bool = _undo_party == party
-		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_split(), _can_manage_lord(party)), _screen_pos(party.position))
+		party_action_menu.open(PartyActionMenu.party_actions(party.moved_this_turn, not _shoot_cells.is_empty(), can_undo, _can_manage_lord(party)), _screen_pos(party.position))
 	else:
 		party_action_menu.close()
-
-## 활성 부대가 분할 가능한지 — 멤버 2명 이상이고 인접 빈 칸이 있어야 한다.
-func _can_split() -> bool:
-	return party.members.size() >= 2 and _empty_adjacent_to([_cell_of(party)]) != Vector2i(-1, -1)
 
 ## [소속] 버튼 노출 조건: 일반부대 + (인접 아군 영웅부대 있음 또는 이미 소속 보유). → party-lord.md
 func _can_manage_lord(p) -> bool:
@@ -1158,27 +1090,11 @@ func _on_party_action(id: String) -> void:
 	match id:
 		"shoot":
 			_enter_shoot_mode()
-		"rest":
-			for m in party.members:
-				m.apply_rest()   # hp·스태미나 25% 회복
-			party.mark_rested()
-			_undo_party = null   # 턴 종료 행동 → 되돌리기 소멸
-			_deselect()
-			_hide_party_info()
-		"alert":
-			for m in party.members:
-				m.apply_alert()   # 스태미나 10% + 전투 버프(적 턴 후 해제)
-			party.mark_attacked()   # 경계도 이번 턴 행동을 끝낸다
-			_undo_party = null
-			_deselect()
-			_hide_party_info()
 		"wait":
 			party.mark_attacked()   # 대기 — 효과 없이 턴만 종료
 			_undo_party = null
 			_deselect()
 			_hide_party_info()
-		"split":
-			_split_party()   # 분할 — 편성(턴 소비 없음)
 		"lord":
 			party_action_menu.close()
 			lord_menu.open(party, _adjacent_player_heroes(party))   # 소속 영웅 설정/해제(턴 소비 없음) → party-lord.md
@@ -1248,7 +1164,6 @@ func _move_npcs() -> void:
 
 	for f in factions:
 		if epoch != _npc_move_epoch:
-			_clear_player_alert()
 			return   # 새 라운드 시작 → 중단.
 		var fac = _faction_named(f)
 		if fac != null:
@@ -1260,7 +1175,6 @@ func _move_npcs() -> void:
 				living.append(p)
 		for group in NpcAi.hero_groups(living):
 			if epoch != _npc_move_epoch:
-				_clear_player_alert()
 				return
 			if _game_over:
 				return
@@ -1270,14 +1184,12 @@ func _move_npcs() -> void:
 			# 2) 그룹 공격: 영웅 먼저, 그다음 하위부대 순서로 1유닛씩(전투 완료 후 다음).
 			for attacker in group:
 				if epoch != _npc_move_epoch:
-					_clear_player_alert()
 					return
 				if _game_over:
 					return
 				if not is_instance_valid(attacker) or not (attacker in _pmgr.npc_parties):
 					continue   # 앞 전투로 제거됨.
 				await _npc_unit_act(attacker)
-	_clear_player_alert()   # 적 턴 종료 → 경계 버프 해제(= 내 다음 턴)
 	_update_fog()
 
 ## NPC 영웅그룹 하나를 이동시킨다. 그룹이 플레이어 시야 안이면 카메라 포커스+정지 후 걸어가는 애니메이션,
@@ -1371,12 +1283,6 @@ func _npc_engage(attacker, target, dist: int) -> void:
 ## 부대가 플레이어 시야(안개) 안에 있는지 — NPC 이동/공격 연출을 보여줄지 판정.
 func _party_visible(p) -> bool:
 	return is_instance_valid(p) and fog.is_cell_visible(_cell_of(p))
-
-## 플레이어 부대 멤버의 경계(alert) 버프를 모두 해제한다. NPC 공격 페이즈가 끝나거나 중단될 때 호출.
-func _clear_player_alert() -> void:
-	for u in _pmgr.units:
-		for m in u.members:
-			m.alert = false
 
 ## 세력 이름으로 Faction 객체를 찾는다(_factions에서). 없으면 null.
 func _faction_named(fname: String):
@@ -1736,16 +1642,6 @@ func _hide_party_info() -> void:
 ## 부대 일람에서 항목을 클릭하면 그 부대 위치로 카메라를 즉시 이동한다(맵 범위 클램프).
 func _on_party_focused(focused_party) -> void:
 	_focus_camera(focused_party.position)
-
-## 좌측 하단 "구성원" 버튼 → 우리 세력 전 군인 명단 오버레이를 연다(여는 시점 스냅샷). → members-menu.md
-func _on_members_requested() -> void:
-	members_menu.open(_player_faction_members())
-
-## 우리 세력의 모든 부대(필드 + 거점 방어)에 속한 군인(Human)을 모은다. 모든 플레이어 부대는 _pmgr.units에 있다.
-func _player_faction_members() -> Array:
-	if _player_faction == null:
-		return []
-	return MembersMenu.collect_faction_members(_pmgr.units, _player_faction.name)
 
 ## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
 ## 건물을 지을 수 있는 영역(영지 시야) 윤곽선을 파랑으로 표시한다 — 시야는 배치 중 변하지 않으므로 한 번만 계산한다.

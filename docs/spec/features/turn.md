@@ -7,7 +7,7 @@
 
 ## 규칙
 
-- **부대는 턴당 이동 1회 + 공격 1회.** 이동한 부대는 그 턴에 다시 이동할 수 없지만 공격은 아직 가능하고, 공격/휴식하면 행동이 끝난다([Selection & Movement](selection-and-movement.md)·[Lang Battle](lang-battle.md)·[행동 메뉴](party-action-menu.md)). 턴 종료 시 상태(`moved_this_turn`·`attacked_this_turn`·`rested_this_turn`)가 모두 리셋된다.
+- **부대는 턴당 이동 1회 + 공격 1회.** 이동한 부대는 그 턴에 다시 이동할 수 없지만 공격은 아직 가능하고, 공격/대기하면 행동이 끝난다([Selection & Movement](selection-and-movement.md)·[Lang Battle](lang-battle.md)·[행동 메뉴](party-action-menu.md)). 턴 종료 시 상태(`moved_this_turn`·`attacked_this_turn`)가 모두 리셋된다.
 - **건물 건설 시작은 턴 제한을 받지 않는다.** 턴당 1회 제한은 **부대 이동에만** 적용된다. 단 건설 자체는 시작 후 `build_turns`만큼 턴이 지나야 완성된다([건축](building.md) 참고).
 - 턴 번호는 **1부터** 시작한다.
 

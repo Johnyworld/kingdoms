@@ -42,21 +42,19 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [NPC Movement (NPC 이동 AI)](features/npc-movement.md) — 턴 종료 시 NPC가 도달 가능한 가장 먼 칸으로 무작위 이동
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
-- [Party Action Menu (부대 행동 메뉴)](features/party-action-menu.md) — 토큰 근처 메뉴 [사격][휴식][경계] + 적 팝업 [공격][사격], 휴식/경계 회복·버프, 근접 승리 점령
+- [Party Action Menu (부대 행동 메뉴)](features/party-action-menu.md) — 토큰 근처 메뉴 [사격](+대기/취소/소속) + 적 팝업 [공격][사격], 근접 승리 점령
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
-- [Member List (구성원 리스트 위젯)](features/member-list.md) — Human 배열을 정렬·스크롤·키보드 이동되는 표로 그리는 재사용 위젯(Tree 기반)
-- [Members Menu (구성원 메뉴)](features/members-menu.md) — 좌측 하단 상시 버튼, 우리 세력 전 군인 명단 오버레이 + 상세 패널(Member List 재사용)
 - [Fog of War (전장의 안개)](features/fog-of-war.md)
 - [Camp Menu (캠프 메뉴)](features/camp-menu.md) — 캠프 클릭 시 영지 자원·건축 메뉴
 - [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시 + 철거(확인 다이얼로그)
 - [Confirm Dialog (확인 다이얼로그)](features/confirm-dialog.md) — 되돌리기 어려운 동작 전 확인받는 범용 모달(첫 사용처: 건물 철거)
-- [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(첫 소비자: 구성원 메뉴)
+- [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(소비자: 캠프 메뉴·확인 다이얼로그·소속 모달)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Lang Battle (랑그릿사 1 오마주 전투 — 게임 정식 전투)](features/lang-battle.md) — 게임의 **정식 전투 시스템**(구 battle.gd 오버레이 대체). 모든 부대 전투가 이 오버레이로 열린다. Resolver(순수 계산)/Presenter(연출) 분리, 원본 RNG·상성·지휘보정·병력바 재현
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 - [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(농장·식량 / 벌목소·목재 / 철광·철 / 금광·금). 생산포인트(1÷거리, 거리 기반) 모델 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 자원 4종 체제
 - [Camp Capture (캠프 점령·방어)](features/camp-capture.md) — 거점 방어=중심 타일 점거 부대(창발, 별도 상태 없음)·"수비 N" 배지 / 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
-- [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 분할·병합으로 재조직
+- [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 병합으로 재조직(분할은 M4-C로 제거)
 - [Party Lord (소속 영웅)](features/party-lord.md) — 일반부대의 소속 영웅부대 설정/해제 UI([소속] 버튼 → 모달, 소속=인접 영웅 필요·해제 자유·턴 무소비)
 - [Squad Stance (부대 작전 — 이동 후 하위부대 명령)](features/squad-stance.md) — 영웅 이동 직후 작전 메뉴 [추종][대기][교전][돌격]로 하위부대 일괄 통솔. 교전=최근접 적 접근·신중 전투, 돌격=목표 1지점 어택무브(공격적)
 - [Command Range (지휘 범위 버프)](features/command-range.md) — 소속 하위부대가 영웅(`lord`) 지휘 범위(lang 클래스 `cmd_range`, 3~4칸) 안인지 판정해 맵 배지 표시. 전투 배율 효과는 RPG 전투 수학 폐기로 **현재 미반영**(lang 연동 미정), 모든 세력
@@ -93,8 +91,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 행동 메뉴 | `scenes/party/party_action_menu.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
-| 구성원 리스트 위젯 | `scenes/members/member_list.gd` |
-| 구성원 메뉴 | `scenes/members/members_menu.gd` |
 | 사람(데이터) | `scenes/human/human.gd` |
 | 유닛·부대 카탈로그 | `scenes/party/unit_types.gd` |
 | 건물 | `scenes/building/building.gd` |
