@@ -287,22 +287,20 @@ func _build_faction_army(faction_id: String, reuse) -> Array:
 		hp.faction_name = fname
 		hp.kind = Party.KIND_HERO
 		hp.token_color = hero_col
-		var hero = UnitTypes.make_hero(faction_id, hi)
-		hp.add_member(hero)
-		hp.commander = hero
+		var hero_name := UnitTypes.hero_name(faction_id, hi)
+		hp.commander_name = hero_name
+		hp.soldiers = GameUnits.max_hp("hero")   # 영웅 병력 = 지휘관 클래스 HP 풀(lang 전투와 동일 값)
 		parties.append(hp)
 		for arche in troop_archetypes:
 			var tp := _new_party()
-			tp.party_name = "%s %s" % [hero.human_name, UnitTypes.troop_name(arche)]
+			tp.party_name = "%s %s" % [hero_name, UnitTypes.troop_name(arche)]
 			tp.faction_name = fname
 			tp.kind = Party.KIND_TROOP
 			tp.troop_type = arche   # 병종 → 병합 가능 판정(같은 병종끼리만). → party-composition.md
 			tp.lord = hp   # 소속 영웅부대 → Party.md 소속(Lord)
 			tp.token_color = troop_col   # 일반부대는 약간 어두운 색
-			for m in UnitTypes.make_troop(arche):
-				tp.add_member(m)
-			if not tp.members.is_empty():
-				tp.commander = tp.members[0]
+			tp.commander_name = UnitTypes.troop_name(arche)
+			tp.soldiers = UnitTypes.TROOP_SIZE   # 일반부대 병력 = 10
 			parties.append(tp)
 	_place_army(parties, center_b.center_cell())
 	return parties
@@ -391,7 +389,7 @@ func _compute_merge_targets(start: Vector2i) -> void:
 	_merge_targets = {}
 	var neighbors := terrain.get_surrounding_cells(start)
 	for p in _pmgr.units:
-		if p == party or p.members.is_empty() or not party.can_merge_with(p):
+		if p == party or p.soldiers <= 0 or not party.can_merge_with(p):
 			continue
 		var pcell := _cell_of(p)
 		if pcell in neighbors:
@@ -474,7 +472,7 @@ func _refresh_overlay() -> void:
 func _update_fog() -> void:
 	var visible := {}
 	for u in _pmgr.units:
-		if u.members.is_empty():
+		if u.soldiers <= 0:
 			continue   # 사라진(빈) 부대는 시야 없음
 		for c in HexGrid.cells_within(terrain, _cell_of(u), u.vision(), MAP_WIDTH, MAP_HEIGHT):
 			visible[c] = true
@@ -610,7 +608,7 @@ func all_buildings() -> Array:
 func _cell_of(p) -> Vector2i:
 	return terrain.local_to_map(p.position)
 
-## 그 칸에 선 멤버 있는 부대(PartyManager 위임 — NpcPlanner 월드 조회 겸용).
+## 그 칸에 선 병력 있는 부대(PartyManager 위임 — NpcPlanner 월드 조회 겸용).
 func party_on_cell(cell: Vector2i) -> Party:
 	return _pmgr.party_on_cell(cell)
 
@@ -632,7 +630,7 @@ func _refresh_garrison_badges() -> void:
 		if not BuildingTypes.is_center(b.building_type):
 			continue
 		var gp := _camp_defender(b)
-		b.defender_count = gp.members.size() if gp != null else 0
+		b.defender_count = gp.soldiers if gp != null else 0
 		b.queue_redraw()
 
 ## [병합]: 인접 아군 부대 other를 활성 부대로 흡수하고 other를 맵에서 제거한다(턴 소비 없음).
@@ -714,7 +712,7 @@ func _do_demolish_camp(camp) -> void:
 	toast.show_message("%s 철거 — 영지 포기" % terr_name)
 
 ## exclude를 뺀 모든 부대(플레이어 전부 + NPC)가 점유한 칸 집합({cell: true}). 이동 장애물로 넘긴다.
-## 빈 부대(멤버 0)도 칸을 차지한다 — 새로 편성한 빈 부대가 자리를 지켜 겹침(두 부대가 한 칸)을 막는다.
+## 빈 부대(병력 0)도 칸을 차지한다 — 새로 편성한 빈 부대가 자리를 지켜 겹침(두 부대가 한 칸)을 막는다.
 func _occupied_cells(exclude) -> Dictionary:
 	var occ := {}
 	for p in all_parties():
@@ -823,24 +821,20 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	if not is_instance_valid(attacker) or not is_instance_valid(defender):
 		return   # 연속/중첩 전투(교전·돌격·NPC 페이즈)에서 await 사이에 한쪽이 전멸·해제됐으면 건너뛴다
 	_in_battle = true
-	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신(맵 배지·플래그). 구 전투 ×1.2는 폐기, lang 미연동. → command-range.md
-	_apply_command_flags(attacker, true)      # in_command 플래그 세팅(현재 전투 결과엔 미반영, lang 연동 대비 인프라만)
-	_apply_command_flags(defender, true)
+	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신(맵 배지). 구 전투 ×1.2는 폐기, lang 미연동. → command-range.md
 	# 모든 전투 = lang 오버레이(완전 교체 전투). → lang-battle.md
 	var result: Array = await _run_lang_overlay(attacker, defender, distance)
 	_apply_survivors(attacker, result[0])
 	_apply_survivors(defender, result[1])
-	_apply_command_flags(attacker, false)   # in_command 플래그 해제(전투 수명 종료). → command-range.md
-	_apply_command_flags(defender, false)
 	_in_battle = false
-	if occupy_cell != Vector2i(-1, -1) and is_instance_valid(defender) and defender.members.is_empty() and is_instance_valid(attacker) and not attacker.members.is_empty():
+	if occupy_cell != Vector2i(-1, -1) and is_instance_valid(defender) and defender.soldiers <= 0 and is_instance_valid(attacker) and attacker.soldiers > 0:
 		attacker.position = terrain.map_to_local(occupy_cell)   # 근접 승리 → 수비 타일 점령
 	_update_fog()
 	party_roster.set_parties(_pmgr.units)
 	# 부대 전멸로는 게임 오버되지 않는다(점령 승리만). 승패는 세력 소멸 판정(_update_endgame)에서만 난다.
 
-## lang 근접 전투 오버레이를 띄우고(카메라 무관 CanvasLayer로 감쌈) 종료까지 await, [a생존, d생존] Human 목록 반환.
-## presenter는 부대 cfg로 재생하고 최종 병력수(finished)를 돌려준다 → LangBridge.survivors로 생존 멤버 매핑. → lang-battle.md
+## lang 근접 전투 오버레이를 띄우고(카메라 무관 CanvasLayer로 감쌈) 종료까지 await, [a최종병력, d최종병력] 반환.
+## presenter는 부대 cfg로 재생하고 최종 병력수(finished)를 돌려준다 → game.gd가 party.soldiers에 반영. → lang-battle.md
 func _run_lang_overlay(attacker, defender, distance: int) -> Array:
 	var layer := CanvasLayer.new()   # Battlefield(Node2D)를 스크린 좌표로(게임 카메라 무관) 얹는다
 	layer.layer = 60
@@ -852,7 +846,7 @@ func _run_lang_overlay(attacker, defender, distance: int) -> Array:
 	battle.start_overlay(LangBridge.battle_config(attacker, defender, distance))
 	var counts: Array = await battle.finished   # [a_soldiers, d_soldiers]
 	layer.queue_free()
-	return [LangBridge.survivors(attacker, counts[0]), LangBridge.survivors(defender, counts[1])]
+	return [counts[0], counts[1]]
 
 ## 세력 소멸 유예 판정(턴 종료마다). 각 세력의 캠프 수로 유예 카운트를 갱신하고, 소멸한 세력은 붕괴시킨다.
 ## 이어서 정복 승리/플레이어 세력 소멸 패배를 판정한다.
@@ -934,11 +928,7 @@ func _on_result_dismissed() -> void:
 
 ## NPC끼리 전투를 화면 없이 즉시 결산한다. lang(근접 resolve_engagement·원거리 resolve_ranged). → lang-battle.md
 func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
-	_refresh_command_buffs()                  # 지휘 범위 갱신 후 양측 버프 플래그 세팅. → command-range.md
-	_apply_command_flags(attacker, true)
-	_apply_command_flags(defender, true)
-	var a_surv: Array
-	var d_surv: Array
+	_refresh_command_buffs()                  # 지휘 범위 갱신(맵 배지). → command-range.md
 	# NPC↔NPC = lang(완전 교체). 근접(≤1)=1교전 공방, 원거리(≥2)=사격(궁병 side만 1볼리, 소모전). → lang-battle.md
 	var rng := LangRng.new(_rng.randi())
 	var a_unit := LangBridge.unit_from_party(attacker, 0)
@@ -950,17 +940,13 @@ func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
 		res = LangResolver.resolve_ranged(rng, a_unit, d_unit, a_rounds, d_rounds)
 	else:
 		res = LangResolver.resolve_engagement(rng, a_unit, d_unit)
-	a_surv = LangBridge.survivors(attacker, res["final_a_soldiers"])
-	d_surv = LangBridge.survivors(defender, res["final_d_soldiers"])
-	_apply_survivors(attacker, a_surv)
-	_apply_survivors(defender, d_surv)
-	_apply_command_flags(attacker, false)     # 지휘 버프 플래그 해제. → command-range.md
-	_apply_command_flags(defender, false)
+	_apply_survivors(attacker, res["final_a_soldiers"])
+	_apply_survivors(defender, res["final_d_soldiers"])
 
-## 전투 결과(생존자)를 부대에 반영한다 — 데이터·제거는 PartyManager, 여기선 플레이어 전멸 후처리만.
+## 전투 최종 병력수를 부대에 반영한다 — 데이터·제거는 PartyManager, 여기선 플레이어 전멸 후처리만.
 ## 전멸한 게 활성 party였으면 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null — 부대 0이어도 패배 아님, 세력 소멸은 거점 0에서만).
-func _apply_survivors(p, survivors: Array) -> void:
-	if _pmgr.apply_survivors(p, survivors) != PartyManager.WIPED_PLAYER:
+func _apply_survivors(p, final_soldiers: int) -> void:
+	if _pmgr.apply_survivors(p, final_soldiers) != PartyManager.WIPED_PLAYER:
 		return   # 생존/NPC 전멸/이미 해제 — 추가 후처리 없음
 	if party == p:   # 활성 부대가 전멸 → 선택 해제 + 남은 살아있는 부대로 재할당(없으면 null)
 		if _selected:
@@ -1009,13 +995,13 @@ func _can_manage_lord(p) -> bool:
 		return false
 	return p.has_lord() or not _adjacent_player_heroes(p).is_empty()
 
-## troop 칸에 헥스 인접한 플레이어 영웅부대(멤버 있는 KIND_HERO) 목록. 소속 모달 후보. → party-lord.md
+## troop 칸에 헥스 인접한 플레이어 영웅부대(병력 있는 KIND_HERO) 목록. 소속 모달 후보. → party-lord.md
 func _adjacent_player_heroes(troop) -> Array:
 	var cell := _cell_of(troop)
 	var neighbors := terrain.get_surrounding_cells(cell)
 	var out: Array = []
 	for p in _pmgr.units:
-		if p.kind == Party.KIND_HERO and not p.members.is_empty() and _cell_of(p) in neighbors:
+		if p.kind == Party.KIND_HERO and p.soldiers > 0 and _cell_of(p) in neighbors:
 			out.append(p)
 	return out
 
@@ -1195,7 +1181,7 @@ func _move_npcs() -> void:
 ## NPC 영웅그룹 하나를 이동시킨다. 그룹이 플레이어 시야 안이면 카메라 포커스+정지 후 걸어가는 애니메이션,
 ## 시야 밖이면 목적지로 즉시 스냅(연출·대기 없음). 그룹원은 NPC_PARTY_STAGGER 간격 동시 이동. → npc-movement.md
 func _move_group(group: Array, plans: Dictionary) -> void:
-	# 시야 판정 + 이동 여부 + 포커스 대상(살아있는 첫 멤버). group 스냅샷에 해제 부대가 섞일 수 있어 is_instance_valid로 거른다.
+	# 시야 판정 + 이동 여부 + 포커스 대상(살아있는 첫 부대). group 스냅샷에 해제 부대가 섞일 수 있어 is_instance_valid로 거른다.
 	var any_move := false
 	var in_view := false
 	var focus_p = null
@@ -1249,7 +1235,7 @@ func _npc_unit_act(attacker) -> void:
 		return
 	var target = _npc_planner.adjacent_enemy(attacker)
 	if target != null:
-		if not NpcAi.should_engage(NpcAi.party_power(attacker.members), NpcAi.party_power(target.members)):
+		if not NpcAi.should_engage(attacker.power(), target.power()):
 			return   # 신중한 교전: 불리하면 공격하지 않고 대기
 		attacker.mark_attacked()
 		await _npc_engage(attacker, target, _engagement_distance(attacker, target))
@@ -1380,15 +1366,16 @@ func _finish_player_move() -> void:
 ## 일반부대 troop이 지금 자기 영웅(lord)의 지휘 범위 안인지(전투 버프 판정). → command-range.md
 ## lord가 있고 살아있어야 하며, troop 칸이 lord 칸의 command_range 헥스 이내(지형 무관 헥스 거리).
 func _in_command(troop) -> bool:
-	if troop.lord == null or troop.lord.members.is_empty():
+	if troop.lord == null or troop.lord.soldiers <= 0:
 		return false
 	var cr: int = troop.lord.command_range()
 	var lord_cell := _cell_of(troop.lord)
 	var troop_cell := _cell_of(troop)
 	return troop_cell in HexGrid.cells_within(terrain, lord_cell, cr, MAP_WIDTH, MAP_HEIGHT)
 
-## 모든 부대의 command_buffed(지휘 범위 안 여부)를 갱신한다 — 맵 배지·전투 배율의 단일 출처. → command-range.md
+## 모든 부대의 command_buffed(지휘 범위 안 여부)를 갱신한다 — 맵 배지의 단일 출처. → command-range.md
 ## 위치가 정착하는 지점(턴 종료·이동 완료·작전 종료·NPC 이동·소속 변경·편성)마다 부른다.
+## (구 전투 ×1.2 버프는 폐기 — lang 전투에 미연동. 여기선 배지만 갱신.)
 func _refresh_command_buffs() -> void:
 	for p in all_parties():
 		var buffed := _in_command(p)
@@ -1396,19 +1383,11 @@ func _refresh_command_buffs() -> void:
 			p.command_buffed = buffed
 			p.queue_redraw()
 
-## 전투 직전/직후에 party 멤버의 in_command 플래그를 command_buffed 기준으로 켜고 끈다(alert와 같은 수명). → command-range.md
-func _apply_command_flags(party, on: bool) -> void:
-	if party == null or not is_instance_valid(party):
-		return
-	var v: bool = on and party.command_buffed
-	for m in party.members:
-		m.in_command = v
-
-## hero에 소속된(lord == hero) 멤버 있는 하위부대 목록. 작전(추종) 대상. → squad-stance.md
+## hero에 소속된(lord == hero) 병력 있는 하위부대 목록. 작전(추종) 대상. → squad-stance.md
 func _subordinates_of(hero) -> Array:
 	var out: Array = []
 	for p in all_parties():
-		if p.lord == hero and not p.members.is_empty():
+		if p.lord == hero and p.soldiers > 0:
 			out.append(p)
 	return out
 
@@ -1477,18 +1456,18 @@ func _engage_with_lord(hero) -> void:
 					await _move_party_await(f, path)
 		# 2) 사거리 내 적이 있고 전력이 신중 기준 이상이면 전투(근접=붙어서, 원거리=제자리 사격).
 		var target = _npc_planner.adjacent_enemy(f)
-		if target != null and is_instance_valid(target) and NpcAi.should_engage(NpcAi.party_power(f.members), NpcAi.party_power(target.members)):
+		if target != null and is_instance_valid(target) and NpcAi.should_engage(f.power(), target.power()):
 			f.mark_attacked()
 			var dist := _engagement_distance(f, target)
 			var occ := _cell_of(target) if dist == 1 else Vector2i(-1, -1)   # 근접 승리 시만 점령
 			await _run_battle(f, target, dist, occ)
 	_stance_busy = false
 
-## 보이는 적 부대(세력 다르고 멤버 있음)의 칸 목록. 교전 접근 대상. → squad-stance.md
+## 보이는 적 부대(세력 다르고 병력 있음)의 칸 목록. 교전 접근 대상. → squad-stance.md
 func _visible_enemy_cells(faction: String) -> Array:
 	var out: Array = []
 	for p in all_parties():
-		if p.faction_name == faction or p.members.is_empty() or not p.visible:
+		if p.faction_name == faction or p.soldiers <= 0 or not p.visible:
 			continue
 		out.append(_cell_of(p))
 	return out
@@ -1649,10 +1628,10 @@ func _on_build_selected(type_id: String, territory: Territory) -> void:
 	_enter_build_mode(type_id, territory)
 
 ## 캠프 메뉴의 "캠프 건설" → 새 영지 캠프 건설 모드. 배치 영역은 활성 부대 시야(_build_vision).
-## 활성 부대가 비어(멤버 0) 있으면 시야가 없어 배치 불가 → 진입하지 않고 안내 토스트만 띄운다.
+## 활성 부대가 비어(병력 0) 있으면 시야가 없어 배치 불가 → 진입하지 않고 안내 토스트만 띄운다.
 func _on_found_camp_requested(territory: Territory) -> void:
 	camp_menu.close_menu()
-	if party == null or party.members.is_empty():
+	if party == null or party.soldiers <= 0:
 		toast.show_message("캠프를 세우려면 부대가 필요하다")
 		return
 	_enter_build_mode(BuildingTypes.CAMP, territory)
@@ -1681,7 +1660,7 @@ func _build_vision() -> Dictionary:
 func _player_build_vision() -> Dictionary:
 	var vis := BuildPlanner.buildings_vision(terrain, _bmgr.buildings, MAP_WIDTH, MAP_HEIGHT)
 	for p in _pmgr.units:
-		if p.faction_name == _player_faction.name and not p.members.is_empty():
+		if p.faction_name == _player_faction.name and p.soldiers > 0:
 			for c in HexGrid.cells_within(terrain, _cell_of(p), p.vision(), MAP_WIDTH, MAP_HEIGHT):
 				vis[c] = true
 	return vis

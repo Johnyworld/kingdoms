@@ -4,7 +4,6 @@ extends GutTest
 
 const OverlayScene = preload("res://scenes/lang_battle/lang_battle.tscn")
 const PartyScript = preload("res://scenes/party/party.gd")
-const HumanScript = preload("res://scenes/human/human.gd")
 
 var battle
 var _fin_a := -1
@@ -74,8 +73,7 @@ func _party(kind: String, troop_type: String, n: int) -> Node2D:
 	add_child_autofree(p)
 	p.kind = kind
 	p.troop_type = troop_type
-	for i in n:
-		p.add_member(HumanScript.new("m%d" % i))
+	p.soldiers = n
 	return p
 
 func test_battle_config_from_parties() -> void:
@@ -87,8 +85,9 @@ func test_battle_config_from_parties() -> void:
 	assert_eq(cfg["mode"], "melee", "거리 1 → 근접")
 	assert_eq(LangBridge.battle_config(atk, deff, 3)["mode"], "ranged", "거리 3 → 원거리")
 
-func test_battle_config_hero_count_fixed() -> void:
-	var hero := _party(PartyScript.KIND_HERO, "", 1)
+func test_battle_config_hero_count_from_soldiers() -> void:
+	# 영웅부대는 생성 시 soldiers = GameUnits.max_hp("hero")로 세팅된다.
+	var hero := _party(PartyScript.KIND_HERO, "", GameUnits.max_hp("hero"))
 	var cfg: Dictionary = LangBridge.battle_config(hero, hero, 1)
 	assert_eq(cfg["a"]["kind"], "hero", "영웅 kind")
-	assert_eq(cfg["a"]["count"], GameUnits.max_hp("hero"), "영웅 병력 = 고정 HP(멤버 수 아님)")
+	assert_eq(cfg["a"]["count"], GameUnits.max_hp("hero"), "영웅 병력 = 클래스 HP 풀(party.soldiers)")

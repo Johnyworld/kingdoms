@@ -46,7 +46,7 @@
 - `open(buttons: Array, screen_pos: Vector2)` — 버튼을 채우고 **클릭한 부대 토큰의 화면 좌표 근처**(우측 하단 오프셋)에 패널을 띄운다. 화면 밖으로 넘치지 않게 클램프.
 - `close()` — 감춘다. 버튼 클릭 시 `action_selected(id)` 방출(팝업 대상은 `game.gd`가 보관).
 
-## 행동 효과 (`game.gd` + [Human](../entities/Human.md))
+## 행동 효과 (`game.gd`)
 
 - **`[공격]`(근접)**: 적 인접 도달 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령([Lang Battle](lang-battle.md)).
 - **`[사격]`(원거리)**: 현재 위치 원거리 전투(이동·점령 없음).

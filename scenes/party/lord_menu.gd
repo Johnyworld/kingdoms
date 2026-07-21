@@ -57,7 +57,7 @@ func _refresh() -> void:
 	_list.add_child(cur)
 	for hero in _candidates:
 		var btn := Button.new()
-		btn.text = hero.commander_name()
+		btn.text = hero.commander_name
 		btn.custom_minimum_size = Vector2(240, 0)
 		btn.disabled = (hero == _troop.lord)   # 이미 소속인 영웅은 비활성
 		btn.pressed.connect(_on_pick.bind(hero))

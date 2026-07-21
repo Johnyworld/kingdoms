@@ -3,7 +3,7 @@
 > 스크립트: `scenes/game/game.gd`, `scenes/game/range_overlay.gd`
 
 주인공 [부대](../entities/Party.md)를 선택하면 **이동 범위(파랑)** 가 표시되고 화면 중앙에 [행동 메뉴](party-action-menu.md)가 열린다. 이동은 범위 안의 칸을 클릭해서 하고, 공격·사격은 메뉴로 한다.
-움직이는 대상은 개별 [Human](../entities/Human.md)이 아니라 **부대(Party)**다.
+움직이는 대상은 **부대(Party)**다(개별 병사 단위 없음 — 순수 클래스+병력수).
 
 ## 상호작용 모드
 
@@ -54,7 +54,7 @@
 BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 분리되어 있다(시야 계산과 공유·테스트 용이).
 
 - 부대 위치에서 **BFS**로 도달 셀과 거리를 계산.
-- **이동력은 부대 기준** — `party.movement()`(멤버 이동력의 **최소값**, 가장 느린 멤버). 멤버 구성이 바뀌면 자동 반영. (화물 제거로 과적 페널티 없음.)
+- **이동력은 부대 기준** — `party.movement()`(아키타입 lang 클래스 `mv`). 병력 구성과 무관(부대는 단일 병종).
 - **이동 범위**: 각 칸의 **지형 이동 상한**([Terrain](../data/terrain.md)) 이내로 도달 가능한 칸 → 파랑 헥스.
   - 초원·사막: 거리 1 ~ `movement`.
   - **숲**: `ceil(movement/2)`, **습지**: `floor(movement/2)`까지만(목적지 지형이 이동력을 반감).

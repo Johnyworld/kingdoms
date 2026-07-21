@@ -55,13 +55,11 @@ func open(party) -> void:
 	_summary.text = "이동력 %d · 시야 %d · 사거리 %s" % [party.movement(), party.vision(), _range_label(party.attack_range())]
 
 	for child in _member_list.get_children():
-		child.free()   # 즉시 제거(다음 프레임까지 낡은 멤버 행이 남지 않도록)
-	for member in party.members:
-		var label := Label.new()
-		# 이름·HP(현재/최대)·이동·시야. 장비/무기 표시는 장비 계층 삭제(M4-B)로 제거 — 전투는 lang 클래스.
-		label.text = "%s   HP %d/%d   이동 %d / 시야 %d" % [
-			member.human_name, member.hit_points, member.max_hp(), member.movement, member.vision]
-		_member_list.add_child(label)
+		child.free()   # 즉시 제거(다음 프레임까지 낡은 행이 남지 않도록)
+	# 순수 class+count — 개별 병사 없음. 지휘관 이름 + 병력수만 표시(영웅부대는 병력=클래스 HP).
+	var label := Label.new()
+	label.text = "지휘관 %s · 병력 %d" % [party.commander_name, party.soldiers]
+	_member_list.add_child(label)
 
 	show()
 

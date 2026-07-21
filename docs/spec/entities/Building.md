@@ -40,7 +40,7 @@
 | 생산포인트 | `production_points` | `int` | `0` | [1차 생산 건물](../features/production.md)의 누적 생산포인트. 매 턴 `+= 1`(거리 기반), `≥ 거리`면 자원 산출·차감 |
 | 배정 거점 | `assigned_center` | `Building` | `null` | [1차 생산](../features/production.md) 건물이 자원 입출력·거리 측정하는 대상 거점. 건설 시 자동, 변경 가능. (인원 차출은 폐지) |
 
-> **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([거점 방어](../features/camp-capture.md#거점-방어-창발--중심-점거)). 예전 `Building.garrison`(Human 배열)은 폐지됐다.
+> **수비대는 건물 속성이 아니다.** 거점 방어는 그 거점 중심 타일 위에 있는 [부대](Party.md)가 맡는다([거점 방어](../features/camp-capture.md#거점-방어-창발--중심-점거)). 예전 `Building.garrison`(수비 유닛 배열)은 폐지됐다.
 
 > 자원은 건물이 아니라 [영지](Territory.md)가 보유한다. 캠프 카탈로그의 `resources`는 **건설 시 생성되는 영지의 초기 자원**으로 쓰인다.
 

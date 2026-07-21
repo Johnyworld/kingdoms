@@ -21,7 +21,7 @@ func _hero(cmd_name: String) -> Node2D:
 	var p: Node2D = PartyScript.new()
 	add_child_autofree(p)
 	p.kind = p.KIND_HERO
-	p.add_member(load("res://scenes/human/human.gd").new(cmd_name))
+	p.commander_name = cmd_name
 	return p
 
 func _troop() -> Node2D:

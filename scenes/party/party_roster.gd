@@ -46,10 +46,10 @@ func set_parties(parties: Array) -> void:
 	for child in _list.get_children():
 		child.free()   # 즉시 제거(다음 프레임까지 낡은 항목이 남지 않도록)
 	for party in parties:
-		if party.members.is_empty():
-			continue   # 수비대로 전부 옮겨 사라진 부대는 일람에서 제외
+		if party.soldiers <= 0:
+			continue   # 전멸해 사라진 부대는 일람에서 제외
 		var button := Button.new()
-		button.text = "%s\n지휘관 %s · %d명" % [party.party_name, party.commander_name(), party.members.size()]
+		button.text = "%s\n지휘관 %s · %d명" % [party.party_name, party.commander_name, party.soldiers]
 		button.pressed.connect(_on_button_pressed.bind(party))
 		_list.add_child(button)
 

@@ -13,7 +13,7 @@
   - **제목** — `"부대 일람"`, 글자 크기 20.
   - `HSeparator`.
   - **부대 리스트**(VBox) — 부대 한 개당 `Button` 한 줄.
-    - 버튼 텍스트: `"<부대이름>\n지휘관 <지휘관이름> · <N>명"` (`party.commander_name()`, 멤버 수 `party.members.size()`).
+    - 버튼 텍스트: `"<부대이름>\n지휘관 <지휘관이름> · <N>명"` (`party.commander_name`, 병력수 `party.soldiers`).
 
 ## 표시 규칙
 
@@ -24,7 +24,7 @@
 
 ## 동작
 
-- `set_parties(parties: Array) -> void` — 부대 리스트를 **비우고** 다시 채운다(재구성 대비). 부대당 버튼 한 개를 만들고, 버튼을 누르면 그 부대를 실어 `party_selected` 시그널을 방출한다. 거점 방어 부대도 일반 부대라 일람에 포함된다. **멤버가 0명인 부대는 건너뛴다**(분할로 전부 옮겨 사라진 부대).
+- `set_parties(parties: Array) -> void` — 부대 리스트를 **비우고** 다시 채운다(재구성 대비). 부대당 버튼 한 개를 만들고, 버튼을 누르면 그 부대를 실어 `party_selected` 시그널을 방출한다. 거점 방어 부대도 일반 부대라 일람에 포함된다. **병력이 0인(`soldiers <= 0`) 부대는 건너뛴다**(전멸해 사라진 부대).
 - `signal party_selected(party)` — 항목 클릭 시 방출. `game.gd`가 받아 카메라를 그 부대 위치로 이동시킨다.
 
 ## 카메라 이동 (`game.gd` `_on_party_focused`)
@@ -37,14 +37,14 @@
 `test/unit/test_party_roster.gd`.
 
 - [정상] `set_parties([p])` → 부대 리스트 자식 수 = 부대 수(1)
-- [정상] 버튼 텍스트에 부대 이름·지휘관 이름·인원 수가 포함됨("주인공 부대", "테스트맨", "2")
-- [경계] 지휘관이 없는 부대 → 버튼 텍스트에 `"—"` 포함
-- [경계] 부대 2개로 구성한 뒤 1개로 재구성 → 리스트 자식 수가 1로 교체됨
+- [정상] 버튼 텍스트에 부대 이름·지휘관 이름·병력수가 포함됨("주인공 부대", "테스트맨", "2")
+- [경계] 재구성 시 리스트 교체(1개)
 - [정상] 항목 버튼을 누르면 `party_selected` 시그널이 그 부대를 실어 방출됨
 - [정상] 기본 `visible == true`
+- [경계] 병력 0(`soldiers <= 0`)인 부대는 일람에서 제외
 
 ## 관련
 
-- 표시 데이터는 [부대(Party)](../entities/Party.md) — `party_name`, `commander_name()`, `members`.
+- 표시 데이터는 [부대(Party)](../entities/Party.md) — `party_name`, `commander_name`, `soldiers`.
 - 우측 상단 공존 상대는 [Party Info (부대 정보 패널)](party-info.md).
 - 카메라·맵 이동 범위는 [Map & Camera](map-and-camera.md).

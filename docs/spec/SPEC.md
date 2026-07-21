@@ -24,8 +24,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 ### 엔티티 (`entities/`)
 게임 내 데이터 모델. 각 문서에 속성(properties) 목록을 정리한다.
 
-- [Party](entities/Party.md) — 부대 (맵에서 움직이는 유닛 · 멤버 Human 보유 · 이동력=min·시야=max · 토큰 색 · **종류 kind(영웅/일반)** · **소속 영웅 lord**)
-- [Human](entities/Human.md) — 사람 (능력치 · 자원, 순수 데이터). 주인공은 부대의 멤버
+- [Party](entities/Party.md) — 부대 (맵에서 움직이는 유닛 · 클래스+병력수(soldiers) · 이동력·시야는 클래스 기반 · 토큰 색 · **종류 kind(영웅/일반)** · **소속 영웅 lord**)
 - [Building](entities/Building.md) — 맵에 배치된 건물 (7헥스 · 종류 · 시야 · 소속 영지)
 - [Territory](entities/Territory.md) — 영지 (이름 · 모든 자원 보유 · 소속 건물)
 - [Faction](entities/Faction.md) — 세력 (이름 · 색상 · 소속 영지)
@@ -41,7 +40,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [NPC Bases (NPC 세력 거점)](features/npc-bases.md) — NPC 세력별 수도 영지·캠프 배치, 안개(발견 후 상시 표시)·클릭 정보
 - [NPC Movement (NPC 이동 AI)](features/npc-movement.md) — 턴 종료 시 NPC가 도달 가능한 가장 먼 칸으로 무작위 이동
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
-- [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·멤버 표시
+- [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·지휘관·병력 표시
 - [Party Action Menu (부대 행동 메뉴)](features/party-action-menu.md) — 토큰 근처 메뉴 [사격](+대기/취소/소속) + 적 팝업 [공격][사격], 근접 승리 점령
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
 - [Fog of War (전장의 안개)](features/fog-of-war.md)
@@ -64,7 +63,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 캐릭터 · 아이템 · 자원 등의 리스트.
 
 - [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
-- [Stats (능력치 정의)](data/stats.md)
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성
 - [Buildings (건물 종류)](data/buildings.md)
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
@@ -91,7 +89,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 행동 메뉴 | `scenes/party/party_action_menu.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
-| 사람(데이터) | `scenes/human/human.gd` |
 | 유닛·부대 카탈로그 | `scenes/party/unit_types.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 정보 패널 | `scenes/building/building_info.gd` |

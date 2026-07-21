@@ -1,20 +1,19 @@
 extends GutTest
-## 부대(Party) 테스트 — 멤버 보유 · 이동력(min)·시야(max) 집계 · 턴당 1이동 상태.
-## 맵에서 실제로 움직이는 유닛은 부대이며, 이동력은 가장 느린 멤버를 따라간다.
+## 부대(Party) 테스트 — 순수 class+count 모델(soldiers·commander_name) · 이동력·시야·공격거리(클래스 기반) · 턴당 1이동.
+## 개별 병사(Human)는 없다 — 부대는 아키타입 + 병력수(soldiers)로 표현된다.
 
 func _party() -> Node2D:
 	var p: Node2D = load("res://scenes/party/party.gd").new()
 	add_child_autofree(p)
 	return p
 
-func _human(mv := 3, vis := 5) -> Object:
-	var h: Object = load("res://scenes/human/human.gd").new()
-	h.movement = mv
-	h.vision = vis
-	return h
-
-func _named_human(p_name: String) -> Object:
-	return load("res://scenes/human/human.gd").new(p_name)
+func _troop(archetype: String, count := 1) -> Node2D:
+	# 지정 병종·병력의 일반부대. 병합·파워 판정용.
+	var p := _party()
+	p.kind = p.KIND_TROOP
+	p.troop_type = archetype
+	p.soldiers = count
+	return p
 
 # --- 이름 ---
 
@@ -65,153 +64,76 @@ func test_token_color_settable() -> void:
 	p.token_color = Color(1, 0, 0)
 	assert_eq(p.token_color, Color(1, 0, 0), "토큰 색을 설정할 수 있다")
 
-# --- 멤버 ---
+# --- 병력(soldiers) ---
 
-func test_members_empty_at_start() -> void:
+func test_soldiers_zero_at_start() -> void:
 	var p := _party()
-	assert_eq(p.members.size(), 0, "생성 직후 멤버 없음")
-	assert_eq(p.movement(), 0, "멤버 없으면 이동력 0")
-	assert_eq(p.vision(), 0, "멤버 없으면 시야 0")
+	assert_eq(p.soldiers, 0, "생성 직후 병력 0")
 
-func test_add_member() -> void:
-	var p := _party()
-	p.add_member(_human())
-	assert_eq(p.members.size(), 1, "멤버 추가됨")
-
-func test_add_member_no_duplicate() -> void:
-	var p := _party()
-	var h := _human()
-	p.add_member(h)
-	p.add_member(h)
-	assert_eq(p.members.size(), 1, "같은 멤버 중복 추가 방지")
-
-func test_add_member_auto_commander() -> void:
-	# 빈 부대에 첫 멤버 추가 시 지휘관 자동 지정(새 부대 편성으로 수비대 병사를 채울 때 필요).
-	var p := _party()
-	var a := _human()
-	var b := _human()
-	p.add_member(a)
-	assert_eq(p.commander, a, "첫 멤버가 지휘관이 됨")
-	p.add_member(b)
-	assert_eq(p.commander, a, "이후 멤버 추가는 지휘관을 바꾸지 않음")
-
-# --- 멤버 제거 (수비대 편성) ---
-
-func test_remove_member() -> void:
-	var p := _party()
-	var h := _human()
-	p.add_member(h)
-	p.remove_member(h)
-	assert_false(h in p.members, "제거 후 members에서 빠짐")
-
-func test_remove_commander_reassigns() -> void:
-	var p := _party()
-	var a := _human()
-	var b := _human()
-	p.add_member(a)
-	p.add_member(b)
-	p.commander = a
-	p.remove_member(a)
-	assert_eq(p.commander, b, "지휘관 제거 시 남은 첫 멤버로 재지정")
-
-func test_remove_last_member_commander_null() -> void:
-	var p := _party()
-	var h := _human()
-	p.add_member(h)
-	p.commander = h
-	p.remove_member(h)
-	assert_null(p.commander, "마지막 멤버 제거 시 지휘관 null")
-
-func test_remove_member_not_present_noop() -> void:
-	var p := _party()
-	p.add_member(_human())
-	p.remove_member(_human())   # 없는 멤버
-	assert_eq(p.members.size(), 1, "없는 멤버 제거는 no-op")
+func test_soldiers_settable() -> void:
+	var p := _troop("light_infantry", 10)
+	assert_eq(p.soldiers, 10, "병력수 설정 가능")
 
 # --- 병합 (merge_from) ---
 
 func test_merge_from_combines() -> void:
-	var a := _party()
-	var b := _party()
-	var a1 := _human()
-	a.add_member(a1)
-	b.add_member(_human())
-	b.add_member(_human())
+	var a := _troop("light_infantry", 1)
+	a.commander_name = "A대"
+	var b := _troop("light_infantry", 2)
 	a.merge_from(b)
-	assert_eq(a.members.size(), 3, "a에 b 멤버가 합쳐짐(1+2)")
-	assert_eq(b.members.size(), 0, "b는 빈 부대가 됨")
-	assert_eq(a.commander, a1, "a 지휘관은 유지")
+	assert_eq(a.soldiers, 3, "a에 b 병력이 합쳐짐(1+2)")
+	assert_eq(b.soldiers, 0, "b는 병력 0이 됨")
+	assert_eq(a.commander_name, "A대", "a 지휘관 이름은 유지")
 
 func test_merge_from_empty_noop() -> void:
-	var a := _party()
-	a.add_member(_human())
-	a.merge_from(_party())   # 빈 부대 병합
-	assert_eq(a.members.size(), 1, "빈 부대 병합은 변화 없음")
+	var a := _troop("light_infantry", 1)
+	a.merge_from(_troop("light_infantry", 0))   # 빈 부대 병합
+	assert_eq(a.soldiers, 1, "빈 부대 병합은 변화 없음")
 
 # --- 병합 가능 판정 (can_merge_with) ---
 
-func _troop(archetype: String, count := 1) -> Node2D:
-	# 지정 병종·인원의 일반부대. 같은/다른 병종·인원 상한 병합 판정용.
-	var p := _party()
-	p.kind = p.KIND_TROOP
-	p.troop_type = archetype
-	for i in count:
-		p.add_member(_human())
-	return p
-
 func test_can_merge_same_troop_type() -> void:
-	var a := _troop("light_infantry")
-	var b := _troop("light_infantry")
-	assert_true(a.can_merge_with(b), "같은 병종 일반부대끼리 → 병합 가능")
+	assert_true(_troop("light_infantry").can_merge_with(_troop("light_infantry")), "같은 병종 일반부대끼리 → 병합 가능")
 
 func test_cannot_merge_different_troop_type() -> void:
-	var a := _troop("light_infantry")
-	var b := _troop("light_archer")
-	assert_false(a.can_merge_with(b), "다른 병종끼리 → 병합 불가")
+	assert_false(_troop("light_infantry").can_merge_with(_troop("light_archer")), "다른 병종끼리 → 병합 불가")
 
 func test_cannot_merge_when_self_is_hero() -> void:
 	var a := _troop("light_infantry")
 	a.kind = a.KIND_HERO
-	var b := _troop("light_infantry")
-	assert_false(a.can_merge_with(b), "자신이 영웅부대면 → 병합 불가(병종 같아도)")
+	assert_false(a.can_merge_with(_troop("light_infantry")), "자신이 영웅부대면 → 병합 불가")
 
 func test_cannot_merge_when_other_is_hero() -> void:
-	var a := _troop("light_infantry")
 	var b := _troop("light_infantry")
 	b.kind = b.KIND_HERO
-	assert_false(a.can_merge_with(b), "상대가 영웅부대면 → 병합 불가(병종 같아도)")
+	assert_false(_troop("light_infantry").can_merge_with(b), "상대가 영웅부대면 → 병합 불가")
 
 func test_can_merge_within_capacity() -> void:
-	var a := _troop("light_infantry", 4)
-	var b := _troop("light_infantry", 6)
-	assert_true(a.can_merge_with(b), "합계 4+6=10(상한 이하) → 병합 가능")
+	assert_true(_troop("light_infantry", 4).can_merge_with(_troop("light_infantry", 6)), "합계 4+6=10(상한 이하) → 병합 가능")
 
 func test_can_merge_exactly_capacity() -> void:
-	var a := _troop("light_infantry", 5)
-	var b := _troop("light_infantry", 5)
-	assert_true(a.can_merge_with(b), "합계 5+5=10(상한) → 병합 가능")
+	assert_true(_troop("light_infantry", 5).can_merge_with(_troop("light_infantry", 5)), "합계 5+5=10(상한) → 병합 가능")
 
 func test_cannot_merge_over_capacity() -> void:
-	var a := _troop("light_infantry", 6)
-	var b := _troop("light_infantry", 5)
-	assert_false(a.can_merge_with(b), "합계 6+5=11(상한 초과) → 병합 불가")
+	assert_false(_troop("light_infantry", 6).can_merge_with(_troop("light_infantry", 5)), "합계 6+5=11(상한 초과) → 병합 불가")
 
 func test_cannot_merge_with_null() -> void:
 	assert_false(_troop("light_infantry").can_merge_with(null), "null 대상 → 병합 불가")
 
-# --- 지휘관(commander) ---
+# --- 지휘관 이름(commander_name) ---
 
-func test_commander_null_by_default() -> void:
-	var p := _party()
-	assert_null(p.commander, "생성 직후 지휘관 없음(null)")
-	assert_eq(p.commander_name(), "—", "지휘관 없으면 이름은 대시")
+func test_commander_name_empty_by_default() -> void:
+	assert_eq(_party().commander_name, "", "생성 직후 지휘관 이름 빈 문자열")
 
-func test_commander_name_from_member() -> void:
+func test_commander_name_settable() -> void:
 	var p := _party()
-	var leader := _named_human("테스트맨")
-	p.add_member(leader)
-	p.commander = leader
-	assert_eq(p.commander_name(), "테스트맨", "지휘관 이름 = 지정한 멤버의 human_name")
+	p.commander_name = "테스트맨"
+	assert_eq(p.commander_name, "테스트맨", "지휘관 이름 설정 가능")
+
+# --- 전투 파워(power) ---
+
+func test_power_equals_soldiers() -> void:
+	assert_eq(_troop("light_infantry", 7).power(), 7, "전투 파워 = 병력수")
 
 # --- 종류(kind) · 소속(lord) ---
 
@@ -235,17 +157,10 @@ func test_lord_name_from_hero() -> void:
 	var troop := _party()
 	var hero := _party()
 	hero.kind = hero.KIND_HERO
-	hero.add_member(_named_human("아젤"))
+	hero.commander_name = "아젤"
 	troop.lord = hero
 	assert_true(troop.has_lord(), "소속 지정 시 has_lord() 참")
 	assert_eq(troop.lord_name(), "아젤", "소속 영웅 이름")
-
-func test_lord_name_empty_hero_is_dash() -> void:
-	var troop := _party()
-	var hero := _party()   # 지휘관 없는 빈 부대
-	troop.lord = hero
-	assert_true(troop.has_lord(), "참조는 있음")
-	assert_eq(troop.lord_name(), "—", "지휘관 없는 소속 → 대시")
 
 func test_set_and_clear_lord() -> void:
 	var troop := _party()
@@ -257,24 +172,20 @@ func test_set_and_clear_lord() -> void:
 	assert_null(troop.lord, "clear_lord로 독립")
 	assert_false(troop.has_lord(), "소속 없음")
 
-# --- 인원수 배지 표시 여부(shows_member_count) ---
+# --- 병력수 배지 표시 여부(shows_member_count) ---
 
-func test_shows_member_count_troop_with_members() -> void:
-	var p := _party()
-	p.kind = p.KIND_TROOP
-	p.add_member(_human())
-	assert_true(p.shows_member_count(), "멤버 있는 일반부대는 인원수 배지 표시")
+func test_shows_member_count_troop_with_soldiers() -> void:
+	assert_true(_troop("light_infantry", 5).shows_member_count(), "병력 있는 일반부대는 배지 표시")
 
 func test_shows_member_count_hero_hidden() -> void:
-	var p := _party()
+	var p := _troop("light_infantry", 5)
 	p.kind = p.KIND_HERO
-	p.add_member(_human())
-	assert_false(p.shows_member_count(), "영웅부대는 항상 1명이라 배지 생략")
+	assert_false(p.shows_member_count(), "영웅부대는 단독이라 배지 생략")
 
 func test_shows_member_count_empty_hidden() -> void:
 	var p := _party()
 	p.kind = p.KIND_TROOP
-	assert_false(p.shows_member_count(), "멤버 없는 부대는 배지 없음(토큰도 안 그림)")
+	assert_false(p.shows_member_count(), "병력 0인 부대는 배지 없음(토큰도 안 그림)")
 
 # --- 하이라이트(highlight) — NPC 공격 연출용 토큰 테두리 ---
 
@@ -291,11 +202,10 @@ func test_set_highlight() -> void:
 # --- 지휘 범위(command_range) · 지휘 버프(command_buffed) ---
 
 func test_command_range_from_class() -> void:
-	# 지휘범위는 클래스 기반(lang cmd_range) — 영웅(클래스4)=4, 경보병(클래스1)=3. → game_units.gd
 	var hero := _party()
 	hero.kind = hero.KIND_HERO
-	assert_eq(hero.command_range(), GameUnits.command_range("hero"), "영웅 지휘범위 = 클래스4 cmd_range(4)")
-	assert_eq(_troop("light_infantry").command_range(), GameUnits.command_range("light_infantry"), "경보병 지휘범위 = 클래스1 cmd_range(3)")
+	assert_eq(hero.command_range(), GameUnits.command_range("hero"), "영웅 지휘범위 = 클래스4 cmd_range")
+	assert_eq(_troop("light_infantry").command_range(), GameUnits.command_range("light_infantry"), "경보병 지휘범위 = 클래스1 cmd_range")
 
 func test_command_range_no_archetype() -> void:
 	assert_eq(_party().command_range(), 0, "아키타입 없으면 0")
@@ -307,7 +217,7 @@ func test_command_buffed_false_by_default() -> void:
 
 func test_movement_from_class() -> void:
 	var p := _troop("light_infantry")
-	assert_eq(p.movement(), GameUnits.movement("light_infantry"), "이동력 = 클래스 mv(6)")
+	assert_eq(p.movement(), GameUnits.movement("light_infantry"), "이동력 = 클래스 mv")
 	assert_gt(p.movement(), 0, "유효 아키타입이면 이동력 > 0")
 
 func test_movement_zero_without_archetype() -> void:
@@ -370,10 +280,10 @@ func test_reset_turn_restores_attack() -> void:
 	assert_true(p.can_move(), "reset 후 이동 가능")
 	assert_true(p.can_attack(), "reset 후 공격 가능")
 
-# --- 휴식/대기 (행동 메뉴) ---
+# --- 대기/행동 가능(can_rest = 선택 판정) ---
 
 func test_can_rest_by_default() -> void:
-	assert_true(_party().can_rest(), "생성 직후 휴식 가능")
+	assert_true(_party().can_rest(), "생성 직후 행동 가능")
 
 func test_undo_move_restores_move() -> void:
 	var p := _party()
@@ -386,7 +296,7 @@ func test_undo_move_restores_move() -> void:
 func test_attacked_blocks_rest() -> void:
 	var p := _party()
 	p.mark_attacked()
-	assert_false(p.can_rest(), "공격까지 마치면 휴식 불가")
+	assert_false(p.can_rest(), "공격까지 마치면 행동 불가")
 
 func test_reset_turn_restores_rest() -> void:
 	var p := _party()
@@ -404,7 +314,6 @@ func test_end_turn_resets_party() -> void:
 # --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
 
 func test_melee_power_infantry() -> void:
-	# 클래스 기반: 근접 병종 파워 = 클래스 AT × 병력수, 원거리 파워 0. → game_units.gd
 	var p := _troop("light_infantry", 2)
 	assert_eq(p.melee_power(), GameUnits.base_at("light_infantry") * 2, "경보병 근접 파워 = AT × 병력")
 	assert_eq(p.ranged_power(), 0, "경보병 원거리 파워 0")
@@ -413,8 +322,3 @@ func test_ranged_power_archer() -> void:
 	var p := _troop("light_archer", 3)
 	assert_eq(p.ranged_power(), GameUnits.base_at("light_archer") * 3, "경궁병 원거리 파워 = AT × 병력")
 	assert_eq(p.melee_power(), 0, "경궁병 근접 파워 0")
-
-func test_power_no_archetype_zero() -> void:
-	var p := _party()
-	assert_eq(p.melee_power(), 0, "아키타입 없으면 근접 0")
-	assert_eq(p.ranged_power(), 0, "아키타입 없으면 원거리 0")

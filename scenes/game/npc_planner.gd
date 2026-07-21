@@ -36,7 +36,7 @@ func _cell_of(p) -> Vector2i:
 func party_entries() -> Array:
 	var out: Array = []
 	for p in world.all_parties():
-		if p.members.is_empty():
+		if p.soldiers <= 0:
 			continue
 		out.append({"cell": _cell_of(p), "faction": p.faction_name})
 	return out
@@ -61,7 +61,7 @@ func targets_for(p, p_party_entries: Array, p_camp_entries: Array) -> Array:
 		if not safe.is_empty():
 			return safe
 	# 표적 우선순위: 근처(PRIORITY_SCAN) 무방비 적 캠프 > 근처 약한 적 부대 > 나머지(전체 적 셀, 최근접 폴백).
-	var my_power := NpcAi.party_power(p.members)
+	var my_power: int = p.power()
 	var near := {}
 	for c in HexGrid.cells_within(terrain, _cell_of(p), PRIORITY_SCAN, map_w, map_h):
 		near[c] = true
@@ -73,10 +73,10 @@ func targets_for(p, p_party_entries: Array, p_camp_entries: Array) -> Array:
 			undefended.append(b.center_cell())
 	var weak: Array = []
 	for other in world.all_parties():
-		if other == p or other.members.is_empty() or other.faction_name == fn:
+		if other == p or other.soldiers <= 0 or other.faction_name == fn:
 			continue
 		var ocell := _cell_of(other)
-		if near.has(ocell) and NpcAi.party_power(other.members) <= my_power:
+		if near.has(ocell) and other.power() <= my_power:
 			weak.append(ocell)
 	var rest: Array = NpcAi.enemy_cells(fn, p_party_entries) + NpcAi.enemy_cells(fn, p_camp_entries)
 	# 교전 포지셔닝: 원거리 선호 부대는 약한 적 부대의 [2~attack_range] 밴드로(거리 유지), 근접 선호는 붙는다. → npc-movement.md
@@ -133,7 +133,7 @@ func adjacent_enemy(attacker):
 	for c in HexGrid.cells_within(terrain, _cell_of(attacker), reach, map_w, map_h):
 		in_range[c] = true
 	for other in world.all_parties():
-		if other == attacker or not is_instance_valid(other) or other.members.is_empty():
+		if other == attacker or not is_instance_valid(other) or other.soldiers <= 0:
 			continue
 		if other.faction_name == attacker.faction_name:
 			continue   # 같은 세력(아군)은 공격 대상 아님(거점 방어 부대로 같은 세력 인접이 생겨 필요)
@@ -201,13 +201,13 @@ func _should_retreat(p) -> bool:
 	var scan := {}
 	for c in HexGrid.cells_within(terrain, _cell_of(p), RETREAT_SCAN, map_w, map_h):
 		scan[c] = true
-	var my_power := NpcAi.party_power(p.members)
+	var my_power: int = p.power()
 	var worst := 0
 	for other in world.all_parties():
-		if other == p or other.members.is_empty() or other.faction_name == p.faction_name:
+		if other == p or other.soldiers <= 0 or other.faction_name == p.faction_name:
 			continue
 		if scan.has(_cell_of(other)):
-			worst = maxi(worst, NpcAi.party_power(other.members))
+			worst = maxi(worst, other.power())
 	return worst > 0 and not NpcAi.should_engage(my_power, worst)
 
 ## 세력 fn의 후퇴 목적지(캠프 중심). 적 부대가 가까이(2칸) 있는 캠프는 제외한다 — 위협받는 캠프로 도망치지 않게.
@@ -229,7 +229,7 @@ func _enemy_near(cell: Vector2i, fn: String, radius: int) -> bool:
 	for c in HexGrid.cells_within(terrain, cell, radius, map_w, map_h):
 		near[c] = true
 	for other in world.all_parties():
-		if other.members.is_empty() or other.faction_name == fn:
+		if other.soldiers <= 0 or other.faction_name == fn:
 			continue
 		if near.has(_cell_of(other)):
 			return true

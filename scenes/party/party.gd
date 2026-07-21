@@ -30,9 +30,12 @@ var troop_type := ""
 ## 소속돼도 부대는 독립 토큰으로 자유 이동한다(소속은 메타데이터 — 버프는 미구현). → Party.md 소속(Lord)
 var lord = null
 
-# --- 멤버 ---
-var members: Array = []   # 이 부대에 속한 Human 목록.
-var commander = null      # 부대를 이끄는 Human(멤버 중 하나). 편성 UI가 없어 코드로 지정한다.
+# --- 병력 (순수 class+count 모델) ---
+## 병력수(HP 풀). 일반부대=병사 수(기본 10), 영웅부대=클래스 HP(GameUnits.max_hp("hero")). 0이면 전멸.
+## 전투 결과(final_soldiers)로 갱신되고, 배지·전투 파워·lang 유닛 병력의 단일 출처.
+var soldiers: int = 0
+## 부대 지휘관 이름(표시용). 영웅부대=영웅 이름, 일반부대=병종 이름. 개별 Human은 없다(순수 랑그릿사).
+var commander_name := ""
 
 
 const _RADIUS := 12.0
@@ -48,40 +51,21 @@ var highlight := Color(0, 0, 0, 0)
 var moved_this_turn := false      # 이번 턴에 이미 이동했는지. true면 재이동 불가(공격은 아직 가능).
 var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
 
-## 멤버를 부대에 추가한다. 이미 포함된 멤버는 중복 추가하지 않는다. 다시 그린다(빈→유 전환 시 토큰 부활).
-## 지휘관이 없으면(빈 부대에 첫 멤버) 그 멤버를 지휘관으로 삼는다.
-func add_member(human) -> void:
-	if human in members:
-		return
-	members.append(human)
-	if commander == null:
-		commander = human
-	queue_redraw()
-
-## 멤버를 부대에서 뺀다(수비대 편성). 지휘관이면 남은 첫 멤버로 재지정(없으면 null). 없는 멤버는 no-op.
-func remove_member(human) -> void:
-	if not (human in members):
-		return
-	members.erase(human)
-	if commander == human:
-		commander = members[0] if not members.is_empty() else null
-	queue_redraw()
-
-## 지휘관 이름. 지휘관이 없으면(null) "—". 부대 일람(party_roster.gd) 표시에 사용.
-func commander_name() -> String:
-	return commander.human_name if commander else "—"
-
 ## 영웅부대인지(kind == KIND_HERO). 일반부대는 거짓.
 func is_hero() -> bool:
 	return kind == KIND_HERO
 
-## 토큰 우하단에 남은 인원수 배지를 그릴지 — 일반부대이고 멤버가 있을 때만(영웅부대는 항상 1명이라 생략). → Party.md
+## 토큰 우하단에 남은 병력수 배지를 그릴지 — 일반부대이고 병력이 있을 때만(영웅부대는 단독이라 생략). → Party.md
 func shows_member_count() -> bool:
-	return kind == KIND_TROOP and not members.is_empty()
+	return kind == KIND_TROOP and soldiers > 0
+
+## 전투 파워(교전/후퇴 판단). = 병력수(HP 풀). 부상하면 낮아진다. → npc-movement.md
+func power() -> int:
+	return soldiers
 
 ## other를 이 부대에 병합할 수 있는지 — 병합 가능 판정의 단일 출처. → party-composition.md
 ## 둘 다 일반부대(KIND_TROOP)이고(영웅부대는 어느 쪽이든 병합 없음) 같은 병종(troop_type)이며,
-## 합쳐도 인원 상한(UnitTypes.TROOP_SIZE, 10)을 넘지 않을 때만 참(예: 4+6·5+5 가능, 6+5 불가).
+## 합쳐도 병력 상한(UnitTypes.TROOP_SIZE, 10)을 넘지 않을 때만 참(예: 4+6·5+5 가능, 6+5 불가).
 func can_merge_with(other) -> bool:
 	if other == null:
 		return false
@@ -89,7 +73,7 @@ func can_merge_with(other) -> bool:
 		return false
 	if troop_type != other.troop_type:
 		return false
-	return members.size() + other.members.size() <= UnitTypes.TROOP_SIZE
+	return soldiers + other.soldiers <= UnitTypes.TROOP_SIZE
 
 ## 이 부대의 아키타입 id(GameUnits 카탈로그 키). 영웅부대는 "hero", 그 외는 병종(troop_type). → game_units.gd
 func archetype() -> String:
@@ -103,9 +87,9 @@ func is_ranged() -> bool:
 func has_lord() -> bool:
 	return lord != null
 
-## 소속 영웅부대의 지휘관 이름. lord가 없거나 그 지휘관이 없으면 "—". → Party.md 소속(Lord)
+## 소속 영웅부대의 지휘관 이름. lord가 없으면 "—". → Party.md 소속(Lord)
 func lord_name() -> String:
-	return lord.commander_name() if lord != null else "—"
+	return lord.commander_name if lord != null else "—"
 
 ## 소속 영웅부대를 지정한다(소속 UI의 소속 확정 단일 출처). → party-lord.md
 func set_lord(hero) -> void:
@@ -119,13 +103,11 @@ func clear_lord() -> void:
 func command_range() -> int:
 	return GameUnits.command_range(archetype())
 
-## 다른 부대(other)의 멤버를 이 부대로 흡수한다(병합). other는 빈 부대가 된다(호출부가 제거).
-## 이 부대 지휘관은 유지된다(없으면 add_member가 첫 합류 멤버로 지정). 빈 other면 변화 없음.
+## 다른 부대(other)의 병력을 이 부대로 흡수한다(병합). other는 병력 0이 된다(호출부가 제거).
+## 이 부대 지휘관 이름은 유지된다. 빈 other면 변화 없음.
 func merge_from(other) -> void:
-	for h in other.members.duplicate():
-		add_member(h)
-	other.members = []
-	other.commander = null
+	soldiers += other.soldiers
+	other.soldiers = 0
 	other.queue_redraw()
 	queue_redraw()
 
@@ -147,11 +129,11 @@ func attack_range() -> int:
 
 ## 부대 근접 파워 = 근접 병종이면 클래스 AT × 병력수, 아니면 0(교전 선호 판정·NPC AI). → npc-movement.md
 func melee_power() -> int:
-	return 0 if GameUnits.is_ranged(archetype()) else GameUnits.base_at(archetype()) * members.size()
+	return 0 if GameUnits.is_ranged(archetype()) else GameUnits.base_at(archetype()) * soldiers
 
 ## 부대 원거리 파워 = 원거리 병종이면 클래스 AT × 병력수, 아니면 0. → npc-movement.md
 func ranged_power() -> int:
-	return GameUnits.base_at(archetype()) * members.size() if GameUnits.is_ranged(archetype()) else 0
+	return GameUnits.base_at(archetype()) * soldiers if GameUnits.is_ranged(archetype()) else 0
 
 ## 토큰 테두리 강조색을 바꾸고 다시 그린다(알파 0 = 없음). NPC 공격 연출. → npc-movement.md
 func set_highlight(color: Color) -> void:
@@ -207,8 +189,8 @@ func reset_turn() -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	if members.is_empty():
-		return   # 멤버 없는 부대(전부 수비대로 이동/전멸)는 토큰을 그리지 않는다 — "사라짐".
+	if soldiers <= 0:
+		return   # 병력 0(전멸)인 부대는 토큰을 그리지 않는다 — "사라짐".
 
 	# 이번 턴에 이동·공격 중 하나라도 했으면 전체를 반투명하게.
 	var a := _MOVED_ALPHA if (moved_this_turn or attacked_this_turn) else 1.0
@@ -245,7 +227,7 @@ func _draw() -> void:
 		draw_circle(bpos, 7.0, Color(0.1, 0.08, 0.05, 0.85 * a))
 		var font := ThemeDB.fallback_font
 		var fs := 11
-		var txt := str(members.size())
+		var txt := str(soldiers)
 		var tw: float = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(font, bpos + Vector2(-tw * 0.5, fs * 0.36), txt,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, a))

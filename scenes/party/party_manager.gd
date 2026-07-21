@@ -32,17 +32,17 @@ func _cell_of(p) -> Vector2i:
 func all() -> Array:
 	return units + npc_parties
 
-## 그 칸에 선 멤버 있는 부대(플레이어·NPC 통틀어). 없으면 null. 수비 배지·방어 판정에 쓴다.
+## 그 칸에 선 병력 있는 부대(플레이어·NPC 통틀어). 없으면 null. 수비 배지·방어 판정에 쓴다.
 func party_on_cell(cell: Vector2i) -> Party:
 	for p in all():
-		if not p.members.is_empty() and _cell_of(p) == cell:
+		if p.soldiers > 0 and _cell_of(p) == cell:
 			return p
 	return null
 
-## 그 칸에 선 플레이어 부대(멤버 있는 것). 없으면 null. 클릭 선택 판정에 쓴다.
+## 그 칸에 선 플레이어 부대(병력 있는 것). 없으면 null. 클릭 선택 판정에 쓴다.
 func player_party_at(cell: Vector2i) -> Party:
 	for p in units:
-		if p.members.is_empty():
+		if p.soldiers <= 0:
 			continue
 		if _cell_of(p) == cell:
 			return p
@@ -55,10 +55,10 @@ func npc_at(cell: Vector2i) -> Party:
 			return p
 	return null
 
-## units 중 멤버가 있는(살아있는) 첫 부대. 없으면 null. 활성 부대 재할당에 쓴다.
+## units 중 병력이 있는(살아있는) 첫 부대. 없으면 null. 활성 부대 재할당에 쓴다.
 func first_living_unit():
 	for u in units:
-		if not u.members.is_empty():
+		if u.soldiers > 0:
 			return u
 	return null
 
@@ -86,16 +86,14 @@ func remove_party(p) -> void:
 	npc_parties.erase(p)
 	p.queue_free()
 
-## 부대 멤버를 생존자로 교체한다. 지휘관 사망 시 재지정, 전멸(생존자 0)이면 목록에서 제거·free.
+## 부대 병력을 전투 최종 병력수로 갱신한다. 전멸(0)이면 목록에서 제거·free.
 ## 반환: ALIVE / WIPED_NPC / WIPED_PLAYER / INVALID — 활성 부대 재할당·일람·패배 확인은 game.gd가 결과로 분기.
-func apply_survivors(p, survivors: Array) -> String:
+func apply_survivors(p, final_soldiers: int) -> String:
 	if not is_instance_valid(p):
-		return INVALID   # await(노획 패널 등) 사이 이미 해제된 부대면 반영할 것도 없음(하드닝 일관성)
-	p.members = survivors
-	if not (p.commander in survivors):
-		p.commander = survivors[0] if not survivors.is_empty() else null
-	p.queue_redraw()   # 사상 반영 후 토큰 다시 그림 — 인원수 배지가 갱신되도록(누락 시 초기값 고착). → battle.md
-	if not survivors.is_empty():
+		return INVALID   # await 사이 이미 해제된 부대면 반영할 것도 없음(하드닝 일관성)
+	p.soldiers = maxi(0, final_soldiers)
+	p.queue_redraw()   # 사상 반영 후 토큰 다시 그림 — 병력수 배지가 갱신되도록. → lang-battle.md
+	if p.soldiers > 0:
 		return ALIVE
 	# 전멸 — 부대를 맵에서 제거한다(NPC·플레이어 모두 껍데기 안 남김).
 	if p in npc_parties:

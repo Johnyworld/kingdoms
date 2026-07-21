@@ -1,8 +1,8 @@
 class_name LangBridge
 extends RefCounted
-## 게임 부대(Party: Human 멤버 + troop_type) ↔ lang 전투 유닛(LangResolver) 브릿지.
+## 게임 부대(Party: archetype + soldiers) ↔ lang 전투 유닛(LangResolver) 브릿지.
 ## 완전 교체(랑그릿사식 전투) 배선의 단일 매핑 출처 — 헤드리스(NPC↔NPC)·오버레이(플레이어) 공용.
-## troop_type/kind → class_id·kind, 멤버 수 → soldiers; 결과 최종 병력수 → 생존 Human 목록.
+## troop_type/kind → class_id·kind, party.soldiers → 병력(soldiers). 결과 최종 병력수는 game.gd가 party.soldiers에 직접 반영.
 ## 매핑 상수·acc_mod는 lang_battle.gd의 커스텀 유닛 생성(_mk_custom_unit)과 일치시킨다.
 ## → docs/spec/features/lang-battle.md 게임 통합
 
@@ -12,14 +12,12 @@ const HERO_ACC := 0
 const LEVEL := 3       # 유닛 레벨. 현재 고정 — 밸런스 튜닝 지점.
 
 ## Party → lang 유닛(Dictionary). side 0=공격/아군, 1=방어/적.
-## 클래스·병종·HP는 GameUnits 카탈로그(단일 출처). 영웅=지휘관 클래스 단독(self_cmd=false, HP 고정),
-## 일반부대 병력=멤버 수(M2 임시 — M3에서 party.soldiers 필드로 대체).
+## 클래스·병종은 GameUnits 카탈로그(단일 출처). 병력은 party.soldiers(영웅부대는 생성 시 클래스 HP로 세팅됨).
 static func unit_from_party(party, side: int) -> Dictionary:
 	var arche: String = party.archetype()
 	var is_hero := arche == "hero"
-	var soldiers: int = GameUnits.max_hp(arche) if is_hero else party.members.size()
 	var acc := HERO_ACC if is_hero else TROOP_ACC
-	var u := LangResolver.make_unit(GameUnits.class_id(arche), side, soldiers, 0, 0, 0, LEVEL, acc)
+	var u := LangResolver.make_unit(GameUnits.class_id(arche), side, party.soldiers, 0, 0, 0, LEVEL, acc)
 	u["kind"] = GameUnits.lang_kind(arche)
 	if is_hero:
 		u["self_cmd"] = false   # 단독 영웅 — 자기 지휘보정 없음(base 27/24 유지)
@@ -34,16 +32,8 @@ static func battle_config(attacker, defender, distance: int) -> Dictionary:
 		"mode": "ranged" if distance >= 2 else "melee",
 	}
 
-## 부대 한 쪽의 오버레이 cfg 항목. 영웅→"hero"(HP 고정), 경궁병→"archer", 그 외→"infantry"; count=병력.
+## 부대 한 쪽의 오버레이 cfg 항목. 영웅→"hero", 경궁병→"archer", 그 외→"infantry"; count=party.soldiers.
 static func _cfg_side(party) -> Dictionary:
 	var arche: String = party.archetype()
 	var kind := "hero" if arche == "hero" else ("archer" if GameUnits.is_ranged(arche) else "infantry")
-	var count: int = GameUnits.max_hp(arche) if arche == "hero" else party.members.size()
-	return {"kind": kind, "count": count}
-
-## lang 결과 최종 병력수(final_soldiers) → 생존 Human 목록. 멤버 앞에서부터 그 수만큼 유지.
-## 영웅 부대는 Human 1인이라 병력수>0이면 생존(멤버 유지), 0이면 전멸([]). game.gd _apply_survivors 입력.
-static func survivors(party, final_soldiers: int) -> Array:
-	if party.kind == Party.KIND_HERO:
-		return party.members.duplicate() if final_soldiers > 0 else []
-	return party.members.slice(0, maxi(0, final_soldiers))
+	return {"kind": kind, "count": party.soldiers}

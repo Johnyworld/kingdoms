@@ -14,8 +14,7 @@
   - **세력** — 소속 세력 이름(`faction_name`). 비어 있으면 이 줄을 숨긴다.
   - **요약** — `"이동력 N · 시야 M · 사거리 <근접|N>"` (`party.movement()`·`party.vision()` + 사거리 표기는 패널 자체 `_range_label(party.attack_range())` — 0이면 "근접", 그 외 "사거리 N").
   - `HSeparator`.
-  - **멤버 리스트**(VBox) — 멤버 한 명당 라벨(한 줄):
-    - `"<이름>   HP <hit_points>/<max_hp()>   이동 <movement> / 시야 <vision>"` (HP는 [Human](../entities/Human.md)의 현재 생명점 / 계산된 최대 생명점 — 전투 후 지속됨). **장비/무기 표시는 장비 계층 삭제(M4-B)로 제거** — 전투 판정은 lang 클래스.
+  - **구성** — 한 줄: `"지휘관 <commander_name> · 병력 <soldiers>"` (`party.commander_name`·`party.soldiers`). 순수 class+count 모델이라 개별 멤버 목록은 없다.
 
 ## 표시 규칙 (`game.gd` `_handle_click`)
 
@@ -31,7 +30,7 @@
   - 제목 = `party.party_name`.
   - 세력 = `party.faction_name`. 빈 문자열이면 세력 라벨을 숨긴다(`visible = false`).
   - 요약 = `"이동력 %d · 시야 %d · 사거리 %s"` (`party.movement()`·`party.vision()`·`_range_label(party.attack_range())` — 패널 자체 헬퍼).
-  - 멤버 리스트를 **비우고** 다시 채운다(재오픈 시 이전 멤버가 남지 않도록). 각 멤버 = 이름·HP(현재/최대)·이동·시야 한 줄(장비 표시 없음).
+  - 구성 리스트를 **비우고** 다시 채운다(재오픈 시 이전 값이 남지 않도록). 한 줄 = `"지휘관 %s · 병력 %d"`(`party.commander_name`·`party.soldiers`).
 - `close() -> void` — 숨긴다.
 
 ## 테스트 시나리오
@@ -41,17 +40,13 @@
 - [정상] `open(party)` → 제목 라벨 = `party_name`("주인공 부대")
 - [정상] `faction_name`이 설정된 부대 `open` → 세력 라벨 = `faction_name`, `visible == true`
 - [경계] `faction_name`이 빈 문자열인 부대 `open` → 세력 라벨 숨김(`visible == false`)
-- [정상] 요약 라벨 = `"이동력 2 · 시야 5 · 사거리 근접"` (근접 병종 → "근접")
-- [정상] 멤버 리스트 자식 수 = 멤버 수(2)
-- [정상] 멤버 라벨에 이름·이동력·시야가 포함됨("테스트맨", "3", "5")
-- [정상] 멤버 라벨에 `HP <현재>/<max_hp()>`가 포함됨(예: `hit_points 25`·힘<10(`max_hp()==40`) → `"HP 25/40"`)
-- (장비/무기·방어구 표시는 장비 계층 삭제(M4-B)로 제거 — 관련 테스트 없음)
-- [경계] 멤버 없는 부대 `open` → 요약 `"이동력 0 · 시야 0"`, 멤버 리스트 비어 있음
-- [경계] 멤버 2명 부대로 연 뒤 1명 부대로 재오픈 → 멤버 리스트 자식 수가 1로 교체됨
+- [정상] 요약 라벨 = 근접 병종 → "사거리 근접"
+- [정상] 구성 라벨에 지휘관 이름(`commander_name`)·병력수(`soldiers`)가 포함됨
+- [정상] 요약(이동력·시야)은 클래스 기반이라 병력수와 무관(병력 0이어도 클래스 값)
+- (장비/무기·방어구·개별 멤버 표시는 장비 계층 삭제(M4-B)·순수 class+count(M4-C)로 제거)
 - [정상] `open` 후 `visible == true`, `close()` 후 `false`
 
 ## 관련
 
-- 표시 데이터는 [부대(Party)](../entities/Party.md) — `party_name`, `movement()`(멤버 최소), `vision()`(멤버 최대), `members`.
-- 멤버 개별 능력치는 [Human](../entities/Human.md).
+- 표시 데이터는 [부대(Party)](../entities/Party.md) — `party_name`, `movement()`·`vision()`(클래스 기반), `commander_name`, `soldiers`.
 - 선택·이동 흐름은 [Selection & Movement](selection-and-movement.md).

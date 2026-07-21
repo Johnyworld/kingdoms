@@ -1,6 +1,6 @@
 # Lang Battle (랑그릿사 1 오마주 전투)
 
-> **게임 정식 전투로 확정(2026-07-21).** 원래 기존 게임과 분리된 격리 실험이었으나, `LangResolver`(랑그릿사 MD1 재현 — class_id·matchup·결정론적)를 **게임의 정식 전투 판정으로 완전 교체**하기로 결정. 기존 `combat/`(CombatResolver — Human 스탯·장비 상성·상태이상)은 **삭제 완료**(M4-A, 2026-07-21). 남은 RPG 계층(Human 스탯·장비/약탈 UI)은 후속(M4-B/C)에서 정리.
+> **게임 정식 전투로 확정(2026-07-21).** 원래 기존 게임과 분리된 격리 실험이었으나, `LangResolver`(랑그릿사 MD1 재현 — class_id·matchup·결정론적)를 **게임의 정식 전투 판정으로 완전 교체**하기로 결정. 기존 `combat/`(CombatResolver — 개별 스탯·장비 상성·상태이상)은 **삭제 완료**(M4-A). 장비/약탈 UI(M4-B)·개별 병사(Human) 스탯 계층(M4-C)도 삭제 완료 — 부대는 순수 "클래스 + 병력수" 모델이다.
 > 브랜치 `test/lang1battle`에서 랑그릿사 1(메가드라이브) 전투 로직·연출을 오마주해 처음부터 새로 구현했다.
 >
 > 참고 자료: 북미판 팬 영문 ROM 리버스 엔지니어링 스펙(사용자 제공) + 실기 영상.
@@ -9,14 +9,14 @@
 
 ## 게임 통합 (완전 교체 — 진행 중)
 
-**유닛 데이터 모델도 순수 랑그릿사로 전환**(진행 중) — 부대 = "클래스 + 병력(HP)"를 가진 유닛. RPG 전투 수학(M4-A)·장비/전리품 계층(M4-B)은 삭제 완료, 남은 Human 스탯은 M4-C에서 정리. 매핑 카탈로그는 `scenes/party/game_units.gd`(`GameUnits`):
+**유닛 데이터 모델도 순수 랑그릿사로 전환 완료**(M4-C) — 부대 = "클래스 + 병력수(`soldiers`)"를 가진 유닛. RPG 전투 수학(M4-A)·장비/전리품 계층(M4-B)·개별 병사(Human) 스탯(M4-C) 모두 삭제됐다. 매핑 카탈로그는 `scenes/party/game_units.gd`(`GameUnits`):
 - 아키타입(hero/light_infantry/light_archer) → lang class_id + HP(병력=`max_hp`)·시야·원거리 여부. 이동력·지휘범위·AT/DF는 lang 클래스(class_stats.txt의 `mv`·`cmd_range`·`at`·`df`), HP·시야는 카탈로그(랑그릿사엔 fog 시야 없음).
-- **Party 스탯이 클래스 기반**(M2): `movement`·`vision`·`command_range`·`attack_range`·`is_ranged`·`melee_power`·`ranged_power`가 멤버 Human 집계가 아니라 `GameUnits`(아키타입)에서 나온다. Human `leadership`·무기·개별 스탯은 이 계산에서 미사용.
+- **Party 스탯이 클래스 기반**: `movement`·`vision`·`command_range`·`attack_range`·`is_ranged`·`melee_power`·`ranged_power`가 모두 `GameUnits`(아키타입)에서 나온다. 개별 병사 스탯·무기는 없다(제거됨).
 
 `scenes/lang_battle/lang_bridge.gd` (`class_name LangBridge`) — 게임 부대(Party) ↔ lang 전투 유닛 매핑(전투 결산용). 클래스·병종·HP는 `GameUnits` 위임.
 
-- **부대 → lang 유닛**(`unit_from_party(party, side)`): 클래스·병종·HP는 `GameUnits`(아키타입 = `party.archetype()`). 영웅 → 지휘관 클래스(`self_cmd=false`, soldiers=`GameUnits.max_hp("hero")` 고정 몫), 그 외 → 클래스·kind는 카탈로그, soldiers = 멤버 수(M2 임시 → M3 `party.soldiers`). acc_mod·level은 LangBridge 상수(현재 고정 — 밸런스 튜닝 지점).
-- **lang 결과 → 생존**(`survivors(party, final_soldiers)`): 최종 병력수만큼 멤버를 앞에서부터 유지(영웅은 병력>0이면 Human 1인 생존). `game.gd._apply_survivors` 입력.
+- **부대 → lang 유닛**(`unit_from_party(party, side)`): 클래스·병종은 `GameUnits`(아키타입 = `party.archetype()`), 병력은 **`party.soldiers`**(영웅·일반 동일 — 영웅부대의 `soldiers`는 생성 시 클래스 HP로 세팅되어 특례 없음). 영웅 → 지휘관 클래스(`self_cmd=false`). acc_mod·level은 LangBridge 상수(현재 고정 — 밸런스 튜닝 지점).
+- **lang 결과 → 병력 반영**: 최종 병력수(`final_soldiers`, int)를 `PartyManager.apply_survivors(party, final_soldiers)`가 `party.soldiers`에 직접 반영한다(`0`이면 전멸). 개별 생존 유닛 목록을 만드는 매핑은 순수 class+count(M4-C)로 제거됐다.
 - **치사율 모델**: 게임의 **부대 1회 공격 = lang 1교전**(`resolve_engagement` — 공격 볼리 + 반격 1회). 원작처럼 소모전(한 번에 전멸시키지 않음, 여러 턴 반복 교전).
 
 **현재 통합 상태**:
@@ -24,8 +24,8 @@
 - ✅ **플레이어 전투**(근접·원거리) → **lang 오버레이**(`game.gd._run_lang_overlay`, mode는 거리로).
 - 옛 거점 방어 구조물·병기 시스템은 **제거**됐다 — 옛 `BattleSim`·`combat/battle.gd` 경로도 함께 삭제. 모든 부대 전투가 lang(헤드리스/오버레이)으로 단일화됐다.
   - **presenter 오버레이 API**(`lang_battle.gd`): `overlay_mode`(add_child 전 설정 → `_ready` 자동 로드·입력 내비게이션 끔), `start_overlay(cfg)`(부대 cfg로 전투 재생), `signal finished(a_soldiers, d_soldiers)`(DONE 시 최종 병력수 방출). cfg는 `LangBridge.battle_config(attacker, defender, distance)`가 부대 쌍에서 만든다({a:{kind,count}, b, mode}). 오버레이 입력은 스킵만(재전투·설정복귀 없음).
-  - **game.gd 배선**(`_run_lang_overlay`): lang_battle.tscn(Node2D)을 **CanvasLayer(layer 60)로 감싸** 게임 카메라 무관 스크린 오버레이로 얹고(HudLayer.layer=61), `start_overlay` → `await finished` → 병력수를 `LangBridge.survivors`로 생존 Human에 매핑 → `_run_battle`의 `_apply_survivors`·점령(occupy) 로직 공유. **시각 정확성(위치·레이어)은 실제 플레이로 확인 필요**(헤드리스 검증 불가).
-- ⏳ **지휘 범위 버프** → 전투 판정에서 미사용(플래그만 유지, lang 연동 미정). 장비 상성·상태이상·장비/약탈 UI는 삭제됨(M4-A/B).
+  - **game.gd 배선**(`_run_lang_overlay`): lang_battle.tscn(Node2D)을 **CanvasLayer(layer 60)로 감싸** 게임 카메라 무관 스크린 오버레이로 얹고(HudLayer.layer=61), `start_overlay` → `await finished` → 최종 병력수를 `_apply_survivors`(→ `party.soldiers`)로 반영 → `_run_battle`의 점령(occupy) 로직 공유. **시각 정확성(위치·레이어)은 실제 플레이로 확인 필요**(헤드리스 검증 불가).
+- ⏳ **지휘 범위 버프** → 전투 판정에서 미사용(부대 `command_buffed` 맵 배지만 유지, lang 연동 미정). 개별 병사 in_command 플래그·장비 상성·상태이상·장비/약탈 UI는 삭제됨(M4-A/B/C).
 
 ## 진입
 

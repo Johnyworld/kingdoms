@@ -5,7 +5,6 @@ extends GutTest
 
 const MAP := 41
 const PartyScript = preload("res://scenes/party/party.gd")
-const HumanScript = preload("res://scenes/human/human.gd")
 const BuildingScript = preload("res://scenes/building/building.gd")
 const PlannerScript = preload("res://scenes/game/npc_planner.gd")
 
@@ -27,7 +26,7 @@ class WorldStub:
 
 	func party_on_cell(cell: Vector2i):
 		for p in parties:
-			if not p.members.is_empty() and terrain.local_to_map(p.position) == cell:
+			if p.soldiers > 0 and terrain.local_to_map(p.position) == cell:
 				return p
 		return null
 
@@ -50,16 +49,16 @@ func before_each() -> void:
 func _center() -> Vector2i:
 	return Vector2i(MAP / 2, MAP / 2)
 
-## hp 합 = power인 1인 부대를 cell에 만들어 스텁 월드에 등록한다(전력 = 멤버 hit_points 합).
+## 전력(power) = 병력수인 부대를 cell에 만들어 스텁 월드에 등록한다(전력 = Party.power() = soldiers).
+## 병종은 경보병(근접·클래스 이동력)으로 둔다 — 그룹 이동 계획이 movement()>0을 필요로 한다.
 func _party(fn: String, cell: Vector2i, power := 40) -> Node2D:
 	var p: Node2D = PartyScript.new()
 	add_child_autofree(p)
 	p.faction_name = fn
 	p.position = terrain.map_to_local(cell)
-	var h = HumanScript.new(fn)
-	h.hit_points = power
-	h.movement = 3
-	p.add_member(h)
+	p.kind = PartyScript.KIND_TROOP
+	p.troop_type = "light_infantry"
+	p.soldiers = power
 	world.parties.append(p)
 	return p
 

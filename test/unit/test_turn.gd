@@ -14,9 +14,6 @@ func before_each() -> void:
 func _turn_manager() -> Object:
 	return load("res://scenes/turn/turn_manager.gd").new()
 
-func _human() -> Object:
-	return load("res://scenes/human/human.gd").new()
-
 func _party() -> Node2D:
 	var p: Node2D = load("res://scenes/party/party.gd").new()
 	add_child_autofree(p)
@@ -54,16 +51,6 @@ func test_end_turn_increments_number() -> void:
 	assert_eq(tm.number, 2, "턴 종료 1회 → 2")
 	tm.end_turn([], [])
 	assert_eq(tm.number, 3, "턴 종료 2회 → 3")
-
-# --- 사람(Human) 이름 ---
-
-func test_human_name_defaults_empty() -> void:
-	assert_eq(_human().human_name, "", "기본 이름은 빈 문자열")
-
-func test_human_name_settable() -> void:
-	var c := _human()
-	c.human_name = "테스트맨"
-	assert_eq(c.human_name, "테스트맨", "이름을 설정할 수 있다")
 
 # --- 부대 1턴 1이동 (부대 상태 상세는 test_party.gd) ---
 

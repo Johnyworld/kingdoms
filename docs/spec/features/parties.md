@@ -11,8 +11,8 @@
 
 각 세력([FACTION_IDS](../data/units.md))마다:
 
-- **영웅부대 4개**(`kind = KIND_HERO`) — [`make_hero`](../data/units.md)로 영웅 1명을 멤버로 넣고 지휘관 지정. `party_name = hero_party_name`, 세력명은 세력 스펙. **토큰 색 = 세력 색**(플레이어는 기본 금색).
-- **각 영웅마다 부하부대 3개**(`kind = KIND_TROOP`) — **경보병 2 + 경궁병 1**. [`make_troop`](../data/units.md)로 10명 동일 병사를 넣고, 그 부대의 **`lord`를 소속 영웅부대**로 설정한다([Party](../entities/Party.md) 소속). **토큰 색 = 세력 색을 약간 어둡게**(`Color.darkened(0.35)`)하여 영웅부대와 구분한다.
+- **영웅부대 4개**(`kind = KIND_HERO`) — `commander_name = ` [`hero_name`](../data/units.md), `soldiers = GameUnits.max_hp("hero")`(클래스 HP 풀). `party_name = hero_party_name`, 세력명은 세력 스펙. **토큰 색 = 세력 색**(플레이어는 기본 금색).
+- **각 영웅마다 부하부대 3개**(`kind = KIND_TROOP`) — **경보병 2 + 경궁병 1**. `troop_type = ` 아키타입, `commander_name = ` [`troop_name`](../data/units.md), `soldiers = TROOP_SIZE`(10). 그 부대의 **`lord`를 소속 영웅부대**로 설정한다([Party](../entities/Party.md) 소속). **토큰 색 = 세력 색을 약간 어둡게**(`Color.darkened(0.35)`)하여 영웅부대와 구분한다.
 - 그래서 세력당 4 + 4×3 = **16부대**.
 
 **소속·이동**: 부하부대는 `lord`(소속 영웅)를 갖되 **독립 토큰으로 자유 이동**한다(소속은 메타데이터 — 버프는 `미구현`). → [Party 소속](../entities/Party.md#소속-lord).
@@ -44,10 +44,10 @@
 
 ## 테스트 시나리오 — PartyManager (`test/unit/test_party_manager.gd`)
 
-- [정상] `make_party` — host에 노드 부착, 이름/세력/셀 설정, 빈 부대로 시작(목록 등록은 호출부)
-- [정상] 칸 조회 — `party_on_cell`/`player_party_at`/`npc_at`(안개 visible 필터)/`all`; 멤버 0 부대는 조회 제외
-- [정상] `first_living_unit` — 빈 부대 건너뛰고 멤버 있는 첫 부대
-- [정상] `apply_survivors` — 생존(교체+지휘관 재지정)=ALIVE / 전멸 시 목록 제거·free 예약(WIPED_PLAYER·WIPED_NPC) / 해제된 부대=INVALID
+- [정상] `make_party` — host에 노드 부착, 이름/세력/셀 설정, 병력 0으로 시작(목록 등록은 호출부)
+- [정상] 칸 조회 — `party_on_cell`/`player_party_at`/`npc_at`(안개 visible 필터)/`all`; 병력 0 부대는 조회 제외
+- [정상] `first_living_unit` — 병력 0 부대 건너뛰고 병력 있는 첫 부대
+- [정상] `apply_survivors(p, final_soldiers)` — 생존(`p.soldiers` 갱신)=ALIVE / 전멸(`0`) 시 목록 제거·free 예약(WIPED_PLAYER·WIPED_NPC) / 해제된 부대=INVALID
 - [정상] `remove_party` — 어느 목록에 있든 제거+free; `eliminate_faction_parties` — 그 세력 NPC 부대만 제거
 
 ## 테스트
@@ -57,5 +57,5 @@
 
 ## 관련
 
-- [Party (부대)](../entities/Party.md) · [Human (사람)](../entities/Human.md) · [Faction (세력)](../entities/Faction.md) · [유닛 카탈로그](../data/units.md)
+- [Party (부대)](../entities/Party.md) · [Faction (세력)](../entities/Faction.md) · [유닛 카탈로그](../data/units.md)
 - 선택·이동은 [Selection & Movement](selection-and-movement.md), 안개는 [Fog of War](fog-of-war.md), 부대 일람은 [Party Roster](party-roster.md), 거점 방어는 [Camp Capture](camp-capture.md#거점-방어-창발--중심-점거).

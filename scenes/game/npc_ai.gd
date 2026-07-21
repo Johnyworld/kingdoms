@@ -6,14 +6,8 @@ extends RefCounted
 # 자기 전력이 적 전력의 이 비율 미만이면 교전을 피한다(신중한 교전·후퇴 판단).
 const CAUTION_RATIO := 0.7
 
-## 부대 전력 = 멤버 hit_points 합. 부상당하면 낮아진다(교전/후퇴 판단에 쓴다).
-static func party_power(members: Array) -> int:
-	var p := 0
-	for m in members:
-		p += m.hit_points
-	return p
-
 ## 자기 전력이 적 전력의 CAUTION_RATIO 이상이면 교전할 만하다(아니면 회피/후퇴).
+## 전력값은 `Party.power()`(= 병력수). game.gd·npc_planner가 넘긴다.
 static func should_engage(my_power: int, enemy_power: int) -> bool:
 	return float(my_power) >= float(enemy_power) * CAUTION_RATIO
 

@@ -223,18 +223,7 @@ func test_enemies_within_radius_zero() -> void:
 	var got := NpcAi.enemies_within(terrain, c, 0, [c, c + Vector2i(1, 0)], MAP, MAP)
 	assert_eq(got, [c], "반경 0이면 center 칸 적만")
 
-# --- 전력 인식: party_power / should_engage (순수) ---
-
-func _soldier(hp: int) -> Object:
-	var h: Object = load("res://scenes/human/human.gd").new("병사")
-	h.hit_points = hp
-	return h
-
-func test_party_power_sums_hp() -> void:
-	assert_eq(NpcAi.party_power([_soldier(40), _soldier(30)]), 70, "멤버 hit_points 합")
-
-func test_party_power_empty_zero() -> void:
-	assert_eq(NpcAi.party_power([]), 0, "빈 부대 전력 0")
+# --- 전력 인식: should_engage (순수). 전력값 = Party.power()(= 병력수). ---
 
 func test_should_engage_equal() -> void:
 	assert_true(NpcAi.should_engage(100, 100), "대등하면 교전")

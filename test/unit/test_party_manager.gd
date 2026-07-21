@@ -3,7 +3,6 @@ extends GutTest
 ## host = 테스트 노드(생성 부대가 트리에 붙고 테스트 종료 시 함께 정리). 선택/일람/패배 확인은 game.gd 몫이라 여기 없음.
 
 const MAP := 41
-const HumanScript = preload("res://scenes/human/human.gd")
 const ManagerScript = preload("res://scenes/party/party_manager.gd")
 
 var terrain: TileMapLayer
@@ -21,11 +20,10 @@ func before_each() -> void:
 func _center() -> Vector2i:
 	return Vector2i(MAP / 2, MAP / 2)
 
-## 멤버 n명 부대를 만들어 지정 목록에 등록한다.
+## 병력 n인 부대를 만들어 지정 목록에 등록한다.
 func _party(fn: String, cell: Vector2i, n := 1, npc := false) -> Node2D:
 	var p: Node2D = mgr.make_party(fn + " 부대", fn, cell)
-	for i in n:
-		p.add_member(HumanScript.new("%s%d" % [fn, i]))
+	p.soldiers = n
 	if npc:
 		mgr.npc_parties.append(p)
 	else:
@@ -40,7 +38,7 @@ func test_make_party_sets_identity_and_parent() -> void:
 	assert_eq(p.party_name, "분할 부대", "이름")
 	assert_eq(p.faction_name, "A", "세력")
 	assert_eq(terrain.local_to_map(p.position), _center(), "지정 셀 배치")
-	assert_true(p.members.is_empty(), "빈 부대로 시작(목록 등록도 호출부 몫)")
+	assert_eq(p.soldiers, 0, "병력 0으로 시작(목록 등록도 호출부 몫)")
 
 # --- 조회 ---
 
@@ -58,39 +56,35 @@ func test_cell_queries() -> void:
 func test_empty_party_excluded_from_cell_queries() -> void:
 	var empty: Node2D = mgr.make_party("빈 부대", "A", _center())
 	mgr.units.append(empty)
-	assert_null(mgr.party_on_cell(_center()), "멤버 0 부대는 party_on_cell 제외")
-	assert_null(mgr.player_party_at(_center()), "멤버 0 부대는 선택 대상 아님")
+	assert_null(mgr.party_on_cell(_center()), "병력 0 부대는 party_on_cell 제외")
+	assert_null(mgr.player_party_at(_center()), "병력 0 부대는 선택 대상 아님")
 	assert_null(mgr.first_living_unit(), "살아있는 부대 없음")
 	var alive := _party("A", _center() + Vector2i(1, 0))
-	assert_eq(mgr.first_living_unit(), alive, "멤버 있는 첫 부대")
+	assert_eq(mgr.first_living_unit(), alive, "병력 있는 첫 부대")
 
 # --- 전멸 반영(apply_survivors) ---
 
-func test_apply_survivors_alive_swaps_and_reassigns_commander() -> void:
-	var p := _party("A", _center(), 2)
-	var dead = p.members[0]
-	var alive = p.members[1]
-	p.commander = dead
-	assert_eq(mgr.apply_survivors(p, [alive]), ManagerScript.ALIVE, "생존 → ALIVE")
-	assert_eq(p.members, [alive], "생존자로 교체")
-	assert_eq(p.commander, alive, "지휘관 사망 → 첫 생존자로 재지정")
+func test_apply_survivors_alive_updates_soldiers() -> void:
+	var p := _party("A", _center(), 5)
+	assert_eq(mgr.apply_survivors(p, 3), ManagerScript.ALIVE, "생존 → ALIVE")
+	assert_eq(p.soldiers, 3, "최종 병력수로 갱신")
 	assert_true(p in mgr.units, "부대 유지")
 
 func test_apply_survivors_wipes_player_party() -> void:
 	var p := _party("A", _center())
-	assert_eq(mgr.apply_survivors(p, []), ManagerScript.WIPED_PLAYER, "플레이어 전멸 → WIPED_PLAYER")
+	assert_eq(mgr.apply_survivors(p, 0), ManagerScript.WIPED_PLAYER, "플레이어 전멸 → WIPED_PLAYER")
 	assert_false(p in mgr.units, "목록에서 제거")
 	assert_true(p.is_queued_for_deletion(), "노드 해제 예약")
 
 func test_apply_survivors_wipes_npc_party() -> void:
 	var p := _party("B", _center(), 1, true)
-	assert_eq(mgr.apply_survivors(p, []), ManagerScript.WIPED_NPC, "NPC 전멸 → WIPED_NPC")
+	assert_eq(mgr.apply_survivors(p, 0), ManagerScript.WIPED_NPC, "NPC 전멸 → WIPED_NPC")
 	assert_false(p in mgr.npc_parties, "목록에서 제거")
 
 func test_apply_survivors_invalid_party_noop() -> void:
 	var p := _party("A", _center())
 	p.free()   # await 사이 이미 해제된 부대 시뮬레이션
-	assert_eq(mgr.apply_survivors(p, []), ManagerScript.INVALID, "해제된 부대 → INVALID(no-op)")
+	assert_eq(mgr.apply_survivors(p, 0), ManagerScript.INVALID, "해제된 부대 → INVALID(no-op)")
 
 # --- 제거 ---
 
