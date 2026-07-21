@@ -51,7 +51,7 @@
 - **이동력·시야**: 유닛.md에 개별값이 없어 종족(인간) 기본값 `movement = 4`, `vision = 7`을 모든 유닛에 적용한다.
 - **멤버별 장비 override**: 영웅 dict에 `weapons`/`armor`/`shield`가 있으면 세력 기본값을 **덮어쓴다**. 예: 아젤 하르윈은 `weapons: ["longsword", "bow"]`(검+보조 활 — 근접은 장검, 원거리는 활 반격), 자밀라는 `weapons: ["scimitar", "javelin"]`(곡도+투창).
 - 예시 앵커값(카탈로그 원본, 배율 적용 전) — 아젤 하르윈: `strength = 78`, `leadership = 88`, `morale = 90`.
-- **영웅 전투 배율(회피형 반신)**: `make_hero`/`make_heroes`가 영웅 Human 생성 시 **전투 능력치에 배율을 적용**한다 — `힘 × HERO_STR_MULT(3)`, `행운 × HERO_LUCK_MULT(3)`, `민첩 × HERO_AGI_MULT(1.6)`(내림). **지휘력·지혜·매력 등 비전투 스탯과 장비는 그대로**(지휘범위 폭증 등 전략 부작용 방지). 배율 적용 후 `hit_points = max_hp()`로 재계산해 풀피. 결과: 영웅은 얇은 보병과 달리 **HP 100+·회피율 높음(자주 회피)·치명 잦음·공격간격 최소치**라, 수적 열세에서도 다수를 정리한다. 다만 회피가 무한은 아니며([명중 하한 `MIN_HIT`](../features/combat.md)) 다구리엔 취약하다. 병종(`make_troop`)에는 배율을 적용하지 않는다. 세부 수치는 추후 튜닝.
+- **영웅 스탯 배율**: `make_hero`/`make_heroes`가 영웅 Human 생성 시 능력치에 배율을 적용한다 — `힘 × HERO_STR_MULT(3)`, `행운 × HERO_LUCK_MULT(3)`, `민첩 × HERO_AGI_MULT(1.6)`(내림). **지휘력·지혜·매력 등과 장비는 그대로**. 배율 적용 후 `hit_points = max_hp()`로 재계산해 풀피 → 영웅은 **HP 100+**(힘 배율 → `max_hp` 폭). **전투 판정 자체는 lang 클래스**([Lang Battle](../features/lang-battle.md))가 하므로 영웅의 전투 우위는 지휘관 클래스(classId 4)에서 온다. 구 전투 수학(회피·치명·공격간격) 기반 이점은 폐기 — 행운·민첩 배율은 현재 전투에 직접 영향 없음(잔존값, [M4](../features/lang-battle.md#게임-통합)에서 정리 예정). 병종(`make_troop`)엔 배율 미적용. 세부 수치는 추후 튜닝.
 
 ## 병종 아키타입 (`TROOPS`, 세력 공용)
 
@@ -90,7 +90,7 @@
 - [정상] `make_heroes("azel")` 크기 4, 이름 순서 아젤 하르윈·로엔 카스터·미라 벨포드·가레스 던 (**엘윈 사수 없음**)
 - [정상] `make_heroes` 각 세력 크기 4, 첫 명이 그 세력 지휘관(`get_faction`의 첫 영웅)
 - [정상] `make_hero("azel", 0)`의 `strength == 78*3`(힘 배율), `agility == int(65*1.6)`(민첩 배율), `luck == 55*3`(행운 배율), `leadership == 88`·`morale == 90`(비전투 스탯 불변)
-- [정상] `make_hero("azel", 0)` `hit_points == max_hp()` 이고 `hit_points >= 100`(영웅은 두껍다), 회피율(`CombatResolver.evasion`)이 보병보다 크고 공격간격이 보병보다 짧다
+- [정상] `make_hero("azel", 0)` `hit_points == max_hp()` 이고 `hit_points >= 100`(영웅은 두껍다). 회피·공격간격 비교는 전투 수학(CombatResolver) 폐기로 제거
 - [정상] `make_hero("azel", 0)` `weapons == ["longsword", "bow"]`(검+보조 활), `shield == "round_shield"`
 - [정상] `make_hero("balthazar", 0)` `weapons == ["wand"]`(마법), 방어구에 세력 방어구 포함
 - [정상] `make_hero("qasim", 1)`(자밀라) `weapons == ["scimitar", "javelin"]`(투척 무기 보유)

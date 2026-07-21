@@ -57,14 +57,10 @@ func test_hero_stats_mapping() -> void:
 	assert_eq(azel.morale, 90, "사기 90 (불변)")
 
 func test_hero_is_demigod() -> void:
-	# 영웅은 두껍고(HP 100+) 보병보다 회피율↑·공격간격↓(회피형 반신). → units.md
+	# 영웅은 두껍다(HP 100+, 시작 풀피). 회피·공격간격 비교는 전투 수학(CombatResolver) 폐기로 제거. → units.md
 	var azel = types.make_hero("azel", 0)
 	assert_eq(azel.hit_points, azel.max_hp(), "시작 풀피")
 	assert_gte(azel.hit_points, 100, "영웅 HP 100 이상")
-	var inf: Array = types.make_troop("light_infantry")
-	var foot = inf[0]
-	assert_gt(CombatResolver.evasion(azel), CombatResolver.evasion(foot), "영웅 회피율 > 보병")
-	assert_lt(CombatResolver.attack_interval(azel), CombatResolver.attack_interval(foot), "영웅 공격간격 < 보병(더 빠름)")
 
 func test_hero_faction_equipment() -> void:
 	var azel = types.make_hero("azel", 0)

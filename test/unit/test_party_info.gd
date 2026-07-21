@@ -68,15 +68,13 @@ func test_member_label_shows_hp() -> void:
 	assert_string_contains(text, "HP 25/40", "멤버 라벨에 현재/max_hp() HP 표시")
 
 func test_member_label_shows_equipment() -> void:
+	# 공격(AT)·방어(DF) 표시는 전투 수학(CombatResolver) 폐기로 제거 — 무기 이름만 표시.
 	var h := _human("전사", 3, 5)
-	h.strength = 78
-	h.weapons = ["sword"]                    # 공격력 14, AT = 14 + floor(78/5) = 29
-	h.armor = ["leather_armor"]              # 방어력 8
+	h.weapons = ["sword"]
+	h.armor = ["leather_armor"]
 	panel.open(_party([h]))
 	var text: String = (panel._member_list.get_child(0) as Label).text
 	assert_string_contains(text, "검", "장비 줄에 무기 이름 포함")
-	assert_string_contains(text, "29", "장비 줄에 공격(AT) 포함")
-	assert_string_contains(text, "8", "장비 줄에 방어(DF) 포함")
 
 func test_member_label_shows_secondary_weapon() -> void:
 	var h := _human("궁사겸용", 3, 5)
@@ -91,10 +89,6 @@ func test_member_label_shows_barehand() -> void:
 	var text: String = (panel._member_list.get_child(0) as Label).text
 	assert_string_contains(text, "맨손", "무기 없으면 '맨손' 표시")
 
-func test_member_label_shows_evasion() -> void:
-	panel.open(_sample_party())
-	assert_string_contains((panel._member_list.get_child(0) as Label).text, "회피", "전투 스탯 줄에 회피 표시")
-
 func test_member_label_shows_armor_pieces() -> void:
 	var h := _human("갑옷병", 3, 5)
 	h.armor = ["leather_helm", "leather_armor"]
@@ -107,16 +101,6 @@ func test_member_label_shows_armor_pieces() -> void:
 func test_member_label_no_armor_no_line() -> void:
 	panel.open(_party([_human("맨몸이", 3, 5)]))   # armor []
 	assert_false("방어구:" in (panel._member_list.get_child(0) as Label).text, "맨몸이면 방어구 줄 없음")
-
-func test_member_label_shows_shield_block() -> void:
-	var shielded := _human("방패병", 3, 5)
-	shielded.shield = "tower_shield"   # 막기 40%
-	panel.open(_party([shielded]))
-	assert_string_contains((panel._member_list.get_child(0) as Label).text, "막기", "방패 들면 막기 표시")
-
-func test_member_label_no_shield_no_block() -> void:
-	panel.open(_party([_human("무방패", 3, 5)]))   # shield ""
-	assert_false("막기" in (panel._member_list.get_child(0) as Label).text, "방패 없으면 막기 미표시")
 
 func test_empty_party() -> void:
 	# 스탯은 클래스 기반이라 멤버 수와 무관(빈 부대도 클래스 이동력·시야). 멤버 리스트만 빈다.

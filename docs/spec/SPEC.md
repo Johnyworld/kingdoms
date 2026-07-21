@@ -52,11 +52,8 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Confirm Dialog (확인 다이얼로그)](features/confirm-dialog.md) — 되돌리기 어려운 동작 전 확인받는 범용 모달(첫 사용처: 건물 철거)
 - [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(첫 소비자: 구성원 메뉴)
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
-- [Combat (전투 판정)](features/combat.md) — 능력치 기반 1회 공방·3회 교대 교전 순수 로직
 - [Raid (약탈)](features/raid.md) — 전투로 전멸한 적 부대의 전사자 장비를 승자가 노획(플레이어=선택 패널 / NPC=자동 전량)
 - [Equipment (장비 관리)](features/equipment.md) — 노획 장비를 멤버에게 장착·탈착(무기3·방어구4·방패1 슬롯, 스왑 없음). 행동 메뉴 [장비]로 여는 모달
-- [Status Effects (상태이상)](features/status-effects.md) — 치명타 연동 출혈·기절 (전투씬 내, 초 기반)
-- [Combat Feedback (전투 연출)](features/combat-feedback.md) — 대미지 숫자·타격 반짝임·흔들림·돌진·상태이상 텍스트·사망 넉백
 - [Lang Battle (랑그릿사 1 오마주 전투 — 게임 정식 전투)](features/lang-battle.md) — 게임의 **정식 전투 시스템**(구 battle.gd 오버레이 대체). 모든 부대 전투가 이 오버레이로 열린다. Resolver(순수 계산)/Presenter(연출) 분리, 원본 RNG·상성·지휘보정·병력바 재현
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
 - [Primary Production (1차 생산 건물)](features/production.md) — 지형 위 자원 채취 건물(농장·식량 / 벌목소·목재 / 철광·철 / 금광·금). 생산포인트(1÷거리, 거리 기반) 모델 · 거점 배정/변경 · 배치 규칙(건물∪부대 시야 · 1차=지형+캠프 / 기타=마을회관 인접). 자원 4종 체제
@@ -64,7 +61,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 분할·병합으로 재조직
 - [Party Lord (소속 영웅)](features/party-lord.md) — 일반부대의 소속 영웅부대 설정/해제 UI([소속] 버튼 → 모달, 소속=인접 영웅 필요·해제 자유·턴 무소비)
 - [Squad Stance (부대 작전 — 이동 후 하위부대 명령)](features/squad-stance.md) — 영웅 이동 직후 작전 메뉴 [추종][대기][교전][돌격]로 하위부대 일괄 통솔. 교전=최근접 적 접근·신중 전투, 돌격=목표 1지점 어택무브(공격적)
-- [Command Range (지휘 범위 버프)](features/command-range.md) — 소속 하위부대가 영웅(`lord`) 지휘 범위(leadership 기반, 2~4칸) 안이면 전투 공격·방어 ×1.2(alert와 중첩). 맵 배지 표시, 모든 세력
+- [Command Range (지휘 범위 버프)](features/command-range.md) — 소속 하위부대가 영웅(`lord`) 지휘 범위(lang 클래스 `cmd_range`, 3~4칸) 안인지 판정해 맵 배지 표시. 전투 배율 효과는 RPG 전투 수학 폐기로 **현재 미반영**(lang 연동 미정), 모든 세력
 - [Victory & Defeat (승패)](features/victory.md) — 세력 소멸(10턴 유예)로만 승패 · 정복 승리 · 결과 오버레이 · 타이틀 복귀
 
 ### 데이터 (`data/`)
@@ -73,7 +70,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
 - [Stats (능력치 정의)](data/stats.md)
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성
-- [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그 + 상성표. 전투 AT·DF·상성에 사용
+- [Items (무기·방어구)](data/items.md) — 무기·방어구 카탈로그. 부대 정보 표시·월드맵 사거리에 사용(전투 판정은 lang 클래스)
 - [Buildings (건물 종류)](data/buildings.md)
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
 
@@ -92,9 +89,6 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 건설 가능 영역 오버레이 | `scenes/game/build_area_overlay.gd` |
 | 전장의 안개 | `scenes/game/fog.gd` |
 | NPC 이동 AI | `scenes/game/npc_ai.gd` |
-| 전투 판정 | `scenes/combat/combat_resolver.gd` |
-| 상태이상(순수) | `scenes/combat/status_effects.gd` |
-| 전투 연출(순수 텍스트 매핑) | `scenes/combat/hit_feedback.gd` |
 | 랑그릿사 전투 오버레이 | `scenes/lang_battle/lang_battle.gd` |
 | 부대↔lang 매핑 | `scenes/lang_battle/lang_bridge.gd` |
 | 유닛 카탈로그(클래스·HP) | `scenes/party/game_units.gd` |

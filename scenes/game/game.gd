@@ -895,15 +895,15 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 	if not is_instance_valid(attacker) or not is_instance_valid(defender):
 		return   # 연속/중첩 전투(교전·돌격·NPC 페이즈)에서 await 사이에 한쪽이 전멸·해제됐으면 건너뛴다
 	_in_battle = true
-	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신 → 전투 배율의 단일 출처. → command-range.md
-	_apply_command_flags(attacker, true)
+	_refresh_command_buffs()                  # 최신 위치로 지휘 범위 갱신(맵 배지·플래그). 구 전투 ×1.2는 폐기, lang 미연동. → command-range.md
+	_apply_command_flags(attacker, true)      # in_command 플래그 세팅(현재 전투 결과엔 미반영, lang 연동 대비 인프라만)
 	_apply_command_flags(defender, true)
 	# 모든 전투 = lang 오버레이(완전 교체 전투). → lang-battle.md
 	var result: Array = await _run_lang_overlay(attacker, defender, distance)
 	await _resolve_loot(attacker, defender, result[0], result[1])   # 전멸한 패자 전사자 장비 노획(플레이어 승자면 패널)
 	_apply_survivors(attacker, result[0])
 	_apply_survivors(defender, result[1])
-	_apply_command_flags(attacker, false)   # 지휘 버프 플래그 해제(전투 수명 종료). → command-range.md
+	_apply_command_flags(attacker, false)   # in_command 플래그 해제(전투 수명 종료). → command-range.md
 	_apply_command_flags(defender, false)
 	_in_battle = false
 	if occupy_cell != Vector2i(-1, -1) and is_instance_valid(defender) and defender.members.is_empty() and is_instance_valid(attacker) and not attacker.members.is_empty():

@@ -67,14 +67,11 @@ func open(party) -> void:
 			for i in range(1, member.weapons.size()):
 				extras.append(ItemTypes.weapon_name(member.weapons[i]))
 			weapon += " (+%s)" % ", ".join(extras)
-		# 1줄: 이름·HP(현재/최대)·이동·시야, 2줄: 무기 · 공격(AT) · 방어(DF) · 회피(EV) [· 막기(방패 있을 때)].
-		label.text = "%s   HP %d/%d   이동 %d / 시야 %d\n  %s · 공격 %d · 방어 %d · 회피 %d" % [
+		# 1줄: 이름·HP(현재/최대)·이동·시야, 2줄: 무기.
+		# 공격/방어/회피/막기(구 CombatResolver)는 RPG 전투 수학 폐기로 제거 — 전투는 lang 클래스 판정.
+		label.text = "%s   HP %d/%d   이동 %d / 시야 %d\n  %s" % [
 			member.human_name, member.hit_points, member.max_hp(), member.movement, member.vision,
-			weapon, CombatResolver.attack_power(member), CombatResolver.defense(member),
-			roundi(CombatResolver.evasion(member))]
-		var block: int = CombatResolver.block_chance(member)
-		if block > 0:
-			label.text += " · 막기 %d%%" % block
+			weapon]
 		# 3줄: 착용 방어구 조각 이름(맨몸이면 줄 없음).
 		if not member.armor.is_empty():
 			var pieces: Array = []

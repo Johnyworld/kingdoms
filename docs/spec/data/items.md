@@ -2,14 +2,14 @@
 
 > 스크립트: `scenes/item/item_types.gd` (`class_name ItemTypes`)
 
-전투에 쓰이는 **무기·방어구 카탈로그**와 **상성표**. `BuildingTypes`·`Terrain`·`UnitTypes`와 같은 "GDScript 카탈로그" 패턴이다.
+**무기·방어구 카탈로그**. `BuildingTypes`·`Terrain`·`UnitTypes`와 같은 "GDScript 카탈로그" 패턴이다. 부대 정보 표시·월드맵 사거리에 쓰인다(전투 판정은 lang 클래스 — 구 상성표·전투 수학은 [RPG 전투 계층 폐기](../features/lang-battle.md)로 삭제).
 기획 원본 `docs/table/아이템/무기.md`·`방어구.md`에서 **전투에 쓰는 필드만** 옮긴 **부분집합**이다(무게·공격거리·근접거리·생산비용·부위 등은 미수록 — 관련 기능이 생길 때 추가). **가치(`value`)** 필드는 수록돼 있으나, [상거래 제거](../features/camp-menu.md)로 **현재 소비처가 없다**(재도입 시 사용). 무기=공격력, 방어구·방패=방어력×2 기준.
 
 ## 무기 (`ItemTypes.WEAPONS`)
 
-`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법` — 값은 상수 `ItemTypes.DT_SLASH/DT_PIERCE/DT_BLUNT/DT_RANGED/DT_MAGIC`(카탈로그·[상성표](#상성표)·치명 상태이상 매핑([Status Effects](../features/status-effects.md) `CRIT_INFLICT`)의 단일 출처). `value`는 기준가(상거래 제거로 **현재 미사용**). `weight`는 회피 페널티, `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투 오버레이([Lang Battle](../features/lang-battle.md))에서 쓴다:
+`{id: {name, attack, damage_type, weight, range, reach, attack_speed, throw_range?, value}}`. `damage_type` = `참격|자돌|타격|원거리|마법` — 값은 상수 `ItemTypes.DT_SLASH/DT_PIERCE/DT_BLUNT/DT_RANGED/DT_MAGIC`(무기 표기 메타데이터. 구 상성표·치명 상태이상 소비처는 폐기됨). `value`는 기준가(상거래 제거로 **현재 미사용**). `weight`는 회피 페널티(구 전투 수학 폐기로 현재 미소비), `range`는 월드맵 공격거리(헥스 거리, [Selection & Movement](../features/selection-and-movement.md)). `reach`(근접거리)·`attack_speed`(공격속도)·`throw_range`는 전투 오버레이([Lang Battle](../features/lang-battle.md))에서 쓴다:
 - **`reach`(근접거리)** — 전투씬 근접 공격 개시 거리(원본 무기.md). **클수록 리치가 길어 먼저 사거리에 진입 = 선제 공격**. 맨손 1.0.
-- **`attack_speed`(공격속도)** — 1회 공격에 걸리는 초(민첩 0 기준). 낮을수록 빠름. 최종 공격 간격은 민첩으로 단축([Combat](../features/combat.md) `attack_interval`).
+- **`attack_speed`(공격속도)** — 1회 공격에 걸리는 초(민첩 0 기준). 낮을수록 빠름. (구 전투 수학의 공격 간격 계산은 폐기 — 현재 연출 참고값.)
 - **`throw_range`**(선택, 기본 0) — **던지는 무기**의 전투씬 투척 사거리. 활과 달리 월드맵 `range`는 1이지만 접근 중 이 거리부터 투척한다.
 
 `value`(가치) = 판매가(금). 무기는 공격력과 동일.
@@ -33,7 +33,7 @@
 
 ## 방어구 (`ItemTypes.ARMORS`)
 
-`{id: {name, defense, armor_class, weight, value}}`. `armor_class` = `천|가죽|사슬|판금`. `value`는 판매가. 부위(머리·몸통·팔·다리)는 미수록 — 유닛은 방어구 id 목록을 들고 DF는 그 합, 상성 분류는 방어력이 가장 큰 조각의 분류로 대표한다.
+`{id: {name, defense, armor_class, weight, value}}`. `armor_class` = `천|가죽|사슬|판금`(카탈로그 메타데이터). `value`는 판매가. 부위(머리·몸통·팔·다리)는 미수록 — 유닛은 방어구 id 목록을 든다. (구 전투 수학의 DF 합·상성 분류 대표값은 폐기.)
 
 `value`(가치) = 방어력 × 2.
 
@@ -50,7 +50,7 @@
 
 ## 방패 (`ItemTypes.SHIELDS`)
 
-`{id: {name, defense, block, weight, value}}`. `defense`는 DF에 합산, `block`은 막기 확률(%), `weight`는 회피 페널티, `value`는 판매가. 유닛은 방패 id 하나(`""`=없음)를 든다. 양손무기 제약은 미수록.
+`{id: {name, defense, block, weight, value}}`. `value`는 판매가. 유닛은 방패 id 하나(`""`=없음)를 든다. 양손무기 제약은 미수록. (`defense`·`block`·`weight`는 구 전투 수학용 필드 — RPG 전투 계층 폐기로 현재 미소비, 카탈로그 메타데이터로 유지.)
 
 `value`(가치) = 방어력 × 2.
 
@@ -64,17 +64,6 @@
 ## 도구 (`ItemTypes.TOOLS`)
 
 장착하지 않는(슬롯 없음) 소지 아이템 카탈로그. **현재 비어 있다(`TOOLS = {}`)** — 유일한 항목이 관련 기능 제거와 함께 삭제됐다. `item_name`·`item_slot`·`item_value` 통합 조회는 도구 카탈로그도 훑도록 남아 있으나(재도입 대비), 지금은 조회할 항목이 없다.
-
-## 상성표 (`ItemTypes.AFFINITY`)
-
-받는 피해에 곱하는 배율 `AFFINITY[방어구 분류][데미지 타입]`(1.0 = 기본). 기획 원본과 동일.
-
-| 분류 | 참격 | 자돌 | 타격 | 원거리 | 마법 |
-| --- | --- | --- | --- | --- | --- |
-| 천 | 1.2 | 1.2 | 1.0 | 1.2 | 0.6 |
-| 가죽 | 0.9 | 1.0 | 1.1 | 0.9 | 1.0 |
-| 사슬 | 0.7 | 0.8 | 1.1 | 0.8 | 1.1 |
-| 판금 | 0.5 | 0.6 | 0.9 | 0.6 | 1.3 |
 
 ## 헬퍼
 
@@ -98,8 +87,6 @@
 - `armor_defense(id) -> int` / `armor_class(id) -> String` / `armor_name(id) -> String` / `armor_weight(id) -> int` — 없는 id면 `0` / `""` / `""` / `0`.
 - `shield_defense(id) -> int` / `shield_block(id) -> int` / `shield_name(id) -> String` / `shield_weight(id) -> int` — 없는(빈) id면 `0` / `0` / `""` / `0`.
 - `total_defense(ids: Array) -> int` — 방어구 id 목록의 방어력 합.
-- `armor_class_of(ids: Array) -> String` — 방어력이 가장 큰 조각의 분류(비면 `""`). 상성 판정의 대표 분류.
-- `affinity(armor_class, damage_type) -> float` — 상성 배율. 분류/타입이 표에 없으면 `1.0`.
 - `item_name(id) -> String` — 무기·방어구·방패·도구 카탈로그를 통합 조회한 이름. 무기→방어구→방패→도구 순으로 찾고, 어디에도 없으면 `""`. [노획 장비](../features/raid.md) 목록 표시에 쓴다.
 - `item_slot(id) -> String` — 그 아이템이 들어가는 장비 슬롯 분류. 무기면 `SLOT_WEAPON`(`"weapon"`), 방어구면 `SLOT_ARMOR`(`"armor"`), 방패면 `SLOT_SHIELD`(`"shield"`), 세 곳 어디에도 없으면 `""`. 슬롯 문자열은 상수 `ItemTypes.SLOT_*`가 단일 출처 — 장착 판정([Party](../entities/Party.md)의 `can_equip_from_loot`/`equip_from_loot`/`unequip_to_loot`)도 같은 상수로 분기한다. [장비 관리](../features/equipment.md)에서 노획 장비를 알맞은 슬롯에 장착할 때 쓴다.
 - `item_value(id) -> int` — 그 아이템의 기준가. 무기→방어구→방패→도구 순으로 `value`를 찾고, 어디에도 없으면 `0`. (상거래 제거로 **현재 호출처 없음** — 함수·필드는 재도입 대비 유지.)
@@ -132,15 +119,11 @@
 - [정상] `total_defense`는 방어구 id 목록의 방어력 합
 - [정상] `shield_defense("tower_shield") == 12`, `shield_block("tower_shield") == 40`, `shield_name("buckler") == "버클러"`
 - [예외] 빈/없는 방패 id → `shield_defense`·`shield_block` `0`, `shield_name` `""`
-- [정상] `armor_class_of`는 방어력이 가장 큰 조각의 분류(예: 가죽 세트 → `가죽`)
-- [경계] `armor_class_of([])` → `""`
-- [정상] `affinity("판금", "마법") == 1.3`, `affinity("사슬", "참격") == 0.7`
 - [정상] `item_name("sword") == "검"`(무기), `item_name("chain_mail") == "사슬 갑옷"`(방어구), `item_name("buckler") == "버클러"`(방패); [예외] `item_name("") == ""`, 없는 id → `""`
 - [정상] `item_slot("sword") == "weapon"`, `item_slot("chain_mail") == "armor"`, `item_slot("buckler") == "shield"`; [예외] `item_slot("") == ""`, 없는 id → `""`
 - [정상] `item_value("sword") == 14`(무기=공격력), `item_value("chain_mail") == 28`(방어구=방어력×2), `item_value("tower_shield") == 24`(방패); [예외] `item_value("") == 0`, 없는 id → `0`
-- [예외] 없는 분류/타입 → `affinity` `1.0`
 
 ## 관련
 
-- 전투 계산에서의 사용은 [Combat](../features/combat.md), 착용은 [Human](../entities/Human.md).
+- 착용은 [Human](../entities/Human.md), 전투 판정은 [Lang Battle](../features/lang-battle.md)(lang 클래스).
 - 기획 원본: `docs/table/아이템/무기.md`·`방어구.md`.

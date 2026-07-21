@@ -1,8 +1,10 @@
 # Feature: Command Range (지휘 범위 버프)
 
-> 스크립트: `scenes/party/party.gd` (`command_range`·`command_buffed`·배지 `_draw`) · `scenes/human/human.gd` (`in_command`) · `scenes/combat/combat_resolver.gd` (`COMMAND_MULT`) · `scenes/game/game.gd` (`_in_command`·`_refresh_command_buffs`·`_apply_command_flags`)
+> 스크립트: `scenes/party/party.gd` (`command_range`·`command_buffed`·배지 `_draw`) · `scenes/human/human.gd` (`in_command`) · `scenes/game/game.gd` (`_in_command`·`_refresh_command_buffs`·`_apply_command_flags`)
 
-랑그릿사식 편제의 핵심. **일반부대**([Party](../entities/Party.md) `KIND_TROOP`)가 자신이 [소속](party-lord.md)된 **영웅부대**(`lord`)의 **지휘 범위 안**에 있으면, 전투에서 **공격·방어 ×1.2** 보정을 받는다. 지휘관 곁에 부하를 모아 싸우게 만드는 유인이다.
+랑그릿사식 편제의 핵심. **일반부대**([Party](../entities/Party.md) `KIND_TROOP`)가 자신이 [소속](party-lord.md)된 **영웅부대**(`lord`)의 **지휘 범위 안**에 있는지 판정해 맵에 **배지**로 표시한다. 지휘관 곁에 부하를 모으게 만드는 유인이다.
+
+> ⚠️ **전투 배율 효과는 현재 미반영.** 구 RPG 전투 수학(`CombatResolver`)이 `in_command`를 읽어 공격·방어 ×1.2를 줬으나, 전투 수학 계층 폐기로 **삭제**됐다. 현재 전투 판정은 lang 클래스([Lang Battle](lang-battle.md))가 하며 지휘 버프를 아직 읽지 않는다. `in_command` 플래그·배지·판정 인프라는 유지 — lang 전투에 지휘 보정을 실제로 물릴지는 후속 결정.
 
 ## 지휘 범위 — `Party.command_range()`
 
@@ -23,16 +25,11 @@ command_range() = GameUnits.command_range(archetype())   # = lang 클래스 cmd_
 - `troop`의 칸이 `lord` 칸에서 **`lord.command_range()` 헥스 이내**여야 한다. 거리는 **지형 무관 헥스 거리**(`HexGrid.cells_within`, 산에 막히지 않음) — 지휘는 지형을 타지 않는다.
 - **영웅부대 자신**은 `lord == null`이라 항상 거짓(지휘관은 지휘 버프를 받지 않는다 — 원작대로 부하만).
 
-## 전투 효과 — `Human.in_command` + `CombatResolver`
+## 전투 효과 — `Human.in_command` (현재 미반영)
 
-alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
-
-- `Human.in_command: bool`(기본 `false`). 참이면 전투 공격력·방어력에 `COMMAND_MULT = 1.2`를 곱한다.
-- `CombatResolver.attack_power(h)` / `defense(h)`: 배율 = `(alert면 ×ALERT_MULT) × (in_command이면 ×COMMAND_MULT)`. **alert와 곱셈 중첩**(경계+지휘 = ×1.44, 내림).
-- **수명(alert와 동일)**: 전투 직전 양측 부대의 멤버에 세팅하고, 전투가 끝나면 해제한다.
-  - `_run_battle`·`_resolve_battle_headless`(부대 vs 부대) 진입 시 `_apply_command_flags(attacker, true)`(+ `defender`), 종료 시 `false`. **멤버가 전투에 참여하는 모든 경로**에 붙인다.
+- `Human.in_command: bool`(기본 `false`). 영웅 지휘 범위 안 하위부대 멤버에 전투 직전 세팅, 종료 시 해제(`game.gd`가 `_apply_command_flags`로 on/off).
   - `_apply_command_flags(party, on)`: `party`의 각 멤버 `in_command = on and party.command_buffed`(아래 배지 상태 재사용).
-- **모든 세력** 적용 — 플레이어·NPC 모두 자기 영웅 근처 부대가 강해진다(전투 경로가 대칭이라 자동).
+- **구 전투 수학의 ×1.2 배율(alert와 곱셈 중첩)은 폐기 — 현재 전투 결과에 반영되지 않는다.** lang 전투 판정은 `in_command`를 아직 읽지 않는다. 플래그 세팅/해제 인프라만 남아 있다(lang 연동 시 재사용 대비).
 
 ## 맵 배지 — `Party.command_buffed`
 
@@ -50,11 +47,9 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 | 속성/메서드 | 설명 |
 | --- | --- |
 | `command_range()` | 지휘 반경(헥스) = lang 클래스 `cmd_range`(영웅 4·경보병 3), 아키타입 없으면 0 |
-| `command_buffed` | `bool`, 기본 `false`. 지휘 범위 안이라 버프 중인지(맵 배지·전투 플래그의 출처) |
+| `command_buffed` | `bool`, 기본 `false`. 지휘 범위 안인지(맵 배지·`in_command` 플래그의 출처) |
 
-`Human` (`human.gd`): `in_command: bool`(기본 `false`) — 전투 배율 플래그(`CombatResolver`가 읽음).
-
-`CombatResolver`: `COMMAND_MULT = 1.2` — 공격력·방어력 지휘 배율.
+`Human` (`human.gd`): `in_command: bool`(기본 `false`) — 지휘 범위 플래그. **현재 전투에 미반영**(구 `CombatResolver` 배율 폐기, lang 미연동).
 
 `game.gd`:
 - `_in_command(troop) -> bool` — 위 판정.
@@ -68,11 +63,7 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 
 ## 테스트 시나리오
 
-### 전투 배율 — `test/unit/test_combat_resolver.gd`
-
-- [정상] `in_command = true`면 `attack_power`·`defense`가 ×1.2(내림), `false`면 원값
-- [정상] `alert`와 `in_command` 둘 다 true면 ×1.44(내림) — 곱셈 중첩
-- [경계] `in_command = false`, `alert = false`면 원값(회귀 확인)
+> 전투 배율 효과는 폐기(구 `test_combat_resolver.gd`도 삭제). 현재는 지휘 범위 판정·배지만 검증.
 
 ### 지휘 범위 공식 — `test/unit/test_party.gd`
 
@@ -85,11 +76,10 @@ alert와 **같은 모델**: 멤버 플래그 → CombatResolver가 배율 곱.
 `_in_command`(부대 거리·lord 위치)·배지 렌더·`_refresh_command_buffs` 호출 시점·전투 직전 플래그 세팅/해제는 씬 트리·터레인 의존이라 실제 실행으로 확인한다.
 
 - 하위부대를 영웅 지휘 범위(클래스 4 → 4칸) 안에 두면 배지가 켜지고, 밖으로 나가면 꺼진다.
-- 지휘 범위 안 하위부대가 전투하면 공격·방어가 ×1.2(경계까지면 ×1.44)로 적용된다.
-- 영웅부대 자신·소속 없는 독립부대는 배지·버프 없음.
-- NPC 하위부대도 자기 영웅 근처면 버프(배지 표시).
+- 영웅부대 자신·소속 없는 독립부대는 배지 없음.
+- NPC 하위부대도 자기 영웅 근처면 배지 표시.
 
 ## 관련
 
 - [Party (부대)](../entities/Party.md) — `lord`·`command_range`·`command_buffed`. [Party Lord](party-lord.md) — 소속 설정. [Squad Stance](squad-stance.md) — 하위부대를 영웅 곁으로 모으는 작전(추종 등).
-- [Combat](combat.md) — 데미지 공식·배율(alert·지휘). 지휘 범위값은 [GameUnits](../data/units.md) 클래스 `cmd_range`.
+- 전투 판정은 [Lang Battle](lang-battle.md)(lang 클래스). 지휘 범위값은 [GameUnits](../data/units.md) 클래스 `cmd_range`.

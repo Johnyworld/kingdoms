@@ -41,8 +41,8 @@
 | 스태미나(현재) | `stamina` | 20 | 유닛 생성 시 `max_stamina`로 채움. **소모 시스템은 `미구현`**([행동 메뉴](../features/party-action-menu.md) 휴식/경계로 회복만) |
 | 최대 스태미나 | `max_stamina` | 20 | 스태미나 상한. 유닛 생성 시 `stamina`와 같게 설정 |
 | 사기 | `morale` | 20 | |
-| 경계 버프 | `alert` | `false` | 참이면 전투 공격력·방어력 ×1.2([Combat](../features/combat.md)). [경계](../features/party-action-menu.md) 선택 시 부여, 적 턴 종료 후 해제 |
-| 지휘 버프 | `in_command` | `false` | 참이면 전투 공격력·방어력 ×1.2([지휘 범위](../features/command-range.md), alert와 곱셈 중첩). 영웅 지휘 범위 안 소속 하위부대에 전투 직전 부여, 전투 후 해제 |
+| 경계 버프 | `alert` | `false` | [경계](../features/party-action-menu.md) 선택 시 부여, 적 턴 종료 후 해제. **구 전투 수학(×1.2)은 폐기 — 현재 전투 효과 미반영**(플래그만 유지) |
+| 지휘 버프 | `in_command` | `false` | 영웅 지휘 범위 안 소속 하위부대에 전투 직전 부여, 전투 후 해제([지휘 범위](../features/command-range.md)). **구 전투 수학(×1.2)은 폐기 — 현재 전투 효과 미반영** |
 
 ### 계산·행동 (Computed / Actions)
 
@@ -56,9 +56,9 @@
 
 | 속성 | 변수 | 초기값 | 설명 |
 | --- | --- | --- | --- |
-| 무기 | `weapons` | `[]` | [ItemTypes](../data/items.md) 무기 id **목록(2~3개)**. **첫 원소 = 주무기**. 근접 전투는 주무기, 원거리 전투는 목록 중 원거리 무기(활 등)를 쓴다. 월드맵 공격거리는 목록 중 최대. 무게는 전부 합산(회피 페널티). `[]`=맨몸 |
-| 방어구 | `armor` | `[]` | 착용 방어구 id 목록(최대 4). DF=방어력 합, 상성 분류=방어력 최대 조각. `[]`=맨몸 |
-| 방패 | `shield` | `""` | [ItemTypes](../data/items.md) 방패 id. DF에 방어력 합산 + 막기 확률. `""`=없음. 검+방패를 들고도 활을 보조무기로 가질 수 있다 |
+| 무기 | `weapons` | `[]` | [ItemTypes](../data/items.md) 무기 id **목록(2~3개)**. **첫 원소 = 주무기**. 월드맵 공격거리는 목록 중 최대([Selection & Movement](../features/selection-and-movement.md)). `[]`=맨몸. (구 전투 수학의 무게=회피 페널티는 폐기 — 전투 판정은 lang 클래스) |
+| 방어구 | `armor` | `[]` | 착용 방어구 id 목록(최대 4). 부대 정보 표시용. `[]`=맨몸. (구 전투 수학의 DF 합·상성 분류는 폐기) |
+| 방패 | `shield` | `""` | [ItemTypes](../data/items.md) 방패 id. `""`=없음. 검+방패를 들고도 활을 보조무기로 가질 수 있다. (구 전투 수학의 DF·막기 확률은 폐기) |
 
 슬롯 상한(상수): `MAX_WEAPONS`=`3`(무기), `MAX_ARMOR`=`4`(방어구), 방패는 1개(단일 슬롯). [장비 관리](../features/equipment.md)의 장착이 이 상한을 지킨다.
 

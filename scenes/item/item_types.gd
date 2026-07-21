@@ -1,9 +1,10 @@
 class_name ItemTypes
-## 무기·방어구 카탈로그 + 상성표. BuildingTypes·Terrain·UnitTypes와 같은 GDScript 카탈로그 패턴.
+## 무기·방어구 카탈로그. BuildingTypes·Terrain·UnitTypes와 같은 GDScript 카탈로그 패턴.
 ## 기획 원본(docs/table/아이템/무기.md·방어구.md)에서 전투에 쓰는 필드만 옮긴 부분집합이다.
 ## 무게·공격거리·근접거리·생산비용·가치·부위 등은 미수록(관련 기능 도입 시 추가).
+## 상성표(AFFINITY)·전투 수학은 RPG 전투 계층 폐기로 삭제 — 전투는 lang 클래스 판정.
 
-# 데미지 타입 상수 — 무기 카탈로그(damage_type)·상성표(AFFINITY)·치명 상태이상(StatusEffects.CRIT_INFLICT)의 단일 출처.
+# 데미지 타입 상수 — 무기 카탈로그(damage_type)의 표기값. (구 상성표·치명 상태이상 소비처는 제거됨.)
 const DT_SLASH := "참격"
 const DT_PIERCE := "자돌"
 const DT_BLUNT := "타격"
@@ -51,14 +52,6 @@ const SHIELDS := {
 
 # 도구: 장착하지 않는 소지 아이템(슬롯 없음). 현재 비어 있음(고리 사다리는 공성 삭제와 함께 제거). → docs/spec/data/items.md
 const TOOLS := {}
-
-# 상성표: 방어구 분류 → { 데미지 타입(DT_*) → 배율 }. 기획 원본과 동일.
-const AFFINITY := {
-	"천": {DT_SLASH: 1.2, DT_PIERCE: 1.2, DT_BLUNT: 1.0, DT_RANGED: 1.2, DT_MAGIC: 0.6},
-	"가죽": {DT_SLASH: 0.9, DT_PIERCE: 1.0, DT_BLUNT: 1.1, DT_RANGED: 0.9, DT_MAGIC: 1.0},
-	"사슬": {DT_SLASH: 0.7, DT_PIERCE: 0.8, DT_BLUNT: 1.1, DT_RANGED: 0.8, DT_MAGIC: 1.1},
-	"판금": {DT_SLASH: 0.5, DT_PIERCE: 0.6, DT_BLUNT: 0.9, DT_RANGED: 0.6, DT_MAGIC: 1.3},
-}
 
 ## 무기 공격력(없는 id면 0).
 static func weapon_attack(id: String) -> int:
@@ -208,18 +201,3 @@ static func total_defense(ids: Array) -> int:
 	for id in ids:
 		sum += armor_defense(id)
 	return sum
-
-## 방어력이 가장 큰 조각의 분류(상성 판정 대표 분류). 비면 "".
-static func armor_class_of(ids: Array) -> String:
-	var best := ""
-	var best_def := -1
-	for id in ids:
-		var d := armor_defense(id)
-		if d > best_def:
-			best_def = d
-			best = armor_class(id)
-	return best
-
-## 상성 배율. 분류/타입이 표에 없으면 1.0.
-static func affinity(a_class: String, damage_type: String) -> float:
-	return AFFINITY.get(a_class, {}).get(damage_type, 1.0)

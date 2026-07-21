@@ -101,21 +101,6 @@ func test_total_defense_sums() -> void:
 	assert_eq(ItemTypes.total_defense(set), 17, "가죽 세트 방어력 합 17")
 	assert_eq(ItemTypes.total_defense([]), 0, "맨몸 방어력 0")
 
-func test_armor_class_of_uses_max_defense_piece() -> void:
-	# 방어력 최대 조각(가죽 갑옷 8)의 분류가 대표.
-	var set := ["leather_helm", "leather_armor", "leather_gloves"]
-	assert_eq(ItemTypes.armor_class_of(set), "가죽", "최대 방어 조각 분류 = 가죽")
-	assert_eq(ItemTypes.armor_class_of([]), "", "맨몸 대표 분류 빈 문자열")
-
-func test_affinity_table() -> void:
-	assert_almost_eq(ItemTypes.affinity("판금", "마법"), 1.3, 0.001, "판금은 마법에 취약")
-	assert_almost_eq(ItemTypes.affinity("사슬", "참격"), 0.7, 0.001, "사슬은 참격에 강함")
-	assert_almost_eq(ItemTypes.affinity("천", "마법"), 0.6, 0.001, "천은 마법 경감")
-
-func test_affinity_unknown_defaults_one() -> void:
-	assert_almost_eq(ItemTypes.affinity("", "참격"), 1.0, 0.001, "분류 없으면 1.0")
-	assert_almost_eq(ItemTypes.affinity("판금", ""), 1.0, 0.001, "타입 없으면 1.0")
-
 func test_item_name_unified_lookup() -> void:
 	# 무기·방어구·방패 카탈로그를 통합 조회한다(노획 장비 목록 표시용).
 	assert_eq(ItemTypes.item_name("sword"), "검", "무기 이름")

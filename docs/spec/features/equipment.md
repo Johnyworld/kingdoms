@@ -27,7 +27,7 @@
 - **오른쪽 「인벤토리」**: 부대 `loot_items`를 이름별로 묶어(`"<이름> ×<개수>"`) 나열, 각 행에 **[장착]**(선택 멤버에게). **선택 멤버의 그 슬롯이 꽉 찼으면 [장착] 비활성**. 멤버 미선택이면 전부 비활성.
 - 장착/탈착할 때마다 양쪽 목록을 갱신한다(선택 멤버 유지).
 - **닫기**: Modal의 **우측 상단 X · 배경 좌클릭 · ESC**로 닫는다(별도 [닫기] 버튼 없음). 닫히면(`closed`) `_party`/선택 멤버를 비운다. 열려 있는 동안 [Modal](modal.md)의 `ModalStack.blocking()`으로 지도 입력도 차단된다.
-- 이동력·시야·전투 능력치는 장비를 반영하므로([Combat](combat.md)) 장착 결과가 다음 전투에 적용된다.
+- 장비는 부대 정보 표시·월드맵 사거리에 쓰인다. **전투 판정은 lang 클래스**([Lang Battle](lang-battle.md))라 장비 능력치는 전투 결과에 직접 반영되지 않는다(구 전투 수학 폐기).
 
 ## 데이터 API
 
@@ -65,4 +65,4 @@
 
 ## 관련
 
-- 노획 경로는 [Raid](raid.md), 장비 데이터는 [Items](../data/items.md), 멤버 슬롯은 [Human](../entities/Human.md). 능력치 반영은 [Combat](combat.md).
+- 노획 경로는 [Raid](raid.md), 장비 데이터는 [Items](../data/items.md), 멤버 슬롯은 [Human](../entities/Human.md). 전투 판정은 [Lang Battle](lang-battle.md)(lang 클래스).
