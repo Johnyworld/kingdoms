@@ -11,11 +11,14 @@
   - **비주얼 레이어** `TerrainVisual`(LaPetiteTile 오토타일 스택): `TerrainRenderer`가 데이터를 읽어 그린다. 헥스 형태(16×16), 코너 매칭.
 - **4왕국 모서리 배치**: 플레이어 + NPC 3세력의 거점을 맵 네 모서리 근처(안쪽 `MARGIN=10`칸)에 둔다. → [NPC Bases](npc-bases.md).
   - 플레이어 거점(마을회관) = **남서(SW)** 모서리 `PLAYER_BASE = (MARGIN, MAP_HEIGHT-1-MARGIN) = (10, 39)`.
-- **생성**(`_generate_map`): 전체를 초원으로 채운 뒤, **플레이어 거점(남서 모서리)** 근처에 방향별 지형 덩어리를 배치하고(`_place_starting_terrain`), 마지막에 `TerrainRenderer.repaint`로 비주얼 레이어를 그린다.
-  - **서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산 · 남동쪽=호수(물)**. 각 방향 씨앗 칸 + 이웃 6칸을 그 지형으로 칠한다(`_paint_patches`).
-  - **강**(`_place_river`): 맵 중앙에 사인 곡선으로 굽이치는 `WATER` 경로(거점 4곳과 떨어짐, 가장자리 미접촉 → 맵을 완전히 가르지 않아 양끝으로 우회 가능). WATER는 통행 불가라 강은 자연 장벽이 된다(다리는 후속). Ocean 오토타일이 둑을 자동 렌더.
-  - **길**(`_place_roads`): 플레이어 거점↔철맥·금맥 자리를 잇는 **장식용 흙길**(`Roads` 레이어). `HexGrid.reconstruct_path`로 산·물을 우회해 경로를 잇고 그 위에 오토타일 렌더. **순수 시각 — 이동/BFS와 무관**(이동 보너스는 후속).
-  - 캠프(중심 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다. (y 증가=남쪽, x 증가=동쪽)
+- **손맵(직접 제작)**: `_generate_map`이 세 경우를 자동 판별한다.
+  1. **비주얼 손맵(권장·WYSIWYG)**: `TerrainVisual` 아래 오토타일 레이어(Ground/Ocean/Grass/Cliff/Decoration…)를 **에디터에서 직접 칠하면** 그 그림을 **그대로 두고**(`repaint` 안 함), 게임 로직용 지형타입을 비주얼에서 **역산**한다(`_visual_authored`/`_derive_data_from_visuals`/`_derive_type` — 물=WATER, Cliff·Ground바위=MOUNTAIN, 나무=FOREST, GroundOverlay swamp=SWAMP·그 외 모래=DESERT, 나머지 PLAINS). 제작법: `game.tscn` 열고 `TerrainVisual`의 레이어 선택 → TileMap Terrains로 칠하고 저장 → 실행.
+  2. **데이터 손맵**: 비주얼은 비었고 숨김 데이터 레이어(`TerrainLayer`)에 칠해진 게 있으면 그걸 쓰고 `TerrainRenderer`로 비주얼을 그린다. `terrain_tileset` 팔레트는 각 지형 실제 렌더를 캡처한 미리보기(`tiles/terrain_preview/*.png`)로 보인다.
+  3. **절차 생성**(둘 다 비었을 때): 전체 초원 + **방향별 지형 덩어리**(서=숲·동=습지·북=사막·남=산·남동=호수, 씨앗+이웃 6칸 `_place_starting_terrain`) + 강 + 길을 만들고 `TerrainRenderer.repaint`. (y↑=남, x↑=동; 캠프·주인공 칸과 안 겹치게)
+     - **강**(`_place_river`): 맵 중앙 사인 곡선 `WATER`(거점 4곳과 떨어짐·가장자리 미접촉 → 맵을 완전히 가르지 않아 양끝 우회 가능). 통행 불가 자연 장벽(다리는 후속), Ocean 오토타일이 둑 렌더.
+     - **길**(`_place_roads`): 거점↔철맥·금맥 잇는 장식 흙길(`Roads` 레이어, `HexGrid.reconstruct_path` 우회 경로). 순수 시각 — 이동/BFS 무관(이동 보너스는 후속).
+- 데이터 레이어(`TerrainLayer`)는 런타임에 항상 `visible = false`.
+- **한계**: 거점·부대·세력 등 엔티티는 아직 코드로 고정 배치(손맵과 무관) — 엔티티까지는 후속 [맵 데이터 포맷]. 철맥·금맥은 겉보기 구분 불가라 비주얼 손맵에선 초원으로 취급.
 
 ## 카메라
 

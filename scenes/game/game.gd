@@ -161,8 +161,7 @@ func _ready() -> void:
 		"cliff": $TerrainVisual/Cliff,
 		"decoration": $TerrainVisual/Decoration,
 	})
-	_generate_map()
-	_terrain_renderer.repaint(terrain, MAP_WIDTH, MAP_HEIGHT)   # 데이터 → 비주얼 오토타일
+	_generate_map()   # 절차 생성 / 데이터 손맵 / 비주얼 손맵을 알아서 처리(내부에서 repaint 결정)
 	_center_camera()
 	overlay.setup(terrain)
 	build_preview.setup(terrain)
@@ -202,15 +201,25 @@ func _ready() -> void:
 	add_child(turn_banner)
 	_begin_player_turn()   # 시작은 플레이어 턴 — 배너는 감춰 둔다(NPC 차례에만 표시). → turn.md
 
-## 맵 전체를 초원 타일로 채운 뒤, 시작 지점 근처에 숲을 조금 배치한다.
+## 맵 지형을 준비한다. 세 경우: → docs/spec/features/map-and-camera.md
+##  1) **비주얼 손맵**: TerrainVisual 레이어를 에디터에서 직접 칠했으면 그 그림을 그대로 두고(repaint 안 함),
+##     게임 로직용 데이터(TerrainLayer 지형타입)를 비주얼에서 역산한다. → _derive_data_from_visuals
+##  2) **데이터 손맵**: TerrainLayer에 미리 칠해진 게 있으면 그걸 쓰고 TerrainRenderer로 비주얼을 그린다.
+##  3) **절차 생성**: 둘 다 비었으면 초원 + 시작 지형 + 강 + 길을 생성하고 비주얼을 그린다.
+## 데이터 레이어는 런타임에 항상 숨긴다(에디터에서 데이터 손맵 그릴 때만 visible로 토글).
 func _generate_map() -> void:
-	for y in MAP_HEIGHT:
-		for x in MAP_WIDTH:
-			terrain.set_cell(Vector2i(x, y), Terrain.PLAINS, Terrain.ATLAS)
-
-	_place_starting_terrain()
-	_place_river()
-	_place_roads()
+	terrain.visible = false
+	if _visual_authored():
+		_derive_data_from_visuals()   # 손으로 칠한 비주얼 유지, 데이터만 역산(repaint 없음)
+	else:
+		if terrain.get_used_cells().is_empty():
+			for y in MAP_HEIGHT:
+				for x in MAP_WIDTH:
+					terrain.set_cell(Vector2i(x, y), Terrain.PLAINS, Terrain.ATLAS)
+			_place_starting_terrain()
+			_place_river()
+			_place_roads()
+		_terrain_renderer.repaint(terrain, MAP_WIDTH, MAP_HEIGHT)   # 데이터 → 비주얼 오토타일
 
 	# 카메라 이동 범위(월드 좌표) 계산 — 맵 밖으로 벗어나지 않도록 클램프용.
 	var corner_a := terrain.map_to_local(Vector2i(0, 0))
@@ -257,6 +266,47 @@ func _place_roads() -> void:
 		var path := HexGrid.reconstruct_path(terrain, base, dest, MAP_WIDTH + MAP_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
 		if path.size() > 1:
 			roads_layer.set_cells_terrain_connect(path, 0, 0)
+
+## 비주얼 레이어(TerrainVisual)를 에디터에서 손으로 칠했는지 — 지형 레이어에 타일이 있으면 참.
+## Roads·Waves는 절차 생성이 부가로 칠하는 파생 레이어라 판별에서 제외(오탐 방지).
+const _AUTHORED_IGNORE := ["Roads", "Waves"]
+func _visual_authored() -> bool:
+	for child in $TerrainVisual.get_children():
+		if child.name in _AUTHORED_IGNORE:
+			continue
+		if child is TileMapLayer and not (child as TileMapLayer).get_used_cells().is_empty():
+			return true
+	return false
+
+## 손으로 칠한 비주얼 레이어에서 각 칸의 게임 지형타입을 역산해 데이터 레이어(TerrainLayer)에 채운다.
+## 이동/시야/건설 판정이 이 데이터를 읽으므로, 손맵도 물·산=통행불가, 숲/습지=이동비용이 반영된다.
+func _derive_data_from_visuals() -> void:
+	for y in MAP_HEIGHT:
+		for x in MAP_WIDTH:
+			var c := Vector2i(x, y)
+			terrain.set_cell(c, _derive_type(c), Terrain.ATLAS)
+
+## 한 칸의 비주얼 타일에서 게임 지형타입을 추정한다(TerrainRenderer.PAINT의 역). 우선순위:
+## 물(Ocean) > 산(Cliff 또는 Ground 바위) > 숲(Decoration 나무) > 습지/사막(GroundOverlay) > 초원.
+## 철맥·금맥은 겉보기로 구분 불가라 초원으로 취급된다(전용 표식은 후속 과제).
+func _derive_type(cell: Vector2i) -> int:
+	if $TerrainVisual/Ocean.get_cell_source_id(cell) != -1:
+		return Terrain.WATER
+	if $TerrainVisual/Cliff.get_cell_source_id(cell) != -1:
+		return Terrain.MOUNTAIN
+	var g: TileData = $TerrainVisual/Ground.get_cell_tile_data(cell)
+	if g != null and g.terrain_set == 2:   # Ground 바위(set2) = 산
+		return Terrain.MOUNTAIN
+	var d: TileData = $TerrainVisual/Decoration.get_cell_tile_data(cell)
+	if d != null:
+		if d.terrain_set == 1:   # Elements 산(set1) = 산봉우리만 칠한 경우도 통행 불가
+			return Terrain.MOUNTAIN
+		if d.terrain_set == 0:   # Elements 나무(set0) = 숲
+			return Terrain.FOREST
+	var o: TileData = $TerrainVisual/GroundOverlay.get_cell_tile_data(cell)
+	if o != null:
+		return Terrain.SWAMP if o.terrain == 4 else Terrain.DESERT   # t4=SwampOverlay, 그 외=모래류
+	return Terrain.PLAINS
 
 ## 카메라를 플레이어 거점(남서 모서리) 타일로 이동시킨다.
 func _center_camera() -> void:
