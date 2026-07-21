@@ -43,6 +43,6 @@
 
 ## 게임 씬 구성 노드
 
-`TerrainVisual`(Ocean·Waves·SandShore·Ground·GroundOverlay·Grass·Cliff 오토타일 레이어) · `TerrainLayer`(데이터, 숨김) · `Building` · `RangeOverlay` · `Hero` · `Fog`(z_index 10) · `Camera2D` · `CampMenu`.
+`TerrainVisual`(Ocean·Waves·SandShore·Ground·GroundOverlay·Grass·Cliff·Decoration(나무·산봉우리) 오토타일 레이어) · `TerrainLayer`(데이터, 숨김) · `BuildingsLayer`(거점 건물 오토타일, `Tileset_Elements`) · `Building` · `RangeOverlay` · `Hero` · `Fog`(z_index 10) · `Camera2D` · `CampMenu`.
 
 시작 순서(`_ready`): 맵 생성 → 카메라 → 오버레이 setup → 건물 배치(남서 모서리 캠프) → 영지·세력 연결(캠프의 영지 "창천성" ∈ 세력 "푸른 왕국") → 부대 생성·배치(플레이어 + NPC 3, [Parties](parties.md)) → 안개 setup → 안개 갱신.

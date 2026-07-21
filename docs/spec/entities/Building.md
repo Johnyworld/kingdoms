@@ -14,7 +14,7 @@
 
 차지하는 **발자국(footprint)은 종류별**이다([카탈로그](../data/buildings.md) `footprint`). 거점(캠프·마을회관·성)은 **중심 1헥스 + 주변 6헥스 = 7헥스**, 소형 건물(농장·벌목소·철광·금광·집)은 **중심 1헥스**만 차지한다. `setup`이 `_spec.footprint`(기본 7)로 점유 셀을 잡는다.
 헥스 중 하나라도 클릭되면 게임 쪽에서 종류에 따라 UI를 연다: **캠프**는 [캠프 메뉴](../features/camp-menu.md)(자원·건축), **그 외 건물(농장)**은 [건물 정보 패널](../features/building-info.md).
-`_draw()`로 종류별 색으로 부지 + 중심 텐트를 그린다.
+**렌더**: 완성된 건물은 공유 `BuildingsLayer`(TileMapLayer, `Tileset_Elements` terrain_set 2)에 LaPetiteTile 건물 오토타일로 그린다 — 성=성(castle), 그 외(캠프·마을회관·농장·집·벌목소·광산)=마을(village). 거점(footprint 7)은 큰 마을/성, 소형 건물(footprint 1)은 같은 마을 테라인이 1칸이라 **작은 집**으로 나온다. **세력마다 색이 다르다**([BuildingRenderer](../../scenes/building/building_renderer.gd)의 세력→terrain 매핑, 4색). 건물이 자기 발자국을 `refresh_body()`로 그 레이어에 칠하고(setup·완성·업그레이드·세력변경 시), `_exit_tree()`에서 지운다(철거·파괴). **건설 중**이거나 레이어가 없을 때만 `_draw()`의 흐린 색 폴리곤(+텐트)으로 그린다. 라벨(영지·세력)·배지(건설 중/수비)는 항상 `_draw()`가 그린다.
 
 ## Properties
 

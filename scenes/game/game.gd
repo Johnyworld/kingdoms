@@ -43,6 +43,7 @@ const NPC_BASES := {
 
 @onready var terrain: TileMapLayer = $TerrainLayer   # 보이지 않는 데이터 레이어(지형타입=source id). 지오메트리·BFS 기준.
 @onready var terrain_visual: Node2D = $TerrainVisual   # LaPetiteTile 오토타일 비주얼 레이어 스택
+@onready var buildings_layer: TileMapLayer = $BuildingsLayer   # 거점 건물 오토타일(세력색) 공유 레이어
 @onready var camera: Camera2D = $Camera2D
 @onready var party = $Party   # 현재 활성(선택된) 플레이어 부대. 다른 부대 클릭 시 재할당된다. 모든 부대는 _pmgr.units.
 @onready var overlay = $RangeOverlay
@@ -147,7 +148,7 @@ var _build_territory: Territory = null
 func _ready() -> void:
 	_rng.randomize()
 	_npc_planner = NpcPlanner.new(terrain, MAP_WIDTH, MAP_HEIGHT, _rng, self)
-	_bmgr = BuildingManager.new(terrain, MAP_WIDTH, MAP_HEIGHT, self)
+	_bmgr = BuildingManager.new(terrain, MAP_WIDTH, MAP_HEIGHT, self, buildings_layer)
 	_pmgr = PartyManager.new(terrain, self)
 	_terrain_renderer = TerrainRenderer.new({
 		"ocean": $TerrainVisual/Ocean,
@@ -157,6 +158,7 @@ func _ready() -> void:
 		"overlay": $TerrainVisual/GroundOverlay,
 		"grass": $TerrainVisual/Grass,
 		"cliff": $TerrainVisual/Cliff,
+		"decoration": $TerrainVisual/Decoration,
 	})
 	_generate_map()
 	_terrain_renderer.repaint(terrain, MAP_WIDTH, MAP_HEIGHT)   # 데이터 → 비주얼 오토타일
@@ -165,7 +167,7 @@ func _ready() -> void:
 	build_preview.setup(terrain)
 	build_area.setup(terrain)
 	# 첫 거점은 마을회관 티어로 시작(캠프에서 한 번 업그레이드된 상태) — 인구 상한 10, 시작부터 생산 건물 해금.
-	building.setup(terrain, PLAYER_BASE, "town_hall")
+	building.setup(terrain, PLAYER_BASE, "town_hall", false, buildings_layer)
 	_bmgr.buildings = [building]
 	_setup_factions()
 	_setup_parties()   # 세력별 군대(영웅4+부하12=16) 생성·배치. _pmgr.units·_pmgr.npc_parties·party 설정 → parties.md
@@ -266,7 +268,7 @@ func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
 	_factions.append(faction)
 	var camp := Building.new()
 	add_child(camp)
-	camp.setup(terrain, base_cell, BuildingTypes.CAMP)   # 완성 상태(건설 중 아님)
+	camp.setup(terrain, base_cell, BuildingTypes.CAMP, false, buildings_layer)   # 완성 상태(건설 중 아님)
 	territory.add_building(camp)
 	return camp
 
@@ -794,7 +796,7 @@ func _transfer_camp(camp, new_faction) -> void:
 	elif r["old_faction_name"] == _player_faction.name:
 		toast.show_message("%s 함락!" % r["territory_name"])
 	camp.visible = true       # 이전 직후 표시(NPC 캠프는 _update_npc_building_visibility가 탐험 기준으로 재조정)
-	camp.queue_redraw()       # 라벨색을 새 세력색으로 갱신
+	camp.refresh_body()       # 라벨색 + 오토타일 건물색을 새 세력색으로 갱신
 	_check_immediate_defeat()   # 플레이어가 캠프를 뺏겼으면 — 부대도 없으면 즉시 패배
 
 ## 파괴: 캠프를 영지·맵에서 제거(BuildingManager 위임 — 획득 없음). 여기선 알림만.

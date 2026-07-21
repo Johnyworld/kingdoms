@@ -9,10 +9,10 @@ const LABEL_COLOR := Color.WHITE
 
 # --- 정체성 ---
 var building_type := ""            # 종류 id (예: "camp")
-var territory: Territory = null:   # 소속 영지. Territory.add_building으로 연결. 변경 시 맵 라벨 갱신.
+var territory: Territory = null:   # 소속 영지. Territory.add_building으로 연결. 변경 시 라벨 + 세력색 오토타일 갱신.
 	set(value):
 		territory = value
-		queue_redraw()
+		refresh_body()   # 세력이 바뀌면 건물 오토타일 색도 갱신(라벨 포함). 미설정 레이어면 라벨만.
 
 # --- 종류에서 오는 값 (setup 시 카탈로그에서 읽음) ---
 var vision := 0
@@ -36,13 +36,16 @@ const FALLBACK_TENT := Color(0.75, 0.75, 0.75)
 
 var cells: Array[Vector2i] = []
 var _terrain: TileMapLayer
+var _buildings_layer: TileMapLayer = null   # 거점 오토타일을 그리는 공유 비주얼 레이어(없으면 폴리곤 폴백)
 var _center_cell: Vector2i
 var _spec := {}   # 카탈로그 종류 스펙의 공유 읽기 전용 참조 — 절대 수정하지 말 것.
 
 ## 건물을 지정한 중심 셀에 종류(type_id)로 자리 잡게 한다(중심 + 이웃 6칸).
 ## under_construction이 참이면 건설 중 상태로 두고 remaining_turns를 카탈로그 build_turns로 채운다.
-func setup(terrain: TileMapLayer, center_cell: Vector2i, type_id: String, p_under_construction := false) -> void:
+## p_buildings_layer를 주면 완성된 거점을 그 레이어에 LaPetiteTile 오토타일로 그린다.
+func setup(terrain: TileMapLayer, center_cell: Vector2i, type_id: String, p_under_construction := false, p_buildings_layer: TileMapLayer = null) -> void:
 	_terrain = terrain
+	_buildings_layer = p_buildings_layer
 	_center_cell = center_cell
 	building_type = type_id
 	_spec = BuildingTypes.get_type(type_id)
@@ -50,7 +53,7 @@ func setup(terrain: TileMapLayer, center_cell: Vector2i, type_id: String, p_unde
 	under_construction = p_under_construction
 	remaining_turns = _spec.get("build_turns", 0) if p_under_construction else 0
 	cells = BuildPlanner.footprint(terrain, center_cell, _spec.get("footprint", 7))   # 종류별 발자국 (배치 판정과 같은 규칙)
-	queue_redraw()
+	refresh_body()
 
 ## 건설이 끝났는지(건설 중이 아니면 참).
 func is_complete() -> bool:
@@ -65,9 +68,9 @@ func advance_construction() -> bool:
 	if remaining_turns <= 0:
 		remaining_turns = 0
 		under_construction = false
-		queue_redraw()
+		refresh_body()   # 완성 → 오토타일 건물 등장
 		return true
-	queue_redraw()
+	refresh_body()
 	return false
 
 ## 해당 셀이 건물 영역에 포함되는지.
@@ -161,7 +164,29 @@ func upgrade_to(type_id: String) -> void:
 	under_construction = false
 	remaining_turns = 0
 	cells = BuildPlanner.footprint(_terrain, _center_cell, _spec.get("footprint", 7))
-	queue_redraw()
+	refresh_body()
+
+## 건물 몸체를 공유 비주얼 레이어에 오토타일로 다시 그린다(라벨/배지는 queue_redraw로 갱신).
+## - 레이어가 없으면(테스트 등) 그리지 않고 라벨만 갱신.
+## - 건설 중이면 몸체를 비우고 _draw의 흐린 foundation 폴리곤에 맡긴다.
+## - 완성이면 세력색·형태(성=castle, 그 외=village)로 footprint를 칠한다(1칸=작은 집).
+## setup·완성·업그레이드·영지(세력)변경 시 호출된다.
+func refresh_body() -> void:
+	queue_redraw()   # 라벨·배지
+	if _buildings_layer == null:
+		return
+	for cell in cells:
+		_buildings_layer.erase_cell(cell)
+	if under_construction:
+		return
+	var idx := BuildingRenderer.terrain_index(building_type, faction_name())
+	_buildings_layer.set_cells_terrain_connect(cells, BuildingRenderer.TERRAIN_SET, idx)
+
+## 노드 제거(철거·파괴·씬 종료) 시 공유 레이어에서 자기 발자국을 지운다.
+func _exit_tree() -> void:
+	if _buildings_layer != null and is_instance_valid(_buildings_layer):
+		for cell in cells:
+			_buildings_layer.erase_cell(cell)
 
 ## 맵에 표시할 텍스트 줄 목록. 각 원소는 {text, color}. 영지에서 가져온다.
 ## 영지명(흰색) → 세력명(세력 색). 영지가 없으면 빈 배열.
@@ -191,30 +216,34 @@ func _draw() -> void:
 	var ts := Vector2(_terrain.tile_set.tile_size)
 	var hw := ts.x * 0.5
 	var hh := ts.y * 0.5
-	for cell in cells:
-		var c := _terrain.map_to_local(cell)
-		var pts := PackedVector2Array([
-			c + Vector2(0.0, -hh),
-			c + Vector2(hw, -hh * 0.5),
-			c + Vector2(hw, hh * 0.5),
-			c + Vector2(0.0, hh),
-			c + Vector2(-hw, hh * 0.5),
-			c + Vector2(-hw, -hh * 0.5),
-		])
-		draw_colored_polygon(pts, fill_color)
-		var outline := pts.duplicate()
-		outline.append(pts[0])
-		draw_polyline(outline, edge_color, 1.5, true)
-
-	# 중심 칸에 간단한 텐트 표시.
+	# 완성된 건물은 공유 레이어에 오토타일(마을/성/작은 집)로 그려지므로 폴리곤/텐트를 생략한다.
+	# 건설 중이거나 레이어 없음일 때만 폴리곤 플레이스홀더를 그린다.
+	var painted := _buildings_layer != null and not under_construction
 	var center := _terrain.map_to_local(_center_cell)
-	var tent := PackedVector2Array([
-		center + Vector2(0, -hh * 0.6),
-		center + Vector2(hw * 0.45, hh * 0.35),
-		center + Vector2(-hw * 0.45, hh * 0.35),
-	])
-	draw_colored_polygon(tent, tent_color)
-	draw_line(center + Vector2(0, -hh * 0.6), center + Vector2(0, hh * 0.35), edge_color, 1.5, true)
+	if not painted:
+		for cell in cells:
+			var c := _terrain.map_to_local(cell)
+			var pts := PackedVector2Array([
+				c + Vector2(0.0, -hh),
+				c + Vector2(hw, -hh * 0.5),
+				c + Vector2(hw, hh * 0.5),
+				c + Vector2(0.0, hh),
+				c + Vector2(-hw, hh * 0.5),
+				c + Vector2(-hw, -hh * 0.5),
+			])
+			draw_colored_polygon(pts, fill_color)
+			var outline := pts.duplicate()
+			outline.append(pts[0])
+			draw_polyline(outline, edge_color, 1.5, true)
+
+		# 중심 칸에 간단한 텐트 표시.
+		var tent := PackedVector2Array([
+			center + Vector2(0, -hh * 0.6),
+			center + Vector2(hw * 0.45, hh * 0.35),
+			center + Vector2(-hw * 0.45, hh * 0.35),
+		])
+		draw_colored_polygon(tent, tent_color)
+		draw_line(center + Vector2(0, -hh * 0.6), center + Vector2(0, hh * 0.35), edge_color, 1.5, true)
 
 	_draw_labels(center - Vector2(0, hh * 0.6))
 

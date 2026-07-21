@@ -9,20 +9,21 @@ extends RefCounted
 ## set_cells_terrain_connect 하면 경계가 매끄럽게 이어진다.
 ##
 ## LaPetiteTile terrain_set/terrain 인덱스:
-## - Ground:  set0 t1=GroundGrass1 · set2 t0=GroundRock1
-## - Grass:   set0 t1=Grass_Light · t2=Grass_Dark
-## - Overlay: set0 t0=SandTile · t4=SwampOverlay
-## - Cliff:   set0 t0=CliffRock
-## - Ocean:   set0 t0=Shallow
-## - Waves:   set0 t0=Waves
+## - Ground:     set0 t1=GroundGrass1 · set2 t0=GroundRock1
+## - Grass:      set0 t1=Grass_Light · t2=Grass_Dark
+## - Overlay:    set0 t0=SandTile · t4=SwampOverlay
+## - Cliff:      set0 t0=CliffRock
+## - Ocean:      set0 t0=Shallow
+## - Waves:      set0 t0=Waves
+## - Decoration(Tileset_Elements): set0 t1=Tree_Pines(숲) · set1 t0=Mountain_Basic(산)
 
 # 지형타입 → 페인트 지시 목록. 각 지시 = [layer_key, terrain_set, terrain_id].
 const PAINT := {
 	Terrain.PLAINS:    [["ground", 0, 1], ["grass", 0, 1]],
-	Terrain.FOREST:    [["ground", 0, 1], ["grass", 0, 2]],
+	Terrain.FOREST:    [["ground", 0, 1], ["grass", 0, 2], ["decoration", 0, 1]],   # 잔디 + 소나무 숲
 	Terrain.SWAMP:     [["ground", 0, 1], ["overlay", 0, 4]],
 	Terrain.DESERT:    [["ground", 0, 1], ["overlay", 0, 0]],
-	Terrain.MOUNTAIN:  [["ground", 2, 0], ["cliff", 0, 0]],
+	Terrain.MOUNTAIN:  [["ground", 2, 0], ["cliff", 0, 0], ["decoration", 1, 0]],   # 바위 + 산봉우리
 	Terrain.WATER:     [["ocean", 0, 0], ["waves", 0, 0]],
 	Terrain.IRON_VEIN: [["ground", 0, 1], ["grass", 0, 1]],   # 아이콘/deposit 분리는 별도 슬라이스 (초원으로 렌더)
 	Terrain.GOLD_VEIN: [["ground", 0, 1], ["grass", 0, 1]],

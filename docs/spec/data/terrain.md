@@ -18,9 +18,9 @@
 | id | 상수 | 라벨 | 이동 | 비주얼 렌더(레이어·terrain) |
 | --- | --- | --- | --- | --- |
 | 0 | `PLAINS` | 초원 | 기본 (이동력 그대로) | Ground=GroundGrass + Grass=Light |
-| 1 | `FOREST` | 숲 | 이동력 **1/2 올림**(`ceil`) | Ground=GroundGrass + Grass=Dark |
+| 1 | `FOREST` | 숲 | 이동력 **1/2 올림**(`ceil`) | Ground=GroundGrass + Grass=Dark + Decoration=Tree_Pines |
 | 2 | `SWAMP` | 습지 | 이동력 **1/2 내림**(`floor`) | Ground=GroundGrass + GroundOverlay=Swamp |
-| 3 | `MOUNTAIN` | 산 | **진입·통과 불가** | Ground=GroundRock + Cliff=CliffRock |
+| 3 | `MOUNTAIN` | 산 | **진입·통과 불가** | Ground=GroundRock + Cliff=CliffRock + Decoration=Mountain_Basic |
 | 4 | `DESERT` | 사막 | 기본 (이동력 그대로) | Ground=GroundGrass + GroundOverlay=SandTile |
 | 7 | `WATER` | 물 | **진입·통과 불가** | Ocean=Shallow + Waves |
 | 8 | `IRON_VEIN` | 철맥 | 기본 (철광 지형) | 초원으로 렌더(아이콘은 후속) |
@@ -61,7 +61,7 @@
 
 ## 미구현 / TODO (후속 슬라이스)
 
-- **장식 스프라이트**: 나무(Elements) 오버레이·산봉우리 스프라이트·도로·성벽 등 — 이번엔 지형 렌더만.
+- **장식**: 숲=나무(Decoration set0 Tree_Pines)·산=산봉우리(set1 Mountain_Basic) 완료. 도로·성벽은 미구현(도로/성벽 지형 개념 자체가 게임에 없음).
 - **철맥·금맥 아이콘/deposit 분리**: 현재는 초원으로 렌더. base 지형 + 자원 deposit 표식 분리는 후속.
 - **해안 전환(SandShore)**: 물↔육지 경계 SandShore 레이어는 씬에 두었으나 아직 미도색.
 - **옛 SVG 타일 제거**: 데이터 레이어가 참조하는 `assets/tiles/*_hex.svg`는 렌더에 안 쓰이나 아직 남아 있다.

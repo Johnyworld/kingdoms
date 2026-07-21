@@ -11,6 +11,7 @@ const TILESETS := {
 	"overlay": "res://assets/tiles/lapetite/Tilesets/Tileset_GroundOverlay.tres",
 	"grass": "res://assets/tiles/lapetite/Tilesets/Tileset_Grass.tres",
 	"cliff": "res://assets/tiles/lapetite/Tilesets/Tileset_Cliff.tres",
+	"decoration": "res://assets/tiles/lapetite/Tilesets/Tileset_Elements.tres",
 }
 const W := 8
 const H := 8
@@ -38,12 +39,15 @@ func _paint_sample() -> Dictionary:
 			_data.set_cell(Vector2i(x, y), Terrain.PLAINS, Terrain.ATLAS)
 	var water := [Vector2i(1, 1), Vector2i(2, 1), Vector2i(1, 2), Vector2i(2, 2)]
 	var mountain := [Vector2i(5, 1), Vector2i(6, 1), Vector2i(5, 2), Vector2i(6, 2)]
+	var forest := [Vector2i(1, 5), Vector2i(2, 5), Vector2i(1, 6), Vector2i(2, 6)]
 	for c in water:
 		_data.set_cell(c, Terrain.WATER, Terrain.ATLAS)
 	for c in mountain:
 		_data.set_cell(c, Terrain.MOUNTAIN, Terrain.ATLAS)
+	for c in forest:
+		_data.set_cell(c, Terrain.FOREST, Terrain.ATLAS)
 	_renderer.repaint(_data, W, H)
-	return {"water": water, "mountain": mountain}
+	return {"water": water, "mountain": mountain, "forest": forest}
 
 func test_water_goes_to_ocean_not_ground() -> void:
 	var s := _paint_sample()
@@ -60,6 +64,14 @@ func test_mountain_paints_ground_and_cliff() -> void:
 	for c in s["mountain"]:
 		assert_true(c in ground, "산 칸은 Ground(바위)에: %s" % c)
 		assert_true(c in cliff, "산 칸은 Cliff 레이어에: %s" % c)
+
+func test_forest_and_mountain_paint_decoration() -> void:
+	var s := _paint_sample()
+	var deco: Array = _layers["decoration"].get_used_cells()
+	for c in s["forest"]:
+		assert_true(c in deco, "숲 칸은 Decoration(나무)에: %s" % c)
+	for c in s["mountain"]:
+		assert_true(c in deco, "산 칸은 Decoration(산봉우리)에: %s" % c)
 
 func test_plains_paints_ground_and_grass() -> void:
 	_paint_sample()
@@ -94,3 +106,4 @@ func test_repaint_clears_previous() -> void:
 	_renderer.repaint(_data, W, H)
 	assert_eq(_layers["ocean"].get_used_cells().size(), 0, "물 없으면 Ocean 비움")
 	assert_eq(_layers["cliff"].get_used_cells().size(), 0, "산 없으면 Cliff 비움")
+	assert_eq(_layers["decoration"].get_used_cells().size(), 0, "숲·산 없으면 Decoration 비움")

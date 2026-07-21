@@ -96,6 +96,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 건물 정보 패널 | `scenes/building/building_info.gd` |
 | 확인 다이얼로그 | `scenes/game/confirm_dialog.gd` |
 | 건물 종류 카탈로그 | `scenes/building/building_types.gd` |
+| 건물 렌더러(거점 오토타일·세력색) | `scenes/building/building_renderer.gd` |
 | 건설 배치 유틸 | `scenes/building/build_planner.gd` |
 | 영지 | `scenes/territory/territory.gd` |
 | 캠프 메뉴 | `scenes/camp/camp_menu.gd` |
