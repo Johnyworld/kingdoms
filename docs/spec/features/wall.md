@@ -1,6 +1,8 @@
 # Feature: Wall / 성벽 (거점 방어 구조물)
 
-> 스크립트: `scenes/building/building.gd` (`wall_level`·`is_walled`·성벽 그리기) · `scenes/building/building_types.gd` (`WALL_COST`·`can_build_wall`) · `scenes/siege/siege.gd` (`Siege` — 사다리 상수·`push_succeeds`) · `scenes/siege/siege_overlay.gd` (사다리 마커 표시) · `scenes/camp/camp_menu.gd` (`[성벽 건설]` 버튼·`wall_requested`) · `scenes/game/game.gd` (`_on_wall_requested`·이동 차단·표적 제외·`_ladders`·사다리 설치/밀기/통로 돌파)
+> 스크립트: `scenes/building/building.gd` (`wall_level`·`is_walled`·성벽 그리기) · `scenes/building/building_types.gd` (`WALL_COST`·`can_build_wall`) · `scenes/siege/siege.gd` (`Siege` — 사다리 상수·`push_succeeds`) · **`scenes/siege/siege_system.gd`** (`SiegeSystem` — 사다리 레코드 `ladders`·설치/밀기/카운트다운/통로·성벽 차단 `wall_blocked_cells`·돌파 `breached_by`·붕괴 `collapse_wall`) · `scenes/siege/siege_overlay.gd` (사다리 마커 표시) · `scenes/camp/camp_menu.gd` (`[성벽 건설]` 버튼·`wall_requested`) · `scenes/game/game.gd` (`_on_wall_requested`·행동 종료·오버레이 갱신·전투 연출)
+
+**계층 분리**: `Siege`(순수 static — 상수·확률 판정) ← `SiegeSystem`(공성 도메인 — 사다리 상태·규칙. 월드는 game.gd의 `all_buildings`/`party_on_cell` 조회 인터페이스로만 읽어 테스트에서 스텁으로 대체 — `test_siege_system.gd`) ← `game.gd`(실행·연출 — `mark_attacked`·사다리 오버레이 갱신·토스트·전투 오버레이). game.gd의 `wall_blocked_cells`/`breached_by`는 SiegeSystem 위임(NpcPlanner 월드 조회 겸용).
 
 **마을회관·성**([center](../data/buildings.md#동작) tier ≥ town_hall) 둘레에 세우는 방어 구조물. 성벽이 있으면 **적 부대가 그 거점에 접근(진입·통과)하지 못해**, 중심 [방어 부대](camp-capture.md#거점-방어-창발--중심-점거)를 공격하거나 [점령](camp-capture.md)할 수 없다. 성벽을 넘으려면 **[사다리](#사다리-공성-siege-game_gd)**(아래)를 설치해야 한다.
 
@@ -64,7 +66,7 @@
 
 성벽을 넘는 공성 수단. 공격자가 성벽 면에 사다리를 세우고 **그 자리를 3턴 지키면** **통로**가 열려, 그 세력이 성벽 안으로 진입해 [기존 전투·점령](camp-capture.md)으로 함락한다. 자리를 떠나면 공성이 멈춘다([타이머](#타이머-공성-유지)). 방어자는 **[사다리 밀기]**로 저지한다.
 
-- **사다리 레코드** (`game.gd._ladders` 리스트): `{building, target_cell(대상 ring 셀), from_cell(공격자 셀), faction(공격 세력), countdown, hooked}`. 한 거점에 **여러 면(ring 셀)에 각각** 허용하되, **한 면(target_cell)엔 하나만**(같은 면 중복 적층 방지 — 밀기 회피 악용 차단). `hooked`=설치 시 [고리 사다리](../data/items.md#도구-itemtypestools) 소모로 세운 사다리(밀기 확률 감소).
+- **사다리 레코드** (`SiegeSystem.ladders` 리스트): `{building, target_cell(대상 ring 셀), from_cell(공격자 셀), faction(공격 세력), countdown, hooked}`. 한 거점에 **여러 면(ring 셀)에 각각** 허용하되, **한 면(target_cell)엔 하나만**(같은 면 중복 적층 방지 — 밀기 회피 악용 차단). `hooked`=설치 시 [고리 사다리](../data/items.md#도구-itemtypestools) 소모로 세운 사다리(밀기 확률 감소).
 - **상수** (`Siege`): `LADDER_TURNS = 3`(설치 후 준비까지), `LADDER_PUSH_CHANCE = 0.15`(밀기 파괴 확률), `HOOKED_PUSH_REDUCTION = 0.05`(고리 사다리 밀기 확률 감소분).
 
 ### 설치 (플레이어)
@@ -82,7 +84,7 @@
 ### 타이머 (공성 유지)
 
 - 매 [턴](turn.md) 종료(`_on_turn_ended` → `_advance_ladders`)마다, 사다리가 **유지(manned)되고 있을 때만** `countdown -= 1`(하한 0). `countdown == 0`이면 **준비 완료**(통로 열림). `Siege.advance_ladder_countdown(countdown, manned)`.
-- **유지 판정**(`_ladder_manned`): 사다리의 **`from_cell`(설치 위치)에 그 사다리 세력(`faction`)의 부대가 서 있으면** 유지 중. 부대가 그 자리를 지켜야 공성 단계가 진행된다.
+- **유지 판정**(`SiegeSystem.ladder_manned`): 사다리의 **`from_cell`(설치 위치)에 그 사다리 세력(`faction`)의 부대가 서 있으면** 유지 중. 부대가 그 자리를 지켜야 공성 단계가 진행된다.
 - **이동하면 정지**: 부대가 `from_cell`을 떠나면 유지가 끊겨 카운트가 **줄지 않고 멈춘다**(리셋은 아님 — 다시 지키면 이어서 진행). 적 부대가 그 칸을 뺏어도(세력 불일치) 정지 — 성벽 밖 요격으로 공성을 늦추는 창발.
 - **재사용**: 유지 판정은 특정 부대가 아니라 **세력·위치 기준**이라, 설치한 부대가 떠나고 **같은 세력 다른 부대가 `from_cell`에 도착**하면 그 사다리를 이어서 공성할 수 있다.
 - 준비 완료(0) 이후에는 유지와 무관하게 통로가 열린 채 유지된다(`advance_ladder_countdown(0, ·) == 0`).
@@ -153,6 +155,19 @@
 **고리 사다리 도구** — `test/unit/test_item_types.gd`:
 - [정상] `item_name("grapple_ladder") == "고리 사다리"`, `item_value("grapple_ladder") == 12`, `item_slot("grapple_ladder") == ""`(장착 불가)
 
+**공성 도메인(SiegeSystem, 월드 스텁 주입)** — `test/unit/test_siege_system.gd`:
+- [정상] `place_ladder` — 성벽 적 거점 인접 부대가 설치 성공(레코드 {세력, countdown=LADDER_TURNS}), 면당 하나(중복 적층 없음)
+- [경계] 아군 성벽엔 `ladder_target_for == {}`(설치 대상 없음)
+- [정상] 고리 사다리 소지 설치 → `loot_items`에서 1개 소모 + `hooked` 사다리
+- [정상] manned 상태로 `advance_ladders` × LADDER_TURNS → 통로 개방(대상 면+중심), `breached_by` 참(그 세력만)
+- [경계] 설치 부대가 자리를 뜨면(unmanned) 카운트다운 정지
+- [정상] `wall_blocked_cells` — 자기 세력 0칸 / 적 세력 footprint 전체, 준비된 사다리 통로 2칸 개방
+- [정상] 부서진 성문(`gate_hp 0`) → 모든 세력에 돌파·성문 면+중심 개방
+- [정상] `clear_ladders`·`push_ladders`는 대상 거점 사다리만 건드린다
+- [정상] `collapse_wall` — 내구도 0이면 wall_level 0 + 사다리 정리 + true / 내구도 남으면 false·불변
+- [정상] `bombard_wall_headless` — 내구도 감소, 소진 시 붕괴까지 처리
+- [정상] `ram_counter` — 충차(min_range 1)만 반격 피해(투석기 무피해), 파괴 수 반환·prune, 충차 없으면 no-op
+
 **도구 구매** — `test/unit/test_camp_menu.gd`:
 - [정상] 부대 + 금 충분 → 구매 패널 「도구」 행에서 고리 사다리 [구매] → 부대 `loot_items`에 `grapple_ladder`
 
@@ -162,7 +177,7 @@
 - [정상] `can_push_ladder=true` → 목록에 `{id="push_ladder"}` 포함
 - [경계] `can_push_ladder=false` → `push_ladder` 없음
 
-`game.gd`의 자재 차감·`wall_level` 설정·적 이동 차단·표적 제외, 그리고 **사다리 설치(플레이어·NPC)·타이머(유지 판정 `_ladder_manned`)·통로 돌파·밀기·NPC 공성 AI·돌파 후 흡수 배선**(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음. 유지 카운트 순수 판정 `advance_ladder_countdown`은 유닛 테스트로 커버.)*
+`game.gd`의 자재 차감·`wall_level` 설정과 **연출 배선(행동 종료·오버레이 갱신·NPC 공성 AI·돌파 후 흡수)**(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(공성 도메인 자체 — 설치·타이머(유지 판정 `ladder_manned`)·통로·차단·밀기 — 는 `test_siege_system.gd`가 월드 스텁으로, 순수 판정은 `test_siege.gd`가 커버.)*
 
 ## 관련
 
