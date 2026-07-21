@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://cdihgr8f4cnvv"]
+
+[ext_resource type="SpriteFrames" uid="uid://bxl2wx3w5gdn3" path="res://assets/tiles/lapetite/Animations/SpriteFrame_FlagBlack.tres" id="1_0mwuq"]
+
+[node name="FlagBlack" type="AnimatedSprite2D"]
+sprite_frames = ExtResource("1_0mwuq")
+animation = &"Big"

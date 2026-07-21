@@ -24,6 +24,18 @@ func test_non_center_uses_village_variant() -> void:
 	for t in ["farm", "house", "lumberjack", "iron_mine", "gold_mine"]:
 		assert_eq(BuildingRenderer.terrain_index(t, "푸른 왕국"), 0, "비거점도 마을(작은 집): %s" % t)
 
+func test_render_cells_tier_sizes() -> void:
+	# footprint 7칸: 캠프=작은 마을(3칸), 마을회관·성=풀(7칸).
+	var fp: Array[Vector2i] = []
+	for i in 7:
+		fp.append(Vector2i(i, 0))
+	assert_eq(BuildingRenderer.render_cells("camp", fp).size(), 3, "캠프는 3칸(작은 마을)")
+	assert_eq(BuildingRenderer.render_cells("town_hall", fp).size(), 7, "마을회관은 풀 7칸")
+	assert_eq(BuildingRenderer.render_cells("castle", fp).size(), 7, "성은 풀 7칸")
+	# 소형 건물(footprint 1)은 1칸 그대로.
+	var one: Array[Vector2i] = [Vector2i(0, 0)]
+	assert_eq(BuildingRenderer.render_cells("farm", one).size(), 1, "농장은 1칸")
+
 func test_unknown_faction_defaults_to_first_variant() -> void:
 	assert_eq(BuildingRenderer.terrain_index("camp", ""), 0, "무소속/미지정 → 기본(White&Terracotta) 마을")
 	assert_eq(BuildingRenderer.terrain_index("castle", "없는세력"), 5, "미지정 → 기본 성")

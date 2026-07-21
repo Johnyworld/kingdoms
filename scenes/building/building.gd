@@ -34,9 +34,13 @@ const FALLBACK_FILL := Color(0.5, 0.5, 0.5, 0.9)
 const FALLBACK_EDGE := Color(0.3, 0.3, 0.3)
 const FALLBACK_TENT := Color(0.75, 0.75, 0.75)
 
+## 거점 위에 세력색 깃발(웨이빙 애니). 검정 깃발 천이 밝아 modulate로 세력색이 입혀진다.
+const FLAG_FRAMES := preload("res://assets/tiles/lapetite/Animations/SpriteFrame_FlagBlack.tres")
+
 var cells: Array[Vector2i] = []
 var _terrain: TileMapLayer
 var _buildings_layer: TileMapLayer = null   # 거점 오토타일을 그리는 공유 비주얼 레이어(없으면 폴리곤 폴백)
+var _flag: AnimatedSprite2D = null          # 완성 거점 위 세력 깃발(레이어 있을 때만)
 var _center_cell: Vector2i
 var _spec := {}   # 카탈로그 종류 스펙의 공유 읽기 전용 참조 — 절대 수정하지 말 것.
 
@@ -180,7 +184,31 @@ func refresh_body() -> void:
 	if under_construction:
 		return
 	var idx := BuildingRenderer.terrain_index(building_type, faction_name())
-	_buildings_layer.set_cells_terrain_connect(cells, BuildingRenderer.TERRAIN_SET, idx)
+	# 티어별로 footprint의 일부만 칠해 크기 차등(캠프=작은 마을 < 마을회관 < 성).
+	_buildings_layer.set_cells_terrain_connect(BuildingRenderer.render_cells(building_type, cells), BuildingRenderer.TERRAIN_SET, idx)
+	_update_flag()
+
+## 완성 거점 위 세력색 깃발을 갱신한다. 거점 아님·건설 중·레이어 없음이면 숨긴다.
+## 깃발 색 = 소속 세력 색(무소속이면 흰색). 세력 변경 시 refresh_body 경유로 함께 갱신된다.
+func _update_flag() -> void:
+	var show_flag := _buildings_layer != null and BuildingTypes.is_center(building_type) and not under_construction
+	if not show_flag:
+		if _flag != null:
+			_flag.visible = false
+		return
+	if _flag == null:
+		_flag = AnimatedSprite2D.new()
+		_flag.sprite_frames = FLAG_FRAMES
+		_flag.animation = &"Big"
+		_flag.texture_filter = TEXTURE_FILTER_NEAREST
+		_flag.scale = Vector2(2, 2)   # 16px 깃발을 배너 크기로
+		_flag.z_index = 1   # 건물 타일 위
+		add_child(_flag)
+		_flag.play()
+	var f = faction()
+	_flag.modulate = f.color if f != null else Color.WHITE
+	_flag.position = _terrain.map_to_local(_center_cell) + Vector2(0, -Vector2(_terrain.tile_set.tile_size).y * 2.0)   # 지붕 위로
+	_flag.visible = true
 
 ## 노드 제거(철거·파괴·씬 종료) 시 공유 레이어에서 자기 발자국을 지운다.
 func _exit_tree() -> void:
