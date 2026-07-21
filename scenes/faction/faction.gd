@@ -29,3 +29,13 @@ func remove_territory(territory: Territory) -> void:
 	territories.erase(territory)
 	if territory.faction == self:
 		territory.faction = null
+
+## 세력의 거점 수 = 소속 영지의 건물 중 거점(캠프·마을회관·성) 개수.
+## 하나라도 있으면 세력 유지 — 소멸 유예 판정(victory.md)·캠프 철거 게이트(마지막 거점 방지)가 쓴다.
+func center_count() -> int:
+	var n := 0
+	for t in territories:
+		for b in t.buildings:
+			if is_instance_valid(b) and BuildingTypes.is_center(b.building_type):
+				n += 1
+	return n

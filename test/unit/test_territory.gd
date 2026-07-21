@@ -197,3 +197,88 @@ func test_has_completed_building_absent() -> void:
 	var t := _territory()
 	t.add_building(_typed_building(Vector2i(32, 32), "farm"))
 	assert_false(t.has_completed_building("siege_workshop"), "작업장 없으면 거짓")
+
+# --- changed 시그널 (event-driven UI 갱신의 근거) → docs/spec/entities/Territory.md ---
+
+func test_changed_on_resource_mutations() -> void:
+	var t := _territory("파리", {"목재": 10})
+	watch_signals(t)
+	t.spend({"목재": 3})
+	assert_signal_emit_count(t, "changed", 1, "spend → changed 1회(자원별 아님)")
+	t.add_resource("목재", 2)
+	assert_signal_emit_count(t, "changed", 2, "add_resource → changed")
+	assert_eq(t.resources["목재"], 9, "10 - 3 + 2")
+
+func test_changed_on_building_mutations() -> void:
+	var t := _territory()
+	watch_signals(t)
+	t.add_building(building)
+	assert_signal_emit_count(t, "changed", 1, "add_building → changed")
+	t.add_building(building)
+	assert_signal_emit_count(t, "changed", 1, "중복 추가는 no-op(방출 없음)")
+	t.remove_building(building)
+	assert_signal_emit_count(t, "changed", 2, "remove_building → changed")
+	t.remove_building(building)
+	assert_signal_emit_count(t, "changed", 2, "미보유 제거는 no-op(방출 없음)")
+
+func test_changed_on_faction_change() -> void:
+	var t := _territory()
+	var f = load("res://scenes/faction/faction.gd").new("A", Color.RED)
+	watch_signals(t)
+	f.add_territory(t)
+	assert_signal_emit_count(t, "changed", 1, "세력 편입 → changed(faction setter)")
+	f.add_territory(t)
+	assert_signal_emit_count(t, "changed", 1, "같은 세력 재편입은 no-op")
+
+func test_changed_on_grow_population() -> void:
+	var t := _territory("파리", {"인구": 0})
+	t.add_building(_typed_building(Vector2i(20, 20), "house"))   # 상한 2
+	watch_signals(t)
+	t.grow_population()
+	assert_signal_emit_count(t, "changed", 1, "인구 성장 → changed")
+	t.resources["인구"] = 2
+	t.grow_population()
+	assert_signal_emit_count(t, "changed", 1, "상한이면 변화 없음 → 방출 없음")
+
+# --- 소유권 이전 (transfer_to) → docs/spec/features/camp-capture.md ---
+
+func test_transfer_to_moves_between_factions() -> void:
+	var t := _territory()
+	var a = load("res://scenes/faction/faction.gd").new("A", Color.RED)
+	var b = load("res://scenes/faction/faction.gd").new("B", Color.BLUE)
+	a.add_territory(t)
+	t.transfer_to(b)
+	assert_false(t in a.territories, "이전 세력에서 분리")
+	assert_true(t in b.territories, "새 세력에 편입")
+	assert_eq(t.faction, b, "faction 갱신")
+
+func test_transfer_to_null_detaches() -> void:
+	var t := _territory()
+	var a = load("res://scenes/faction/faction.gd").new("A", Color.RED)
+	a.add_territory(t)
+	t.transfer_to(null)
+	assert_false(t in a.territories, "세력에서 분리")
+	assert_null(t.faction, "무소속")
+
+# --- Faction.center_count (세력 유지·캠프 철거 게이트) → docs/spec/entities/Faction.md ---
+
+func test_faction_center_count() -> void:
+	var f = load("res://scenes/faction/faction.gd").new("A", Color.RED)
+	assert_eq(f.center_count(), 0, "영지 없으면 0")
+	var t1 := _territory("영지1")
+	f.add_territory(t1)
+	t1.add_building(_typed_building(Vector2i(10, 10), "camp"))
+	t1.add_building(_typed_building(Vector2i(20, 20), "farm"))   # 비거점 — 안 셈
+	var t2 := _territory("영지2")
+	f.add_territory(t2)
+	t2.add_building(_typed_building(Vector2i(30, 30), "town_hall"))
+	assert_eq(f.center_count(), 2, "캠프 + 마을회관 = 2(농장 제외)")
+
+func test_transfer_to_same_faction_noop() -> void:
+	var t := _territory()
+	var a = load("res://scenes/faction/faction.gd").new("A", Color.RED)
+	a.add_territory(t)
+	watch_signals(t)
+	t.transfer_to(a)
+	assert_signal_emit_count(t, "changed", 0, "같은 세력 재이전은 no-op(스퓨리어스 방출 없음)")
+	assert_true(t in a.territories, "목록 유지")

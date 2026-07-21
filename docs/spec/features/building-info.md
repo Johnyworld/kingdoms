@@ -76,7 +76,7 @@
 
 거점(캠프·마을회관·성)은 클릭 시 [캠프 메뉴](camp-menu.md)로 라우팅되므로 위 건물 정보 철거 대상이 아니다. 대신 **캠프 메뉴의 [철거] 버튼**으로 **캠프(tier 0)만** 철거한다 — 영지를 통째로 포기(영지 상실).
 
-- **철거 가능 판정(`game.gd` `_can_demolish_camp`)**: ① 건물이 **`camp`(tier 0)** ② **내 세력**(`territory.faction == _player_faction`) 영지 ③ **마지막 거점 아님**(`_faction_center_count(_player_faction) > 1` — 자기 세력 소멸 방지) — 셋 다 참일 때만 `can_demolish=true`로 [캠프 메뉴](camp-menu.md)를 연다. **마을회관·성은 항상 거짓**(다운그레이드 미구현).
+- **철거 가능 판정**: [캠프 메뉴](camp-menu.md) 내부의 `_can_demolish` — ① 건물이 **`camp`(tier 0)** ② 세력 소속 ③ **마지막 거점 아님**(`Faction.center_count() > 1` — 자기 세력 소멸 방지). **마을회관·성은 항상 거짓**(다운그레이드 미구현). 캠프 메뉴는 플레이어 거점에서만 열려 "내 세력" 조건은 라우팅이 보장한다.
 - **확인**: `demolish_requested`를 받으면 [확인 다이얼로그](confirm-dialog.md)를 띄운다(`"「<영지명>」 캠프를 철거하고 영지를 포기할까요?"`, 확인 라벨 `"철거"`). [철거] 확인 시 `_do_demolish_camp(camp)`.
 - **철거 실행(`game.gd` `_do_demolish_camp`)**: 도메인은 `BuildingManager.demolish_camp_territory` — 그 **영지의 모든 건물**(캠프+농장·집 등)을 `buildings`·맵에서 제거하고 `queue_free` → `Faction.remove_territory(territory)`([Faction](../entities/Faction.md) — 세력에서 영지 분리) → `territories`에서 제거([안개](fog-of-war.md)·수입 대상 제외) → `toast` 알림 → 캠프 메뉴 닫기.
 - **환급 없음** — 영지 통째 포기라 그 영지의 자원·금도 함께 상실한다.
@@ -97,7 +97,7 @@
 - [정상] `can_demolish=true`로 연 뒤 철거 버튼을 누르면 `demolish_requested(building)` 방출
 - [경계] `can_demolish=true`로 연 뒤 `false`로 재오픈 → 철거 버튼 숨김(토글)
 - [정상] `open` 후 `visible == true`, `close()` 후 `false`
-- **캠프 철거**: 캠프 메뉴 [철거] 버튼 표시는 [Camp Menu 시나리오](camp-menu.md#테스트-시나리오)로 검증. `_can_demolish_camp` 판정(캠프·내 세력·마지막 거점 아님)과 `_do_demolish_camp` 영지 통째 제거는 `game.gd` 배선이라 실제 실행으로 확인한다.
+- **캠프 철거**: [철거] 버튼 판정(캠프·마지막 거점 아님)은 [Camp Menu 시나리오](camp-menu.md#테스트-시나리오)로 검증. `_do_demolish_camp` 영지 통째 제거는 `BuildingManager.demolish_camp_territory`(단위 테스트) + `game.gd` 배선(실행 확인).
 
 캠프 표시(NPC 거점도 이 패널로 정보만):
 

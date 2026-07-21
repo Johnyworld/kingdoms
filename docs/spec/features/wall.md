@@ -21,7 +21,7 @@
 - **표시 조건**: 연 건물이 거점이고 **tier ≥ town_hall**(마을회관·성)이며 **아직 성벽 없음**(`not is_walled()`). 캠프·이미 성벽 있음·비거점이면 숨김.
 - **텍스트**: `"성벽 건설  <비용>"`(예: `"성벽 건설  목재 15 · 철 5"`). 비용 = `BuildingTypes.WALL_COST`.
 - **활성**: 여는 영지가 비용을 감당하면([`can_build_wall`](../data/buildings.md) = tier·자재 확인) 활성, 부족하면 비활성.
-- 누르면 `wall_requested(building)` 방출 → `game.gd` `_on_wall_requested`: 영지 자재 차감(`Territory.spend(WALL_COST)`) + `building.wall_level = 1` + 맵 다시 그리기. 갱신된 정보로 캠프 메뉴를 재오픈.
+- 누르면 `wall_requested(building)` 방출 → `game.gd` `_on_wall_requested`: 영지 자재 차감(`Territory.spend(WALL_COST)`) + `building.wall_level = 1` + 맵 다시 그리기. 메뉴 표시는 영지 `changed` 시그널이 자동 갱신(재-open 없음).
 
 ## 이동 차단 (`game.gd`)
 

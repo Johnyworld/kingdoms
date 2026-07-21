@@ -219,25 +219,64 @@ func test_found_camp_button_emits_signal() -> void:
 	menu._found_camp_btn.pressed.emit()
 	assert_signal_emitted_with_parameters(menu, "found_camp_requested", [t])
 
-# --- 캠프 철거 버튼 ---
+# --- 캠프 철거 버튼 (판정은 메뉴 내부 _can_demolish — 캠프 + 마지막 거점 아님(Faction.center_count)) ---
 
-func test_demolish_button_shown_when_can() -> void:
-	menu.open(_center("camp"), true)
-	assert_true(menu._demolish_btn.visible, "can_demolish=true → 철거 버튼 표시")
+## 세력에 편입된 거점을 만든다. extra_center가 참이면 같은 세력에 거점을 하나 더 둔다(마지막 거점 아님).
+func _faction_center(type_id: String, extra_center := false) -> Node2D:
+	var f = load("res://scenes/faction/faction.gd").new("플레이어", BLUE)
+	var b = load("res://scenes/building/building.gd").new()
+	add_child_autofree(b)
+	b.setup(terrain, Vector2i(20, 20), type_id)
+	var t = load("res://scenes/territory/territory.gd").new("파리", RES.duplicate(true))
+	f.add_territory(t)
+	t.add_building(b)
+	if extra_center:
+		var b2 = load("res://scenes/building/building.gd").new()
+		add_child_autofree(b2)
+		b2.setup(terrain, Vector2i(30, 30), "town_hall")
+		var t2 = load("res://scenes/territory/territory.gd").new("둘째 영지", {})
+		f.add_territory(t2)
+		t2.add_building(b2)
+	return b
 
-func test_demolish_button_hidden_by_default() -> void:
-	menu.open(_center("camp"))   # 기본 can_demolish=false
-	assert_false(menu._demolish_btn.visible, "기본은 철거 버튼 숨김")
+func test_demolish_button_shown_when_not_last_center() -> void:
+	menu.open(_faction_center("camp", true))
+	assert_true(menu._demolish_btn.visible, "캠프 + 세력 거점 2개 → 철거 버튼 표시")
 
-func test_demolish_button_toggle_on_reopen() -> void:
-	menu.open(_center("camp"), true)
-	menu.open(_center("camp"), false)
-	assert_false(menu._demolish_btn.visible, "false로 재오픈 → 숨김(토글)")
+func test_demolish_button_hidden_when_last_center() -> void:
+	menu.open(_faction_center("camp"))
+	assert_false(menu._demolish_btn.visible, "마지막 거점이면 숨김(세력 소멸 방지)")
+
+func test_demolish_button_hidden_for_higher_tier() -> void:
+	menu.open(_faction_center("town_hall", true))
+	assert_false(menu._demolish_btn.visible, "마을회관·성은 철거 불가(캠프만)")
+
+func test_demolish_button_hidden_without_faction() -> void:
+	menu.open(_center("camp"))   # 영지는 있으나 세력 없음
+	assert_false(menu._demolish_btn.visible, "무소속이면 숨김")
 
 func test_demolish_button_emits_signal() -> void:
-	var c := _center("camp")
-	menu.open(c, true)
+	var c := _faction_center("camp", true)
+	menu.open(c)
 	watch_signals(menu)
 	menu._demolish_btn.pressed.emit()
 	assert_signal_emitted_with_parameters(menu, "demolish_requested", [c], "철거 버튼 → demolish_requested(building)")
+
+# --- 영지 changed 자동 갱신 (event-driven) ---
+
+func test_menu_refreshes_on_territory_change() -> void:
+	_join_territory()
+	menu.open(building)
+	assert_eq((menu._res_grid.get_child(1) as Label).text, "40", "초기 목재 40")
+	building.territory.spend({"목재": 5})   # changed → deferred 갱신
+	await get_tree().process_frame
+	assert_eq((menu._res_grid.get_child(1) as Label).text, "35", "자원 변화가 재-open 없이 자동 반영")
+
+func test_no_refresh_after_close() -> void:
+	_join_territory()
+	menu.open(building)
+	menu.close_menu()
+	building.territory.spend({"목재": 5})   # 닫힌 뒤 변화 — 갱신 큐잉 없음(가드)
+	await get_tree().process_frame
+	assert_false(menu._modal.is_open(), "닫힘 유지(변화에 다시 열리지 않음)")
 

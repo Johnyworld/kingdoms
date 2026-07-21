@@ -652,7 +652,7 @@ func _handle_click(world_pos: Vector2) -> void:
 			if _selected:
 				_deselect()
 			_hide_party_info()
-			camp_menu.open(clicked, _can_demolish_camp(clicked))
+			camp_menu.open(clicked)
 		ClickRouter.BUILDING_INFO:
 			# 내 건물(거점 아님)은 철거 가능. 거점(캠프·마을회관·성)은 CAMP_MENU로 라우팅되므로 여기 안 온다.
 			_open_building_info(clicked, not BuildingTypes.is_center(clicked.building_type))
@@ -816,26 +816,24 @@ func _open_building_info(b, can_demolish := false) -> void:
 ## 건물 정보 패널의 철거 버튼 → 영지에서 제거·자재 환급 → 맵/추적 목록에서 제거 → 안개 갱신 → 패널 닫기.
 ## 노드 free는 지연 호출한다(버튼 pressed 처리 중이라 즉시 free하면 "locked" 에러).
 ## 캠프 메뉴의 업그레이드 버튼 → 거점을 다음 티어로 제자리 업그레이드.
-## 비용 지불(build_pay) → 티어업(upgrade_to) → 안개 갱신(티어별 시야) → 캠프 메뉴 재오픈으로 표시 갱신.
+## 비용 지불(build_pay) → 티어업(upgrade_to) → 안개 갱신(티어별 시야). 메뉴 표시는 영지 changed 시그널이 자동 갱신.
 func _on_upgrade_requested(b) -> void:
 	var next_id := BuildingTypes.next_center(b.building_type)
 	if next_id == "" or b.territory == null or not BuildPlanner.can_upgrade(b.territory, b):
 		return
-	b.territory.build_pay(next_id)   # 자재 차감(거점은 필요인원 0)
+	b.territory.build_pay(next_id)   # 자재 차감(거점은 필요인원 0) — changed → 캠프 메뉴 deferred 갱신
 	b.upgrade_to(next_id)
 	_update_fog()                    # 티어별 시야 변화 반영
-	camp_menu.open(b, _can_demolish_camp(b))   # 갱신된 정보(상한·업그레이드 버튼)로 재오픈
 
-## 성벽 건설 버튼 → 자재 지불 + wall_level 설정. 마을회관·성 + 자재 충분일 때만. → wall.md
+## 성벽 건설 버튼 → 자재 지불 + wall_level 설정. 마을회관·성 + 자재 충분일 때만. 메뉴 갱신은 changed 시그널. → wall.md
 func _on_wall_requested(b) -> void:
 	if not BuildingTypes.can_build_wall(b.territory, b):
 		return
-	b.territory.spend(BuildingTypes.WALL_COST)   # 자재 차감
+	b.territory.spend(BuildingTypes.WALL_COST)   # 자재 차감 — changed → 캠프 메뉴 deferred 갱신
 	b.wall_level = 1
 	b.wall_hp = Siege.WALL_MAX_HP   # 성벽 내구도 만피 — 투석으로 깎이면 붕괴 → siege-engines.md
 	b.gate_hp = Siege.GATE_MAX_HP   # 성문 내구도 — 충차로 깎이면 그 면 통로 개방 → wall.md 성문
 	b.queue_redraw()   # 성벽 링 그리기
-	camp_menu.open(b, _can_demolish_camp(b))   # 갱신된 정보(성벽 버튼 숨김·자원)로 재오픈
 
 ## 철거 버튼 → 바로 철거하지 않고 확인 다이얼로그를 띄운다(환급 미리보기 포함). [철거] 확인 시 _do_demolish(b).
 func _on_demolish_requested(b) -> void:
@@ -860,16 +858,8 @@ func _do_demolish(b) -> void:
 	building_info.close()
 	_update_fog()   # 철거된 건물 시야 제거
 
-## 캠프 철거 가능 판정: 캠프(tier 0)·내 세력 영지·마지막 거점 아님(세력 소멸 방지)일 때만.
-## 마을회관·성은 거짓(다운그레이드 미구현). 캠프 메뉴 [철거] 버튼 노출 여부.
-func _can_demolish_camp(b) -> bool:
-	if b == null or b.building_type != BuildingTypes.CAMP:
-		return false
-	if b.faction() != _player_faction:
-		return false
-	return _faction_center_count(_player_faction) > 1   # 마지막 거점이면 불가
-
 ## 캠프 메뉴 [철거] → 확인 다이얼로그(영지 포기 경고) → [철거] 확인 시 _do_demolish_camp.
+## (철거 버튼 노출 판정은 camp_menu._can_demolish — 캠프·마지막 거점 아님(Faction.center_count)이 단일 출처.)
 func _on_camp_demolish_requested(camp) -> void:
 	var terr_name: String = camp.territory.name if camp.territory != null else "영지"
 	confirm_dialog.open("「%s」 캠프를 철거하고 영지를 포기할까요?" % terr_name, "철거", _do_demolish_camp.bind(camp))
@@ -1037,7 +1027,7 @@ func _run_battle(attacker, defender, distance := 1, occupy_cell := Vector2i(-1, 
 func _check_immediate_defeat() -> void:
 	if _game_over:
 		return
-	var has_center := _faction_center_count(_player_faction) > 0
+	var has_center := _player_faction.center_count() > 0
 	var has_party := _first_living_unit() != null
 	if GameResult.immediate_defeat(has_center, has_party):
 		_player_faction.eliminated = true
@@ -1052,22 +1042,13 @@ func _update_endgame() -> void:
 	for f in _factions:
 		if f.eliminated:
 			continue
-		var has_post := _faction_center_count(f) > 0
+		var has_post: bool = f.center_count() > 0
 		f.grace_turns = GameResult.advance_grace(has_post, f.grace_turns)
 		if GameResult.grace_eliminated(f.grace_turns):
 			f.eliminated = true
 			_eliminate_faction(f)
 	_refresh_grace_hud()
 	_check_endgame()
-
-## 세력의 거점 수 = 소속 영지의 건물 중 거점(캠프·마을회관·성) 개수. 하나라도 있으면 세력 유지.
-func _faction_center_count(faction) -> int:
-	var n := 0
-	for t in faction.territories:
-		for b in t.buildings:
-			if is_instance_valid(b) and BuildingTypes.is_center(b.building_type):
-				n += 1
-	return n
 
 ## 세력 소멸(붕괴): 그 세력 소속 NPC 부대 제거(PartyManager 위임) 후 안개 갱신. 플레이어 세력이면 부대는 그대로(패배 처리).
 func _eliminate_faction(faction) -> void:

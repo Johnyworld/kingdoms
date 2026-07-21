@@ -2,10 +2,19 @@ class_name Territory extends RefCounted
 ## 세력이 보유하는 영지(예: "창천성"). 중심 캠프 + 그 안의 건물들을 가지며 모든 자원(인구 포함)을 보유한다.
 ## 구조: 세력(Faction) → 영지(Territory) → 건물(Building).
 ## 시각 요소가 없는 순수 데이터 엔티티라 씬 없이 스크립트만 둔다.
+## 상태 변화는 changed 시그널로 알린다 — UI(캠프 메뉴)가 구독해 자동 갱신한다(game.gd 수동 재-open 제거). → camp-menu.md
+
+## 영지 상태가 바뀌면 방출 — 자원 증감(spend/add_resource/환급/인구 성장)·건물 편입/분리·세력 변경.
+signal changed
 
 var name: String
 var resources: Dictionary   # 자원 4종(목재·식량·철·금) + 인구(병력 예약). 삽입 순서 = 메뉴 표시 순서.
-var faction: Faction = null
+var faction: Faction = null:   # 소속 세력. Faction.add/remove_territory가 설정(양방향). 변경 시 changed 방출.
+	set(value):
+		if faction == value:
+			return
+		faction = value
+		changed.emit()
 var buildings: Array = []
 
 func _init(p_name := "", p_resources := {}) -> void:
@@ -19,13 +28,17 @@ func add_building(building) -> void:
 		return
 	buildings.append(building)
 	building.territory = self
+	changed.emit()
 
 ## 건물을 이 영지에서 뗀다. buildings에서 제거하고, 그 건물의 소속이 이 영지면 null로 되돌린다(양방향 해제).
 ## 보유하지 않은 건물이면 no-op. 캠프 점령(파괴) 시 영지에서 캠프를 떼어낼 때 쓴다.
 func remove_building(building) -> void:
+	if not (building in buildings):
+		return
 	buildings.erase(building)
 	if building.territory == self:
 		building.territory = null
+	changed.emit()
 
 # flat 생산·2차 가공은 폐지됨 — 모든 생산이 [1차 생산포인트(거리 기반)](../../docs/spec/features/production.md)로 단일화. game.gd가 턴 종료 시 처리한다.
 
@@ -40,6 +53,22 @@ func can_afford(cost: Dictionary) -> bool:
 func spend(cost: Dictionary) -> void:
 	for res_name in cost:
 		resources[res_name] = resources.get(res_name, 0) - cost[res_name]
+	changed.emit()
+
+## 자원을 더한다(1차 생산 산출 등). 자원 직접 변경(dict 접근) 대신 이 메서드를 써야 changed가 방출된다.
+func add_resource(res_name: String, amount: int) -> void:
+	resources[res_name] = resources.get(res_name, 0) + amount
+	changed.emit()
+
+## 영지를 new_faction으로 이전한다(이전 세력 분리 → 편입) — 소유권 이전의 단일 출처(점령 흡수).
+## faction setter가 changed를 방출한다. new_faction이 null이면 무소속. 같은 세력 재이전은 no-op(스퓨리어스 방출 방지).
+func transfer_to(new_faction: Faction) -> void:
+	if faction == new_faction:
+		return
+	if faction != null:
+		faction.remove_territory(self)
+	if new_faction != null:
+		new_faction.add_territory(self)
 
 ## 그 종류 건물의 건설 비용(build_cost 자재)을 차감한다. required_pop 폐지로 인구는 소비하지 않는다.
 ## 음수 방지는 하지 않으므로 호출 전 BuildPlanner.can_build로 확인한다.
@@ -64,6 +93,7 @@ func grow_population() -> void:
 	var cur: int = resources.get("인구", 0)
 	if cur < population_cap():
 		resources["인구"] = cur + 1
+		changed.emit()
 
 ## 이 영지에 그 종류(type_id)의 완성된 건물이 하나라도 있는지. 건설 중 건물은 세지 않는다.
 ## 공성 작업장 완성 여부 등 생산 해금 판정에 쓴다. → docs/spec/features/siege-engines.md
@@ -80,7 +110,9 @@ func demolish(building) -> void:
 	if not (building in buildings):
 		return
 	var refund: Dictionary = building.refund_on_demolish()
-	remove_building(building)
+	remove_building(building)   # changed 방출(건물 분리)
 	for res_name in refund:
 		resources[res_name] = resources.get(res_name, 0) + refund[res_name]
+	if not refund.is_empty():
+		changed.emit()   # 환급 반영(구독자는 deferred 갱신으로 코얼레싱)
 

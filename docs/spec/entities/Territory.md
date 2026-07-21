@@ -22,13 +22,16 @@
 
 ## 동작
 
+- **`signal changed`** — 영지 상태가 바뀌면 방출: 자원 증감(`spend`/`add_resource`/철거 환급/인구 성장), 건물 편입/분리(`add_building`/`remove_building`), 세력 변경(`faction` setter). no-op(중복 추가·미보유 제거·같은 세력 재설정·상한 도달 성장)에는 방출하지 않는다. [캠프 메뉴](../features/camp-menu.md)가 구독해 열려 있는 동안 자동 갱신한다(game.gd 수동 재-open 제거).
 - `_init(name := "", resources := {})` — 이름과 자원(복사본 권장)을 받아 생성. `buildings`는 빈 배열로 시작.
 - `add_building(building) -> void` — 건물을 `buildings`에 추가하고 **동시에** `building.territory = self`로 설정한다(양방향). 이미 포함된 건물은 중복 추가하지 않는다.
 - `remove_building(building) -> void` — 건물을 `buildings`에서 제거하고, `building.territory`가 이 영지면 `null`로 되돌린다(양방향 해제). 없으면 no-op. [캠프 점령](../features/camp-capture.md) 파괴 시 영지에서 캠프를 떼어낼 때 쓴다.
 - `demolish(building) -> void` — [철거](../features/building-info.md#철거). 보유한 건물이면 `remove_building`으로 떼어낸 뒤 그 건물의 `refund_on_demolish()`([Building](Building.md) — 완성은 salvage, **건설 중은 `build_cost` 진행도 비례**)를 자원에 더한다. `resources[자원] += 수량`, 없던 키는 새로 생성. 보유하지 않은 건물이면 no-op(환급 없음). (`required_pop` 폐지로 **인구 반환은 없다**.)
 - (`collect_income()`은 **폐지** — flat 생산·2차 가공 대신 모든 생산이 [1차 생산포인트(거리 기반)](../features/production.md)로 단일화, `game.gd`가 턴 종료 시 처리.)
 - `can_afford(cost: Dictionary) -> bool` — `cost`의 모든 자원에 대해 `resources.get(자원, 0) >= 수량`이면 참. 빈 `cost`는 항상 참. 건설 비용([`build_cost`](../data/buildings.md)) 지불 가능 여부 확인용.
-- `spend(cost: Dictionary) -> void` — `cost`의 각 자원을 `resources`에서 뺀다. 음수 방지는 하지 않으므로 호출 전 `can_afford`로 확인한다. [건축](../features/building.md) 시 자원 차감.
+- `spend(cost: Dictionary) -> void` — `cost`의 각 자원을 `resources`에서 뺀다(완료 후 `changed` 1회 방출). 음수 방지는 하지 않으므로 호출 전 `can_afford`로 확인한다. [건축](../features/building.md) 시 자원 차감.
+- `add_resource(res_name: String, amount: int) -> void` — 자원을 더한다(`changed` 방출). [1차 생산](../features/production.md) 산출 등 — dict 직접 변경 대신 이 메서드를 써야 UI가 갱신된다.
+- `transfer_to(new_faction: Faction) -> void` — 영지를 새 세력으로 이전(이전 세력 `remove_territory` → 새 세력 `add_territory`) — [점령 흡수](../features/camp-capture.md) 소유권 이전의 단일 출처. `null`이면 무소속. `faction` setter가 `changed`를 방출한다.
 - `build_pay(type_id: String) -> void` — 그 종류를 지을 때의 비용(`build_cost` 자재)을 차감한다(`spend`). 호출 전 [`BuildPlanner.can_build`](../features/building.md)로 지불 가능 여부를 확인한다(음수 방지 안 함). (`required_pop` 폐지 — **`인구` 차감은 없다**.)
 - `advance_construction() -> void` — [턴](../features/turn.md) 종료 시 호출. 소속 건물들의 `advance_construction()`을 불러 건설 중 건물을 1턴씩 진행한다.
 
@@ -60,6 +63,11 @@
 - [경계] 보유하지 않은 건물 `demolish` → no-op(자원 변화 없음)
 - [정상] `build_pay("farm")` → `build_cost`(목재5)만 차감, `인구` 불변
 - [정상] `build_pay("iron_mine")` → 목재15 차감, `인구` 불변
+
+- [정상] `changed` — `spend`(호출당 1회)·`add_resource`·`add_building`/`remove_building`·세력 편입(faction setter)·`grow_population`(성장 시)에 방출
+- [경계] `changed` no-op 가드 — 중복 건물 추가·미보유 제거·같은 세력 재설정·인구 상한 도달 성장에는 방출 없음
+- [정상] `transfer_to(b)` — 이전 세력에서 분리 + 새 세력 편입 + `faction` 갱신; `transfer_to(null)` → 무소속
+- [경계] `transfer_to(같은 세력)` — no-op(방출·목록 변화 없음)
 
 ## 관련
 

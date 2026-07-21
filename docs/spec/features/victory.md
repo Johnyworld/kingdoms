@@ -42,7 +42,7 @@
 
 ### 세력 소멸 (`game.gd` `_update_endgame` — 턴 종료마다)
 
-- `game.gd`는 모든 세력을 `_factions`(플레이어 + NPC 3)로 추적한다. 세력별 거점 수 = `_faction_center_count` (소속 영지의 건물 중 `BuildingTypes.is_center` = 캠프·마을회관·성 개수).
+- `game.gd`는 모든 세력을 `_factions`(플레이어 + NPC 3)로 추적한다. 세력별 거점 수 = [`Faction.center_count()`](../entities/Faction.md) (소속 영지의 건물 중 `BuildingTypes.is_center` = 캠프·마을회관·성 개수).
 - 각 세력(소멸 안 된 것)에 대해 `faction.grace_turns = GameResult.advance_grace(거점 수 > 0, faction.grace_turns)`.
   - `GameResult.grace_eliminated(faction.grace_turns)`면 `eliminated = true` + `_eliminate_faction`(그 세력 소속 NPC 부대를 맵에서 제거).
 - 이어서 `_check_endgame`: `GameResult.endgame(플레이어 세력 소멸, 모든 NPC 세력 소멸)` → `VICTORY`면 `_trigger_game_over("정복 승리", "모든 적 세력을 물리쳤다")`, `DEFEAT`면 `_trigger_game_over("패배", "세력이 소멸했다")`.
@@ -89,7 +89,7 @@
 - [정상] `show_result("정복 승리", "...")` → 제목 "정복 승리", 부제 채워짐, `visible == true`
 - (기존) 생성 직후 숨김 · `dismiss()` → `dismissed`
 
-`game.gd`의 세력 추적·거점 수 계산(`_faction_center_count`, `is_center`)·유예 갱신·부대 제거·HUD·타이틀 전환(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)*
+`game.gd`의 세력 추적·유예 갱신(거점 수는 `Faction.center_count` — 단위 테스트됨)·부대 제거·HUD·타이틀 전환(씬 트리·터레인 의존)은 실제 실행으로 확인한다. *(game.gd 통합 테스트는 기존 관례상 두지 않음)*
 
 거점 판정 자체(`BuildingTypes.is_center`)는 `test/unit/test_building_types.gd`에서 검증한다.
 

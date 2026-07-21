@@ -29,9 +29,10 @@ var _wall_btn: Button      # 성벽 건설 버튼(마을회관·성 + 성벽 없
 var _found_camp_btn: Button  # 캠프 건설(새 영지) 버튼
 var _demolish_btn: Button    # 캠프 철거 버튼(can_demolish일 때만)
 var _build_list: VBoxContainer  # 건설 가능 건물 리스트(기본 숨김)
-var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체)
+var _territory: Territory  # 현재 열려 있는 건물의 영지(비용 지불 주체). changed 시그널 구독 대상.
 
 var _building: Building            # 현재 열려 있는 거점
+var _refresh_queued := false       # 영지 changed 코얼레싱 — 다음 idle 프레임에 한 번만 갱신
 
 func _ready() -> void:
 	_build()
@@ -39,6 +40,7 @@ func _ready() -> void:
 ## UI 트리를 코드로 구성한다. chrome은 Modal, 콘텐츠는 두 패널(HBox).
 func _build() -> void:
 	_modal = ModalScript.new()
+	_modal.closed.connect(_on_modal_closed)
 	add_child(_modal)
 
 	var hbox := HBoxContainer.new()
@@ -121,22 +123,48 @@ func _build_menu_panel() -> Control:
 	return panel
 
 ## 클릭한 건물이 속한 영지 정보(이름 · 세력 · 자원)를 채우고 메뉴를 연다.
-func open(building: Building, can_demolish := false) -> void:
+## 열려 있는 동안 영지 changed 시그널을 구독해 자원·건물·세력 변화를 자동 반영한다(game.gd 수동 재-open 불필요). → Territory.md
+func open(building: Building) -> void:
 	_building = building
-	var territory := building.territory
-	_territory = territory
+	_watch_territory(building.territory)
+	_refresh()
+	_modal.open()   # 이미 열려 있으면 no-op(내용은 위 _refresh가 갱신)
 
-	# 정보 화면으로 초기화(이전 오픈에서 건설 리스트가 열려 있던 상태를 지운다).
+## 영지 changed 구독을 새 영지로 교체한다(다른 거점으로 재오픈 대비).
+func _watch_territory(t: Territory) -> void:
+	if _territory == t:
+		return
+	if _territory != null and _territory.changed.is_connected(_on_territory_changed):
+		_territory.changed.disconnect(_on_territory_changed)
+	_territory = t
+	if _territory != null:
+		_territory.changed.connect(_on_territory_changed)
+
+## 영지 변화 → 다음 idle 프레임에 한 번만 갱신. 연속 변화를 코얼레싱하고,
+## 같은 프레임에서 시그널 뒤에 오는 건물 변경(예: build_pay 후 upgrade_to)까지 최종 상태로 그린다.
+func _on_territory_changed() -> void:
+	if not _modal.is_open() or _refresh_queued:
+		return
+	_refresh_queued = true
+	_deferred_refresh.call_deferred()
+
+func _deferred_refresh() -> void:
+	_refresh_queued = false
+	if _modal.is_open():
+		_refresh()
+
+## 현재 _building/_territory 상태로 전체를 다시 그린다(정보 화면으로 초기화 — 이전 재-open과 동일한 동작).
+func _refresh() -> void:
 	_build_list.hide()
 	_build_btn.show()
 	_refresh_upgrade_button()
 	_refresh_wall_button()
 	_refresh_found_camp_button()
-	_demolish_btn.visible = can_demolish   # 캠프 철거 버튼(game.gd가 조건 판정)
+	_demolish_btn.visible = _can_demolish()
 
 	# 제목 바 = 영지 이름, 메뉴 패널 상단 = 세력.
-	_modal.title = territory.name if territory != null else ""
-	var faction: Faction = territory.faction if territory != null else null
+	_modal.title = _territory.name if _territory != null else ""
+	var faction: Faction = _territory.faction if _territory != null else null
 	if faction != null:
 		_faction_label.text = faction.name
 		_faction_label.add_theme_color_override("font_color", faction.color)
@@ -147,7 +175,14 @@ func open(building: Building, can_demolish := false) -> void:
 
 	# 좌측 패널: 영지 자원 그리드.
 	_fill_resource_grid()
-	_modal.open()   # 이미 열려 있으면 no-op(업그레이드·성벽 후 재오픈은 내용만 갱신)
+
+## 캠프 철거 가능 판정 — 캠프(tier 0)·세력 소속·마지막 거점 아님(Faction.center_count > 1, 세력 소멸 방지).
+## 캠프 메뉴는 클릭 라우팅상 플레이어 거점에서만 열리므로 "내 세력" 조건은 자동 충족. → camp-menu.md
+func _can_demolish() -> bool:
+	if _building == null or _building.building_type != BuildingTypes.CAMP:
+		return false
+	var f: Faction = _building.faction()
+	return f != null and f.center_count() > 1
 
 ## 좌측 자원 그리드를 비우고 영지 자원으로 다시 채운다(인구는 "현재/상한").
 func _fill_resource_grid() -> void:
@@ -171,6 +206,10 @@ func _fill_resource_grid() -> void:
 
 func close_menu() -> void:
 	_modal.close()
+
+## 닫히면(X·배경·ESC·close_menu 모두 수렴) 영지 구독을 해제한다 — 분리된 영지를 붙들거나 stale 방출을 받지 않게.
+func _on_modal_closed() -> void:
+	_watch_territory(null)
 
 ## 거점 업그레이드 버튼을 갱신한다. 다음 티어가 있으면(캠프·마을회관) 표시·라벨·활성 설정, 없으면(성·비거점) 숨김.
 func _refresh_upgrade_button() -> void:

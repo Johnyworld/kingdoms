@@ -49,9 +49,7 @@ func transfer_camp(camp, new_faction) -> Dictionary:
 	var terr_name: String = territory.name if territory != null else ""
 	var old_name: String = camp.faction_name()
 	if territory != null:
-		if territory.faction != null:
-			territory.faction.remove_territory(territory)
-		new_faction.add_territory(territory)
+		territory.transfer_to(new_faction)   # 이전 세력 분리 → 편입(소유권 이전 단일 출처)
 	buildings.erase(camp)
 	npc_buildings.erase(camp)
 	if new_faction == player_faction:
@@ -196,5 +194,4 @@ func tick_production() -> void:
 			continue
 		var produced: int = b.tick_production(center_distance(b))
 		if produced > 0 and b.assigned_center.territory != null:
-			var res: String = b.produces()
-			b.assigned_center.territory.resources[res] = b.assigned_center.territory.resources.get(res, 0) + produced
+			b.assigned_center.territory.add_resource(b.produces(), produced)   # changed 방출 경유

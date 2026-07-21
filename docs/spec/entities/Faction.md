@@ -26,6 +26,8 @@
 - `add_territory(territory) -> void` — 영지를 `territories`에 추가하고 **동시에** `territory.faction = self`로 설정한다(양방향 동기화). 이미 포함된 영지는 중복 추가하지 않는다.
 - `remove_territory(territory) -> void` — 영지를 `territories`에서 제거하고, `territory.faction`이 이 세력이면 `null`로 되돌린다(양방향 해제). 없으면 no-op. [캠프 점령](../features/camp-capture.md) 흡수 시 이전 세력에서 영지를 떼어낼 때 쓴다.
 
+- `center_count() -> int` — 세력의 거점 수 = 소속 영지 건물 중 거점(`BuildingTypes.is_center` — 캠프·마을회관·성) 개수. 하나라도 있으면 세력 유지 — [소멸 유예 판정](../features/victory.md)과 [캠프 철거 게이트](../features/camp-menu.md)(마지막 거점 방지)가 쓴다. (구 `game.gd._faction_center_count`를 도메인으로 이동.)
+
 ## 테스트 시나리오
 
 `test/unit/test_faction.gd`.
@@ -37,6 +39,8 @@
 - [정상] `remove_territory(t)` 후 `territories`에서 빠지고 `t.faction == null`
 - [정상] 이전: `old.remove_territory(t)` → `new.add_territory(t)` 후 `t.faction == new`, `new`에 포함·`old`에서 제외
 - [경계] 보유하지 않은 영지를 `remove_territory` → no-op(크래시 없음)
+
+- [정상] `center_count` — 영지 없으면 0; 캠프+마을회관(영지 2곳) = 2, 농장 등 비거점은 제외 (`test/unit/test_territory.gd`)
 
 ## 관련
 
