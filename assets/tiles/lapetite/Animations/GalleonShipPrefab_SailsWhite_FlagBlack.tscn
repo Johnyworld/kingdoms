@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://cfqpw8aqkuc48"]
+
+[ext_resource type="SpriteFrames" uid="uid://cofpx0an5m6kt" path="res://assets/tiles/lapetite/Animations/SpriteFrame_GalleonShip_SailsWhite_FlagBlack.tres" id="1_27xmd"]
+
+[node name="Ship" type="AnimatedSprite2D"]
+sprite_frames = ExtResource("1_27xmd")
+animation = &"East"
