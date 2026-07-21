@@ -52,6 +52,9 @@ const HERO_CLASS := 4
 # 근접 resolve엔 미적용(사격 resolve에서만) → 영웅 근접 밸런스(vs 보병 69%)는 불변.
 const HERO_ARROW_EVASION := 40
 
+## 0이면 씬 진입 시각으로 시드(매 판 다른 전개). 0이 아니면 그 값으로 고정 — 테스트 결정론용.
+var rng_seed: int = 0
+
 var _rng: LangRng
 var _a: Dictionary
 var _d: Dictionary
@@ -417,7 +420,9 @@ func _begin_skirmish_melee() -> void:
 	_enter(St.CHARGE)  # 이미 필드에서 돌격/교전 중 → any_engaged 시 CLASH
 
 func _fresh_rng() -> LangRng:
-	# 씬 진입/전환 시각 기반 시드(매 판 다른 전개). 계산은 이 시드에서 결정론적.
+	# rng_seed가 0이 아니면 그 값으로 고정(테스트 결정론). 0이면 씬 진입/전환 시각 기반 시드(매 판 다른 전개).
+	if rng_seed != 0:
+		return LangRng.new(rng_seed & 0xFFFFFFFF)
 	return LangRng.new(Time.get_ticks_msec() * 2654435761 & 0xFFFFFFFF)
 
 func _mk_archer(side: int) -> Dictionary:

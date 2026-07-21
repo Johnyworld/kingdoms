@@ -14,6 +14,7 @@ var _fin_count := 0
 func before_each() -> void:
 	battle = OverlayScene.instantiate()
 	battle.overlay_mode = true   # add_child 전에 설정 → _ready 자동 로드 안 함
+	battle.rng_seed = 20260721   # 고정 시드 — 시간 기반 시드의 순서 의존 flaky 제거(결정론적 결과)
 	add_child_autofree(battle)
 	battle.finished.connect(_on_finished)
 	_fin_a = -1
