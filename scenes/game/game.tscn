@@ -1,103 +1,116 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene format=4 uid="uid://buy71nrx8qj7"]
 
-[ext_resource type="Script" path="res://scenes/game/game.gd" id="1"]
-[ext_resource type="TileSet" path="res://tiles/terrain_tileset.tres" id="2"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Ocean.tres" id="14"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_WavesAnimation.tres" id="15"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_SandShore.tres" id="16"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Ground.tres" id="17"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_GroundOverlay.tres" id="18"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Grass.tres" id="19"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Cliff.tres" id="20"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Elements.tres" id="21"]
-[ext_resource type="TileSet" path="res://assets/tiles/lapetite/Tilesets/Tileset_Roads.tres" id="22"]
+[ext_resource type="Script" uid="uid://6d8iyvnbieb6" path="res://scenes/game/game.gd" id="1"]
+[ext_resource type="TileSet" uid="uid://ctdpaqvlsteil" path="res://tiles/terrain_tileset.tres" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/party/party.tscn" id="3"]
-[ext_resource type="Script" path="res://scenes/game/range_overlay.gd" id="4"]
-[ext_resource type="Script" path="res://scenes/building/building.gd" id="5"]
-[ext_resource type="Script" path="res://scenes/camp/camp_menu.gd" id="6"]
-[ext_resource type="Script" path="res://scenes/game/fog.gd" id="7"]
-[ext_resource type="Script" path="res://scenes/turn/turn_hud.gd" id="8"]
-[ext_resource type="Script" path="res://scenes/game/build_preview.gd" id="9"]
-[ext_resource type="Script" path="res://scenes/party/party_info.gd" id="10"]
-[ext_resource type="Script" path="res://scenes/game/build_area_overlay.gd" id="11"]
-[ext_resource type="Script" path="res://scenes/party/party_roster.gd" id="12"]
-[ext_resource type="Script" path="res://scenes/building/building_info.gd" id="13"]
+[ext_resource type="Script" uid="uid://cu5hi776p5he8" path="res://scenes/game/range_overlay.gd" id="4"]
+[ext_resource type="Script" uid="uid://cxokfchkvpsgp" path="res://scenes/building/building.gd" id="5"]
+[ext_resource type="Script" uid="uid://danlj5k5y24nu" path="res://scenes/camp/camp_menu.gd" id="6"]
+[ext_resource type="Script" uid="uid://dndevijegax8n" path="res://scenes/game/fog.gd" id="7"]
+[ext_resource type="Script" uid="uid://diur435y1lhdj" path="res://scenes/turn/turn_hud.gd" id="8"]
+[ext_resource type="Script" uid="uid://dabattnwp7b2c" path="res://scenes/game/build_preview.gd" id="9"]
+[ext_resource type="Script" uid="uid://b70rb8ahy6tpw" path="res://scenes/party/party_info.gd" id="10"]
+[ext_resource type="Script" uid="uid://qplfwvp11q4s" path="res://scenes/game/build_area_overlay.gd" id="11"]
+[ext_resource type="Script" uid="uid://db365pu2pw68w" path="res://scenes/party/party_roster.gd" id="12"]
+[ext_resource type="Script" uid="uid://bbu8mlpq4378" path="res://scenes/building/building_info.gd" id="13"]
+[ext_resource type="TileSet" uid="uid://bull2wldndvh7" path="res://assets/tiles/lapetite/Tilesets/Tileset_Ocean.tres" id="14"]
+[ext_resource type="TileSet" uid="uid://b8ccnpnjqgf2m" path="res://assets/tiles/lapetite/Tilesets/Tileset_WavesAnimation.tres" id="15"]
+[ext_resource type="TileSet" uid="uid://bpwalaj84u24u" path="res://assets/tiles/lapetite/Tilesets/Tileset_SandShore.tres" id="16"]
+[ext_resource type="TileSet" uid="uid://kljrlw6og2s" path="res://assets/tiles/lapetite/Tilesets/Tileset_Ground.tres" id="17"]
+[ext_resource type="TileSet" uid="uid://t1fq0kcfrkt" path="res://assets/tiles/lapetite/Tilesets/Tileset_GroundOverlay.tres" id="18"]
+[ext_resource type="TileSet" uid="uid://b8r24wuha2lyv" path="res://assets/tiles/lapetite/Tilesets/Tileset_Grass.tres" id="19"]
+[ext_resource type="TileSet" uid="uid://clonta4bg0yt7" path="res://assets/tiles/lapetite/Tilesets/Tileset_Cliff.tres" id="20"]
+[ext_resource type="TileSet" uid="uid://bv6ab5gsb2pfu" path="res://assets/tiles/lapetite/Tilesets/Tileset_Elements.tres" id="21"]
+[ext_resource type="TileSet" uid="uid://jouegeg76r8f" path="res://assets/tiles/lapetite/Tilesets/Tileset_Roads.tres" id="22"]
 
-[node name="Game" type="Node2D"]
+[node name="Game" type="Node2D" unique_id=648978305]
 script = ExtResource("1")
 
-[node name="TerrainVisual" type="Node2D" parent="."]
+[node name="TerrainVisual" type="Node2D" parent="." unique_id=871799599]
 texture_filter = 1
 
-[node name="Ocean" type="TileMapLayer" parent="TerrainVisual"]
+[node name="Ocean" type="TileMapLayer" parent="TerrainVisual" unique_id=90703747]
+position = Vector2(2, 15)
+tile_map_data = PackedByteArray("AAD9/wAAAQABAAEAAAD8/wAAAQABAAEAAAD7/wAAAQABAAEAAAD7////AQABAAEAAAD8////AQABAAEAAAD9////AQABAAEAAAD+//7/AQABAAEAAAD+//3/AQABAAEAAAD///3/AQABAAEAAAAAAPz/AQABAAEAAAAAAPv/AQABAAEAAAABAPz/AQABAAEAAAAAAP3/AQABAAEAAAD///7/AQABAAEAAAD+////AQABAAEAAAACAPz/AQABAAEAAAABAP3/AQABAAEAAAACAPv/AQABAAEAAAADAPv/AQABAAEAAAAEAPz/AQADAAEAAAADAP3/AQABAAEAAAAEAP7/AQADAAEAAAADAP7/AQABAAEAAAADAPz/AQABAAEAAAACAP3/AQABAAEAAAACAP7/AQABAAEAAAACAP//AQABAAEAAAABAP//AQABAAEAAAACAAAAAQABAAEAAAABAAAAAQABAAEAAAAAAAEAAQABAAEAAAAAAAIAAQABAAEAAAD//wMAAQABAAEAAAD+/wMAAQABAAEAAAD//wIAAQABAAEAAAD9/wMAAQABAAEAAAD9/wQAAQABAAEAAAD8/wQAAQABAAEAAAD7/wMAAQABAAEAAAD6/wMAAQABAAEAAAD5/wMAAQABAAEAAAD5/wIAAQABAAEAAAD5/wEAAQABAAEAAAD5/wAAAQABAAEAAAD5////AQABAAEAAAD6//7/AQABAAEAAAD7//7/AQABAAEAAAD8/wEAAQABAAEAAAD8/wIAAQABAAEAAAD7/wQAAQABAAEAAAD6/wIAAQABAAEAAAD6/wEAAQABAAEAAAD7/wEAAQABAAEAAAD7/wIAAQABAAEAAAD6/wAAAQABAAEAAAD6////AQABAAEAAAD7//3/AQABAAEAAAD8//3/AQABAAEAAAD9//7/AQABAAEAAAD9/wEAAQABAAEAAAD8//7/AQABAAEAAAD8/wMAAQABAAEAAAD9/wIAAQABAAEAAAD5//3/AQABAAEAAAD5//z/AQABAAEAAAD5//v/AQABAAEAAAD5//r/AQABAAEAAAD6//r/AQABAAEAAAD6//v/AQABAAEAAAD7//z/AQABAAEAAAD6//3/AQABAAEAAAD5//7/AQAFAAEAAAD6//z/AQABAAEAAAD7//r/AQABAAEAAAD7//v/AQABAAEAAAD6//n/AQABAAMAAAD7//n/AQABAAMAAAD8//r/AQABAAEAAAD8//z/AQABAAEAAAD8//v/AQABAAEAAAD9//z/AQABAAEAAAD9//r/AQABAAEAAAD9//v/AQABAAEAAAD+//v/AQABAAEAAAD///r/AQABAAEAAAD///v/AQABAAEAAAD+//z/AQABAAEAAAD///z/AQABAAEAAAD9//3/AQABAAEAAAABAPv/AQABAAEAAAAAAPr/AQABAAEAAAABAPr/AQABAAEAAAACAPr/AQABAAEAAAADAPr/AQABAAEAAAAEAP3/AQACAAEAAAADAP//AQABAAEAAAADAAAAAQABAAEAAAAAAP//AQABAAEAAAABAP7/AQABAAEAAAAAAAAAAQABAAEAAAD/////AQABAAEAAAAAAP7/AQABAAEAAAD//wEAAQABAAEAAAD//wAAAQABAAEAAAD+/wIAAQABAAEAAAD+/wEAAQABAAEAAAD+/wAAAQABAAEAAAD6/wQAAQABAAEAAAD//wQAAQABAAEAAAAAAAQAAQABAAEAAAAAAAMAAQABAAEAAAABAAIAAQABAAEAAAABAAEAAQABAAEAAAACAAEAAQABAAEAAAD+/wQAAQABAAEAAAD9/wUAAQABAAQAAAD8/wUAAQABAAQAAAD8/wYAAQAEAAEAAAD7/wUAAQABAAQAAAD4//3/AQAAAAcAAAD4//z/AQAAAAEAAAD4//v/AQAFAAEAAAD4//r/AQAAAAEAAAD4//n/AQAAAAAAAAD4//7/AQAEAAEAAAD7/wYAAQAEAAEAAAD6/wYAAQAEAAEAAAD6/wUAAQABAAQAAAD5/wYAAQAEAAEAAAD5/wUAAQAAAAIAAAD5/wQAAQAAAAcAAAD4/wYAAQAEAAEAAAD4/wUAAQAEAAEAAAD4/wQAAQAEAAEAAAD4/wMAAQAAAAcAAAD4/wIAAQAAAAEAAAD4/wEAAQAFAAEAAAD4/wAAAQAAAAEAAAD4////AQAAAAYAAAAEAPv/AQACAAEAAAAEAPr/AQADAAEAAAAEAPn/AQACAAMAAAADAPn/AQABAAMAAAACAPn/AQABAAMAAAABAPn/AQABAAMAAAAAAPn/AQABAAMAAAD///n/AQABAAMAAAD+//r/AQABAAEAAAD+//n/AQABAAMAAAD9//n/AQABAAMAAAD8//n/AQABAAMAAAD5//n/AQABAAMAAAAEAAYAAQAAAAgAAAAEAAUAAQACAAEAAAAEAAQAAQADAAEAAAAEAAMAAQACAAEAAAAEAAIAAQADAAEAAAAEAAEAAQACAAEAAAAEAAAAAQADAAEAAAAEAP//AQACAAEAAAADAAYAAQAEAAEAAAADAAUAAQAEAAAAAAADAAQAAQABAAEAAAADAAMAAQABAAEAAAADAAIAAQABAAEAAAADAAEAAQABAAEAAAACAAYAAQAEAAEAAAACAAUAAQABAAQAAAACAAQAAQABAAEAAAACAAMAAQABAAEAAAACAAIAAQABAAEAAAABAAYAAQAEAAEAAAABAAUAAQABAAQAAAABAAQAAQABAAEAAAABAAMAAQABAAEAAAAAAAYAAQAEAAEAAAAAAAUAAQABAAQAAAD//wYAAQAEAAEAAAD//wUAAQABAAQAAAD+/wYAAQAEAAEAAAD+/wUAAQABAAQAAAD9/wYAAQAEAAEAAAD3//r/AQAEAAEAAAD1//n/AQAEAAEAAAD2//r/AQAEAAEAAAD1//r/AQAEAAEAAAD0//r/AQAEAAEAAADu//r/AQAEAAEAAADv//r/AQAEAAEAAADw//r/AQAEAAEAAADx//r/AQAEAAEAAADy//r/AQAEAAEAAADz//r/AQAEAAEAAADu//n/AQAEAAEAAADu//v/AQAEAAEAAADt//3/AQAEAAEAAADu//z/AQAEAAEAAADv//3/AQAEAAEAAAD2/wAAAQAEAAEAAAD1/wAAAQAEAAEAAAD0////AQAEAAEAAADz////AQAEAAEAAADy////AQAEAAEAAADy//7/AQAEAAEAAADx//7/AQAEAAEAAADw//3/AQAEAAEAAAD3/wAAAQAEAAEAAAD3////AQAEAAEAAAD3//7/AQAEAAEAAAD3//3/AQAEAAEAAAD3//z/AQAEAAEAAAD3//v/AQAEAAEAAAD2//z/AQAEAAEAAAD1//z/AQAEAAEAAAD0//v/AQAEAAEAAADz//v/AQAEAAEAAADy//v/AQAEAAEAAADx//v/AQAEAAEAAADw//v/AQAEAAEAAADv//v/AQAEAAEAAADv//z/AQAEAAEAAADu//3/AQAEAAEAAADx//z/AQAEAAEAAADy//z/AQAEAAEAAADw//z/AQAEAAEAAADz//z/AQAEAAEAAADz//3/AQAEAAEAAAD0//z/AQAEAAEAAAD0//3/AQAEAAEAAAD1//3/AQAEAAEAAAD2//7/AQAEAAEAAAD2////AQAEAAEAAAD2//3/AQAEAAEAAAD2//v/AQAEAAEAAAD1//v/AQAEAAEAAAD1////AQAEAAEAAAD1//7/AQAEAAEAAAD0//7/AQAEAAEAAADz//7/AQAEAAEAAADy//3/AQAEAAEAAADx//3/AQAEAAEAAADv//n/AQAEAAEAAAD0//n/AQAEAAEAAADz//n/AQAEAAEAAADy//n/AQAEAAEAAADx//n/AQAEAAEAAADw//n/AQAEAAEAAAD2//n/AQAEAAEAAAD3//n/AQAEAAEAAADt//n/AQAEAAEAAAA=")
 tile_set = ExtResource("14")
 
-[node name="Waves" type="TileMapLayer" parent="TerrainVisual"]
+[node name="Waves" type="TileMapLayer" parent="TerrainVisual" unique_id=1126777506]
+position = Vector2(-47, 7)
+tile_map_data = PackedByteArray("AAD9//v/AQACAAMAAAD8//v/AQADAAIAAAD7//v/AQAAAAEAAAD8//r/AQAAAAUAAAD9//z/AQABAAcAAAD8//z/AQAAAAcAAAD8//3/AQAAAAgAAAA=")
 tile_set = ExtResource("15")
 
-[node name="SandShore" type="TileMapLayer" parent="TerrainVisual"]
+[node name="SandShore" type="TileMapLayer" parent="TerrainVisual" unique_id=1279020581]
+position = Vector2(0, -20)
+tile_map_data = PackedByteArray("AAD6/wIAAQABAAEAAAD6/wAAAQAAAAUAAAD6/wEAAQADAAIAAAD5/wEAAQAEAAIAAAD5/wIAAQAEAAAAAAD5/wMAAQAAAAIAAAD7/wIAAQABAAcAAAD6/wMAAQABAAIAAAD7/wEAAQACAAMAAAD4////AQACAAMAAAD2/wAAAQADAAIAAAD3/wAAAQAEAAIAAAD3////AQAAAAAAAAD2/wEAAQABAAEAAAD3/wIAAQAEAAAAAAD3/wMAAQAAAAgAAAD4/wIAAQADAAAAAAD4/wEAAQADAAIAAAD4/wAAAQADAAEAAAD3/wEAAQABAAEAAAD1////AQAAAAUAAAD1/wAAAQAEAAIAAAD0/wAAAQAAAAAAAADz/wEAAQAAAAEAAAD0/wEAAQABAAEAAAD0/wIAAQAAAAIAAAD1/wIAAQABAAQAAAD2/wIAAQABAAQAAAD1/wEAAQABAAEAAAA=")
 tile_set = ExtResource("16")
 
-[node name="Ground" type="TileMapLayer" parent="TerrainVisual"]
-tile_set = ExtResource("17")
-
-[node name="GroundOverlay" type="TileMapLayer" parent="TerrainVisual"]
-tile_set = ExtResource("18")
-
-[node name="Grass" type="TileMapLayer" parent="TerrainVisual"]
+[node name="Grass" type="TileMapLayer" parent="TerrainVisual" unique_id=1295025514]
+tile_map_data = PackedByteArray("AAD+/wQAAwADAAAAAAD+/wMAAwAEAAcAAAD//wIAAwAEAAcAAAAAAAIAAwACAAEAAAD//wMAAwABAAcAAAD//wQAAwABAAIAAAD9/wUAAwABAAIAAAD8/wUAAwAAAAQAAAD9/wQAAwAFAAEAAAD9/wMAAwABAAEAAAD9/wIAAwAAAAYAAAD9/wEAAwAAAAAAAAD+/wEAAwAEAAIAAAD//wEAAwADAAEAAAD8/wMAAwAAAAEAAAD+/wIAAwABAAEAAAD//wAAAwAAAAAAAAAAAAAAAwACAAMAAAD5/wEAAgAEAAIAAAD5////AgAEAAAAAAD5/wAAAwAEAAUAAAD4////AgADAAAAAAD5/wMAAgABAAQAAAD5/wIAAgAFAAEAAAD6/wIAAgADAAEAAAD6/wEAAgACAAEAAAD6////AgACAAEAAAD6/wAAAgACAAYAAAD6//7/AgABAAYAAAD5//7/AgAEAAIAAAD5//3/AgAAAAUAAAD4/wAAAgADAAEAAAD4/wEAAgACAAUAAAD6/wMAAgACAAQAAAD4/wMAAgADAAUAAAD4/wQAAgAAAAgAAAD3/wMAAgAAAAMAAAD3/wIAAgAEAAUAAAD3/wEAAgAAAAIAAAD3/wAAAgAAAAEAAAD3////AgAAAAYAAAD4//7/AgAAAAAAAAD4//z/AwACAAMAAAD1//3/AwABAAEAAAD2//3/AwABAAEAAAD3//z/AwABAAMAAAD2//7/AwAFAAYAAAD2////AwABAAIAAAD3//7/AwABAAcAAAD3//3/AwABAAcAAAD2//z/AwABAAMAAAD1//z/AwAAAAAAAAD0//v/AwAEAAUAAAD0//3/AwAAAAYAAAD1//7/AwABAAEAAAD1////AwABAAQAAAD0////AwAAAAIAAAD0//7/AwAAAAEAAAA=")
 tile_set = ExtResource("19")
 
-[node name="Roads" type="TileMapLayer" parent="TerrainVisual"]
+[node name="Ground" type="TileMapLayer" parent="TerrainVisual" unique_id=2068928420]
+position = Vector2(-12, -6)
+tile_map_data = PackedByteArray("AAD8////AAAAAAYAAAD9/wAAAAABAAEAAAD8/wAAAAAAAAYAAAD7/wEAAAAAAAQAAAD9//7/AAAAAAYAAAD9//3/AAAAAAAAAAD+//3/AAABAAMAAAD///3/AAABAAAAAAD///7/AAABAAEAAAD+////AAABAAEAAAD+/wAAAAADAAAAAAD9/wEAAAABAAIAAAD8/wEAAAABAAQAAAD9////AAABAAEAAAD+//7/AAABAAEAAAAAAP7/AAACAAEAAAD/////AAABAAcAAAD//wAAAAABAAIAAAD+/wEAAQAAAAAAAAD+/wIAAQAEAAIAAAD9/wMAAQABAAEAAAD9/wIAAQABAAMAAAD//wIAAQABAAEAAAD//wEAAQAEAAIAAAAAAAIAAQABAAEAAAD//wMAAQABAAEAAAABAAIAAQABAAEAAAAAAAEAAQABAAEAAAABAAAAAQABAAEAAAAAAAAAAQAAAAYAAAAAAP//AQAAAAAAAAABAP//AQABAAMAAAACAAAAAQABAAEAAAABAAEAAQABAAEAAAD+/wMAAQABAAEAAAD+/wQAAQABAAQAAAD9/wQAAQABAAQAAAD8/wMAAQABAAEAAAD7/wMAAQAEAAAAAAD8/wIAAQABAAMAAAD8/wQAAQAAAAIAAAD//wQAAQABAAQAAAAAAAQAAQABAAQAAAAAAAMAAQABAAEAAAABAAQAAQABAAIAAAABAAMAAQABAAcAAAACAAIAAQABAAcAAAACAAEAAQABAAcAAAADAAAAAQABAAcAAAADAP//AQABAAcAAAADAP7/AQAAAAAAAAAEAP7/AQACAAMAAAACAP//AQAEAAIAAAABAP7/AgAAAAIAAAAAAP3/AgAAAAEAAAABAPz/AgAAAAAAAAACAPz/AgABAAAAAAACAP3/AgACAAEAAAABAP3/AgABAAEAAAACAP7/AgABAAIAAAD6/wEAAQADAAEAAAD7/wAAAQABAAcAAAD7////AQABAAcAAAD7//7/AQABAAEAAAD8//7/AQABAAcAAAD7//3/AQAEAAIAAAD8//3/AQABAAcAAAD9//z/AQACAAMAAAD8//z/AQAAAAAAAAD6//3/AQABAAMAAAD6////AQABAAEAAAD6/wAAAQABAAEAAAD5/wEAAQAFAAEAAAD5////AQAAAAYAAAD6//7/AQAFAAEAAAD5//3/AQAAAAMAAAD5/wAAAQAAAAEAAAD6/wIAAQABAAEAAAD7/wIAAQADAAIAAAD6/wMAAQABAAQAAAD5/wMAAQAAAAIAAAD5/wIAAQAAAAEAAAD7/wQAAgABAAAAAAD6/wQAAgABAAMAAAD5/wQAAgAAAAMAAAD5/wUAAgAAAAcAAAD6/wYAAgAAAAIAAAD6/wUAAgABAAEAAAD7/wUAAgACAAEAAAD7/wYAAgABAAIAAAD4//z/AAABAAAAAADz//v/AAAAAAMAAAD0//v/AAABAAMAAAD1//v/AAABAAAAAAD2//z/AAADAAIAAAD3//z/AAABAAMAAAD0//z/AAAAAAcAAAD0//3/AAAAAAIAAAD1//3/AAAEAAAAAAD2//7/AAAFAAEAAAD2//3/AAABAAEAAAD1//z/AAABAAEAAAD2////AAABAAEAAAD3/wAAAAABAAQAAAD2/wAAAAABAAQAAAD1/wAAAAAAAAQAAAD1////AAAAAAYAAAD3//7/AAABAAEAAAD4//7/AAABAAEAAAD3////AAABAAEAAAD4/wAAAAABAAIAAAD4////AAABAAcAAAD5//7/AAACAAEAAAD4//3/AAABAAYAAAD3//3/AAABAAEAAAA=")
+tile_set = ExtResource("17")
+
+[node name="GroundOverlay" type="TileMapLayer" parent="TerrainVisual" unique_id=1807048721]
+position = Vector2(10, 0)
+tile_set = ExtResource("18")
+
+[node name="Roads" type="TileMapLayer" parent="TerrainVisual" unique_id=504290507]
+tile_map_data = PackedByteArray("AAD6////AQADAAUAAAD5////AQAAAAMAAAD4////AQADAAAAAAD7////AQAAAAMAAAD8////AQACAAAAAAA=")
 tile_set = ExtResource("22")
 
-[node name="Cliff" type="TileMapLayer" parent="TerrainVisual"]
+[node name="Cliff" type="TileMapLayer" parent="TerrainVisual" unique_id=1211350368]
+position = Vector2(1, 4)
+tile_map_data = PackedByteArray("AAD//wQAAQAAAAIAAAD+/wMAAQAAAAMAAAD//wIAAAABAAIAAAD+/wEAAAABAAEAAAD//wEAAAADAAAAAAAAAAIAAQAAAAAAAAABAAIAAQAEAAIAAAAAAAMAAQADAAAAAAAAAAQAAQABAAIAAAD//wMAAQAEAAIAAAACAAIAAQABAAEAAAABAAEAAQAAAAAAAAACAAEAAQAEAAIAAAADAAAAAQAAAAAAAAAEAAAAAQACAAMAAAADAAEAAQABAAcAAAADAAIAAQABAAcAAAACAAMAAQABAAIAAAABAAMAAQABAAQAAAD9/wEAAAABAAEAAAD9/wIAAAABAAEAAAD8/wMAAAABAAEAAAD+/wIAAAADAAAAAAD9/wMAAAABAAcAAAD8/wIAAAABAAEAAAD8/wEAAAABAAEAAAAAAAAAAAABAAEAAAD//wAAAAABAAEAAAD+/wAAAAABAAEAAAD/////AAADAAIAAAAAAP//AAABAAAAAAABAAAAAAACAAEAAAAAAAEAAAABAAIAAAD9/wQAAAABAAcAAAD8/wUAAAABAAIAAAD8/wQAAAABAAEAAAD7/wUAAAAAAAIAAAD7/wQAAAAAAAEAAAD7/wMAAAAFAAEAAAD7/wIAAAAAAAEAAAD7/wEAAAAAAAYAAAD8/wAAAAAAAAYAAAD8////AAAAAAYAAAD9////AAABAAEAAAD9//7/AAAAAAAAAAD+//7/AAAEAAIAAAD+//3/AAAAAAUAAAD///7/AAABAAYAAAD+////AAABAAEAAAD9/wAAAAABAAEAAAA=")
 tile_set = ExtResource("20")
 
-[node name="Decoration" type="TileMapLayer" parent="TerrainVisual"]
+[node name="Decoration" type="TileMapLayer" parent="TerrainVisual" unique_id=1732386858]
+position = Vector2(-9, 11)
+tile_map_data = PackedByteArray("AAD+/wEAAQACAAgAAAD9/wEAAQADAAAAAAD9/wIAAAABAAQAAAD8/wIAAQAAAAgAAAD8/wEAAQAFAAIAAAD8/wAAAQAAAAIAAAD8////AQAAAAAAAAD9////AAAEAAQAAAD+//7/AAAFAAIAAAD+////AQADAAAAAAD+/wAAAQADAAIAAAD9/wAAAQABAAIAAAD///7/AAADAAQAAAAAAP7/AQAEAAQAAAAAAP3/AAAFAAIAAAABAP7/AQADAAAAAAD/////AAABAAgAAAAAAP//AAABAAQAAAACAP7/AQABAAQAAAABAP3/AQABAAIAAAACAP3/AQACAAIAAAACAPz/AAABAAAAAAABAPz/AAABAAYAAAAAAPz/AQAAAAYAAAD///z/AQACAAYAAAD+//3/AQADAAIAAAD+//z/AQABAAYAAAD9//3/AQAEAAAAAAD8//3/AQABAAgAAAD7//3/AQAAAAQAAAD7//z/AAAAAAYAAAD8//z/AAABAAYAAAD9//z/AAABAAYAAAD6/wAAAAAFAA4AAAD5/wEAAAAEAAoAAAD6/wMABAAEAAwAAAD5/wMABAAEAAwAAAD6/wQABAAFAAwAAAD7/wQABAAFAAwAAAD6/wUABAAFAAoAAAD5/wQABAAEAAoAAAD6////EgADAAwAAAD6//7/EgAFABAAAAD5////EgAEAA4AAAD5//7/EgAFAA4AAAD5//3/EgADAA4AAAA=")
 tile_set = ExtResource("21")
 
-[node name="TerrainLayer" type="TileMapLayer" parent="."]
-visible = false
+[node name="TerrainLayer" type="TileMapLayer" parent="." unique_id=1524292141]
 tile_set = ExtResource("2")
 
-[node name="BuildingsLayer" type="TileMapLayer" parent="."]
+[node name="BuildingsLayer" type="TileMapLayer" parent="." unique_id=1421798125]
 texture_filter = 1
 tile_set = ExtResource("21")
 
-[node name="Building" type="Node2D" parent="."]
+[node name="Building" type="Node2D" parent="." unique_id=207910640]
 script = ExtResource("5")
 
-[node name="RangeOverlay" type="Node2D" parent="."]
+[node name="RangeOverlay" type="Node2D" parent="." unique_id=1735702108]
 script = ExtResource("4")
 
-[node name="Party" parent="." instance=ExtResource("3")]
-party_name = "주인공 부대"
+[node name="Party" parent="." unique_id=838173122 instance=ExtResource("3")]
 
-[node name="Fog" type="Node2D" parent="."]
+[node name="Fog" type="Node2D" parent="." unique_id=1827540859]
 z_index = 10
 script = ExtResource("7")
 
-[node name="BuildArea" type="Node2D" parent="."]
+[node name="BuildArea" type="Node2D" parent="." unique_id=1462738137]
 z_index = 15
 script = ExtResource("11")
 
-[node name="BuildPreview" type="Node2D" parent="."]
+[node name="BuildPreview" type="Node2D" parent="." unique_id=1806491126]
 z_index = 20
 script = ExtResource("9")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1749563752]
 
-[node name="CampMenu" type="CanvasLayer" parent="."]
+[node name="CampMenu" type="CanvasLayer" parent="." unique_id=1272051539]
 script = ExtResource("6")
 
-[node name="TurnHud" type="CanvasLayer" parent="."]
+[node name="TurnHud" type="CanvasLayer" parent="." unique_id=1353495485]
 script = ExtResource("8")
 
-[node name="PartyInfo" type="CanvasLayer" parent="."]
+[node name="PartyInfo" type="CanvasLayer" parent="." unique_id=1731020373]
 script = ExtResource("10")
 
-[node name="PartyRoster" type="CanvasLayer" parent="."]
+[node name="PartyRoster" type="CanvasLayer" parent="." unique_id=65446645]
 script = ExtResource("12")
 
-[node name="BuildingInfo" type="CanvasLayer" parent="."]
+[node name="BuildingInfo" type="CanvasLayer" parent="." unique_id=1237295130]
 script = ExtResource("13")
