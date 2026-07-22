@@ -166,6 +166,52 @@ func test_reconstruct_path_respects_entry_cost_budget() -> void:
 	var no := HexGrid.reconstruct_path(terrain, _center(), swamp, 2, MAP, MAP)
 	assert_eq(no.size(), 0, "이동력 2: 습지(3) 도달 불가 → 빈 경로")
 
+# --- 경계(edge) 차단(강·벽) ---
+
+func test_edge_key_symmetric() -> void:
+	var a := Vector2i(3, 4)
+	var b := Vector2i(5, 6)
+	assert_eq(HexGrid.edge_key(a, b), HexGrid.edge_key(b, a), "경계 키는 두 칸 순서와 무관")
+
+func test_blocked_edge_forces_detour() -> void:
+	# 시작칸↔이웃 경계를 막으면(강/벽) 직접 못 건너고 우회해야 한다(칸 자체는 열려 있음).
+	var c := _center()
+	var n0: Vector2i = terrain.get_surrounding_cells(c)[0]
+	var be := {HexGrid.edge_key(c, n0): true}
+	var r1 := HexGrid.movement_ranges(terrain, c, 1, MAP, MAP, {}, {}, be)
+	assert_does_not_have(r1["move"], n0, "경계 차단: 이동력 1로는 직접 못 건넘")
+	var r3 := HexGrid.movement_ranges(terrain, c, 3, MAP, MAP, {}, {}, be)
+	assert_has(r3["move"], n0, "이동력 3: 이웃 경유 우회로 도달(칸은 통행 가능)")
+
+func test_reconstruct_path_avoids_blocked_edge() -> void:
+	# 차단 경계로 직행이 막히면 경로가 우회하고, 경로의 어떤 연속 두 칸도 차단 경계가 아니다.
+	var c := _center()
+	var n0: Vector2i = terrain.get_surrounding_cells(c)[0]
+	var be := {HexGrid.edge_key(c, n0): true}
+	var path := HexGrid.reconstruct_path(terrain, c, n0, 4, MAP, MAP, {}, {}, be)
+	assert_gt(path.size(), 2, "직행(길이 2)이 막혀 우회 경로(길이 > 2)")
+	for i in range(path.size() - 1):
+		assert_false(be.has(HexGrid.edge_key(path[i], path[i + 1])), "경로가 차단 경계를 건너지 않음")
+
+func test_edge_segment_shared_between_hexes() -> void:
+	# 공유 변 선분의 두 끝점은 양쪽 헥스 폴리곤 모두의 꼭짓점이어야 한다(경계 렌더/편집용).
+	var c := _center()
+	var n0: Vector2i = terrain.get_surrounding_cells(c)[0]
+	var seg := HexGrid.edge_segment(terrain, c, n0)
+	assert_eq(seg.size(), 2, "공유 변 = 꼭짓점 2개")
+	var pc := HexGrid.hex_polygon(terrain, c)
+	var pn := HexGrid.hex_polygon(terrain, n0)
+	for p in seg:
+		var in_c := false
+		for v in pc:
+			if v.distance_to(p) < 1.0:
+				in_c = true
+		var in_n := false
+		for v in pn:
+			if v.distance_to(p) < 1.0:
+				in_n = true
+		assert_true(in_c and in_n, "경계 끝점은 두 헥스 공통 꼭짓점")
+
 func test_vision_ignores_mountains() -> void:
 	# 시야(cells_within 기본 blocked=[])는 지형에 막히지 않는다 — 산 이웃도 포함.
 	var mountain: Vector2i = terrain.get_surrounding_cells(_center())[0]

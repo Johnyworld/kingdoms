@@ -22,9 +22,6 @@ ModalStack="*res://autoload/modal_stack.gd"
 
 [debug]
 
-; macOS 전용 override로 파일 로깅 끔(GL Compatibility 매 프레임 에러 폭주 → 로그 GB 부풀림 대비).
-; base 키(=false)는 에디터가 기본값으로 취급해 저장마다 지워버리므로, 지워지지 않는
-; .macos 플랫폼 override로 고정한다. 에러는 에디터 Output 패널에서 계속 확인 가능.
 file_logging/enable_file_logging.macos=false
 
 [display]
@@ -37,7 +34,7 @@ window/handheld/orientation="landscape"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+enabled=PackedStringArray("res://addons/edge_barrier/plugin.cfg", "res://addons/gut/plugin.cfg")
 
 [rendering]
 

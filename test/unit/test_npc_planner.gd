@@ -33,6 +33,9 @@ class WorldStub:
 	func blocked_for(_p) -> Dictionary:
 		return {}
 
+	func barrier_edges() -> Dictionary:
+		return {}
+
 var terrain: TileMapLayer
 var world: WorldStub
 var planner

@@ -477,7 +477,7 @@ func _nearby_free_cells(anchor: Vector2i, count: int, occupied: Dictionary) -> A
 func _update_ranges() -> void:
 	var start := _cell_of(party)
 	var move_range: int = party.movement() if party.can_move() else 0
-	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, blocked_for(party), _building_costs())
+	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, blocked_for(party), _building_costs(), barrier_edges())
 	var move_cells: Array[Vector2i] = ranges["move"]
 	_reachable = {}
 	for c in move_cells:
@@ -833,6 +833,12 @@ func blocked_for(party) -> Dictionary:
 ## 소속 무관 — 플레이어·NPC 거점 모두 포함(all_buildings). NPC 경로계획(NpcPlanner)과 같은 집합.
 func _building_costs() -> Dictionary:
 	return BuildPlanner.movement_costs(all_buildings())
+
+## 이동 차단 경계 집합 { edge_key: kind }. authored 장벽(강·벽)에서 합성한다(Barriers 노드).
+## 다리 해제·건설벽 추가는 후속 — 그때 이 합성에 출처를 더한다. NpcPlanner도 world.barrier_edges()로 공유.
+func barrier_edges() -> Dictionary:
+	var b: Node = get_node_or_null("Barriers")
+	return b.blocked_edge_set() if b != null else {}
 
 ## [공격] 근접: 적 인접 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령.
 func _melee_attack(entry: Dictionary) -> void:
@@ -1427,7 +1433,7 @@ func _finish_pending_npc_moves() -> void:
 ## then_attack가 주어지면 이동 완료 후 그 적과 전투를 시작하고,
 ## 아니면 이동 후 공격 범위에 적이 있는지 재평가한다(빨강 재표시).
 func _move_player_to(start_cell: Vector2i, dest_cell: Vector2i, then_attack = null) -> void:
-	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(party), _building_costs())
+	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(party), _building_costs(), barrier_edges())
 	_player_move_target = dest_cell
 	var tw := _animate_path(party, path, 0.0, func(_cell: Vector2i) -> void: _update_fog())
 	if tw == null:
@@ -1557,9 +1563,9 @@ func _engage_with_lord(hero) -> void:
 		# 1) 보이는 적 중 최근접으로 접근(더 가까워질 수 없으면 제자리).
 		if not targets.is_empty():
 			var blocked := blocked_for(f)
-			var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, targets, _building_costs())
+			var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, targets, _building_costs(), barrier_edges())
 			if dest != start:
-				var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
+				var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs(), barrier_edges())
 				if path.size() >= 2:
 					f.mark_moved()
 					await _move_party_await(f, path)
@@ -1597,7 +1603,7 @@ func _enter_charge_target(hero) -> void:
 		if not f.can_move():
 			continue
 		var start := _cell_of(f)
-		for c in HexGrid.movement_ranges(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(f), _building_costs())["move"]:
+		for c in HexGrid.movement_ranges(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(f), _building_costs(), barrier_edges())["move"]:
 			reach[c] = true
 	var blue: Array[Vector2i] = []
 	for c in reach:
@@ -1632,9 +1638,9 @@ func _charge_with_lord(hero, target_cell: Vector2i) -> void:
 		var blocked := blocked_for(f)
 		var reach: int = maxi(f.attack_range(), 1)
 		# 1) 목표 방향 도달 칸으로 경로를 잡고, 사거리 내 적이 들어오는 첫 지점까지만 전진.
-		var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, [target_cell], _building_costs())
+		var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, [target_cell], _building_costs(), barrier_edges())
 		if dest != start:
-			var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
+			var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs(), barrier_edges())
 			if path.size() >= 2:
 				var stop := HexGrid.attack_move_stop(terrain, path, _visible_enemy_cells(f.faction_name), reach, MAP_WIDTH, MAP_HEIGHT)
 				if stop >= 1:
@@ -1664,10 +1670,10 @@ func _follow_with_lord(hero, hero_cell: Vector2i, from_cell: Vector2i) -> void:
 		if not f.can_move():
 			continue   # 이미 이동/공격했으면 → 그 자리에 남음
 		var f_cell := _cell_of(f)
-		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, from_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
+		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, from_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs(), barrier_edges())
 		if dest == f_cell:
 			continue   # 이미 최선 위치(인접) → 이동·턴 소비 없음
-		var path := HexGrid.reconstruct_path(terrain, f_cell, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
+		var path := HexGrid.reconstruct_path(terrain, f_cell, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs(), barrier_edges())
 		if path.size() < 2:
 			continue
 		f.mark_moved()   # 따라 움직인 하위부대는 이번 턴 이동 소모

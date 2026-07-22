@@ -61,11 +61,21 @@ static func _cell_enter_cost(terrain: TileMapLayer, cell: Vector2i, cell_costs: 
 		return cell_costs[cell]
 	return Terrain.enter_cost(terrain.get_cell_source_id(cell))
 
+## 두 인접 칸 사이 경계의 정규 키(순서 무관). blocked_edges 집합({key: true})의 키로 쓴다.
+## 강·벽처럼 칸 사이 경계에 걸친 이동 차단을 표현한다(칸 자체는 통행 가능, 그 경계만 못 건넘). → 강/벽
+static func edge_key(a: Vector2i, b: Vector2i) -> String:
+	if b.x < a.x or (b.x == a.x and b.y < a.y):
+		var t := a
+		a = b
+		b = t
+	return "%d,%d|%d,%d" % [a.x, a.y, b.x, b.y]
+
 ## start에서 이동력(budget) 이내로 도달 가능한 각 칸까지의 누적 진입비용 { cell: cost }(start=0).
 ## - 칸마다 진입비용(지형 Terrain.enter_cost, 또는 cell_costs의 건물비용)을 더한다(가중 BFS = Dijkstra).
 ## - 진입 불가 칸(비용<0)·blocked_cells(점유 칸)·맵 밖·budget 초과는 제외한다.
 ## - cell_costs: { cell: 진입비용 } 건물 발자국 override(도시=2 등, 음수면 불가). → build_planner.movement_costs
-static func cost_distances(terrain: TileMapLayer, start: Vector2i, budget: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Dictionary:
+## - blocked_edges: { edge_key: true } 칸 사이 경계 차단(강·벽). 그 경계로는 못 건넌다(칸은 통행 가능).
+static func cost_distances(terrain: TileMapLayer, start: Vector2i, budget: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Dictionary:
 	var cost := {start: 0}
 	var frontier: Array = [[0, start]]   # [누적비용, 셀]. 규모가 작아 매번 최소비용 원소를 선형 탐색해 꺼낸다.
 	while not frontier.is_empty():
@@ -81,6 +91,8 @@ static func cost_distances(terrain: TileMapLayer, start: Vector2i, budget: int, 
 		for n in terrain.get_surrounding_cells(cur):
 			if not _in_bounds(n, map_w, map_h) or blocked_cells.has(n):
 				continue
+			if not blocked_edges.is_empty() and blocked_edges.has(edge_key(cur, n)):
+				continue   # 강·벽 경계 — 이 방향으로 못 건넘(칸 자체는 열려 있음)
 			var ec := _cell_enter_cost(terrain, n, cell_costs)
 			if ec < 0:
 				continue   # 진입 불가(산·물·불가 건물)
@@ -94,8 +106,8 @@ static func cost_distances(terrain: TileMapLayer, start: Vector2i, budget: int, 
 ## - move: 이동력(budget) 이내 누적비용으로 도달 가능한 칸(시작칸 비용 0 제외). 숲(2)·습지(3)·도시(2)가 더 비싸다.
 ## - attack: **이동 가능 영역(+시작칸) 바로 바깥 한 칸**. 진입 불가 칸(산·물·불가 건물)은 제외.
 ## - dist: 시작칸(0) 포함 누적비용 맵 (진입 불가 제외).
-static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Dictionary:
-	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs)
+static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Dictionary:
+	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges)
 	var move_set := {}
 	var move_cells: Array[Vector2i] = []
 	for cell in cost:
@@ -126,19 +138,22 @@ static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: 
 ## - 진입 불가(산·물·불가 건물)·맵 밖·blocked_cells(점유 칸)는 제외한다(이동 계산과 같은 규칙).
 ## - dest에 도달 불가하면 빈 배열, start == dest면 [start].
 ## - NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
-static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Array[Vector2i]:
+static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Array[Vector2i]:
 	if start == dest:
 		return [start]
-	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs)
+	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges)
 	if not cost.has(dest):
 		return []
 	# dest에서 "누적비용 - 그 칸 진입비용" == 이웃 누적비용인 선행 칸을 따라 start까지 거꾸로 짚어간다.
+	# 차단된 경계(blocked_edges)는 실제 경로가 지날 수 없으므로 선행 후보에서 제외한다(다른 경로로 같은 비용인 칸 오선택 방지).
 	var path: Array[Vector2i] = [dest]
 	var cur := dest
 	while cur != start:
 		var need: int = int(cost[cur]) - _cell_enter_cost(terrain, cur, cell_costs)
 		var stepped := false
 		for n in terrain.get_surrounding_cells(cur):
+			if not blocked_edges.is_empty() and blocked_edges.has(edge_key(cur, n)):
+				continue
 			if int(cost.get(n, -1)) == need:
 				cur = n
 				path.append(cur)
@@ -155,8 +170,8 @@ static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vecto
 ## - 링 우선: 도달 가능한 영웅 인접 칸(get_surrounding_cells)이 있으면 그중 진행 방향으로 가장 앞선 칸(월드 내적 최대),
 ##   동률이면 하위부대에서 가까운 칸. from_cell==hero_cell(방향 없음)이면 전방 점수 0 → 가까운 링 칸(분산).
 ## - 접근 폴백: 도달 가능한 링 칸이 없으면 영웅 지형 거리(bfs) 최소 칸(동률 시 근접). 더 못 가까워지면 제자리.
-static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Vector2i:
-	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells, cell_costs)
+static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Vector2i:
+	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges)
 	var self_dist: Dictionary = ranges["dist"]   # 하위부대로부터의 거리(제자리 0)
 	var big := map_w * map_h + 1
 	var reachable := {follower_cell: true}
@@ -225,6 +240,25 @@ static func hex_polygon(terrain: TileMapLayer, cell: Vector2i) -> PackedVector2A
 		c + Vector2(-hw, hh * 0.5),
 		c + Vector2(-hw, -hh * 0.5),
 	])
+
+## 인접한 두 칸 a,b의 **공유 변(경계) 선분** [p0, p1](월드 좌표). 강·벽 렌더·경계 편집 툴이 쓴다.
+## 두 헥스 폴리곤에 공통으로 있는 꼭짓점 2개를 찾는다. 못 찾으면(비인접 등) 중점 기준 짧은 수직선으로 폴백.
+static func edge_segment(terrain: TileMapLayer, a: Vector2i, b: Vector2i) -> PackedVector2Array:
+	var pa := hex_polygon(terrain, a)
+	var pb := hex_polygon(terrain, b)
+	var shared := PackedVector2Array()
+	for va in pa:
+		for vb in pb:
+			if va.distance_to(vb) < 1.0:
+				shared.append(va)
+				break
+	if shared.size() >= 2:
+		return PackedVector2Array([shared[0], shared[1]])
+	var ca := terrain.map_to_local(a)
+	var cb := terrain.map_to_local(b)
+	var mid := (ca + cb) * 0.5
+	var d := (cb - ca).orthogonal().normalized() * (Vector2(terrain.tile_set.tile_size).y * 0.25)
+	return PackedVector2Array([mid - d, mid + d])
 
 ## 영역(cells: {cell: true} 또는 셀 배열)의 바깥 윤곽선을 이루는 변 목록.
 ## 각 셀의 6변 중 이웃과 공유하지 않는 변만 남긴다(내부 변은 두 번 나와 상쇄).

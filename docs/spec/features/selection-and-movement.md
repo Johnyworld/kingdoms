@@ -45,7 +45,8 @@
 
 - **도시 건물은 통행 가능**(진입비용 2)하고, **불가 랜드마크**(피라미드 등)만 막힌다 — 유닛 점유(완전 차단)와는 별개 체계다.
 - 구현: `game.gd`가 "자기 외 모든 부대의 현재 칸" 집합(`_occupied_cells(exclude)` = `blocked_for`)을 만들어 완전 차단으로 넘기고, 건물 발자국 비용(`_building_costs()` = `BuildPlanner.movement_costs`)은 `cell_costs`로 넘긴다. 이동 범위·클릭 이동 경로·NPC 목적지 계산이 모두 이를 반영한다.
-- `HexGrid`의 `cost_distances`/`movement_ranges`/`reconstruct_path`/`follow_destination`은 **`blocked_cells: Dictionary`**(완전 차단, 유닛 점유)와 **`cell_costs: Dictionary`**(칸별 진입비용 override, 건물)를 받는다 — 둘 다 지형 규칙(`Terrain.enter_cost`)과 별개다. 시야 계산(`cells_within`)은 이 인자들을 쓰지 않아 유닛·건물에 막히지 않는다.
+- `HexGrid`의 `cost_distances`/`movement_ranges`/`reconstruct_path`/`follow_destination`은 **`blocked_cells: Dictionary`**(완전 차단, 유닛 점유)·**`cell_costs: Dictionary`**(칸별 진입비용 override, 건물)·**`blocked_edges: Dictionary`**(칸 사이 경계 차단, 강·벽 → [Edge Barriers](edge-barriers.md))를 받는다 — 모두 지형 규칙(`Terrain.enter_cost`)과 별개다. 시야 계산(`cells_within`)은 이 인자들을 쓰지 않아 유닛·건물·경계에 막히지 않는다.
+- **경계 장벽(강·벽)**: 칸이 아니라 두 칸 사이 경계에 걸린 이동 차단. `game.gd.barrier_edges()`(=`Barriers.blocked_edge_set()`)가 만든 집합을 이동 호출부에 `blocked_edges`로 넘긴다. → [Edge Barriers](edge-barriers.md)
 - **점유는 이동(move)에만 반영**된다 — 공격 범위(빨강)는 점유 칸을 제외하지 않는다(인접한 적을 공격 대상으로 보는 게 자연스럽고, 전투가 아직 미구현이라 표시만 한다).
 - **점유 판정은 각 부대의 현재 칸**(`local_to_map(position)`)으로 한다. NPC 이동은 계획 전에 모두 목적지로 스냅되므로 정확하고, 드물게 NPC 애니메이션 중 플레이어가 이동하면 한 칸 근사일 수 있다(일시적).
 
@@ -66,7 +67,7 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 
 ### 경로 재구성 (`HexGrid.reconstruct_path`)
 
-`reconstruct_path(terrain, start, dest, move_range, map_w, map_h, blocked_cells := {}, cell_costs := {}) -> Array[Vector2i]` — 시작에서 목적지까지 **최소비용 경로**(칸 목록, start·dest 포함)를 누적비용 맵(`cost_distances`)에서 역추적해 구한다. 산·물(`Terrain.BLOCKED`)·맵 밖·`blocked_cells`(점유 칸)·불가 건물은 제외하고, 진입비용(지형·건물 `cell_costs`)이 싼 경로를 고른다. 도달 불가(목적지가 막혔거나 이동력 부족)하면 빈 배열, `start == dest`면 `[start]`. NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
+`reconstruct_path(terrain, start, dest, move_range, map_w, map_h, blocked_cells := {}, cell_costs := {}, blocked_edges := {}) -> Array[Vector2i]` — 시작에서 목적지까지 **최소비용 경로**(칸 목록, start·dest 포함)를 누적비용 맵(`cost_distances`)에서 역추적해 구한다. 산·물(`Terrain.BLOCKED`)·맵 밖·`blocked_cells`(점유 칸)·불가 건물은 제외하고, 진입비용(지형·건물 `cell_costs`)이 싼 경로를 고른다. 도달 불가(목적지가 막혔거나 이동력 부족)하면 빈 배열, `start == dest`면 `[start]`. NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
 
 ### 사거리 판정 (`HexGrid.cells_within`)
 

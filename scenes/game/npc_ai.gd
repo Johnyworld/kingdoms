@@ -74,8 +74,8 @@ static func prioritize(tiers: Array) -> Array:
 ## - targets가 없으면: 도달 가능한 가장 먼 칸 중 하나로 무작위 이동(배회).
 ## 지형 규칙(산·물 불가·숲/습지 진입비용)·맵 경계·점유 칸(blocked_cells)·건물비용(cell_costs)은 HexGrid.movement_ranges가 반영한다.
 ## 도달 가능한 이동 칸이 없으면(이동력 0, 사방이 산/점유/맵 밖 등) start를 그대로 반환한다(제자리).
-static func choose_destination(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, rng: RandomNumberGenerator, blocked_cells: Dictionary = {}, targets: Array = [], cell_costs: Dictionary = {}) -> Vector2i:
-	var ranges := HexGrid.movement_ranges(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs)
+static func choose_destination(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, rng: RandomNumberGenerator, blocked_cells: Dictionary = {}, targets: Array = [], cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Vector2i:
+	var ranges := HexGrid.movement_ranges(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges)
 	var move_cells: Array = ranges["move"]
 	if move_cells.is_empty():
 		return start

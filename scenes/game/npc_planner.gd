@@ -92,6 +92,7 @@ func targets_for(p, p_party_entries: Array, p_camp_entries: Array) -> Array:
 func plan_group_move(group: Array, p_party_entries: Array, p_camp_entries: Array) -> Dictionary:
 	var plans: Dictionary = {}
 	var bcosts: Dictionary = BuildPlanner.movement_costs(world.all_buildings())   # 건물 발자국 이동비용(도시=2, 불가=BLOCKED)
+	var bedges: Dictionary = world.barrier_edges()   # 강·벽 차단 경계
 	var hero = group[0] if not group.is_empty() and is_instance_valid(group[0]) and group[0].is_hero() else null
 	var hero_from := Vector2i(-1, -1)
 	var hero_dest := Vector2i(-1, -1)
@@ -99,8 +100,8 @@ func plan_group_move(group: Array, p_party_entries: Array, p_camp_entries: Array
 	if hero != null:
 		hero_from = _cell_of(hero)
 		var hocc: Dictionary = world.blocked_for(hero)
-		hero_dest = NpcAi.choose_destination(terrain, hero_from, hero.movement(), map_w, map_h, rng, hocc, targets_for(hero, p_party_entries, p_camp_entries), bcosts)
-		plans[hero] = HexGrid.reconstruct_path(terrain, hero_from, hero_dest, hero.movement(), map_w, map_h, hocc, bcosts)
+		hero_dest = NpcAi.choose_destination(terrain, hero_from, hero.movement(), map_w, map_h, rng, hocc, targets_for(hero, p_party_entries, p_camp_entries), bcosts, bedges)
+		plans[hero] = HexGrid.reconstruct_path(terrain, hero_from, hero_dest, hero.movement(), map_w, map_h, hocc, bcosts, bedges)
 	# 하위부대: 영웅 추종(지휘 범위 내 적 있으면 교전). 배정 칸·영웅 칸을 예약해 겹침 방지.
 	var reserved: Dictionary = {}
 	if hero_dest != Vector2i(-1, -1):
@@ -116,12 +117,12 @@ func plan_group_move(group: Array, p_party_entries: Array, p_camp_entries: Array
 		if hero != null and hero_dest != Vector2i(-1, -1):
 			var near := NpcAi.enemies_within(terrain, hero_dest, hero.command_range(), NpcAi.enemy_cells(p.faction_name, p_party_entries), map_w, map_h)
 			if not near.is_empty():
-				dest = NpcAi.choose_destination(terrain, start, p.movement(), map_w, map_h, rng, occ, near, bcosts)   # 지휘 범위 내 적 → 근접 교전
+				dest = NpcAi.choose_destination(terrain, start, p.movement(), map_w, map_h, rng, occ, near, bcosts, bedges)   # 지휘 범위 내 적 → 근접 교전
 			else:
-				dest = HexGrid.follow_destination(terrain, hero_dest, hero_from, start, p.movement(), map_w, map_h, occ, bcosts)   # 영웅 추종(대형)
+				dest = HexGrid.follow_destination(terrain, hero_dest, hero_from, start, p.movement(), map_w, map_h, occ, bcosts, bedges)   # 영웅 추종(대형)
 		else:
-			dest = NpcAi.choose_destination(terrain, start, p.movement(), map_w, map_h, rng, occ, targets_for(p, p_party_entries, p_camp_entries), bcosts)   # 독립 부대·영웅 없음
-		plans[p] = HexGrid.reconstruct_path(terrain, start, dest, p.movement(), map_w, map_h, occ, bcosts)
+			dest = NpcAi.choose_destination(terrain, start, p.movement(), map_w, map_h, rng, occ, targets_for(p, p_party_entries, p_camp_entries), bcosts, bedges)   # 독립 부대·영웅 없음
+		plans[p] = HexGrid.reconstruct_path(terrain, start, dest, p.movement(), map_w, map_h, occ, bcosts, bedges)
 		reserved[dest] = true
 	return plans
 

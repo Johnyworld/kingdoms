@@ -41,6 +41,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [NPC Bases (NPC 세력 거점)](features/npc-bases.md) — NPC 세력별 수도 영지·캠프 배치, 안개(발견 후 상시 표시)·클릭 정보
 - [NPC Movement (NPC 이동 AI)](features/npc-movement.md) — 턴 종료 시 NPC가 도달 가능한 가장 먼 칸으로 무작위 이동
 - [Selection & Movement (선택과 이동)](features/selection-and-movement.md)
+- [Edge Barriers (경계 장벽 — 강·벽)](features/edge-barriers.md)
 - [Party Info (부대 정보 패널)](features/party-info.md) — 부대 클릭 시 우측 상단에 이름·이동력·시야·지휘관·병력 표시
 - [Party Action Menu (부대 행동 메뉴)](features/party-action-menu.md) — 토큰 근처 메뉴 [사격](+대기/취소/소속) + 적 팝업 [공격][사격], 근접 승리 점령
 - [Party Roster (부대 일람)](features/party-roster.md) — 우측 상단 상시 목록, 항목 클릭 시 그 부대로 카메라 이동
