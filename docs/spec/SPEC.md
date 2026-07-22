@@ -50,6 +50,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Building Info (건물 정보 패널)](features/building-info.md) — 농장 등 건물 클릭 시 우측 상단에 종류·상태·시야·영지·생산 표시 + 철거(확인 다이얼로그)
 - [Confirm Dialog (확인 다이얼로그)](features/confirm-dialog.md) — 되돌리기 어려운 동작 전 확인받는 범용 모달(첫 사용처: 건물 철거)
 - [Modal (공용 모달 기반)](features/modal.md) — 딤 백드롭 + 제목바 + 우측 상단 X, 콘텐츠 주입(컴포지션), 모달 스택으로 지도 입력 차단·ESC·중첩 관리(소비자: 캠프 메뉴·확인 다이얼로그·소속 모달)
+- [UI Theme (중세풍 UI 스킨)](features/ui-theme.md) — DarkAgesUi 타일시트 + 갈무리14 폰트를 중앙 `medieval_theme.tres`로 가공해 `project.godot`에 전역 등록. 프레임 용도별 구분(어두운=패널 / 금장=모달 `OrnatePanel` / 양피지=툴팁). Slice 1(기반·모달) 구현, 버튼·구분선·바·아이콘은 Slice 2~3
 - [Turn (턴)](features/turn.md) — 턴 종료 · 부대 1턴 1이동 · 영지 자원 수입 · 건설 진행
 - [Lang Battle (랑그릿사 1 오마주 전투 — 게임 정식 전투)](features/lang-battle.md) — 게임의 **정식 전투 시스템**(구 battle.gd 오버레이 대체). 모든 부대 전투가 이 오버레이로 열린다. Resolver(순수 계산)/Presenter(연출) 분리, 원본 RNG·상성·지휘보정·병력바 재현
 - [Construction (건축)](features/building.md) — 자원 차감 · 건설 중 상태 · 배치 유효성 · 건설 모드 UI(리스트·배치)
@@ -76,6 +77,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 씬 전환 | `autoload/scene_manager.gd` |
 | 모달 스택(싱글턴) | `autoload/modal_stack.gd` |
 | 공용 모달 기반 | `scenes/modal/modal.gd` |
+| 중세풍 UI 테마(전역) | `assets/ui/medieval_theme.tres` + `assets/ui/darkages/*`(타일시트) + `assets/ui/fonts/Galmuri14.ttf` |
 | 스플래시 | `scenes/splash/splash.gd` |
 | 타이틀 | `scenes/title/title.gd` |
 | 게임 루트 | `scenes/game/game.gd` |

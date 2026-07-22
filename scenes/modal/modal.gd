@@ -13,6 +13,7 @@ var title := "" : set = set_title
 var dismissible := true   # false면 X 버튼(또는 콘텐츠 버튼)으로만 닫힘 — 선택 강제 모달용
 
 var _backdrop: ColorRect
+var _panel: PanelContainer            # 중앙 창. 중세풍 테마의 OrnatePanel(금장 프레임) 변형을 쓴다
 var _title_label: Label
 var _close_button: Button
 var _content_area: MarginContainer   # 주입 콘텐츠 한 개를 담는다
@@ -68,12 +69,13 @@ func _build() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 
-	var panel := PanelContainer.new()
-	center.add_child(panel)
+	_panel = PanelContainer.new()
+	_panel.theme_type_variation = &"OrnatePanel"   # 금장 장식 프레임(중세풍 테마)
+	center.add_child(_panel)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 6)
-	panel.add_child(vbox)
+	_panel.add_child(vbox)
 
 	# 제목 바: [제목] ---- [X]
 	var header := HBoxContainer.new()
