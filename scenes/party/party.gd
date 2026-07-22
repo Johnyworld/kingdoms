@@ -39,16 +39,31 @@ var commander_name := ""
 
 
 # --- 맵 토큰 스프라이트 (→ docs/spec/entities/Party.md 맵 토큰 외형) ---
-## 스프라이트 축소 배율 — 100px 프레임을 헥스 타일(64×46)에 맞춘다.
-const _SPRITE_SCALE := 0.6
-## 프레임 내 발끝 texel(idle 기준). centered 스프라이트를 이만큼 위로 올려 발을 칸 중심에 세운다.
-const _FOOT_TEXEL := 56
+## 스프라이트 축소 배율 — 100px 프레임을 16px 헥스에 맞춘다(전투씬 몸통≈16px 참조, 맵은 더 작게).
+const _SPRITE_SCALE := 0.55
+## 스프라이트 세로 오프셋(texel) — 머리를 기준으로 크기를 키우려 발을 원점보다 살짝 아래로 둔다(머리 고정, 아래로 성장).
+## (발끝 texel 56이 원점에 딱 오는 값은 -6. 이보다 크게(위로 덜) 두면 발이 내려가고 머리는 유지.)
+const _SPRITE_OFFSET_Y := -2.4
 ## 세력색 틴트를 흰색으로 섞는 비율(0=원색, 1=세력색 그대로). 스프라이트 가독성 확보용.
 const _TINT_MIX := 0.55
-## 발밑 오버레이(선택/공격 하이라이트 링·그림자) 반지름.
-const _RING_R := 14.0
-## 머리 위 지휘 배지(▲) 세로 위치(발=원점 기준 음수).
-const _HEAD_Y := 28.0
+## 발밑 오버레이(선택/공격 하이라이트 링) 반지름 — 16px 헥스 규모.
+const _RING_R := 8.0
+
+## 발밑 그림자 — 전투씬처럼 납작한 타원 3겹(정원 X). (반경x, 반경y) 바깥(옅음)→안쪽(진함).
+const _SHADOW := [[4.5, 1.6, 0.10], [3.4, 1.2, 0.15], [2.5, 0.9, 0.20]]
+const _SHADOW_Y := 2.5   # 발밑 그림자 세로 위치 — 발이 원점보다 내려간 만큼 함께 내림
+
+## 지휘 배지(▲) — 캐릭터 머리 바로 위에 작은 삼각형. y는 발=원점 기준 음수(위), 반폭·꼭짓점 높이·밑변 깊이.
+const _CMD_BADGE_Y := 10.5
+const _CMD_BADGE_W := 2.5
+const _CMD_BADGE_TOP := 2.5
+const _CMD_BADGE_BOT := 1.0
+
+## 인원수 배지 — 발=중심 기준 아래-우측(빈 땅)에 작게. 배경 원 중심·반지름·숫자 폰트 크기(월드).
+## 숫자 렌더는 MapText 공용 헬퍼(갈무리14+합성 볼드+슈퍼샘플)가 담당 — 작아도 선명.
+const _COUNT_BADGE_POS := Vector2(4, 4)
+const _COUNT_BADGE_R := 3.0
+const _COUNT_BADGE_FS := 4
 
 # 이번 턴에 이동을 마치면 반투명하게 그릴 때 곱할 알파.
 const _MOVED_ALPHA := 0.4
@@ -205,13 +220,16 @@ func reset_turn() -> void:
 
 ## 병종 idle 스프라이트 자식을 만든다(빈 프레임). 아키타입은 아직 미정이라 _draw에서 맞춘다.
 func _ready() -> void:
+	# 부모 캔버스(_draw)도 NEAREST — draw_string(인원 배지 숫자) 글리프가 줌 확대 시 흐려지지 않게.
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_sprite = AnimatedSprite2D.new()
 	_sprite.centered = true
 	# 부모(_draw) 오버레이(선택 링·지휘 배지·인원 배지)가 스프라이트 위에 오도록 스프라이트를 뒤로 보낸다.
 	_sprite.show_behind_parent = true
 	_sprite.scale = Vector2(_SPRITE_SCALE, _SPRITE_SCALE)
-	# 발끝(_FOOT_TEXEL)이 원점(칸 중심)에 오도록 위로 올린다.
-	_sprite.offset = Vector2(0, -(_FOOT_TEXEL - UnitSprites.FRAME_PX / 2))
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # 축소해도 픽셀 선명(전투 화면과 동일, Linear면 흐릿)
+	# 머리 고정·아래로 성장 오프셋(_SPRITE_OFFSET_Y). 발은 원점보다 살짝 아래.
+	_sprite.offset = Vector2(0, _SPRITE_OFFSET_Y)
 	add_child(_sprite)
 
 ## 자식 스프라이트를 현재 아키타입·세력색·페이드에 맞춘다(프레임은 아키타입이 바뀔 때만 교체).
@@ -243,8 +261,9 @@ func _draw() -> void:
 	# 병종 스프라이트(몸통)를 현재 상태에 맞춘다. 오버레이는 그 위/아래로 캔버스에 얹는다.
 	_sync_sprite(a)
 
-	# 발밑 그림자(스프라이트를 지면에 앉힌다).
-	draw_circle(Vector2(0, 2), _RING_R * 0.5, Color(0, 0, 0, 0.22 * a))
+	# 발밑 그림자 — 전투씬처럼 납작한 타원 3겹(정원 X, 소프트 엣지 근사).
+	for layer in _SHADOW:
+		_draw_ellipse(Vector2(0, _SHADOW_Y), layer[0], layer[1], Color(0, 0, 0, layer[2] * a))
 
 	# NPC 공격 연출 하이라이트(공격자·대상 발밑 링). 선택 링과 별개, 살짝 더 크게.
 	# 이동/공격 fade(a)를 곱하지 않는다 — 주의를 끄는 신호라 mark_attacked 후에도 선명해야 한다. → npc-movement.md
@@ -258,20 +277,22 @@ func _draw() -> void:
 	# 지휘 범위 버프 중이면 머리 위에 작은 금색 갈매기(▲) 배지. → command-range.md
 	if command_buffed:
 		var gold := Color(1.0, 0.85, 0.2, a)
-		var ty := -_HEAD_Y   # 머리 위
+		var ty := -_CMD_BADGE_Y   # 머리 위(작게·가깝게)
 		draw_colored_polygon(PackedVector2Array([
-			Vector2(0, ty - 5),
-			Vector2(5, ty + 3),
-			Vector2(-5, ty + 3),
+			Vector2(0, ty - _CMD_BADGE_TOP),
+			Vector2(_CMD_BADGE_W, ty + _CMD_BADGE_BOT),
+			Vector2(-_CMD_BADGE_W, ty + _CMD_BADGE_BOT),
 		]), gold)
 
-	# 일반부대면 우하단에 남은 인원수 배지(어두운 배경 원 + 흰 숫자). → Party.md
+	# 일반부대면 헥스 아래쪽(빈 땅)에 남은 인원수 배지(어두운 배경 원 + 흰 숫자). → Party.md
 	if shows_member_count():
-		var bpos := Vector2(11, 2)   # 발 오른쪽
-		draw_circle(bpos, 7.0, Color(0.1, 0.08, 0.05, 0.85 * a))
-		var font := ThemeDB.fallback_font
-		var fs := 11
-		var txt := str(soldiers)
-		var tw: float = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		draw_string(font, bpos + Vector2(-tw * 0.5, fs * 0.36), txt,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, a))
+		var bpos := _COUNT_BADGE_POS   # 발 오른쪽·아래(헥스 안)
+		draw_circle(bpos, _COUNT_BADGE_R, Color(0.1, 0.08, 0.05, 0.85 * a))
+		# 숫자는 MapText(갈무리14+볼드+슈퍼샘플)로 선명하게. baseline을 원 중앙에 맞춤(fs*0.36).
+		MapText.draw_centered(self, str(soldiers), bpos.x, bpos.y + _COUNT_BADGE_FS * 0.36, _COUNT_BADGE_FS, Color(1, 1, 1, a))
+
+## 납작한 타원 채우기(중심 c, 반경 rx·ry) — 단위원을 (rx,ry)로 스케일해 그린 뒤 변환 원복. 전투씬 그림자와 동일 방식.
+func _draw_ellipse(c: Vector2, rx: float, ry: float, col: Color) -> void:
+	draw_set_transform(c, 0.0, Vector2(rx, ry))
+	draw_circle(Vector2.ZERO, 1.0, col)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

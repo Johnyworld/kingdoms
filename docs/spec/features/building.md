@@ -80,6 +80,7 @@
 - 생산: 건설 중에는 [1차 생산](production.md)이 동작하지 않는다(`tick_production`은 완성 건물만 game이 부른다). (flat `production()`은 폐지.)
 - 시야: 건설 중 건물은 시야에 기여하지 않는다(배치 유효성의 `territory_vision`이 완성 건물만 센다). `vision` 값 자체는 종류 스펙 그대로 유지.
 - 렌더: 건설 중이면 반투명하게 그리고 중심 근처에 **"건설 중 N"**(남은 턴)을 표시한다.
+- 지도 라벨(거점명·세력명·"건설 중 N"·"수비 N")은 **`MapText` 공용 헬퍼**(`scenes/game/map_text.gd`)로 그린다 — 갈무리14(픽셀)+합성 볼드를 **슈퍼샘플**(글리프를 3배 래스터 후 1/3 축소)해 16px 헥스 월드 규모(거점명 7·배지 6)로 작게, 기본 3배 줌에서도 선명하게. 건물 노드는 `texture_filter = NEAREST`. (옛 `ThemeDB.fallback_font` 12px는 흐리고 컸음.) → [Party 인원 배지](../entities/Party.md)와 동일 방식.
 
 ## 턴 진행 (`TurnManager` · `Territory`)
 

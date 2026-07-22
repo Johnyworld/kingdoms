@@ -25,6 +25,14 @@ func test_party_name_settable() -> void:
 	p.party_name = "주인공 부대"
 	assert_eq(p.party_name, "주인공 부대", "이름을 설정할 수 있다")
 
+# --- 맵 토큰 스프라이트 필터(픽셀 선명) ---
+
+func test_sprite_uses_nearest_filter() -> void:
+	# 축소 렌더 시 Linear면 흐릿 → NEAREST로 픽셀 선명(전투 화면과 동일). → Party.md 맵 토큰 외형
+	var p := _party()
+	assert_eq(p._sprite.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST,
+		"맵 토큰 스프라이트는 NEAREST 필터(흐릿함 방지)")
+
 # --- 병종(월드맵 아이콘 판별) ---
 
 func test_is_ranged_true_for_archer_archetype() -> void:

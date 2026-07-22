@@ -76,7 +76,9 @@
 
 - **세트 매핑**(`UnitSprites.set_key(archetype)`) — `hero → "sword"`, `light_infantry → "soldier"`, `light_archer → "archer_a"`. 미지원/빈 아키타입은 `"soldier"`로 대체. 부대는 `archetype()`(영웅=`"hero"`, 그 외=`troop_type`)로 세트를 고른다.
 - **프레임 캐시**(`UnitSprites.idle_frames`) — 세트별 idle `SpriteFrames`(6프레임 루프)를 **정적 캐시**로 1개만 만들어 64부대가 공유한다(부대마다 새로 만들지 않음). `AnimatedSprite2D`는 기본 `"default"` 애니메이션에 idle 프레임을 담아 재생한다.
-- **크기·정렬** — 스프라이트를 `SPRITE_SCALE`(≈0.6)로 축소해 헥스 타일(64×46)에 맞춘다. `centered = true` + 세로 `offset`으로 **발이 칸 중심**(부대 `position`)에 서도록 맞춘다.
+- **크기·정렬** — 스프라이트를 `SPRITE_SCALE`(≈0.55)로 축소해 **16px 헥스**(`tile_size` 16×16, `tile_shape` 육각)에 맞춘다. `centered = true` + 세로 `offset`(`_SPRITE_OFFSET_Y`)으로 정렬하되, **머리를 기준으로 크기를 키워** 발은 칸 중심(부대 `position`)보다 살짝 아래에 온다(크기 조정 시 머리 위치 유지·아래로 성장). 그림자(`_SHADOW_Y`)도 발에 맞춰 함께 내린다.
+- **필터** — 스프라이트·부대 노드 모두 `texture_filter = TEXTURE_FILTER_NEAREST`([전투 화면](../features/lang-battle.md)과 동일). 스프라이트 픽셀·`draw_string`(인원 배지 숫자) 글리프가 축소·줌 확대에도 **선명**하게 유지된다(Linear면 흐릿).
+- **그림자** — 발밑에 **납작한 타원 3겹**(`_draw_ellipse`, 바깥 옅음→안쪽 진함)으로 그린다([전투 화면](../features/lang-battle.md)과 동일 방식 — 수치는 맵 규모로 축소). 정원이 아니라 지면에 앉은 타원.
 - **레이어** — 스프라이트는 `show_behind_parent = true`로 두어, 부대 `_draw`의 오버레이(선택 링·지휘 배지·인원 배지)가 **스프라이트 위**에 그려지게 한다(가림 방지).
 - **세력 틴트** — `modulate = token_color`를 가독성 위해 흰색으로 섞은 색(`token_color.lerp(Color.WHITE, TINT_MIX)`)으로 둔다. 플레이어(금색)·NPC(세력색) 구분을 스프라이트 위에 얹는다. 이동/공격 페이드는 `modulate.a`에 곱한다.
 - **전멸**(`soldiers <= 0`) 시 스프라이트를 숨긴다. NPC 안개 처리는 부대 노드 `visible`로 되어 자식 스프라이트도 함께 숨는다([Fog of War](../features/fog-of-war.md)).
@@ -107,7 +109,7 @@
 - `undo_move() -> void` — 이동 되돌리기. `moved_this_turn = false`(다시 이동 가능)로 되돌리고 불투명하게 다시 그린다. 위치 복원·시야 갱신은 `game.gd`([행동 메뉴](../features/party-action-menu.md) `[취소]`).
 - `can_rest() -> bool` — 아직 행동(대기 등)이 가능한지(`not attacked_this_turn`). 선택 가능 판정에 쓴다.
 - `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`를 `false`로 되돌리고 불투명하게 다시 그린다.
-- `_draw()` — `soldiers <= 0`(전멸)이면 스프라이트를 숨기고 아무것도 그리지 않는다("사라짐"). 그 외엔 자식 [스프라이트](#맵-토큰-외형-sprite)의 프레임·틴트·재생을 현재 상태에 맞추고, 캔버스로 오버레이를 얹는다: 선택 시 발밑 강조 링(노란색), NPC 공격 [하이라이트](../features/npc-movement.md) 링, [지휘 버프](../features/command-range.md) 중이면 머리 **위** 금색 갈매기(▲) 배지, `shows_member_count()`면 **우하단**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자). `moved_this_turn`/`attacked_this_turn`이면 스프라이트·오버레이를 반투명하게(`_MOVED_ALPHA`). 인원 배지는 플레이어·보이는 NPC 일반부대 모두 표시(사상자로 줄어든 병력 확인). 몸통 원·외곽선·코드 병종 아이콘은 스프라이트로 대체되어 그리지 않는다.
+- `_draw()` — `soldiers <= 0`(전멸)이면 스프라이트를 숨기고 아무것도 그리지 않는다("사라짐"). 그 외엔 자식 [스프라이트](#맵-토큰-외형-sprite)의 프레임·틴트·재생을 현재 상태에 맞추고, 캔버스로 오버레이를 얹는다: 선택 시 발밑 강조 링(노란색), NPC 공격 [하이라이트](../features/npc-movement.md) 링, [지휘 버프](../features/command-range.md) 중이면 캐릭터 **머리 위**에 아주 작은 금색 갈매기(▲) 배지, `shows_member_count()`면 **발=중심 기준 아래-우측**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자, 폰트 **갈무리14**(`_BADGE_FONT`, 픽셀 폰트 — fallback 벡터 폰트는 흐릿해 교체)). **배지·삼각형은 16px 헥스 규모**의 작은 상수로 잡는다(`_CMD_BADGE_*`: 반폭 2.5·머리 위 y −10.5; `_COUNT_BADGE_*`: 중심 (4,4)·반지름 3·폰트 4). **숫자는 `MapText` 공용 헬퍼**(`scenes/game/map_text.gd`)로 그린다 — 갈무리14(픽셀)+합성 볼드(`variation_embolden` 0.4, regular만 있어 합성)를 **슈퍼샘플**(3배 래스터 후 1/3 축소)해 작아도 기본 3배 줌에서 48px 헥스급으로 또렷하다. 부대 노드는 `texture_filter = NEAREST`. (거점/세력 라벨도 같은 헬퍼를 쓴다 → [건물 렌더](../features/building.md).) 캐릭터 스프라이트는 헥스 위로 조금 솟을 수 있다. `moved_this_turn`/`attacked_this_turn`이면 스프라이트·오버레이를 반투명하게(`_MOVED_ALPHA`). 인원 배지는 플레이어·보이는 NPC 일반부대 모두 표시(사상자로 줄어든 병력 확인). 몸통 원·외곽선·코드 병종 아이콘은 스프라이트로 대체되어 그리지 않는다.
 
 ## 테스트 시나리오
 
@@ -128,8 +130,16 @@
 
 *(`AnimatedSprite2D` 생성·틴트·스케일·발 정렬은 씬 트리 의존이라 실제 실행으로 확인한다 — game.gd 배치와 동일 관례.)*
 
+### 지도 텍스트 헬퍼 (`test/unit/test_map_text.gd`)
+
+`MapText`(부대 인원 배지·거점/세력 라벨 공용). `draw_centered`는 렌더 결과라 실제 실행으로 확인하고, 폰트 계약만 검증:
+
+- [정상] `MapText.font()`는 `FontVariation`이고 `variation_embolden == EMBOLDEN`(합성 볼드), `base_font == 갈무리14`
+- [정상] `font()`는 전역 공유(두 번 불러도 같은 인스턴스)
+
 ### Party (`test/unit/test_party.gd`)
 
+- [정상] 트리에 추가된 부대의 자식 스프라이트 `texture_filter == TEXTURE_FILTER_NEAREST`(픽셀 선명 — 흐릿함 방지, 전투 화면과 동일)
 - [정상] `party_name` 기본값은 빈 문자열, 설정 가능
 - [정상] `faction_name` 기본값은 빈 문자열, 설정 가능
 - [정상] `token_color` 기본값은 금색 `Color(0.92, 0.78, 0.35)`, 설정 가능
