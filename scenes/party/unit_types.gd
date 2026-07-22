@@ -2,7 +2,7 @@ class_name UnitTypes
 ## 유닛·부대 카탈로그. 랑그릿사식 이분화 — 세력별 영웅 4명(영웅부대·단독)과
 ## 병종 아키타입(경보병·경궁병, 일반부대 10명)을 데이터로 정의한다.
 ## 세력·영웅 데이터는 res://data/factions.csv(부모) + res://data/heroes.csv(영웅, faction FK)에서
-## lazy-load 한다(LangData 와 동일 패턴). 병종 표시명·스탯은 GameUnits(units.csv)·lang 클래스가 결정.
+## lazy-load 한다(GameUnits 와 동일 패턴). 병종 표시명·전투 스탯은 GameUnits(units.csv)가 결정.
 ## game.gd 가 여기서 부대를 생성해 배치한다. 순수 class+count 모델(M4-C) — 부대는 "아키타입 + 병력수"다.
 
 const _FACTIONS_CSV := "res://data/factions.csv"

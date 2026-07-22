@@ -1,0 +1,7 @@
+attacker,defender,at,df
+cavalry,infantry,4,2
+cavalry,archer,4,2
+infantry,spear,4,2
+infantry,archer,4,2
+spear,cavalry,4,2
+spear,archer,4,2

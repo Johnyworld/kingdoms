@@ -8,7 +8,7 @@
 
 ## 지휘 범위 — `Party.command_range()`
 
-영웅부대의 지휘 반경(헥스). **부대 아키타입의 lang 클래스 `cmd_range`** 로 결정한다([GameUnits](../data/units.md) → LangData). 구 개별 병사 스탯 기반 공식은 [순수 랑그릿사 유닛 모델 전환](lang-battle.md#게임-통합)으로 폐기.
+영웅부대의 지휘 반경(헥스). **부대 아키타입의 `cmd_range`** 로 결정한다([GameUnits](../data/units.md), units.csv 인라인). 구 개별 병사 스탯 기반 공식은 [순수 랑그릿사 유닛 모델 전환](lang-battle.md#게임-통합)으로 폐기.
 
 ```
 command_range() = GameUnits.command_range(archetype())   # = lang 클래스 cmd_range

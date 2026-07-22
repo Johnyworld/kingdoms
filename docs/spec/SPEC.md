@@ -109,7 +109,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 지형 렌더러 | `scenes/game/terrain_renderer.gd` |
 | 지형 데이터 타일셋 | `tiles/terrain_tileset.tres` (숨김 데이터 레이어) |
 | 지형 비주얼 타일셋 | `assets/tiles/lapetite/Tilesets/*.tres` (LaPetiteTile 오토타일) |
-| 게임 튜닝 데이터(CSV) | `data/factions.csv` · `data/heroes.csv` · `data/units.csv` · `data/class_stats.csv` · `data/matchup.csv` (스프레드시트 편집, `importer="keep"`) |
+| 게임 튜닝 데이터(CSV) | `data/factions.csv` · `data/heroes.csv` · `data/units.csv`(병종+전투 스탯 인라인) · `data/type_advantage.csv`(병종 상성) (스프레드시트 편집, `importer="keep"`) |
 
 ---
 

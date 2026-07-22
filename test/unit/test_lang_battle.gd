@@ -5,6 +5,18 @@ extends GutTest
 const Battlefield = preload("res://scenes/lang_battle/lang_battlefield.gd")
 const Presenter = preload("res://scenes/lang_battle/lang_battle.gd")
 
+## make_unit 은 이제 전투 스탯 블록을 직접 받는다(class_id 참조 제거).
+## Resolver 순수함수 검증은 튜닝 가능한 units.csv 값에서 **의도적으로 격리**한다 — 여기 고정 스탯 블록을
+## 주입해 밸런스 조정이 Resolver 단위 테스트를 깨지 않게 한다. 값은 과거 class_stats.csv(1/4/8/27)에서
+## 옮긴 것(다양한 at/df 조합으로 RNG·조립 결정론 검증). kind 는 미포함 → make_unit 기본 ""(상성 중립).
+func _stats(class_no: int) -> Dictionary:
+	match class_no:
+		1: return {"at": 23, "df": 21, "cmd_range": 3, "cmd_at": 2, "cmd_df": 2}
+		4: return {"at": 27, "df": 24, "cmd_range": 4, "cmd_at": 2, "cmd_df": 4}
+		8: return {"at": 31, "df": 28, "cmd_range": 4, "cmd_at": 6, "cmd_df": 4}
+		27: return {"at": 31, "df": 17, "cmd_range": 4, "cmd_at": 9, "cmd_df": 2}
+	return {}
+
 func test_rng_reference_sequence() -> void:
 	# 스펙 §2.5 검증 수열: 상태 0에서 next()%100.
 	var rng := LangRng.new(0)
@@ -16,8 +28,8 @@ func test_rng_reference_sequence() -> void:
 
 func test_engagement_is_deterministic() -> void:
 	# 같은 시드 → 같은 결과 (연출 스킵과 무관하게 동일, §0).
-	var a := LangResolver.make_unit(8, 0, 10)
-	var d := LangResolver.make_unit(1, 1, 10)
+	var a := LangResolver.make_unit(_stats(8), 0, 10)
+	var d := LangResolver.make_unit(_stats(1), 1, 10)
 	var r1 := LangResolver.resolve_engagement(LangRng.new(12345), a.duplicate(true), d.duplicate(true))
 	var r2 := LangResolver.resolve_engagement(LangRng.new(12345), a.duplicate(true), d.duplicate(true))
 	assert_eq(r1["final_a_soldiers"], r2["final_a_soldiers"], "최종 병력(A)이 재현되어야 한다")
@@ -26,24 +38,24 @@ func test_engagement_is_deterministic() -> void:
 
 func test_stat_assembly_uses_class_data() -> void:
 	# classId 8: at=31, df=28, cmdAT=6, cmdDF=4 (본인 지휘 → 거리 0 보정 적용).
-	var a := LangResolver.make_unit(8, 0, 10)
-	var d := LangResolver.make_unit(1, 1, 10)
+	var a := LangResolver.make_unit(_stats(8), 0, 10)
+	var d := LangResolver.make_unit(_stats(1), 1, 10)
 	var s := LangResolver.assemble_stats(a, d)
 	# 기본 at 31 + 자기 지휘 at 6 = 37 (상성 vsTier0 = 0)
 	assert_eq(s["base_at"], 31, "기본 AT는 클래스 데이터에서 온다")
 	assert_eq(s["at"], 37, "자기 지휘 보정이 가산되어야 한다 (31+6)")
 
 func test_final_soldiers_within_bounds() -> void:
-	var a := LangResolver.make_unit(8, 0, 10)
-	var d := LangResolver.make_unit(1, 1, 10)
+	var a := LangResolver.make_unit(_stats(8), 0, 10)
+	var d := LangResolver.make_unit(_stats(1), 1, 10)
 	var r := LangResolver.resolve_engagement(LangRng.new(777), a, d)
 	assert_between(r["final_a_soldiers"], 0, 10, "A 최종 병력은 0~10")
 	assert_between(r["final_d_soldiers"], 0, 10, "D 최종 병력은 0~10")
 
 func test_counter_requires_attack_count() -> void:
 	# 방어자 attack_count=0 이면 반격 없음 (스펙 §2.2, 부록A 궁수 무반격).
-	var a := LangResolver.make_unit(8, 0, 10)
-	var d := LangResolver.make_unit(1, 1, 10)
+	var a := LangResolver.make_unit(_stats(8), 0, 10)
+	var d := LangResolver.make_unit(_stats(1), 1, 10)
 	d["attack_count"] = 0
 	var r := LangResolver.resolve_engagement(LangRng.new(1), a, d)
 	for ev in r["rounds"]:
@@ -388,12 +400,12 @@ func test_all_returned_only_when_all_idle() -> void:
 # 계산/연출 분리: Resolver가 "어느 화살이 죽이는지" 먼저 결정. shots 로그 + 최종 병력.
 
 func _archer(side: int) -> Dictionary:
-	# 경궁병 ≈ classId 27 (고AT·저DF), 개활지 회피 5.
-	return LangResolver.make_unit(27, side, 10, 0, 0, 0, 3, 5)
+	# 경궁병 ≈ 과거 classId 27 (고AT·저DF), 개활지 회피 5.
+	return LangResolver.make_unit(_stats(27), side, 10, 0, 0, 0, 3, 5)
 
 func _infantry(side: int) -> Dictionary:
-	# 경보병 ≈ classId 1, 개활지 회피 5.
-	return LangResolver.make_unit(1, side, 10, 0, 0, 0, 3, 5)
+	# 경보병 ≈ 과거 classId 1, 개활지 회피 5.
+	return LangResolver.make_unit(_stats(1), side, 10, 0, 0, 0, 3, 5)
 
 ## shots 중 (side, round) 조건 개수. round<0 이면 라운드 무시.
 func _count_shots(shots: Array, side: int, round: int = -1) -> int:
@@ -474,8 +486,8 @@ func test_shot_round_pools_only_shooting_sides() -> void:
 
 # ── 병종 상성 (기/보/창/궁 가위바위보) ───────────────────────────────────────
 func _assembled_with_kind(self_kind: String, opp_kind: String) -> Dictionary:
-	var u := LangResolver.make_unit(1, 0, 10); u["kind"] = self_kind
-	var o := LangResolver.make_unit(1, 1, 10); o["kind"] = opp_kind
+	var u := LangResolver.make_unit(_stats(1), 0, 10); u["kind"] = self_kind
+	var o := LangResolver.make_unit(_stats(1), 1, 10); o["kind"] = opp_kind
 	return LangResolver.assemble_stats(u, o)
 
 func test_type_counter_infantry_beats_archer() -> void:
@@ -520,7 +532,7 @@ func test_predict_intercept_static_target_is_current_pos() -> void:
 	assert_eq(aim.x, 370.0, "정적 타겟은 현재 위치")
 
 func test_make_unit_provides_kind_default_empty() -> void:
-	var u := LangResolver.make_unit(1, 0, 10)
+	var u := LangResolver.make_unit(_stats(1), 0, 10)
 	assert_eq(String(u.get("kind", "?")), "", "make_unit은 kind 기본 빈 문자열(상성 없음)")
 
 # ── 빗나간 화살 박힘 (_update_arrows·_stuck_rotation·_stuck_region_rect) ────────
@@ -662,12 +674,12 @@ func test_atdf_tick_instant_for_scenario2_melee() -> void:
 # ── 영웅 전투 (시나리오 5): 자기 지휘보정 토글 + 1인 유닛 HP ─────────────────────
 func test_self_cmd_false_disables_self_bonus() -> void:
 	# classId 4: base 27/24, cmdAT/cmdDF=2/4. 자기 지휘보정 O면 29/28, self_cmd=false면 27/24 유지.
-	var d := LangResolver.make_unit(1, 1, 10)
-	var with_cmd := LangResolver.make_unit(4, 0, 10)
+	var d := LangResolver.make_unit(_stats(1), 1, 10)
+	var with_cmd := LangResolver.make_unit(_stats(4), 0, 10)
 	var s_with := LangResolver.assemble_stats(with_cmd, d)
 	assert_eq(s_with["at"], 29, "자기 지휘보정 O: 27+2=29")
 	assert_eq(s_with["df"], 28, "자기 지휘보정 O: 24+4=28")
-	var lone := LangResolver.make_unit(4, 0, 10)
+	var lone := LangResolver.make_unit(_stats(4), 0, 10)
 	lone["self_cmd"] = false
 	var s_lone := LangResolver.assemble_stats(lone, d)
 	assert_eq(s_lone["base_at"], 27, "base는 클래스 데이터 그대로")
@@ -678,10 +690,10 @@ func test_hero_engagement_bounds_and_takes_damage() -> void:
 	# 영웅(class4, self_cmd=false, kind"") vs 경보병 10 — HP 0~10, 여러 시드 중 영웅이 피해 입는 판이 존재.
 	var took_damage := false
 	for seed in range(50):
-		var hero := LangResolver.make_unit(4, 0, 10, 0, 0, 0, 3, 0)
+		var hero := LangResolver.make_unit(_stats(4), 0, 10, 0, 0, 0, 3, 0)
 		hero["kind"] = ""
 		hero["self_cmd"] = false
-		var inf := LangResolver.make_unit(1, 1, 10, 0, 0, 0, 3, 5)
+		var inf := LangResolver.make_unit(_stats(1), 1, 10, 0, 0, 0, 3, 5)
 		inf["kind"] = "infantry"
 		var r := LangResolver.resolve_engagement(LangRng.new(seed * 7919 + 3), hero, inf)
 		assert_between(r["final_a_soldiers"], 0, 10, "영웅 HP는 0~10")
@@ -770,9 +782,9 @@ func test_config_holder_mode_defaults_melee() -> void:
 func test_mk_custom_unit_maps_kinds() -> void:
 	var p = Presenter.new()
 	var hero := p._mk_custom_unit({"kind": "hero", "count": 7}, 0)
-	assert_eq(int(hero["class_id"]), Presenter.HERO_CLASS, "영웅=지휘관 클래스")
+	assert_eq(int(hero["at"]), GameUnits.base_at("hero"), "영웅=지휘관 클래스 스탯(at27)")
 	assert_false(hero["self_cmd"], "단독 영웅은 자기 지휘보정 없음")
-	assert_eq(String(hero["kind"]), "", "영웅은 병종 상성 중립")
+	assert_eq(String(hero["kind"]), "hero", "영웅 kind(상성 중립 — TypeAdvantage에 hero 행 없음)")
 	assert_eq(int(hero["max_soldiers"]), 7, "영웅 count=HP/몫")
 	var arc := p._mk_custom_unit({"kind": "archer", "count": 4}, 1)
 	assert_eq(String(arc["kind"]), "archer", "경궁병 kind")

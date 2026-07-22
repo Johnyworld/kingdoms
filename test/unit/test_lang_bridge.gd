@@ -17,7 +17,8 @@ func _party(kind: String, troop_type: String, n: int) -> Node2D:
 
 func test_infantry_unit() -> void:
 	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_TROOP, "light_infantry", 7), 0)
-	assert_eq(u["class_id"], GameUnits.class_id("light_infantry"), "경보병 classId(GameUnits 단일 출처)")
+	assert_eq(u["at"], GameUnits.base_at("light_infantry"), "경보병 at(GameUnits 단일 출처)")
+	assert_eq(u["df"], GameUnits.base_df("light_infantry"), "경보병 df")
 	assert_eq(u["kind"], "infantry", "병종 infantry")
 	assert_eq(u["max_soldiers"], 7, "soldiers = party.soldiers")
 	assert_eq(u["side"], 0, "side 반영")
@@ -26,15 +27,17 @@ func test_infantry_unit() -> void:
 func test_archer_unit() -> void:
 	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_TROOP, "light_archer", 5), 1)
 	assert_eq(u["kind"], "archer", "병종 archer(근접 상성 페널티 대상)")
-	assert_eq(u["class_id"], GameUnits.class_id("light_archer"), "경궁병 classId(경보병과 동일 base)")
+	assert_eq(u["at"], GameUnits.base_at("light_archer"), "경궁병 at(경보병과 동일 base)")
+	assert_eq(u["df"], GameUnits.base_df("light_archer"), "경궁병 df")
 	assert_eq(u["max_soldiers"], 5, "soldiers = party.soldiers")
 	assert_eq(u["side"], 1, "side 반영")
 
 func test_hero_unit() -> void:
 	# 영웅부대는 생성 시 soldiers = GameUnits.max_hp("hero")로 세팅되므로 그 값이 병력으로 전달된다.
 	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_HERO, "", GameUnits.max_hp("hero")), 0)
-	assert_eq(u["class_id"], GameUnits.class_id("hero"), "영웅 = 지휘관 클래스")
-	assert_eq(u["kind"], "", "영웅 병종 중립")
+	assert_eq(u["at"], GameUnits.base_at("hero"), "영웅 = 지휘관 클래스 at")
+	assert_eq(u["df"], GameUnits.base_df("hero"), "영웅 df")
+	assert_eq(u["kind"], "hero", "영웅 kind(상성 중립)")
 	assert_eq(u["max_soldiers"], GameUnits.max_hp("hero"), "영웅 병력 = 클래스 HP 풀")
 	assert_false(u["self_cmd"], "단독 영웅 — 자기 지휘보정 없음")
 

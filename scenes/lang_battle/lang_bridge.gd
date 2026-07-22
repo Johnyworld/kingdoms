@@ -2,7 +2,7 @@ class_name LangBridge
 extends RefCounted
 ## 게임 부대(Party: archetype + soldiers) ↔ lang 전투 유닛(LangResolver) 브릿지.
 ## 완전 교체(랑그릿사식 전투) 배선의 단일 매핑 출처 — 헤드리스(NPC↔NPC)·오버레이(플레이어) 공용.
-## troop_type/kind → class_id·kind, party.soldiers → 병력(soldiers). 결과 최종 병력수는 game.gd가 party.soldiers에 직접 반영.
+## archetype → 전투 스탯(GameUnits.combat_stats)·kind, party.soldiers → 병력(soldiers). 결과 최종 병력수는 game.gd가 party.soldiers에 직접 반영.
 ## 매핑 상수·acc_mod는 lang_battle.gd의 커스텀 유닛 생성(_mk_custom_unit)과 일치시킨다.
 ## → docs/spec/features/lang-battle.md 게임 통합
 
@@ -17,8 +17,8 @@ static func unit_from_party(party, side: int) -> Dictionary:
 	var arche: String = party.archetype()
 	var is_hero := arche == "hero"
 	var acc := HERO_ACC if is_hero else TROOP_ACC
-	var u := LangResolver.make_unit(GameUnits.class_id(arche), side, party.soldiers, 0, 0, 0, LEVEL, acc)
-	u["kind"] = GameUnits.lang_kind(arche)
+	# 클래스·병종·전투 스탯은 GameUnits 카탈로그(단일 출처). kind 는 combat_stats 에 포함.
+	var u := LangResolver.make_unit(GameUnits.combat_stats(arche), side, party.soldiers, 0, 0, 0, LEVEL, acc)
 	if is_hero:
 		u["self_cmd"] = false   # 단독 영웅 — 자기 지휘보정 없음(base 27/24 유지)
 	return u
@@ -32,8 +32,6 @@ static func battle_config(attacker, defender, distance: int) -> Dictionary:
 		"mode": "ranged" if distance >= 2 else "melee",
 	}
 
-## 부대 한 쪽의 오버레이 cfg 항목. 영웅→"hero", 경궁병→"archer", 그 외→"infantry"; count=party.soldiers.
+## 부대 한 쪽의 오버레이 cfg 항목. kind 는 units.csv 병종(hero/archer/infantry), count=party.soldiers.
 static func _cfg_side(party) -> Dictionary:
-	var arche: String = party.archetype()
-	var kind := "hero" if arche == "hero" else ("archer" if GameUnits.is_ranged(arche) else "infantry")
-	return {"kind": kind, "count": party.soldiers}
+	return {"kind": GameUnits.kind(party.archetype()), "count": party.soldiers}

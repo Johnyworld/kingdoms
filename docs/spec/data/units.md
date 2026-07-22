@@ -4,10 +4,10 @@
 > 데이터: `res://data/factions.csv`(세력) · `res://data/heroes.csv`(영웅, faction FK) · `res://data/units.csv`(병종 아키타입, [GameUnits](../features/lang-battle.md) 소유)
 
 세력별 [부대](../entities/Party.md)를 **데이터로 정의**하는 카탈로그.
-데이터는 `res://data/`의 **CSV**에서 lazy-load 한다([LangData](../features/lang-battle.md)와 동일 패턴). `UnitTypes`는 정적 API로만 노출하고 내부에서 CSV를 읽는다(호출부는 API·상수만 사용). CSV는 스프레드시트로 표 편집이 가능하며, `importer="keep"`로 Godot 번역 자동임포트를 막는다.
+데이터는 `res://data/`의 **CSV**에서 lazy-load 한다([GameUnits](../features/lang-battle.md)와 동일 패턴). `UnitTypes`는 정적 API로만 노출하고 내부에서 CSV를 읽는다(호출부는 API·상수만 사용). CSV는 스프레드시트로 표 편집이 가능하며, `importer="keep"`로 Godot 번역 자동임포트를 막는다.
 게임 시작 시 [game.gd](../features/parties.md)가 여기서 부대를 생성해 맵에 배치한다.
 
-**순수 class+count 모델**(M4-C) — 부대는 "아키타입 + 병력수(`soldiers`)"다. 개별 병사(Human) 객체·스탯은 없다. 전투·이동·사거리는 병종 lang 클래스([GameUnits](../features/lang-battle.md))가 결정한다.
+**순수 class+count 모델**(M4-C) — 부대는 "아키타입 + 병력수(`soldiers`)"다. 개별 병사(Human) 객체·스탯은 없다. 전투·이동·사거리는 병종 아키타입([GameUnits](../features/lang-battle.md), units.csv 인라인 스탯)이 결정한다.
 
 **랑그릿사식 부대 이분화** — 부대는 두 종류다([Party](../entities/Party.md) `kind`):
 
@@ -54,19 +54,28 @@
 
 - **엘윈 사수 제거**: 이전 아젤 부대의 궁수 "엘윈 사수"는 **경궁병 병종**으로 대체되어 영웅 목록에서 빠졌다(세력당 영웅 4명 균일).
 - 각 영웅부대: `party_name = "{이름} 부대"`, `kind = KIND_HERO`, `commander_name =` 영웅 이름, 병력수 = 지휘관 클래스 HP(`GameUnits.max_hp("hero")`).
-- **전투 우위**: 영웅의 전투 우위는 지휘관 클래스(classId 4)에서 온다([Lang Battle](../features/lang-battle.md)). 개별 능력치(힘·행운·민첩 등)와 그 배율은 순수 class+count 전환(M4-C)으로 제거됐다 — 영웅은 클래스·HP만으로 구분된다.
+- **전투 우위**: 영웅의 전투 우위는 `hero` 아키타입 스탯(at27/df24, cmd_range4)에서 온다([Lang Battle](../features/lang-battle.md)). 개별 능력치(힘·행운·민첩 등)와 그 배율은 순수 class+count 전환(M4-C)으로 제거됐다 — 영웅은 아키타입·HP만으로 구분된다.
 
 ## 병종 아키타입 (`units.csv`, 세력 공용)
 
-일반부대 병종. `res://data/units.csv`에 정의되며 **[GameUnits](../features/lang-battle.md)가 소유**한다(컬럼: `id`·`name`·`class_id`·`hp`·`vision`·`ranged`·`range`). `UnitTypes.troop_name(archetype)`은 `GameUnits.display_name(archetype)`(= `name` 컬럼)에 위임한다. 한 부대는 이 아키타입으로 **10명**(병력수) 생성된다. 이 **archetype id는 부대에 [`Party.troop_type`](../entities/Party.md#정체-identity)으로 저장**되어 [병합 가능 판정](../features/party-composition.md)(같은 병종끼리만)의 기준이 된다. 전투·이동은 `class_id`가 가리키는 lang 클래스([class_stats.csv](../features/lang-battle.md))가 결정한다.
+일반부대 병종. `res://data/units.csv`에 정의되며 **[GameUnits](../features/lang-battle.md)가 소유**한다. **전투 스탯이 병종 행에 인라인**되어 있다(랑그릿사 ROM `class_stats.csv` 참조를 폐기하고 직접 튜닝) — 컬럼: `id`·`name`·`kind`·`hp`·`vision`·`ranged`·`range`·`at`·`df`·`mv`·`cmd_range`·`cmd_at`·`cmd_df`. `UnitTypes.troop_name(archetype)`은 `GameUnits.display_name(archetype)`(= `name` 컬럼)에 위임한다. 한 부대는 이 아키타입으로 **10명**(병력수) 생성된다. 이 **archetype id는 부대에 [`Party.troop_type`](../entities/Party.md#정체-identity)으로 저장**되어 [병합 가능 판정](../features/party-composition.md)(같은 병종끼리만)의 기준이 된다.
 
-| 병종 | id | class_id | 성격 |
-| --- | --- | --- | --- |
-| (영웅) | `hero` | 4 | 지휘관(표시명 없음 — `hero_name` 사용) |
-| 경보병 | `light_infantry` | 1 | 근접 |
-| 경궁병 | `light_archer` | 1 | 원거리(부대 [공격거리](../entities/Party.md) 3) |
+- `kind` — 병종 상성 분류(`infantry`·`archer`·`cavalry`·`spear`·`hero`). 가위바위보 우위는 [`type_advantage.csv`](#병종-상성-type_advantagecsv)가 정의. `hero`는 상성 중립.
+- `at`·`df`·`mv`·`cmd_range`·`cmd_at`·`cmd_df` — 전투/이동/지휘 스탯. [LangResolver](../features/lang-battle.md)에 `GameUnits.combat_stats(archetype)` 번들로 주입된다.
 
-- 개별 능력치(str·agi·luck 등)는 순수 class+count 전환(M4-C)으로 제거됐다 — 병종은 lang 클래스 스탯([GameUnits](../features/lang-battle.md))으로만 구분된다.
+| 병종 | id | kind | at/df | 성격 |
+| --- | --- | --- | --- | --- |
+| (영웅) | `hero` | `hero` | 27/24 | 지휘관(표시명 없음 — `hero_name` 사용), cmd_range 4 |
+| 경보병 | `light_infantry` | `infantry` | 23/21 | 근접, cmd_range 3 |
+| 경궁병 | `light_archer` | `archer` | 23/21 | 원거리(부대 [공격거리](../entities/Party.md) 3), 경보병과 동일 base |
+
+- 개별 능력치(str·agi·luck 등)는 순수 class+count 전환(M4-C)으로 제거됐다 — 병종은 units.csv 전투 스탯([GameUnits](../features/lang-battle.md))으로만 구분된다.
+
+## 병종 상성 (`type_advantage.csv`)
+
+`res://data/type_advantage.csv` — `kind` 가위바위보 표([TypeAdvantage](../features/lang-battle.md)가 소유). 컬럼: `attacker`·`defender`·`at`·`df`(우위 시 공격자에게 주는 보정). **우위 조합만 기재**하고 나머지는 0으로 간주. 기병>보병>창병>기병(사이클), 그리고 기/보/창 > 궁병(궁병은 원거리 이점 대가로 근접 모든 병종에 약함 — 공격측일 때 아무도 못 이김). `hero`는 미기재 → 공수 양쪽 중립. 현재 값은 전 우위 조합 공통 +4/+2.
+
+- **미사용 행**: `cavalry`·`spear` 관련 행은 units.csv에 해당 병종이 아직 없어 **미사용**이다(실전 조합은 `infantry>archer`뿐). 옛 하드코딩 상성 사이클을 그대로 옮겨둔 것으로, 병종 추가 시 즉시 활성화된다.
 
 ## API
 
@@ -95,6 +104,8 @@
 - [경계] 없는 세력 id → `get_faction` 빈 Dictionary, `hero_name == ""`; 범위 밖 index → `hero_name == ""`, `hero_party_name == ""`
 - [경계] 없는 병종 id → `troop_name` 빈 문자열
 - [정상] `troop_name("light_infantry") == "경보병"`, `troop_name("light_archer") == "경궁병"`; `display_name("hero") == ""`
+- [정상] `kind` — `light_infantry`=infantry, `light_archer`=archer, `hero`=hero(상성 중립); 미지 아키타입 → 빈 문자열
+- [정상] 전투 스탯 — `hero` at27/df24/cmd_range4/cmd_at2/cmd_df4, `light_infantry` at23/df21/mv6/cmd_range3; `combat_stats("hero")` 번들(at/df/cmd_*/kind) 일치
 - [정상] `corner_cell` — SW/NW/NE/SE → `(10,39)`/`(10,10)`/`(39,10)`/`(39,39)`(50×50·MARGIN10), 맵/마진 변화에 스케일, 미지 모서리 → SW
 
 ## 관련

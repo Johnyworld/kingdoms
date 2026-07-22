@@ -11,12 +11,19 @@ const ACC_BASE := 30             # 명중 기본 (스펙 §2.1 accBase)
 enum Hit { HIT, MISS, SPECIAL, NO_KILL }
 
 ## Unit 팩토리 — 런타임 유닛 구조체 (스펙 §1.2).
+## stats: 전투 스탯 블록 {at, df, cmd_range, cmd_at, cmd_df, kind} — GameUnits.combat_stats(arche)로 주입.
+##   유닛이 스탯을 직접 보유한다(class_id 참조 제거) → Resolver 는 데이터 출처에 독립인 순수 함수.
 ## commander 는 다른 Unit(Dictionary) 또는 null(=본인이 지휘관).
-static func make_unit(class_id: int, side: int, soldiers: int,
+static func make_unit(stats: Dictionary, side: int, soldiers: int,
 		gx: int = 0, gy: int = 0, item_id: int = 0,
 		level: int = 1, acc_mod: int = 0) -> Dictionary:
 	return {
-		"class_id": class_id,
+		"at": int(stats.get("at", 0)),
+		"df": int(stats.get("df", 0)),
+		"cmd_range": int(stats.get("cmd_range", 0)),
+		"cmd_at": int(stats.get("cmd_at", 0)),
+		"cmd_df": int(stats.get("cmd_df", 0)),
+		"kind": String(stats.get("kind", "")),  # 병종(cavalry/infantry/spear/archer/hero) — 상성용. 기본 중립.
 		"level": level,
 		"item_id": item_id,
 		"side": side,
@@ -26,7 +33,6 @@ static func make_unit(class_id: int, side: int, soldiers: int,
 		"strength": soldiers * SUBUNITS_PER_SOLDIER,  # 1/8 병사 단위
 		"attack_count": soldiers + 3,  # 교전 공격 횟수 = 병사수+3 (원작 §1.2/§2.2) — 소수 유닛도 4회 공격
 		"acc_mod": acc_mod,         # 방어측 회피 보정(지형 등)
-		"kind": "",                 # 병종(cavalry/infantry/spear/archer) — 병종 상성용
 		"commander": null,          # null 이면 self (거리 0 → 항상 자기 지휘보정)
 		"self_cmd": true,           # false 면 자기 지휘보정 없음(단독 영웅 — 지휘할 부대 없음)
 	}
@@ -34,50 +40,22 @@ static func make_unit(class_id: int, side: int, soldiers: int,
 static func soldier_count(u: Dictionary) -> int:
 	return int(u["strength"]) / SUBUNITS_PER_SOLDIER
 
-# ── 병종 상성 (lang_battle 자체 — 가위바위보) ────────────────────────────────
-## 상성 우위면 공격 +4 / 방어 +2 (원작 스타일). 상대가 자기를 이겨도 별도 보정은 없음.
-## 기병>보병>창병>기병(사이클), 그리고 기/보/창 > 궁병. **궁병은 원거리 이점이 있어 근접 모든 병종에 약함**(누구도 못 이김).
-const TYPE_ADV := Vector2i(4, 2)
-
-static func _lang_type_bonus(self_kind: String, opp_kind: String) -> Vector2i:
-	return TYPE_ADV if _beats(self_kind, opp_kind) else Vector2i.ZERO
-
-static func _beats(a: String, b: String) -> bool:
-	match a:
-		"cavalry": return b == "infantry" or b == "archer"
-		"infantry": return b == "spear" or b == "archer"
-		"spear": return b == "cavalry" or b == "archer"
-	return false  # archer 는 아무도 못 이김
-
 # ── 스탯 조립 (스펙 §2.1) ────────────────────────────────────────────────
 
 ## 상대를 고려한 최종 at/df 를 조립한다. {at, df} 반환.
 static func assemble_stats(u: Dictionary, opp: Dictionary) -> Dictionary:
-	var base := LangData.get_class_stat(u["class_id"])
-	var at: int = base["at"]
-	var df: int = base["df"]
-	# 병종 상성 (§2.3, ROM 매치업 — lang_battle 더미는 대개 0)
-	var tb := _type_bonus(u, opp)
-	at += tb.x
-	df += tb.y
-	# lang_battle 자체 병종 상성(기/보/창/궁 가위바위보) — 유닛 kind 기반. 궁병 근접 취약이 여기서 나온다.
-	var lb := _lang_type_bonus(String(u.get("kind", "")), String(opp.get("kind", "")))
+	var at: int = int(u["at"])
+	var df: int = int(u["df"])
+	# 병종 상성(기/보/창/궁 가위바위보, §2.3) — 유닛 kind 기반(TypeAdvantage 데이터).
+	# 궁병 근접 취약이 여기서 나온다. hero·빈 kind 는 중립(ZERO).
+	var lb := TypeAdvantage.bonus(String(u.get("kind", "")), String(opp.get("kind", "")))
 	at += lb.x
 	df += lb.y
 	# 지휘범위 보정 (§2.4)
 	var cb := _cmd_bonus(u)
 	at += cb.x
 	df += cb.y
-	return {"at": at, "df": df, "base_at": int(base["at"]), "base_df": int(base["df"])}
-
-## 병종 상성 (스펙 §2.3, 원본 0xDBBA). 상대의 magicTier 로 조회.
-static func _type_bonus(u: Dictionary, opp: Dictionary) -> Vector2i:
-	var self_stat := LangData.get_class_stat(u["class_id"])
-	var opp_stat := LangData.get_class_stat(opp["class_id"])
-	var opp_tier: int = opp_stat["magic_tier"]
-	opp_tier = clampi(opp_tier, 0, 4)
-	var row: Array = self_stat["matchup"][opp_tier]
-	return Vector2i(int(row[0]), int(row[1]))
+	return {"at": at, "df": df, "base_at": int(u["at"]), "base_df": int(u["df"])}
 
 ## 지휘범위 보정 (스펙 §2.4, 원본 0xDC7C). 맨해튼 거리 ≤ range 면 지휘관 보너스.
 ## `self_cmd=false`(단독 영웅 등)면 본인 지휘보정(거리 0)을 받지 않는다 — 지휘할 부대 없는 1인 유닛.
@@ -87,13 +65,12 @@ static func _cmd_bonus(u: Dictionary) -> Vector2i:
 		if not bool(u.get("self_cmd", true)):
 			return Vector2i.ZERO  # 자기 지휘보정 없음(단독 영웅)
 		cmdr = u  # 본인이 지휘관 (거리 0)
-	var cmdr_stat := LangData.get_class_stat(cmdr["class_id"])
 	var dist: int = abs(int(u["gx"]) - int(cmdr["gx"])) + abs(int(u["gy"]) - int(cmdr["gy"]))
-	var rng_range: int = cmdr_stat["cmd_range"]
+	var rng_range: int = int(cmdr["cmd_range"])
 	if int(cmdr["item_id"]) == 9:  # 지휘범위+5 아이템
 		rng_range += 5
 	if dist <= rng_range:
-		return Vector2i(int(cmdr_stat["cmd_at"]), int(cmdr_stat["cmd_df"]))
+		return Vector2i(int(cmdr["cmd_at"]), int(cmdr["cmd_df"]))
 	return Vector2i.ZERO
 
 ## 표시용 명중률(%) 근사 — 방어측 회피 반영 (스펙 §2.1).
