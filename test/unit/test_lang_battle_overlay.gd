@@ -52,6 +52,20 @@ func test_melee_overlay_finishes_and_emits() -> void:
 	assert_between(_fin_b, 0, 10, "side1 최종 병력 0~10")
 	assert_gt(_fin_a + _fin_b, 0, "근접 1교전 — 양측 동시 전멸 아님")
 
+func test_settle_holds_before_finish() -> void:
+	# 복귀 완료(RETREAT→SETTLE) 후 SETTLE_PAUSE(1초) 여운이 지나야 종료(finished) 방출.
+	battle.start_overlay(_cfg("infantry", 10, "infantry", 10))
+	battle._state = battle.St.SETTLE
+	battle._timer = 0.0
+	battle._process(0.05)
+	assert_eq(_fin_count, 0, "SETTLE 여운 중엔 종료 안 함")
+	# SETTLE_PAUSE 경과(delta 상한 0.05라 여러 프레임) → DONE·finished.
+	for i in 40:
+		if _fin_count > 0:
+			break
+		battle._process(0.05)
+	assert_eq(_fin_count, 1, "SETTLE_PAUSE 경과 후 종료·finished 1회")
+
 func test_hero_vs_infantry_overlay() -> void:
 	battle.start_overlay(_cfg("hero", 10, "infantry", 10))
 	_drive_to_done()

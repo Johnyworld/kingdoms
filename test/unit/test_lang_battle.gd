@@ -185,6 +185,22 @@ func test_retreat_ready_waits_for_strike() -> void:
 	assert_true(r_done, "마지막 교전·공방·밀림 모두 끝난 접전 병사는 복귀 시작")
 	assert_true(r_charge, "아직 접근 중(CHARGE)이던 병사는 마무리 교전 없이 바로 복귀")
 
+# ── all_settled: 대열 정렬 완료 + 시체 소멸 완료 (종료 여운 진입 판단) ──────────
+func test_all_settled_waits_for_corpses() -> void:
+	# all_returned은 시체(DYING)를 제외해 통과하지만, all_settled는 시체가 다 사라져야(전원 IDLE) 참.
+	var bf = Battlefield.new()
+	var idle := {"state": Battlefield.IDLE}
+	var dying := {"state": Battlefield.DYING}   # 페이드 중 시체
+	bf._soldiers = {0: [idle], 1: [dying]}
+	var returned_with_corpse := bf.all_returned()
+	var settled_with_corpse := bf.all_settled()
+	bf._soldiers = {0: [idle], 1: [{"state": Battlefield.IDLE}]}   # 시체 소멸(제거) 후
+	var settled_after := bf.all_settled()
+	bf.free()
+	assert_true(returned_with_corpse, "생존자 IDLE이면 시체(DYING) 남아도 복귀는 완료(all_returned)")
+	assert_false(settled_with_corpse, "시체(DYING) 남아있으면 아직 안 잦아듦(all_settled=false)")
+	assert_true(settled_after, "시체 다 소멸(전원 IDLE)이면 all_settled=true")
+
 # ── _foe_alive: 복귀 중 "살아있는 적"만 마지막 교전 대상 (헛칼질 방지) ──────────
 func test_foe_alive() -> void:
 	var bf = Battlefield.new()

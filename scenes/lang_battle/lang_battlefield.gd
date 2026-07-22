@@ -809,10 +809,21 @@ func _spawn_slots(side: int, n: int) -> Array:
 	return out
 
 ## 복귀가 끝났는가 — 생존자가 모두 제자리(IDLE)인가. 대기(peel off 전)·이동(RETURN) 중이면 아직.
+## (시체 페이드 중=DYING은 제외 — 복귀 자체 판단용. 시체 소멸까지 기다리려면 all_settled 사용.)
 func all_returned() -> bool:
 	for side in [0, 1]:
 		for s in _soldiers[side]:
 			if s["state"] != IDLE and s["state"] != DYING:
+				return false
+	return true
+
+## 전투가 완전히 잦아들었는가 — 모든 병사가 IDLE인가(= max(대열 정렬 완료, 시체 소멸 완료)).
+## all_returned와 달리 **DYING(페이드 중 시체)도 대기**한다. 시체는 완전 소멸 시 _soldiers에서 제거되므로
+## "잔여 병사가 전부 IDLE" = 생존자 정렬 완료 **그리고** 시체 다 사라짐. 종료 여운(SETTLE) 진입 판단용.
+func all_settled() -> bool:
+	for side in [0, 1]:
+		for s in _soldiers[side]:
+			if s["state"] != IDLE:
 				return false
 	return true
 
