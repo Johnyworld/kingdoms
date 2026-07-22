@@ -10,7 +10,7 @@
 ## 게임 통합 (완전 교체 — 진행 중)
 
 **유닛 데이터 모델도 순수 랑그릿사로 전환 완료**(M4-C) — 부대 = "클래스 + 병력수(`soldiers`)"를 가진 유닛. RPG 전투 수학(M4-A)·장비/전리품 계층(M4-B)·개별 병사(Human) 스탯(M4-C) 모두 삭제됐다. 매핑 카탈로그는 `scenes/party/game_units.gd`(`GameUnits`):
-- 아키타입(hero/light_infantry/light_archer) → lang class_id + HP(병력=`max_hp`)·시야·원거리 여부. 이동력·지휘범위·AT/DF는 lang 클래스(class_stats.txt의 `mv`·`cmd_range`·`at`·`df`), HP·시야는 카탈로그(랑그릿사엔 fog 시야 없음).
+- 아키타입(hero/light_infantry/light_archer) → lang class_id + HP(병력=`max_hp`)·시야·원거리 여부. 이동력·지휘범위·AT/DF는 lang 클래스(class_stats.csv의 `mv`·`cmd_range`·`at`·`df`), HP·시야는 카탈로그(랑그릿사엔 fog 시야 없음).
 - **Party 스탯이 클래스 기반**: `movement`·`vision`·`command_range`·`attack_range`·`is_ranged`·`melee_power`·`ranged_power`가 모두 `GameUnits`(아키타입)에서 나온다. 개별 병사 스탯·무기는 없다(제거됨).
 
 `scenes/lang_battle/lang_bridge.gd` (`class_name LangBridge`) — 게임 부대(Party) ↔ lang 전투 유닛 매핑(전투 결산용). 클래스·병종·HP는 `GameUnits` 위임.

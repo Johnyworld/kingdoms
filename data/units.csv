@@ -1,0 +1,4 @@
+id,name,class_id,hp,vision,ranged,range
+hero,,4,10,6,false,0
+light_infantry,경보병,1,10,5,false,0
+light_archer,경궁병,1,10,5,true,3

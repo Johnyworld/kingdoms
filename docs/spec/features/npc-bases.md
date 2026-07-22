@@ -25,16 +25,16 @@
 
 ## 배치 위치 (모서리)
 
-각 NPC 세력을 **맵 모서리 근처**(안쪽 `MARGIN=10`칸)에 둔다. 플레이어(남서)를 포함해 4왕국이 네 모서리를 하나씩 차지한다(방향 유지). 거점은 초기 시야 밖이라 처음엔 안개에 가려지고, 플레이어가 다가가 발견하면 드러난다.
+각 NPC 세력을 **맵 모서리 근처**(안쪽 `MARGIN=10`칸)에 둔다. 플레이어(남서)를 포함해 4왕국이 네 모서리를 하나씩 차지한다(방향 유지). 어느 모서리인지는 [factions.csv](../data/units.md#세력-카탈로그-factionscsv)의 **`start_corner`** 컬럼이 정한다(데이터). 거점은 초기 시야 밖이라 처음엔 안개에 가려지고, 플레이어가 다가가 발견하면 드러난다.
 
-| 세력 | 모서리 | 캠프 중심 (`NPC_BASES`) |
+| 세력 | `start_corner` | 캠프 중심 (50×50·MARGIN10) |
 | --- | --- | --- |
-| 초원 칸국(서) | 북서 NW | `(10, 10)` |
-| 암흑 제국(북) | 북동 NE | `(39, 10)` |
-| 사막 술탄국(동) | 남동 SE | `(39, 39)` |
+| 초원 칸국(서) | NW 북서 | `(10, 10)` |
+| 암흑 제국(북) | NE 북동 | `(39, 10)` |
+| 사막 술탄국(동) | SE 남동 | `(39, 39)` |
 
-- 좌표는 `MARGIN`·`MAP_WIDTH`·`MAP_HEIGHT`로 계산한다(`Vector2i(MAP_WIDTH-1-MARGIN, MARGIN)` 등). 세력 군대(16부대)는 거점 주변에 영웅 그룹별로 흩어 배치된다(`_place_army` — [Parties](parties.md#배치-_place_army)).
-- (플레이어 푸른 왕국은 남서 SW `(10, 39)` = `PLAYER_BASE`. → [Map & Camera](map-and-camera.md) · [Parties](parties.md).)
+- 좌표는 `game.gd`의 `corner_cell(corner, map_w, map_h, margin)`가 `start_corner` + 맵 크기·`MARGIN`으로 계산한다(하드코딩 없음). `_setup_factions`는 `_start_cell(id)`로 각 세력 거점 칸을 얻는다. 세력 군대(16부대)는 거점 주변에 영웅 그룹별로 흩어 배치된다(`_place_army` — [Parties](parties.md#배치-_place_army)).
+- (플레이어 푸른 왕국은 `start_corner=SW` → `(10, 39)`. → [Map & Camera](map-and-camera.md) · [Parties](parties.md).)
 - 캠프는 중심 + 이웃 6칸 = 7헥스를 차지한다(모든 건물 공통 발자국).
 - 각 왕국이 서로 반대편 모서리라 시작 시엔 멀리 떨어져 있다(초기 조우 없음).
 

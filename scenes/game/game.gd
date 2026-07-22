@@ -28,18 +28,9 @@ const HL_NONE := Color(0, 0, 0, 0)          # 하이라이트 해제
 const FOLLOW_STAGGER := 0.1   # 작전 추종 시 하위부대 출발 간격(초) → squad-stance.md
 
 # 4왕국 거점 배치 — 각 왕국을 맵 모서리 근처(안쪽 MARGIN칸)에 둔다. y↑=남, x↑=동.
-# 플레이어는 남서(SW), NPC 3세력은 나머지 세 모서리(방향 유지: 서=NW, 북=NE, 동=SE).
+# 시작 모서리(SW/NW/NE/SE)는 factions.csv 의 start_corner 컬럼이 정한다(플레이어=SW).
+# 좌표는 _start_cell(id) / corner_cell(...) 이 맵 크기·MARGIN 으로 계산한다.
 const MARGIN := 10   # 모서리에서 거점 중심까지 안쪽 거리(칸)
-
-# 플레이어 거점(마을회관) 중심 — 남서(SW) 모서리.
-const PLAYER_BASE := Vector2i(MARGIN, MAP_HEIGHT - 1 - MARGIN)
-
-# NPC 세력 거점(캠프) 중심 — 나머지 세 모서리.
-const NPC_BASES := {
-	"batur": Vector2i(MARGIN, MARGIN),                                     # 북서(NW) — 초원 칸국(서)
-	"balthazar": Vector2i(MAP_WIDTH - 1 - MARGIN, MARGIN),                 # 북동(NE) — 암흑 제국(북)
-	"qasim": Vector2i(MAP_WIDTH - 1 - MARGIN, MAP_HEIGHT - 1 - MARGIN),    # 남동(SE) — 사막 술탄국(동)
-}
 
 @onready var terrain: TileMapLayer = $TerrainLayer   # 보이지 않는 데이터 레이어(지형타입=source id). 지오메트리·BFS 기준.
 @onready var terrain_visual: Node2D = $TerrainVisual   # LaPetiteTile 오토타일 비주얼 레이어 스택
@@ -167,7 +158,7 @@ func _ready() -> void:
 	build_preview.setup(terrain)
 	build_area.setup(terrain)
 	# 첫 거점은 마을회관 티어로 시작(캠프에서 한 번 업그레이드된 상태) — 인구 상한 10, 시작부터 생산 건물 해금.
-	building.setup(terrain, _placement_cell("PlayerBase", PLAYER_BASE), "town_hall", false, buildings_layer)
+	building.setup(terrain, _placement_cell("PlayerBase", _start_cell(UnitTypes.PLAYER_ID)), "town_hall", false, buildings_layer)
 	_bmgr.buildings = [building]
 	_setup_factions()
 	_setup_parties()   # 세력별 군대(영웅4+부하12=16) 생성·배치. _pmgr.units·_pmgr.npc_parties·party 설정 → parties.md
@@ -231,7 +222,7 @@ func _generate_map() -> void:
 ## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산 · 남동쪽=호수(물). 캠프(중심 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
 ## (y가 커질수록 남쪽, x가 커질수록 동쪽.)
 func _place_starting_terrain() -> void:
-	var center := PLAYER_BASE
+	var center := _start_cell(UnitTypes.PLAYER_ID)
 	_paint_patches([center + Vector2i(-6, -1), center + Vector2i(-8, 2)], Terrain.FOREST)   # 서쪽 숲
 	_paint_patches([center + Vector2i(6, -1), center + Vector2i(8, 2)], Terrain.SWAMP)      # 동쪽 습지
 	_paint_patches([center + Vector2i(0, -6), center + Vector2i(2, -7)], Terrain.DESERT)    # 북쪽 사막
@@ -261,7 +252,7 @@ func _place_river() -> void:
 ## 장식용 흙길: 플레이어 거점에서 철맥·금맥 자리로 이어지는 길을 Roads 레이어에 그린다.
 ## 순수 시각(이동/BFS와 무관). 경로는 HexGrid로 산·물을 우회해 잇는다. → docs/spec/features/map-and-camera.md
 func _place_roads() -> void:
-	var base := PLAYER_BASE
+	var base := _start_cell(UnitTypes.PLAYER_ID)
 	for dest in [base + Vector2i(5, -5), base + Vector2i(8, -3)]:   # 철맥·금맥 씨앗(_place_starting_terrain과 동일)
 		var path := HexGrid.reconstruct_path(terrain, base, dest, MAP_WIDTH + MAP_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
 		if path.size() > 1:
@@ -322,9 +313,21 @@ func _placement_cell(marker_name: String, fallback: Vector2i) -> Vector2i:
 			return cell   # 맵 밖 마커는 무시하고 기본 좌표 사용(거점이 맵 밖에 생기지 않게)
 	return fallback
 
+## 시작 모서리(SW/NW/NE/SE) → 거점 중심 칸. 맵 크기·MARGIN 기준. 알 수 없으면 SW(플레이어).
+static func corner_cell(corner: String, map_w: int, map_h: int, margin: int) -> Vector2i:
+	match corner:
+		"NW": return Vector2i(margin, margin)
+		"NE": return Vector2i(map_w - 1 - margin, margin)
+		"SE": return Vector2i(map_w - 1 - margin, map_h - 1 - margin)
+		_: return Vector2i(margin, map_h - 1 - margin)   # SW
+
+## 세력의 시작 거점 중심 칸 — factions.csv 의 start_corner 로 계산.
+func _start_cell(faction_id: String) -> Vector2i:
+	return corner_cell(UnitTypes.get_faction(faction_id).get("start_corner", "SW"), MAP_WIDTH, MAP_HEIGHT, MARGIN)
+
 ## 카메라를 플레이어 거점 타일로 이동시킨다.
 func _center_camera() -> void:
-	camera.position = terrain.map_to_local(_placement_cell("PlayerBase", PLAYER_BASE))
+	camera.position = terrain.map_to_local(_placement_cell("PlayerBase", _start_cell(UnitTypes.PLAYER_ID)))
 	camera.make_current()
 	_set_zoom(_zoom_level)   # 시작 줌 배율을 카메라에 적용(16px 픽셀아트 기본 ~3× 확대)
 
@@ -342,7 +345,7 @@ func _setup_factions() -> void:
 	_factions = [_player_faction]
 
 	for id in UnitTypes.NPC_IDS:
-		_bmgr.npc_buildings.append(_setup_npc_base(id, _placement_cell(id, NPC_BASES[id])))
+		_bmgr.npc_buildings.append(_setup_npc_base(id, _placement_cell(id, _start_cell(id))))
 
 ## NPC 세력 하나의 거점을 만든다: 세력 → 수도 영지 → 완성 캠프(중심 base_cell). 캠프 노드를 반환한다.
 ## 세력·영지는 캠프의 territory 참조로 살아 있게 유지된다(_bmgr.npc_buildings가 캠프 노드를 보유).

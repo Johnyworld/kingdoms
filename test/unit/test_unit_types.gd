@@ -18,9 +18,25 @@ func test_id_constants() -> void:
 func test_all_factions_have_keys() -> void:
 	for id in types.FACTION_IDS:
 		var spec: Dictionary = types.get_faction(id)
-		for key in ["faction", "color", "territory", "heroes"]:
+		for key in ["faction", "color", "territory", "start_corner", "heroes"]:
 			assert_true(spec.has(key), "%s 스펙에 %s 키 존재" % [id, key])
 		assert_eq((spec["heroes"] as Array).size(), 4, "%s 영웅 4명" % id)
+
+func test_faction_start_corner() -> void:
+	assert_eq(types.get_faction("azel")["start_corner"], "SW", "플레이어 = 남서")
+	assert_eq(types.get_faction("qasim")["start_corner"], "SE", "사막 술탄국 = 남동")
+	assert_eq(types.get_faction("balthazar")["start_corner"], "NE", "암흑 제국 = 북동")
+	assert_eq(types.get_faction("batur")["start_corner"], "NW", "초원 칸국 = 북서")
+
+func test_faction_color_loaded_from_hex() -> void:
+	# CSV hex(#334DCC) → Color 복원. 정확값이 아니라 로드 성공(기본색이 아님)만 확인.
+	assert_eq(types.get_faction("azel")["color"], Color.html("#334DCC"), "azel 색 = hex 복원값")
+
+func test_hero_faction_referential_integrity() -> void:
+	# heroes.csv 의 모든 영웅이 유효 세력에 FK-join 되어 세력당 4명 채워졌는지.
+	for id in types.FACTION_IDS:
+		assert_eq((types.get_faction(id)["heroes"] as Array).size(), types.HEROES_PER_FACTION,
+			"%s FK join → 영웅 %d명" % [id, types.HEROES_PER_FACTION])
 
 func test_player_faction_spec() -> void:
 	var spec: Dictionary = types.get_faction("azel")

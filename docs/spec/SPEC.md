@@ -65,7 +65,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 캐릭터 · 아이템 · 자원 등의 리스트.
 
 - [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
-- [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성
+- [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성. **데이터는 `res://data/*.csv`**(factions·heroes·units), 세력 `start_corner`로 거점 모서리 배치
 - [Buildings (건물 종류)](data/buildings.md)
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막·물, 칸당 진입비용(초원 1·숲 2·습지 3·산/물 불가)
 
@@ -109,6 +109,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 지형 렌더러 | `scenes/game/terrain_renderer.gd` |
 | 지형 데이터 타일셋 | `tiles/terrain_tileset.tres` (숨김 데이터 레이어) |
 | 지형 비주얼 타일셋 | `assets/tiles/lapetite/Tilesets/*.tres` (LaPetiteTile 오토타일) |
+| 게임 튜닝 데이터(CSV) | `data/factions.csv` · `data/heroes.csv` · `data/units.csv` · `data/class_stats.csv` · `data/matchup.csv` (스프레드시트 편집, `importer="keep"`) |
 
 ---
 
