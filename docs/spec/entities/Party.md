@@ -6,7 +6,7 @@
 맵 위에서 **실제로 움직이는 유닛**. **순수 "클래스 + 병력수" 모델**(랑그릿사식) — 부대는 아키타입과 병력수(`soldiers`)만 가지며, 개별 병사(Human) 객체·스탯은 없다(M4-C에서 제거).
 우리가 선택·이동시키는 대상은 이 **부대**다.
 부대는 [유닛 카탈로그](../data/units.md)에서 생성되며, 플레이어 부대 외에 NPC 부대들도 맵에 존재한다([Parties](../features/parties.md)).
-현재 외형은 임시 플레이스홀더(원형 마커, 반지름 12px)로 `_draw()`에서 직접 그려진다.
+외형은 병종별 **idle 애니메이션 스프라이트**(`AnimatedSprite2D`)로 그린다(→ [맵 토큰 외형](#맵-토큰-외형-sprite)). 선택 링·인원 배지 등 오버레이는 여전히 `_draw()`에서 캔버스로 얹는다.
 
 ## Properties
 
@@ -18,7 +18,7 @@
 | 소속 세력 | `faction_name` | `""` | 부대가 속한 [세력](Faction.md) 이름. 정보 패널에 표시해 아군/적을 구분한다. 카탈로그 생성 시 설정 |
 | 토큰 색 | `token_color` | `Color(0.92, 0.78, 0.35)` (금색) | 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다 |
 | 종류 | `kind` | `"troop"` | 부대 종류(랑그릿사식 이분화). `KIND_HERO`(`"hero"`, 영웅부대 — 지휘관 1명 단독) / `KIND_TROOP`(`"troop"`, 일반부대 — 병사 다수, 기본 [10명](../data/units.md)). **병력수로 파생하지 않고 명시 저장**(전투 사상으로 병력이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → [Units](../data/units.md) |
-| 병종 | `troop_type` | `""` | 이 부대의 **병종**(아키타입) id. 값은 [병종 카탈로그](../data/units.md)의 archetype id(`"light_infantry"` 경보병 / `"light_archer"` 경궁병 …). 일반부대 생성 시 설정하며, 한 부대는 **하나의 병종으로 동질**하다(병합은 같은 병종끼리만 → 혼합 안 됨). **[병합 가능 판정](../features/party-composition.md)의 기준**. 영웅부대는 설정하지 않아 `""`(병합 없음). `is_ranged()`(아키타입 기반 근접/원거리 아이콘 판별)는 이 `troop_type`을 [GameUnits](../data/units.md) 카탈로그로 조회한다 |
+| 병종 | `troop_type` | `""` | 이 부대의 **병종**(아키타입) id. 값은 [병종 카탈로그](../data/units.md)의 archetype id(`"light_infantry"` 경보병 / `"light_archer"` 경궁병 …). 일반부대 생성 시 설정하며, 한 부대는 **하나의 병종으로 동질**하다(병합은 같은 병종끼리만 → 혼합 안 됨). **[병합 가능 판정](../features/party-composition.md)의 기준**. 영웅부대는 설정하지 않아 `""`(병합 없음). `archetype()`(영웅=`"hero"`, 그 외=`troop_type`)이 [맵 토큰 스프라이트 세트](#맵-토큰-외형-sprite)·클래스 스탯 조회 키다 |
 
 ### 소속 (Lord)
 
@@ -68,6 +68,19 @@
 
 한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다.
 
+## 맵 토큰 외형 (Sprite)
+
+> 스프라이트 세트·프레임 캐시: `scenes/party/unit_sprites.gd` (`UnitSprites`, 정적 헬퍼)
+
+부대 토큰은 병종별 **idle 애니메이션 스프라이트**(`AnimatedSprite2D`)로 그린다. 전투 화면([Lang Battle](../features/lang-battle.md))과 **같은 에셋**(`res://assets/units/*_idle.png`, 100×100 프레임 6장)을 쓴다.
+
+- **세트 매핑**(`UnitSprites.set_key(archetype)`) — `hero → "sword"`, `light_infantry → "soldier"`, `light_archer → "archer_a"`. 미지원/빈 아키타입은 `"soldier"`로 대체. 부대는 `archetype()`(영웅=`"hero"`, 그 외=`troop_type`)로 세트를 고른다.
+- **프레임 캐시**(`UnitSprites.idle_frames`) — 세트별 idle `SpriteFrames`(6프레임 루프)를 **정적 캐시**로 1개만 만들어 64부대가 공유한다(부대마다 새로 만들지 않음). `AnimatedSprite2D`는 기본 `"default"` 애니메이션에 idle 프레임을 담아 재생한다.
+- **크기·정렬** — 스프라이트를 `SPRITE_SCALE`(≈0.6)로 축소해 헥스 타일(64×46)에 맞춘다. `centered = true` + 세로 `offset`으로 **발이 칸 중심**(부대 `position`)에 서도록 맞춘다.
+- **레이어** — 스프라이트는 `show_behind_parent = true`로 두어, 부대 `_draw`의 오버레이(선택 링·지휘 배지·인원 배지)가 **스프라이트 위**에 그려지게 한다(가림 방지).
+- **세력 틴트** — `modulate = token_color`를 가독성 위해 흰색으로 섞은 색(`token_color.lerp(Color.WHITE, TINT_MIX)`)으로 둔다. 플레이어(금색)·NPC(세력색) 구분을 스프라이트 위에 얹는다. 이동/공격 페이드는 `modulate.a`에 곱한다.
+- **전멸**(`soldiers <= 0`) 시 스프라이트를 숨긴다. NPC 안개 처리는 부대 노드 `visible`로 되어 자식 스프라이트도 함께 숨는다([Fog of War](../features/fog-of-war.md)).
+
 ## 동작
 
 - `power() -> int` — 전투 파워(교전/후퇴 판단). = `soldiers`(병력수/HP 풀). 부상하면 낮아진다. [NPC 이동](../features/npc-movement.md)이 전력 비교에 쓴다.
@@ -75,7 +88,7 @@
 - `is_hero() -> bool` — 영웅부대인지(`kind == KIND_HERO`). 일반부대는 거짓.
 - `shows_member_count() -> bool` — 토큰에 남은 병력수 배지를 그릴지(`kind == KIND_TROOP` 그리고 `soldiers > 0`). 영웅부대·전멸 부대는 거짓. `_draw`가 이 판정으로 배지를 그린다.
 - `can_merge_with(other) -> bool` — `other` 부대를 이 부대에 [병합](../features/party-composition.md)할 수 있는지. **병합 가능 판정의 단일 출처**. 참 조건: `other`가 `null`이 아니고, **양쪽 모두 일반부대**(`kind == KIND_TROOP` 그리고 `other.kind == KIND_TROOP` — 영웅부대는 어느 쪽이든 병합 불가), **같은 병종**(`troop_type == other.troop_type`), 그리고 **합쳐도 병력 상한을 넘지 않을 것**(`soldiers + other.soldiers <= UnitTypes.TROOP_SIZE`(10) — 예: 4+6·5+5 가능, 6+5 불가). `game.gd`의 병합 대상 판정([Party Composition](../features/party-composition.md))이 이 메서드로 인접 아군을 거른다.
-- `is_ranged() -> bool` — 이 부대 병종이 원거리인지: **아키타입이 원거리(경궁병)** 면 참([GameUnits](../data/units.md)). 월드맵 토큰 **좌하단 병종 아이콘**(원거리=활 / 근접=검) 판별에 쓴다(`_draw` → `_draw_class_icon`). 아키타입 없으면 거짓(근접 기본). 아이콘은 에셋 없이 **코드 도형 플레이스홀더**(검=날+가드+손잡이 그립+폼멜, 활=휜 활대+시위+화살).
+- `is_ranged() -> bool` — 이 부대 병종이 원거리인지: **아키타입이 원거리(경궁병)** 면 참([GameUnits](../data/units.md)). 아키타입 없으면 거짓(근접 기본). 근접/원거리 구분은 이제 **토큰 스프라이트 자체**(`soldier`/`archer_a`/`sword`)로 드러나므로 별도 아이콘은 그리지 않는다(코드 도형 병종 아이콘 제거). 이 판정은 전투·NPC AI 파워 계산 등에서 계속 쓰인다.
 - `has_lord() -> bool` — 소속 영웅부대가 있는지(`lord != null`).
 - `lord_name() -> String` — `lord`의 `commander_name`. `lord`가 `null`이면 `"—"`.
 - `set_lord(hero) -> void` — 소속 영웅부대를 지정한다(`lord = hero`). [소속 UI](../features/party-lord.md)가 소속(합류) 확정에 쓴다.
@@ -94,11 +107,28 @@
 - `undo_move() -> void` — 이동 되돌리기. `moved_this_turn = false`(다시 이동 가능)로 되돌리고 불투명하게 다시 그린다. 위치 복원·시야 갱신은 `game.gd`([행동 메뉴](../features/party-action-menu.md) `[취소]`).
 - `can_rest() -> bool` — 아직 행동(대기 등)이 가능한지(`not attacked_this_turn`). 선택 가능 판정에 쓴다.
 - `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`를 `false`로 되돌리고 불투명하게 다시 그린다.
-- `_draw()` — `soldiers <= 0`(전멸)이면 아무것도 그리지 않는다("사라짐"). 그 외엔 선택 시 발밑 강조 링(노란색) + 그림자 + 몸통 원(`token_color`) + 외곽선을 그린다. `moved_this_turn` 또는 `attacked_this_turn`이면 전체를 반투명하게 그린다. [지휘 버프](../features/command-range.md) 중이면 토큰 **위**에 금색 갈매기 배지, `shows_member_count()`면 토큰 **우하단**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자)를 그린다. 플레이어·보이는 NPC 일반부대 모두에 표시(사상자로 줄어든 병력 확인). 그리고 토큰 **좌하단**에 **병종 아이콘**(`_draw_class_icon` — `is_ranged()`(아키타입 기반)면 활, 아니면 검)을 그린다(병력 있는 모든 부대, 영웅 포함).
+- `_draw()` — `soldiers <= 0`(전멸)이면 스프라이트를 숨기고 아무것도 그리지 않는다("사라짐"). 그 외엔 자식 [스프라이트](#맵-토큰-외형-sprite)의 프레임·틴트·재생을 현재 상태에 맞추고, 캔버스로 오버레이를 얹는다: 선택 시 발밑 강조 링(노란색), NPC 공격 [하이라이트](../features/npc-movement.md) 링, [지휘 버프](../features/command-range.md) 중이면 머리 **위** 금색 갈매기(▲) 배지, `shows_member_count()`면 **우하단**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자). `moved_this_turn`/`attacked_this_turn`이면 스프라이트·오버레이를 반투명하게(`_MOVED_ALPHA`). 인원 배지는 플레이어·보이는 NPC 일반부대 모두 표시(사상자로 줄어든 병력 확인). 몸통 원·외곽선·코드 병종 아이콘은 스프라이트로 대체되어 그리지 않는다.
 
 ## 테스트 시나리오
 
-`test/unit/test_party.gd`.
+### 맵 토큰 스프라이트 세트 (`test/unit/test_unit_sprites.gd`)
+
+`UnitSprites.set_key(archetype)` — 순수 매핑(파일시스템 무관):
+
+- [정상] `"hero"` → `"sword"`
+- [정상] `"light_infantry"` → `"soldier"`
+- [정상] `"light_archer"` → `"archer_a"`
+- [예외] 빈 문자열 `""` → `"soldier"`(근접 기본 대체)
+- [예외] 미지원 아키타입(`"dragon"` 등) → `"soldier"`(대체)
+
+`UnitSprites.idle_frames(archetype)` — idle `SpriteFrames` 캐시(에셋 경로 회귀 방지):
+
+- [정상] 각 세트(hero/light_infantry/light_archer) → `"default"` 애니에 `IDLE_COUNT`(6)프레임·루프
+- [정상] 같은 세트를 두 번 부르면 **동일 캐시 인스턴스**(64부대 공유)
+
+*(`AnimatedSprite2D` 생성·틴트·스케일·발 정렬은 씬 트리 의존이라 실제 실행으로 확인한다 — game.gd 배치와 동일 관례.)*
+
+### Party (`test/unit/test_party.gd`)
 
 - [정상] `party_name` 기본값은 빈 문자열, 설정 가능
 - [정상] `faction_name` 기본값은 빈 문자열, 설정 가능
