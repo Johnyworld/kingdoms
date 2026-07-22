@@ -1,11 +1,11 @@
 extends Node2D
 ## 50x50 헥스 타일 맵(초원)을 그리고, 카메라를 플레이어 거점(남서 모서리)에 배치한다.
-## 카메라는 WASD 또는 마우스를 화면 가장자리에 대면 상하좌우로 이동한다.
+## 카메라는 WASD 로, 또는 마우스를 화면 가장자리에 대고 좌클릭하면 상하좌우로 이동한다.
 
 const MAP_WIDTH := 50
 const MAP_HEIGHT := 50
 
-const CAM_SPEED := 900.0    # 픽셀/초
+const CAM_SPEED := 450.0    # 픽셀/초
 const EDGE_MARGIN := 24     # 마우스 가장자리 스크롤 감지 여백(px)
 
 # 줌 배율(값이 작을수록 확대). 0.5 = 확대, 1 = 기본, 3 = 축소.
@@ -1840,6 +1840,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom_level + ZOOM_STEP)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
+			# 화면 가장자리 클릭은 카메라 팬 전용(→ _process). 게임 클릭으로 넘기지 않는다.
+			# 단, 돌격 목표 지정 중에는 목표 선택이 우선(가장자리 근처 목표도 클릭 가능).
+			if _charge_hero == null and _edge_pan_dir() != Vector2.ZERO:
+				return
 			# 돌격 목표 지정 대기 중이면 좌클릭은 목표 선택으로 라우팅한다(NPC 턴 중엔 잠금). → squad-stance.md
 			if _charge_hero != null and not _stance_busy and not _in_battle and not _game_over and not _npc_turn_active:
 				_pick_charge_target(get_global_mouse_position())
@@ -1861,6 +1865,7 @@ func _set_zoom(level: float) -> void:
 
 func _process(delta: float) -> void:
 	if ModalStack.blocking():
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW)   # 엣지 커서가 모달 위에 남지 않도록 복원
 		return   # 모달 열림 동안 지도 카메라 팬(WASD·엣지 스크롤) 차단 → modal.md
 	var dir := Vector2.ZERO
 
@@ -1874,10 +1879,29 @@ func _process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_D):
 		dir.x += 1.0
 
-	# 마우스 화면 가장자리
+	# 마우스 화면 가장자리: 일반 지도 탐색 중에만(건설·돌격 지정 모드 제외) 커서를 방향 화살표로 바꾸고,
+	# 좌클릭을 누르는 동안 그 방향으로 팬. 특수 모드에선 커서를 기본 화살표로 되돌린다(엣지 커서 stuck 방지).
+	if _build_mode or _charge_hero != null:
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+	else:
+		var edge := _edge_pan_dir()
+		Input.set_default_cursor_shape(_edge_cursor_shape(edge))
+		if edge != Vector2.ZERO and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			dir += edge
+
+	if dir != Vector2.ZERO:
+		camera.position += dir.normalized() * CAM_SPEED * delta
+		camera.position.x = clampf(camera.position.x, _min_pos.x, _max_pos.x)
+		camera.position.y = clampf(camera.position.y, _min_pos.y, _max_pos.y)
+
+## 마우스가 화면 가장자리(EDGE_MARGIN)에 있으면 팬 방향을, 아니면 ZERO를 돌려준다.
+func _edge_pan_dir() -> Vector2:
 	var vp := get_viewport()
-	var mouse := vp.get_mouse_position()
-	var view_size := vp.get_visible_rect().size
+	return _edge_dir_for(vp.get_mouse_position(), vp.get_visible_rect().size)
+
+## 마우스 좌표·뷰 크기 → 가장자리 팬 방향(순수 함수, 테스트 대상).
+func _edge_dir_for(mouse: Vector2, view_size: Vector2) -> Vector2:
+	var dir := Vector2.ZERO
 	if mouse.x <= EDGE_MARGIN:
 		dir.x -= 1.0
 	elif mouse.x >= view_size.x - EDGE_MARGIN:
@@ -1886,8 +1910,15 @@ func _process(delta: float) -> void:
 		dir.y -= 1.0
 	elif mouse.y >= view_size.y - EDGE_MARGIN:
 		dir.y += 1.0
+	return dir
 
-	if dir != Vector2.ZERO:
-		camera.position += dir.normalized() * CAM_SPEED * delta
-		camera.position.x = clampf(camera.position.x, _min_pos.x, _max_pos.x)
-		camera.position.y = clampf(camera.position.y, _min_pos.y, _max_pos.y)
+## 팬 방향에 맞는 커서 모양(방향을 가리키는 화살표). ZERO면 기본 화살표.
+func _edge_cursor_shape(dir: Vector2) -> Input.CursorShape:
+	if dir == Vector2.ZERO:
+		return Input.CURSOR_ARROW
+	if dir.x == 0.0:
+		return Input.CURSOR_VSIZE   # ↕ 위/아래
+	if dir.y == 0.0:
+		return Input.CURSOR_HSIZE   # ↔ 좌/우
+	# 대각선: ↗↙ = FDIAG(우상·좌하), ↘↖ = BDIAG(우하·좌상)
+	return Input.CURSOR_FDIAGSIZE if dir.x * dir.y < 0.0 else Input.CURSOR_BDIAGSIZE
