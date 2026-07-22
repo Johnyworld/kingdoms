@@ -62,3 +62,41 @@ func test_modal_uses_ornate_variation() -> void:
 	assert_not_null(m._panel, "모달이 중앙 PanelContainer(_panel)를 노출해야 한다")
 	assert_eq(m._panel.theme_type_variation, &"OrnatePanel",
 		"모달 패널은 OrnatePanel 변형을 써야 한다")
+
+# --- Slice 2: 버튼 스킨 ---
+
+func test_button_states_defined() -> void:
+	var t := _theme()
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		assert_true(t.has_stylebox(state, "Button"),
+			"Button '%s' StyleBox가 정의돼야 한다" % state)
+
+func test_button_styleboxes_are_textured() -> void:
+	var t := _theme()
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var sb := t.get_stylebox(state, "Button")
+		assert_true(sb is StyleBoxTexture, "Button '%s'는 StyleBoxTexture" % state)
+		assert_not_null((sb as StyleBoxTexture).texture, "Button '%s' texture 지정" % state)
+
+func test_button_states_visually_distinct() -> void:
+	# GL Compat에서 밝히기 클램프 → 음영으로만 구분. 상태별 modulate가 서로 달라야 한다.
+	var t := _theme()
+	var normal := t.get_stylebox("normal", "Button") as StyleBoxTexture
+	var hover := t.get_stylebox("hover", "Button") as StyleBoxTexture
+	var pressed := t.get_stylebox("pressed", "Button") as StyleBoxTexture
+	assert_ne(hover.modulate_color, normal.modulate_color, "hover는 normal과 달라야 한다")
+	assert_ne(pressed.modulate_color, normal.modulate_color, "pressed는 normal과 달라야 한다")
+	assert_ne(pressed.modulate_color, hover.modulate_color, "pressed는 hover와 달라야 한다")
+	# 밝히기 클램프 회피: 모든 채널 ≤ 1.0
+	for c in [hover.modulate_color, pressed.modulate_color]:
+		assert_true(c.r <= 1.0 and c.g <= 1.0 and c.b <= 1.0, "modulate는 LDR 클램프 회피 위해 ≤1.0")
+
+func test_button_focus_is_empty() -> void:
+	# 기본 테마의 사각 포커스 아웃라인을 픽셀 UI에서 억제.
+	assert_true(_theme().get_stylebox("focus", "Button") is StyleBoxEmpty,
+		"Button focus는 StyleBoxEmpty여야 한다")
+
+func test_button_font_colors_defined() -> void:
+	var t := _theme()
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+		assert_true(t.has_color(key, "Button"), "Button/colors/%s가 정의돼야 한다" % key)

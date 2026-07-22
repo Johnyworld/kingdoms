@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=5 format=3]
+[gd_resource type="Theme" load_steps=10 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/ui/darkages/32x32-Tilesheet@3x.png" id="1_sheet"]
 [ext_resource type="FontFile" path="res://assets/ui/fonts/Galmuri14.ttf" id="2_font"]
@@ -29,9 +29,73 @@ content_margin_top = 40.0
 content_margin_right = 40.0
 content_margin_bottom = 40.0
 
+; 버튼: 사각 라운드 버튼(탄색 테두리). 상태는 modulate로만 구분(같은 텍스처 재사용).
+[sub_resource type="StyleBoxTexture" id="SBT_btn_normal"]
+texture = ExtResource("1_sheet")
+texture_margin_left = 21.0
+texture_margin_top = 21.0
+texture_margin_right = 21.0
+texture_margin_bottom = 21.0
+region_rect = Rect2(582, 303, 84, 81)
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="SBT_btn_hover"]
+texture = ExtResource("1_sheet")
+texture_margin_left = 21.0
+texture_margin_top = 21.0
+texture_margin_right = 21.0
+texture_margin_bottom = 21.0
+region_rect = Rect2(582, 303, 84, 81)
+modulate_color = Color(0.85, 0.89, 1, 1)
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="SBT_btn_pressed"]
+texture = ExtResource("1_sheet")
+texture_margin_left = 21.0
+texture_margin_top = 21.0
+texture_margin_right = 21.0
+texture_margin_bottom = 21.0
+region_rect = Rect2(582, 303, 84, 81)
+modulate_color = Color(0.66, 0.68, 0.75, 1)
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="SBT_btn_disabled"]
+texture = ExtResource("1_sheet")
+texture_margin_left = 21.0
+texture_margin_top = 21.0
+texture_margin_right = 21.0
+texture_margin_bottom = 21.0
+region_rect = Rect2(582, 303, 84, 81)
+modulate_color = Color(0.6, 0.6, 0.6, 0.5)
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+
+; 포커스 테두리는 기본 테마의 사각 아웃라인 대신 비움(픽셀 UI에 이질적).
+[sub_resource type="StyleBoxEmpty" id="SBE_focus"]
+
 [resource]
 default_font = ExtResource("2_font")
 default_font_size = 14
+Button/colors/font_color = Color(0.86, 0.82, 0.7, 1)
+Button/colors/font_disabled_color = Color(0.55, 0.55, 0.55, 1)
+Button/colors/font_hover_color = Color(1, 0.9, 0.55, 1)
+Button/colors/font_pressed_color = Color(0.86, 0.82, 0.7, 1)
+Button/styles/disabled = SubResource("SBT_btn_disabled")
+Button/styles/focus = SubResource("SBE_focus")
+Button/styles/hover = SubResource("SBT_btn_hover")
+Button/styles/normal = SubResource("SBT_btn_normal")
+Button/styles/pressed = SubResource("SBT_btn_pressed")
 Label/colors/font_color = Color(0.86, 0.82, 0.7, 1)
 OrnatePanel/base_type = &"PanelContainer"
 OrnatePanel/styles/panel = SubResource("SBT_panel_ornate")

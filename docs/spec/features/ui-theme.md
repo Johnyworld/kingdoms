@@ -36,8 +36,8 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
 - **`Label/colors/font_color`** = 밝은 크림(본문 기본색). 제목 등 강조색은 각 UI의 기존 `add_theme_color_override`가 위에 얹힘.
 - `PanelContainer/panel` StyleBoxTexture → 어두운 사각 프레임(나인패치). 상시 패널 기본 스킨.
 - 타입 변형 **`OrnatePanel`**(base_type `PanelContainer`)의 `panel` StyleBoxTexture → 금장 장식 프레임.
-- **버튼·구분선·진행바·아이콘 스킨은 Slice 2~3**에서 추가 — 현재 `Button`/`HSeparator` 등은 폰트만
-  테마를 따르고 나머지는 Godot 기본값(미구현).
+- **구분선·진행바·아이콘 스킨은 Slice 3**에서 추가 — 현재 `HSeparator` 등은 폰트만
+  테마를 따르고 나머지는 Godot 기본값(미구현). 버튼은 Slice 2에서 스킨 적용.
 
 ### 전역 등록
 - `project.godot` `[gui] theme/custom="res://assets/ui/medieval_theme.tres"`.
@@ -48,11 +48,28 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
 - 컴포지션 구조(`set_content`)·`ModalStack` 로직·닫기 입력은 **불변**.
 - 닫기 버튼 X 아이콘화·타이틀 바 전용 StyleBox는 Slice 2~3(미구현, 현재 텍스트 "X" 유지).
 
-## Slice 2~3 (미구현)
+## Slice 2 — 버튼 스킨 + 패널 정합 (구현)
 
-- **Slice 2**: `Button` normal/hover/pressed/disabled StyleBoxTexture, HUD/정보 패널 앵커 정합·패딩 보정.
-- **Slice 3**: `HSeparator` 필리그리, `ProgressBar`(체력/자원) 컬러 바, 리스트 불릿 다이아 아이콘,
-  양피지 배경(`ParchmentPanel`), `.tscn` 메뉴 씬(title·splash·lang_setup·result) 폰트 크기 정합.
+### 버튼 StyleBox (`Button/styles/*`)
+- 소스 = 사각 버튼(탄색 라운드 테두리, @3x region `Rect2(582, 303, 84, 81)`), 나인패치 texture_margin 21.
+- 4상태를 **같은 텍스처 + `modulate_color`**로 구성. GL Compatibility LDR 캔버스는 `modulate>1.0`을
+  클램프하므로(밝히기 불가), **음영 방향(≤1.0)**으로 피드백한다:
+  - `normal` = 원색, `hover` = 약간 어둡고 차갑게(≈0.87×·청색틴트), `pressed` = 더 어둡게(≈0.68×),
+    `disabled` = 흐리게(회색·반투명 0.5). normal→hover→pressed 3단계 음영 + 글자색 변화로 구분.
+- content_margin: 좌우 16 / 상하 8(텍스트 여백).
+- **글자색**: `Button/colors/font_color` 크림, `font_hover_color` 밝은 금색, `font_pressed_color` 크림,
+  `font_disabled_color` 회색.
+
+### 패널 정합
+- HUD·정보·로스터·행동 메뉴 등 코드빌드 `PanelContainer`는 전역 `panel`(어두운 프레임)을 자동 상속.
+  프레임 content_margin(30)만큼 콘텐츠가 안쪽으로 들어가며, 앵커·grow 방향은 기존 코드가 유지하므로
+  레이아웃 구조 변경 없음(스크립트 수정 없이 스킨만 적용). 프리뷰 렌더에서 프레임·콘텐츠 겹침 없음 확인
+  (실제 게임 HUD 통합 확인은 전 슬라이스 완료 후 플레이 검증).
+
+## Slice 3 (미구현)
+
+- `HSeparator` 필리그리, `ProgressBar`(체력/자원) 컬러 바, 리스트 불릿 다이아 아이콘,
+  양피지 배경(`ParchmentPanel`), 모달 닫기 X 아이콘화, `.tscn` 메뉴 씬(title·splash·lang_setup·result) 폰트 크기 정합.
 
 ## 테스트 시나리오
 
@@ -67,6 +84,11 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
 - [정상] `project.godot`의 `gui/theme/custom` == 테마 경로(`ProjectSettings.get_setting`)
 - [정상] UI 타일시트 텍스처 `res://assets/ui/darkages/32x32-Tilesheet@3x.png` 로드 성공
 - [정상] `Modal` 인스턴스의 중앙 `PanelContainer`.`theme_type_variation` == `"OrnatePanel"`
+- [Slice2][정상] `Button`의 `normal`·`hover`·`pressed`·`disabled` StyleBox가 모두 정의됨
+- [Slice2][정상] 위 4개 모두 `StyleBoxTexture`이고 `texture` 지정됨
+- [Slice2][정상] 상태별 `modulate_color`가 서로 다르고(normal≠hover≠pressed) 모두 ≤1.0(LDR 클램프 회피)
+- [Slice2][정상] `Button/styles/focus`는 `StyleBoxEmpty`(기본 포커스 아웃라인 억제)
+- [Slice2][정상] `Button/colors/font_color`·`font_hover_color`·`font_pressed_color`·`font_disabled_color` 정의됨
 
 ## 관련
 
