@@ -22,12 +22,14 @@ func _build() -> void:
 	add_child(root)
 
 	_box = PanelContainer.new()
+	_box.theme_type_variation = &"ParchmentPanel"   # 양피지 배경(중세풍 테마)
 	_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 24)
 	_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_box)
 
 	_label = Label.new()
+	_label.theme_type_variation = &"ParchmentLabel"   # 밝은 양피지 위 어두운 글자
 	_label.add_theme_font_size_override("font_size", 22)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_box.add_child(_label)

@@ -6,6 +6,7 @@ const THEME_PATH := "res://assets/ui/medieval_theme.tres"
 const FONT_PATH := "res://assets/ui/fonts/Galmuri14.ttf"
 const SHEET_PATH := "res://assets/ui/darkages/32x32-Tilesheet@3x.png"
 const ModalScript = preload("res://scenes/modal/modal.gd")
+const ToastScript = preload("res://scenes/game/toast.gd")
 
 func _theme() -> Theme:
 	return load(THEME_PATH) as Theme
@@ -100,3 +101,33 @@ func test_button_font_colors_defined() -> void:
 	var t := _theme()
 	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
 		assert_true(t.has_color(key, "Button"), "Button/colors/%s가 정의돼야 한다" % key)
+
+# --- Slice 3: 구분선 · 양피지 · 닫기 아이콘 ---
+
+func test_divider_stylebox_tiled() -> void:
+	var sb := _theme().get_stylebox("separator", "HSeparator")
+	assert_true(sb is StyleBoxTexture, "HSeparator separator는 StyleBoxTexture")
+	assert_eq((sb as StyleBoxTexture).axis_stretch_horizontal,
+		StyleBoxTexture.AXIS_STRETCH_MODE_TILE, "구분선은 가로 타일링")
+
+func test_parchment_panel_defined() -> void:
+	assert_true(_theme().get_stylebox("panel", "ParchmentPanel") is StyleBoxTexture,
+		"ParchmentPanel panel은 StyleBoxTexture")
+
+func test_parchment_label_is_dark() -> void:
+	var t := _theme()
+	assert_true(t.has_color("font_color", "ParchmentLabel"), "ParchmentLabel font_color 정의")
+	assert_lt(t.get_color("font_color", "ParchmentLabel").v, 0.5,
+		"양피지 위 글자색은 어두워야 한다(밝기<0.5)")
+
+func test_modal_close_has_icon() -> void:
+	var m = ModalScript.new()
+	add_child_autofree(m)
+	assert_not_null(m._close_button.icon, "닫기 버튼에 X 아이콘이 지정돼야 한다")
+	assert_eq(m._close_button.text, "", "아이콘 사용 시 텍스트는 비어야 한다")
+
+func test_toast_uses_parchment() -> void:
+	var t = ToastScript.new()
+	add_child_autofree(t)
+	assert_eq(t._box.theme_type_variation, &"ParchmentPanel", "토스트 상자=ParchmentPanel")
+	assert_eq(t._label.theme_type_variation, &"ParchmentLabel", "토스트 라벨=ParchmentLabel")

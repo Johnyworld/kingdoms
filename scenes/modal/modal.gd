@@ -8,6 +8,8 @@ signal opened
 signal closed
 
 const BASE_LAYER := 100   # 모달은 게임 UI 위. 중첩 시 스택 깊이만큼 더 올린다.
+const UI_SHEET := "res://assets/ui/darkages/32x32-Tilesheet@3x.png"
+const CLOSE_ICON_REGION := Rect2(228, 708, 21, 24)   # 시트의 X 아이콘(@3x)
 
 var title := "" : set = set_title
 var dismissible := true   # false면 X 버튼(또는 콘텐츠 버튼)으로만 닫힘 — 선택 강제 모달용
@@ -86,7 +88,9 @@ func _build() -> void:
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_title_label)
 	_close_button = Button.new()
-	_close_button.text = "X"
+	_close_button.icon = _close_icon()   # 중세풍 테마의 X 아이콘(없으면 텍스트 "X" 폴백)
+	if _close_button.icon == null:
+		_close_button.text = "X"
 	_close_button.pressed.connect(close)
 	header.add_child(_close_button)
 
@@ -97,6 +101,16 @@ func _build() -> void:
 	_content_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_content_area)
+
+## 시트에서 X 아이콘 AtlasTexture를 만든다. 시트 로드 실패 시 null(텍스트 "X" 폴백).
+func _close_icon() -> Texture2D:
+	var sheet := load(UI_SHEET) as Texture2D
+	if sheet == null:
+		return null
+	var atlas := AtlasTexture.new()
+	atlas.atlas = sheet
+	atlas.region = CLOSE_ICON_REGION
+	return atlas
 
 ## 배경 좌클릭으로만 닫는다(dismissible일 때). 휠·우클릭은 무시.
 func _on_bg_input(event: InputEvent) -> void:

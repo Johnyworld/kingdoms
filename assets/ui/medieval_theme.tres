@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=10 format=3]
+[gd_resource type="Theme" load_steps=12 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/ui/darkages/32x32-Tilesheet@3x.png" id="1_sheet"]
 [ext_resource type="FontFile" path="res://assets/ui/fonts/Galmuri14.ttf" id="2_font"]
@@ -84,6 +84,31 @@ content_margin_bottom = 8.0
 ; 포커스 테두리는 기본 테마의 사각 아웃라인 대신 비움(픽셀 UI에 이질적).
 [sub_resource type="StyleBoxEmpty" id="SBE_focus"]
 
+; 구분선: 체인 브레이드(@3x). 가로 타일링으로 폭에 맞게 반복(스트레치 왜곡 없음).
+; 주의: top/bottom margin 12+12 = region 높이 24 → 세로 center 밴드 0px(의도적).
+;   Separator 선 두께를 margin 합(24)으로 확보하며, 가로 반복은 margin strip이 담당한다.
+;   separation/margin/region 높이를 바꾸면 이 균형이 깨지니 함께 조정할 것.
+[sub_resource type="StyleBoxTexture" id="SBT_divider"]
+texture = ExtResource("1_sheet")
+texture_margin_top = 12.0
+texture_margin_bottom = 12.0
+region_rect = Rect2(639, 804, 165, 24)
+axis_stretch_horizontal = 1
+modulate_color = Color(2.6, 2.2, 1.4, 1)
+
+; 양피지 패널: 크림 양피지(@3x, 찢긴 가장자리). 툴팁·토스트 등 밝은 본문 배경(ParchmentPanel).
+[sub_resource type="StyleBoxTexture" id="SBT_parchment"]
+texture = ExtResource("1_sheet")
+texture_margin_left = 27.0
+texture_margin_top = 27.0
+texture_margin_right = 27.0
+texture_margin_bottom = 27.0
+region_rect = Rect2(297, 3, 276, 288)
+content_margin_left = 28.0
+content_margin_top = 22.0
+content_margin_right = 28.0
+content_margin_bottom = 22.0
+
 [resource]
 default_font = ExtResource("2_font")
 default_font_size = 14
@@ -96,7 +121,13 @@ Button/styles/focus = SubResource("SBE_focus")
 Button/styles/hover = SubResource("SBT_btn_hover")
 Button/styles/normal = SubResource("SBT_btn_normal")
 Button/styles/pressed = SubResource("SBT_btn_pressed")
+HSeparator/constants/separation = 24
+HSeparator/styles/separator = SubResource("SBT_divider")
 Label/colors/font_color = Color(0.86, 0.82, 0.7, 1)
 OrnatePanel/base_type = &"PanelContainer"
 OrnatePanel/styles/panel = SubResource("SBT_panel_ornate")
+ParchmentLabel/base_type = &"Label"
+ParchmentLabel/colors/font_color = Color(0.28, 0.2, 0.12, 1)
+ParchmentPanel/base_type = &"PanelContainer"
+ParchmentPanel/styles/panel = SubResource("SBT_parchment")
 PanelContainer/styles/panel = SubResource("SBT_panel_dark")

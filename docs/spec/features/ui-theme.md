@@ -66,10 +66,32 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
   레이아웃 구조 변경 없음(스크립트 수정 없이 스킨만 적용). 프리뷰 렌더에서 프레임·콘텐츠 겹침 없음 확인
   (실제 게임 HUD 통합 확인은 전 슬라이스 완료 후 플레이 검증).
 
-## Slice 3 (미구현)
+## Slice 3 — 마감: 구분선·양피지·닫기 아이콘 (구현)
 
-- `HSeparator` 필리그리, `ProgressBar`(체력/자원) 컬러 바, 리스트 불릿 다이아 아이콘,
-  양피지 배경(`ParchmentPanel`), 모달 닫기 X 아이콘화, `.tscn` 메뉴 씬(title·splash·lang_setup·result) 폰트 크기 정합.
+### HSeparator 구분선 (`HSeparator/styles/separator`)
+- 체인 브레이드(@3x region `Rect2(639, 804, 165, 24)`)를 `axis_stretch_horizontal = TILE(1)`로 가로 반복.
+  스트레치 왜곡 없이 폭에 맞게 링크가 되풀이된다.
+- **선 두께**: `Separator`는 스타일박스 최소 높이로 선 두께를 정하므로 `texture_margin_top/bottom = 12`
+  (합 24)로 높이를 확보한다(margin 0이면 두께 0으로 안 그려짐). `constants/separation = 24`.
+- **가시성**: 체인 원본이 어두워 다크 패널 위에서 안 보이므로 `modulate_color = Color(2.6, 2.2, 1.4)`로
+  금빛으로 lift. 소스가 어두워 LDR 클램프 없이 밝아진다(밝은 탄색 버튼과 반대 경우).
+- 전역 적용 → 모달·부대 정보·일람·캠프 메뉴·건물 정보의 기존 `HSeparator`가 모두 자동 상속.
+
+### 양피지 패널 (`ParchmentPanel` + `ParchmentLabel`)
+- `ParchmentPanel`(base `PanelContainer`) StyleBoxTexture = 크림 양피지(@3x region `Rect2(297, 3, 276, 288)`,
+  torn edge 나인패치 margin 27, content_margin 28/22).
+- 밝은 양피지 위에는 크림 글자가 안 보이므로 `ParchmentLabel`(base `Label`) = 어두운 갈색 글자.
+- 소비자: 알림 Toast(`scenes/game/toast.gd`) — `_box`에 `ParchmentPanel`, `_label`에 `ParchmentLabel` 지정.
+
+### 모달 닫기 X 아이콘 (`scenes/modal/modal.gd`)
+- 닫기 버튼을 텍스트 "X" → 시트의 X 아이콘 `AtlasTexture`(@3x region `Rect2(228, 708, 21, 24)`)로 교체.
+  시트 로드 실패 시 텍스트 "X"로 폴백. 닫기 로직·시그널은 불변.
+
+## Slice 4 (미구현 · 유예)
+
+- 리스트 불릿 다이아 아이콘(리스트 렌더 코드 침투 필요), `ProgressBar` 스킨(**현재 코드베이스에서 미사용** —
+  전투 병력바는 `draw_rect` 커스텀이라 테마 대상 아님), `.tscn` 메뉴 씬(title·splash·lang_setup·result)
+  폰트 크기 재튜닝(현재는 전역 폰트만 상속, 크기 override 유지).
 
 ## 테스트 시나리오
 
@@ -89,6 +111,11 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
 - [Slice2][정상] 상태별 `modulate_color`가 서로 다르고(normal≠hover≠pressed) 모두 ≤1.0(LDR 클램프 회피)
 - [Slice2][정상] `Button/styles/focus`는 `StyleBoxEmpty`(기본 포커스 아웃라인 억제)
 - [Slice2][정상] `Button/colors/font_color`·`font_hover_color`·`font_pressed_color`·`font_disabled_color` 정의됨
+- [Slice3][정상] `HSeparator/styles/separator`가 `StyleBoxTexture`이고 `axis_stretch_horizontal == TILE`
+- [Slice3][정상] 타입 변형 `ParchmentPanel`의 `panel` StyleBox가 `StyleBoxTexture`로 정의됨
+- [Slice3][정상] 타입 변형 `ParchmentLabel`의 `font_color`가 어두운 색(밝기 낮음)으로 정의됨
+- [Slice3][정상] `Modal` 인스턴스의 닫기 버튼에 아이콘(`icon`)이 지정됨(텍스트 "X" 아님)
+- [Slice3][정상] `Toast` 인스턴스의 `_box`는 `ParchmentPanel`, `_label`은 `ParchmentLabel` 변형
 
 ## 관련
 
