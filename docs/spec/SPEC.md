@@ -66,7 +66,9 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 캐릭터 · 아이템 · 자원 등의 리스트.
 
 - [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
-- [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성. **데이터는 `res://data/*.csv`**(factions·heroes·units), 세력 `start_corner`로 거점 모서리 배치
+- [Factions (세력·영웅 카탈로그)](data/factions.md) — 세력 4개 + 세력별 영웅 4명. 부대 이분화(영웅/일반), 상수(TROOP_SIZE 등). `factions.csv`·`heroes.csv`, `start_corner`로 거점 모서리 배치
+- [Unit Types (병종 아키타입)](data/unit-types.md) — 경보병·경궁병·영웅 전투 스탯 인라인(`unit_types.csv`) + 병종 상성(`type_advantage.csv`). 단일 출처
+- [Unit Spawns (초기 배치)](data/unit-spawns.md) — 맵에 놓이는 초기 유닛을 개별 행 절대좌표로 정의(`unit_spawns.csv`), `leader`로 영웅부대 소속 연결. game.gd가 소비해 부대 생성
 - [Buildings (건물 종류)](data/buildings.md)
 - [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막·물, 칸당 진입비용(초원 1·숲 2·습지 3·산/물 불가)
 
@@ -90,12 +92,13 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 전장 렌더러(픽셀아트) | `scenes/lang_battle/lang_battlefield.gd` |
 | 전장 순수 기하/분배 수학 | `scenes/lang_battle/lang_field_math.gd` |
 | 부대↔lang 매핑 | `scenes/lang_battle/lang_bridge.gd` |
-| 유닛 카탈로그(클래스·HP) | `scenes/party/game_units.gd` |
+| 병종 카탈로그(아키타입·전투 스탯) | `scenes/party/unit_types.gd` |
 | 부대(맵 토큰) | `scenes/party/party.gd` |
 | 부대 정보 패널 | `scenes/party/party_info.gd` |
 | 부대 행동 메뉴 | `scenes/party/party_action_menu.gd` |
 | 부대 일람 | `scenes/party/party_roster.gd` |
-| 유닛·부대 카탈로그 | `scenes/party/unit_types.gd` |
+| 세력·영웅 카탈로그 | `scenes/party/faction_catalog.gd` |
+| 초기 유닛 배치 카탈로그 | `scenes/party/unit_spawns.gd` |
 | 건물 | `scenes/building/building.gd` |
 | 건물 정보 패널 | `scenes/building/building_info.gd` |
 | 확인 다이얼로그 | `scenes/game/confirm_dialog.gd` |
@@ -111,7 +114,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 | 지형 렌더러 | `scenes/game/terrain_renderer.gd` |
 | 지형 데이터 타일셋 | `tiles/terrain_tileset.tres` (숨김 데이터 레이어) |
 | 지형 비주얼 타일셋 | `assets/tiles/lapetite/Tilesets/*.tres` (LaPetiteTile 오토타일) |
-| 게임 튜닝 데이터(CSV) | `data/factions.csv` · `data/heroes.csv` · `data/units.csv`(병종+전투 스탯 인라인) · `data/type_advantage.csv`(병종 상성) (스프레드시트 편집, `importer="keep"`) |
+| 게임 튜닝 데이터(CSV) | `data/factions.csv` · `data/heroes.csv` · `data/unit_types.csv`(병종+전투 스탯 인라인) · `data/unit_spawns.csv`(초기 배치) · `data/type_advantage.csv`(병종 상성) (스프레드시트 편집, `importer="keep"`) |
 
 ---
 

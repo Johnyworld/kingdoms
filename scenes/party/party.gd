@@ -1,5 +1,5 @@
 class_name Party extends Node2D
-## 부대. 맵에서 실제로 움직이는 유닛. 전투·이동력·시야·지휘범위·공격거리는 아키타입(GameUnits→lang 클래스) 기반.
+## 부대. 맵에서 실제로 움직이는 유닛. 전투·이동력·시야·지휘범위·공격거리는 아키타입(UnitTypes→lang 클래스) 기반.
 ## (멤버 Human 목록은 병력수/명단으로 남아 있으나 스탯은 미사용 — 순수 랑그릿사 유닛 모델 전환 중, M3에서 정리.)
 ## 맵 토큰으로서 위치·선택·이번 턴 이동 상태·마커 그리기를 담당한다(예전 Human의 역할 이관).
 ## 몸통은 병종별 idle 스프라이트(AnimatedSprite2D, UnitSprites 세트)로 그리고, 선택 링·인원 배지 등 오버레이만 _draw에서 캔버스로 얹는다.
@@ -16,12 +16,12 @@ class_name Party extends Node2D
 
 # --- 종류(랑그릿사식 이분화) ---
 ## 부대 종류. "hero"=영웅부대(지휘관 1명 단독), "troop"=일반부대(동일 능력치 병사 다수, 기본 10명).
-## 멤버 수로 파생하지 않고 명시 저장한다(사상으로 인원이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → docs/spec/data/units.md
+## 멤버 수로 파생하지 않고 명시 저장한다(사상으로 인원이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → docs/spec/data/factions.md
 const KIND_HERO := "hero"
 const KIND_TROOP := "troop"
 var kind := KIND_TROOP
 
-## 병종(아키타입) id. UnitTypes.TROOPS의 id("light_infantry"/"light_archer" …). 일반부대 생성·분할 시 설정.
+## 병종(아키타입) id. UnitTypes(unit_types.csv)의 병종 id("light_infantry"/"light_archer" …). 일반부대 생성·분할 시 설정.
 ## 한 부대는 하나의 병종으로 동질하며(병합은 같은 병종끼리만), 병합 가능 판정(can_merge_with)의 기준이다.
 ## 영웅부대는 설정하지 않아 "". archetype()(스프라이트 세트·클래스 스탯 키)와 별개인 명시 필드. → docs/spec/entities/Party.md 병종
 var troop_type := ""
@@ -31,7 +31,7 @@ var troop_type := ""
 var lord = null
 
 # --- 병력 (순수 class+count 모델) ---
-## 병력수(HP 풀). 일반부대=병사 수(기본 10), 영웅부대=클래스 HP(GameUnits.max_hp("hero")). 0이면 전멸.
+## 병력수(HP 풀). 일반부대=병사 수(기본 10), 영웅부대=클래스 HP(UnitTypes.max_hp("hero")). 0이면 전멸.
 ## 전투 결과(final_soldiers)로 갱신되고, 배지·전투 파워·lang 유닛 병력의 단일 출처.
 var soldiers: int = 0
 ## 부대 지휘관 이름(표시용). 영웅부대=영웅 이름, 일반부대=병종 이름. 개별 Human은 없다(순수 랑그릿사).
@@ -80,7 +80,7 @@ func power() -> int:
 
 ## other를 이 부대에 병합할 수 있는지 — 병합 가능 판정의 단일 출처. → party-composition.md
 ## 둘 다 일반부대(KIND_TROOP)이고(영웅부대는 어느 쪽이든 병합 없음) 같은 병종(troop_type)이며,
-## 합쳐도 병력 상한(UnitTypes.TROOP_SIZE, 10)을 넘지 않을 때만 참(예: 4+6·5+5 가능, 6+5 불가).
+## 합쳐도 병력 상한(FactionCatalog.TROOP_SIZE, 10)을 넘지 않을 때만 참(예: 4+6·5+5 가능, 6+5 불가).
 func can_merge_with(other) -> bool:
 	if other == null:
 		return false
@@ -88,15 +88,15 @@ func can_merge_with(other) -> bool:
 		return false
 	if troop_type != other.troop_type:
 		return false
-	return soldiers + other.soldiers <= UnitTypes.TROOP_SIZE
+	return soldiers + other.soldiers <= FactionCatalog.TROOP_SIZE
 
-## 이 부대의 아키타입 id(GameUnits 카탈로그 키). 영웅부대는 "hero", 그 외는 병종(troop_type). → game_units.gd
+## 이 부대의 아키타입 id(UnitTypes 카탈로그 키). 영웅부대는 "hero", 그 외는 병종(troop_type). → unit_types.gd
 func archetype() -> String:
 	return "hero" if kind == KIND_HERO else troop_type
 
 ## 이 부대 병종이 원거리인지 — 클래스 기반(경궁병). 전투·NPC AI 파워/사격 판별에 쓴다(월드맵 근접/원거리 구분은 스프라이트로 드러남). → Party.md
 func is_ranged() -> bool:
-	return GameUnits.is_ranged(archetype())
+	return UnitTypes.is_ranged(archetype())
 
 ## 소속 영웅부대가 있는지(lord != null).
 func has_lord() -> bool:
@@ -116,7 +116,7 @@ func clear_lord() -> void:
 
 ## 영웅부대의 지휘 반경(헥스). 클래스 기반(lang cmd_range). → command-range.md
 func command_range() -> int:
-	return GameUnits.command_range(archetype())
+	return UnitTypes.command_range(archetype())
 
 ## 다른 부대(other)의 병력을 이 부대로 흡수한다(병합). other는 병력 0이 된다(호출부가 제거).
 ## 이 부대 지휘관 이름은 유지된다. 빈 other면 변화 없음.
@@ -126,29 +126,29 @@ func merge_from(other) -> void:
 	other.queue_redraw()
 	queue_redraw()
 
-## 기본 이동력 = 클래스 이동력(lang mv). → game_units.gd
+## 기본 이동력 = 클래스 이동력(lang mv). → unit_types.gd
 func base_movement() -> int:
-	return GameUnits.movement(archetype())
+	return UnitTypes.movement(archetype())
 
 ## 부대 이동력 = 클래스 이동력. 이동 범위·NPC 경로·정보 패널에 쓰인다. (공성 삭제로 견인 규칙 제거)
 func movement() -> int:
 	return base_movement()
 
-## 부대 시야 = 클래스 시야(fog). → game_units.gd
+## 부대 시야 = 클래스 시야(fog). → unit_types.gd
 func vision() -> int:
-	return GameUnits.vision(archetype())
+	return UnitTypes.vision(archetype())
 
-## 부대 공격거리 = 클래스 공격거리(근접 0·원거리 3). → game_units.gd
+## 부대 공격거리 = 클래스 공격거리(근접 0·원거리 3). → unit_types.gd
 func attack_range() -> int:
-	return GameUnits.attack_range(archetype())
+	return UnitTypes.attack_range(archetype())
 
 ## 부대 근접 파워 = 근접 병종이면 클래스 AT × 병력수, 아니면 0(교전 선호 판정·NPC AI). → npc-movement.md
 func melee_power() -> int:
-	return 0 if GameUnits.is_ranged(archetype()) else GameUnits.base_at(archetype()) * soldiers
+	return 0 if UnitTypes.is_ranged(archetype()) else UnitTypes.base_at(archetype()) * soldiers
 
 ## 부대 원거리 파워 = 원거리 병종이면 클래스 AT × 병력수, 아니면 0. → npc-movement.md
 func ranged_power() -> int:
-	return GameUnits.base_at(archetype()) * soldiers if GameUnits.is_ranged(archetype()) else 0
+	return UnitTypes.base_at(archetype()) * soldiers if UnitTypes.is_ranged(archetype()) else 0
 
 ## 토큰 테두리 강조색을 바꾸고 다시 그린다(알파 0 = 없음). NPC 공격 연출. → npc-movement.md
 func set_highlight(color: Color) -> void:

@@ -16,7 +16,7 @@
 
 - 주인공 [부대](../entities/Party.md) 시야원 + **모든 완성 건물**(캠프·농장 등) 시야원을 합쳐 현재 시야 셀을 구한다.
 - 각 시야원은 `HexGrid.cells_within(terrain, start, radius, ...)` — BFS로 헥스 거리 반경 내 셀 (이동 범위 계산과 같은 헬퍼 공유).
-  - 부대: `party.vision()` 반경 — 아키타입 lang 클래스 시야([GameUnits](../data/units.md)).
+  - 부대: `party.vision()` 반경 — 아키타입 lang 클래스 시야([UnitTypes](../data/unit-types.md)).
   - 건물: `BuildPlanner.buildings_vision(terrain, BuildingManager.buildings, ...)` — 맵의 모든 건물 중 **완성된 것**만 `center_cell()` 기준 `building.vision` 반경으로 합친다. 건설 중 건물은 시야에 기여하지 않는다.
 - 시작 시, 턴 종료 시(건설이 진행돼 농장이 완성되면 그 시야를 반영), 그리고 **플레이어 이동 애니메이션 중 토큰이 각 칸에 도착할 때마다** 갱신한다 — 걸어가는 동안 안개가 점진적으로 걷힌다([Selection & Movement](selection-and-movement.md)).
 

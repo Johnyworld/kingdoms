@@ -204,8 +204,8 @@ func test_set_highlight() -> void:
 func test_command_range_from_class() -> void:
 	var hero := _party()
 	hero.kind = hero.KIND_HERO
-	assert_eq(hero.command_range(), GameUnits.command_range("hero"), "영웅 지휘범위 = 클래스4 cmd_range")
-	assert_eq(_troop("light_infantry").command_range(), GameUnits.command_range("light_infantry"), "경보병 지휘범위 = 클래스1 cmd_range")
+	assert_eq(hero.command_range(), UnitTypes.command_range("hero"), "영웅 지휘범위 = 클래스4 cmd_range")
+	assert_eq(_troop("light_infantry").command_range(), UnitTypes.command_range("light_infantry"), "경보병 지휘범위 = 클래스1 cmd_range")
 
 func test_command_range_no_archetype() -> void:
 	assert_eq(_party().command_range(), 0, "아키타입 없으면 0")
@@ -213,21 +213,21 @@ func test_command_range_no_archetype() -> void:
 func test_command_buffed_false_by_default() -> void:
 	assert_false(_party().command_buffed, "생성 직후 지휘 버프 없음")
 
-# --- 이동력 · 시야 · 공격거리 (클래스 기반) → game_units.gd ---
+# --- 이동력 · 시야 · 공격거리 (클래스 기반) → unit_types.gd ---
 
 func test_movement_from_class() -> void:
 	var p := _troop("light_infantry")
-	assert_eq(p.movement(), GameUnits.movement("light_infantry"), "이동력 = 클래스 mv")
+	assert_eq(p.movement(), UnitTypes.movement("light_infantry"), "이동력 = 클래스 mv")
 	assert_gt(p.movement(), 0, "유효 아키타입이면 이동력 > 0")
 
 func test_movement_zero_without_archetype() -> void:
 	assert_eq(_party().movement(), 0, "아키타입 없으면 이동력 0(클래스 0)")
 
 func test_vision_from_class() -> void:
-	assert_eq(_troop("light_infantry").vision(), GameUnits.vision("light_infantry"), "시야 = 클래스 카탈로그 시야")
+	assert_eq(_troop("light_infantry").vision(), UnitTypes.vision("light_infantry"), "시야 = 클래스 카탈로그 시야")
 
 func test_attack_range_ranged_vs_melee() -> void:
-	assert_eq(_troop("light_archer").attack_range(), GameUnits.attack_range("light_archer"), "경궁병 공격거리 = 3(원거리)")
+	assert_eq(_troop("light_archer").attack_range(), UnitTypes.attack_range("light_archer"), "경궁병 공격거리 = 3(원거리)")
 	assert_eq(_troop("light_infantry").attack_range(), 0, "경보병 공격거리 0(근접)")
 
 func test_attack_range_empty_zero() -> void:
@@ -315,10 +315,10 @@ func test_end_turn_resets_party() -> void:
 
 func test_melee_power_infantry() -> void:
 	var p := _troop("light_infantry", 2)
-	assert_eq(p.melee_power(), GameUnits.base_at("light_infantry") * 2, "경보병 근접 파워 = AT × 병력")
+	assert_eq(p.melee_power(), UnitTypes.base_at("light_infantry") * 2, "경보병 근접 파워 = AT × 병력")
 	assert_eq(p.ranged_power(), 0, "경보병 원거리 파워 0")
 
 func test_ranged_power_archer() -> void:
 	var p := _troop("light_archer", 3)
-	assert_eq(p.ranged_power(), GameUnits.base_at("light_archer") * 3, "경궁병 원거리 파워 = AT × 병력")
+	assert_eq(p.ranged_power(), UnitTypes.base_at("light_archer") * 3, "경궁병 원거리 파워 = AT × 병력")
 	assert_eq(p.melee_power(), 0, "경궁병 근접 파워 0")

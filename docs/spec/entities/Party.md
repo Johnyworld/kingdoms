@@ -5,7 +5,7 @@
 
 맵 위에서 **실제로 움직이는 유닛**. **순수 "클래스 + 병력수" 모델**(랑그릿사식) — 부대는 아키타입과 병력수(`soldiers`)만 가지며, 개별 병사(Human) 객체·스탯은 없다(M4-C에서 제거).
 우리가 선택·이동시키는 대상은 이 **부대**다.
-부대는 [유닛 카탈로그](../data/units.md)에서 생성되며, 플레이어 부대 외에 NPC 부대들도 맵에 존재한다([Parties](../features/parties.md)).
+부대는 [유닛 카탈로그](../data/factions.md)에서 생성되며, 플레이어 부대 외에 NPC 부대들도 맵에 존재한다([Parties](../features/parties.md)).
 외형은 병종별 **idle 애니메이션 스프라이트**(`AnimatedSprite2D`)로 그린다(→ [맵 토큰 외형](#맵-토큰-외형-sprite)). 선택 링·인원 배지 등 오버레이는 여전히 `_draw()`에서 캔버스로 얹는다.
 
 ## Properties
@@ -17,12 +17,12 @@
 | 이름 | `party_name` | `""` | 부대의 이름. 엔진 내장 `name`(노드 이름)과 충돌하므로 별도 변수로 둔다 |
 | 소속 세력 | `faction_name` | `""` | 부대가 속한 [세력](Faction.md) 이름. 정보 패널에 표시해 아군/적을 구분한다. 카탈로그 생성 시 설정 |
 | 토큰 색 | `token_color` | `Color(0.92, 0.78, 0.35)` (금색) | 맵 토큰 몸통 색. 플레이어는 기본 금색, NPC 부대는 소속 세력 색으로 설정한다 |
-| 종류 | `kind` | `"troop"` | 부대 종류(랑그릿사식 이분화). `KIND_HERO`(`"hero"`, 영웅부대 — 지휘관 1명 단독) / `KIND_TROOP`(`"troop"`, 일반부대 — 병사 다수, 기본 [10명](../data/units.md)). **병력수로 파생하지 않고 명시 저장**(전투 사상으로 병력이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → [Units](../data/units.md) |
-| 병종 | `troop_type` | `""` | 이 부대의 **병종**(아키타입) id. 값은 [병종 카탈로그](../data/units.md)의 archetype id(`"light_infantry"` 경보병 / `"light_archer"` 경궁병 …). 일반부대 생성 시 설정하며, 한 부대는 **하나의 병종으로 동질**하다(병합은 같은 병종끼리만 → 혼합 안 됨). **[병합 가능 판정](../features/party-composition.md)의 기준**. 영웅부대는 설정하지 않아 `""`(병합 없음). `archetype()`(영웅=`"hero"`, 그 외=`troop_type`)이 [맵 토큰 스프라이트 세트](#맵-토큰-외형-sprite)·클래스 스탯 조회 키다 |
+| 종류 | `kind` | `"troop"` | 부대 종류(랑그릿사식 이분화). `KIND_HERO`(`"hero"`, 영웅부대 — 지휘관 1명 단독) / `KIND_TROOP`(`"troop"`, 일반부대 — 병사 다수, 기본 [10명](../data/factions.md)). **병력수로 파생하지 않고 명시 저장**(전투 사상으로 병력이 줄어도 종류는 유지). 카탈로그 생성 시 설정. → [Units](../data/factions.md) |
+| 병종 | `troop_type` | `""` | 이 부대의 **병종**(아키타입) id. 값은 [병종 카탈로그](../data/unit-types.md)의 archetype id(`"light_infantry"` 경보병 / `"light_archer"` 경궁병 …). 일반부대 생성 시 설정하며, 한 부대는 **하나의 병종으로 동질**하다(병합은 같은 병종끼리만 → 혼합 안 됨). **[병합 가능 판정](../features/party-composition.md)의 기준**. 영웅부대는 설정하지 않아 `""`(병합 없음). `archetype()`(영웅=`"hero"`, 그 외=`troop_type`)이 [맵 토큰 스프라이트 세트](#맵-토큰-외형-sprite)·클래스 스탯 조회 키다 |
 
 ### 소속 (Lord)
 
-**일반부대**([Units](../data/units.md) `kind==KIND_TROOP`)는 하나의 **영웅부대**에 소속될 수 있다(랑그릿사식). 소속돼도 부대는 **독립 토큰으로 자유 이동**하며, 소속은 지금은 **메타데이터**다(향후 영웅 근처 소속 부대에 세력·영웅별 버프를 줄 근거 — `미구현`). 설정/해제는 [소속 UI](../features/party-lord.md)([소속] 버튼 → 모달).
+**일반부대**([Units](../data/factions.md) `kind==KIND_TROOP`)는 하나의 **영웅부대**에 소속될 수 있다(랑그릿사식). 소속돼도 부대는 **독립 토큰으로 자유 이동**하며, 소속은 지금은 **메타데이터**다(향후 영웅 근처 소속 부대에 세력·영웅별 버프를 줄 근거 — `미구현`). 설정/해제는 [소속 UI](../features/party-lord.md)([소속] 버튼 → 모달).
 
 | 속성 | 변수/메서드 | 타입 | 초기값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -43,7 +43,7 @@
 
 | 속성 | 변수 | 타입 | 초기값 | 설명 |
 | --- | --- | --- | --- | --- |
-| 병력수 | `soldiers` | `int` | `0` | 병력수 = HP 풀. 일반부대는 병사 수(기본 [10](../data/units.md)), 영웅부대는 클래스 HP(`GameUnits.max_hp("hero")`). **`0`이면 전멸**(토큰 미표시). 전투 결과(`final_soldiers`)로 갱신되며, 배지·전투 파워·lang 유닛 병력의 단일 출처 |
+| 병력수 | `soldiers` | `int` | `0` | 병력수 = HP 풀. 일반부대는 병사 수(기본 [10](../data/factions.md)), 영웅부대는 클래스 HP(`UnitTypes.max_hp("hero")`). **`0`이면 전멸**(토큰 미표시). 전투 결과(`final_soldiers`)로 갱신되며, 배지·전투 파워·lang 유닛 병력의 단일 출처 |
 | 지휘관 이름 | `commander_name` | `String` | `""` | 부대 지휘관 이름(표시용). 영웅부대=영웅 이름, 일반부대=병종 이름. 카탈로그 생성 시 설정 |
 
 ### 유도 능력치 (Derived)
@@ -52,9 +52,9 @@
 
 | 속성 | 메서드 | 규칙 | 설명 |
 | --- | --- | --- | --- |
-| 이동력 | `movement()` | **클래스 `mv`** | 아키타입 lang 클래스 `mv`([GameUnits](../data/units.md), 경보병·영웅 6). |
-| 시야 | `vision()` | **클래스 시야** | 아키타입 카탈로그 시야([GameUnits](../data/units.md), 경보병 5·영웅 6) |
-| 공격거리 | `attack_range()` | **클래스 공격거리** | 근접 0·원거리(경궁병) 3([GameUnits](../data/units.md)). 월드맵 공격 개시 거리 |
+| 이동력 | `movement()` | **클래스 `mv`** | 아키타입 lang 클래스 `mv`([UnitTypes](../data/unit-types.md), 경보병·영웅 6). |
+| 시야 | `vision()` | **클래스 시야** | 아키타입 카탈로그 시야([UnitTypes](../data/unit-types.md), 경보병 5·영웅 6) |
+| 공격거리 | `attack_range()` | **클래스 공격거리** | 근접 0·원거리(경궁병) 3([UnitTypes](../data/unit-types.md)). 월드맵 공격 개시 거리 |
 | 전투 파워 | `power()` | **= `soldiers`** | 교전/후퇴 판단([NPC 이동](../features/npc-movement.md))용 전력. 부상하면 낮아진다 |
 
 ### 상태 (Runtime)
@@ -87,18 +87,18 @@
 - `merge_from(other) -> void` — `other`의 병력을 이 부대로 흡수한다: `soldiers += other.soldiers; other.soldiers = 0`(other는 병력 0이 됨 → 호출부가 제거). 이 부대 지휘관 이름은 유지. 양쪽 다시 그린다. *(병종 검사는 호출부가 `can_merge_with`로 이미 거른다 — 이 함수는 병력 합산만 수행)*
 - `is_hero() -> bool` — 영웅부대인지(`kind == KIND_HERO`). 일반부대는 거짓.
 - `shows_member_count() -> bool` — 토큰에 남은 병력수 배지를 그릴지(`kind == KIND_TROOP` 그리고 `soldiers > 0`). 영웅부대·전멸 부대는 거짓. `_draw`가 이 판정으로 배지를 그린다.
-- `can_merge_with(other) -> bool` — `other` 부대를 이 부대에 [병합](../features/party-composition.md)할 수 있는지. **병합 가능 판정의 단일 출처**. 참 조건: `other`가 `null`이 아니고, **양쪽 모두 일반부대**(`kind == KIND_TROOP` 그리고 `other.kind == KIND_TROOP` — 영웅부대는 어느 쪽이든 병합 불가), **같은 병종**(`troop_type == other.troop_type`), 그리고 **합쳐도 병력 상한을 넘지 않을 것**(`soldiers + other.soldiers <= UnitTypes.TROOP_SIZE`(10) — 예: 4+6·5+5 가능, 6+5 불가). `game.gd`의 병합 대상 판정([Party Composition](../features/party-composition.md))이 이 메서드로 인접 아군을 거른다.
-- `is_ranged() -> bool` — 이 부대 병종이 원거리인지: **아키타입이 원거리(경궁병)** 면 참([GameUnits](../data/units.md)). 아키타입 없으면 거짓(근접 기본). 근접/원거리 구분은 이제 **토큰 스프라이트 자체**(`soldier`/`archer_a`/`sword`)로 드러나므로 별도 아이콘은 그리지 않는다(코드 도형 병종 아이콘 제거). 이 판정은 전투·NPC AI 파워 계산 등에서 계속 쓰인다.
+- `can_merge_with(other) -> bool` — `other` 부대를 이 부대에 [병합](../features/party-composition.md)할 수 있는지. **병합 가능 판정의 단일 출처**. 참 조건: `other`가 `null`이 아니고, **양쪽 모두 일반부대**(`kind == KIND_TROOP` 그리고 `other.kind == KIND_TROOP` — 영웅부대는 어느 쪽이든 병합 불가), **같은 병종**(`troop_type == other.troop_type`), 그리고 **합쳐도 병력 상한을 넘지 않을 것**(`soldiers + other.soldiers <= FactionCatalog.TROOP_SIZE`(10) — 예: 4+6·5+5 가능, 6+5 불가). `game.gd`의 병합 대상 판정([Party Composition](../features/party-composition.md))이 이 메서드로 인접 아군을 거른다.
+- `is_ranged() -> bool` — 이 부대 병종이 원거리인지: **아키타입이 원거리(경궁병)** 면 참([UnitTypes](../data/unit-types.md)). 아키타입 없으면 거짓(근접 기본). 근접/원거리 구분은 이제 **토큰 스프라이트 자체**(`soldier`/`archer_a`/`sword`)로 드러나므로 별도 아이콘은 그리지 않는다(코드 도형 병종 아이콘 제거). 이 판정은 전투·NPC AI 파워 계산 등에서 계속 쓰인다.
 - `has_lord() -> bool` — 소속 영웅부대가 있는지(`lord != null`).
 - `lord_name() -> String` — `lord`의 `commander_name`. `lord`가 `null`이면 `"—"`.
 - `set_lord(hero) -> void` — 소속 영웅부대를 지정한다(`lord = hero`). [소속 UI](../features/party-lord.md)가 소속(합류) 확정에 쓴다.
 - `clear_lord() -> void` — 소속을 해제한다(`lord = null`, 독립). [소속 UI](../features/party-lord.md)의 [독립].
-- `base_movement() -> int` — 아키타입 lang 클래스 `mv`([GameUnits](../data/units.md)). `movement()`가 공유한다.
-- `movement() -> int` — 아키타입 클래스 `mv`([GameUnits](../data/units.md)). 이동 범위·NPC 경로에 반영.
-- `vision() -> int` — 아키타입 카탈로그 시야([GameUnits](../data/units.md)). 전장의 안개 계산에 사용(병력수 무관).
-- `attack_range() -> int` — 아키타입 클래스 공격거리(근접 0·원거리 3, [GameUnits](../data/units.md)). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
-- `melee_power() -> int` / `ranged_power() -> int` — 교전 선호 판정([NPC 이동](../features/npc-movement.md))용 파워. 병종이 근접이면 `melee_power = 클래스 AT × soldiers`·`ranged_power = 0`, 원거리(경궁병)면 반대. [GameUnits](../data/units.md) 기반.
-- `archetype() -> String` — 이 부대의 아키타입 id(GameUnits 카탈로그 키). 영웅부대는 `"hero"`, 그 외는 `troop_type`. 위 클래스 기반 스탯의 조회 키.
+- `base_movement() -> int` — 아키타입 lang 클래스 `mv`([UnitTypes](../data/unit-types.md)). `movement()`가 공유한다.
+- `movement() -> int` — 아키타입 클래스 `mv`([UnitTypes](../data/unit-types.md)). 이동 범위·NPC 경로에 반영.
+- `vision() -> int` — 아키타입 카탈로그 시야([UnitTypes](../data/unit-types.md)). 전장의 안개 계산에 사용(병력수 무관).
+- `attack_range() -> int` — 아키타입 클래스 공격거리(근접 0·원거리 3, [UnitTypes](../data/unit-types.md)). 월드맵 공격 개시 범위([Selection & Movement](../features/selection-and-movement.md)).
+- `melee_power() -> int` / `ranged_power() -> int` — 교전 선호 판정([NPC 이동](../features/npc-movement.md))용 파워. 병종이 근접이면 `melee_power = 클래스 AT × soldiers`·`ranged_power = 0`, 원거리(경궁병)면 반대. [UnitTypes](../data/unit-types.md) 기반.
+- `archetype() -> String` — 이 부대의 아키타입 id(UnitTypes 카탈로그 키). 영웅부대는 `"hero"`, 그 외는 `troop_type`. 위 클래스 기반 스탯의 조회 키.
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
 - `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn and not attacked_this_turn` — 공격했으면 이동 불가).
 - `can_attack() -> bool` — 이번 턴에 공격 가능한지(`not attacked_this_turn` — 이동만 했으면 아직 가능).
@@ -166,4 +166,4 @@
 
 - 부대 이동력·시야는 [Selection & Movement](../features/selection-and-movement.md), [Fog of War](../features/fog-of-war.md)에서 사용. 부대는 서로의 칸을 통과·점유할 수 없다([유닛 점유](../features/selection-and-movement.md)).
 - 턴당 1회 이동 제한(`moved_this_turn`/`can_move`/`mark_moved`/`reset_turn`)은 [Turn](../features/turn.md)에서 사용.
-- 병력·전투 파워는 클래스 기반([유닛 카탈로그](../data/units.md)·[GameUnits](../features/lang-battle.md)). 개별 병사 스탯은 없다.
+- 병력·전투 파워는 클래스 기반([유닛 카탈로그](../data/factions.md)·[UnitTypes](../features/lang-battle.md)). 개별 병사 스탯은 없다.

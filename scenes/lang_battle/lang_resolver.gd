@@ -11,7 +11,7 @@ const ACC_BASE := 30             # 명중 기본 (스펙 §2.1 accBase)
 enum Hit { HIT, MISS, SPECIAL, NO_KILL }
 
 ## Unit 팩토리 — 런타임 유닛 구조체 (스펙 §1.2).
-## stats: 전투 스탯 블록 {at, df, cmd_range, cmd_at, cmd_df, kind} — GameUnits.combat_stats(arche)로 주입.
+## stats: 전투 스탯 블록 {at, df, cmd_range, cmd_at, cmd_df, kind} — UnitTypes.combat_stats(arche)로 주입.
 ##   유닛이 스탯을 직접 보유한다(class_id 참조 제거) → Resolver 는 데이터 출처에 독립인 순수 함수.
 ## commander 는 다른 Unit(Dictionary) 또는 null(=본인이 지휘관).
 static func make_unit(stats: Dictionary, side: int, soldiers: int,

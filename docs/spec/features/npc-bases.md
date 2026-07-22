@@ -1,6 +1,6 @@
 # Feature: NPC Bases (NPC 세력 거점)
 
-> 스크립트: `scenes/game/game.gd` (`_setup_factions`, `_setup_npc_base`, `_npc_building_at`, `_update_npc_building_visibility`) · `scenes/party/unit_types.gd` · `scenes/game/fog.gd` (`is_cell_explored`) · `scenes/game/click_router.gd` (`NPC_BASE_INFO`)
+> 스크립트: `scenes/game/game.gd` (`_setup_factions`, `_setup_npc_base`, `_npc_building_at`, `_update_npc_building_visibility`) · `scenes/party/faction_catalog.gd` · `scenes/game/fog.gd` (`is_cell_explored`) · `scenes/game/click_router.gd` (`NPC_BASE_INFO`)
 
 게임 시작 시 각 NPC [세력](../entities/Faction.md)마다 수도 [영지](../entities/Territory.md)와 그 중심 캠프([Building](../entities/Building.md))를 배치한다.
 이전에는 플레이어 세력·영지·캠프만 있었고 NPC는 부대만 있었다(영지·건물 없음). 이 기능은 NPC에게 **거점**을 부여해 승리조건·거점 기반 AI의 토대를 만든다.
@@ -8,7 +8,7 @@
 ## 생성 (`game.gd` `_setup_factions`)
 
 플레이어 세력·영지·캠프는 이전과 동일하게 만든다(카탈로그 `azel` 스펙 — 세력 "푸른 왕국", 영지 "창천성", 중앙 캠프).
-추가로 각 NPC 세력마다 **세력 → 영지 → 캠프**를 만든다([유닛 카탈로그](../data/units.md)의 부대 스펙 사용):
+추가로 각 NPC 세력마다 **세력 → 영지 → 캠프**를 만든다([유닛 카탈로그](../data/factions.md)의 부대 스펙 사용):
 
 | 세력 | 수도(영지명) | 부대 | id |
 | --- | --- | --- | --- |
@@ -25,7 +25,7 @@
 
 ## 배치 위치 (모서리)
 
-각 NPC 세력을 **맵 모서리 근처**(안쪽 `MARGIN=10`칸)에 둔다. 플레이어(남서)를 포함해 4왕국이 네 모서리를 하나씩 차지한다(방향 유지). 어느 모서리인지는 [factions.csv](../data/units.md#세력-카탈로그-factionscsv)의 **`start_corner`** 컬럼이 정한다(데이터). 거점은 초기 시야 밖이라 처음엔 안개에 가려지고, 플레이어가 다가가 발견하면 드러난다.
+각 NPC 세력을 **맵 모서리 근처**(안쪽 `MARGIN=10`칸)에 둔다. 플레이어(남서)를 포함해 4왕국이 네 모서리를 하나씩 차지한다(방향 유지). 어느 모서리인지는 [factions.csv](../data/factions.md#세력-카탈로그-factionscsv)의 **`start_corner`** 컬럼이 정한다(데이터). 거점은 초기 시야 밖이라 처음엔 안개에 가려지고, 플레이어가 다가가 발견하면 드러난다.
 
 | 세력 | `start_corner` | 캠프 중심 (50×50·MARGIN10) |
 | --- | --- | --- |
@@ -33,7 +33,7 @@
 | 암흑 제국(북) | NE 북동 | `(39, 10)` |
 | 사막 술탄국(동) | SE 남동 | `(39, 39)` |
 
-- 좌표는 `game.gd`의 `corner_cell(corner, map_w, map_h, margin)`가 `start_corner` + 맵 크기·`MARGIN`으로 계산한다(하드코딩 없음). `_setup_factions`는 `_start_cell(id)`로 각 세력 거점 칸을 얻는다. 세력 군대(16부대)는 거점 주변에 영웅 그룹별로 흩어 배치된다(`_place_army` — [Parties](parties.md#배치-_place_army)).
+- 좌표는 `game.gd`의 `corner_cell(corner, map_w, map_h, margin)`가 `start_corner` + 맵 크기·`MARGIN`으로 계산한다(하드코딩 없음). `_setup_factions`는 `_start_cell(id)`로 각 세력 거점 **건물** 칸을 얻는다. 세력 군대(16부대)는 [unit_spawns.csv](../data/unit-spawns.md)의 절대좌표대로 배치되며, 거점 중심 셀은 방어 유닛이 점거한다([Parties](parties.md)).
 - (플레이어 푸른 왕국은 `start_corner=SW` → `(10, 39)`. → [Map & Camera](map-and-camera.md) · [Parties](parties.md).)
 - 캠프는 중심 + 이웃 6칸 = 7헥스를 차지한다(모든 건물 공통 발자국).
 - 각 왕국이 서로 반대편 모서리라 시작 시엔 멀리 떨어져 있다(초기 조우 없음).
@@ -94,7 +94,7 @@ NPC 거점은 NPC 부대와 같은 원칙으로 안개를 따른다. → [Fog of
 - [정상] 탐험만 되고 현재 시야 밖인 셀도 `is_cell_explored`가 `true`(부대와 달리 거점은 계속 보임)
 - [예외] 한 번도 본 적 없는 셀은 `is_cell_explored`가 `false`
 
-**데이터(수도명)** — `test/unit/test_unit_types.gd`:
+**데이터(수도명)** — `test/unit/test_faction_catalog.gd`:
 - [정상] NPC 부대 스펙의 `territory`가 각각 알사바흐·흑요요새·텡그리 언덕
 - [정상] 플레이어(`azel`) `territory`는 여전히 창천성
 
@@ -105,6 +105,6 @@ NPC 거점은 NPC 부대와 같은 원칙으로 안개를 따른다. → [Fog of
 
 ## 관련
 
-- [Faction (세력)](../entities/Faction.md) · [Territory (영지)](../entities/Territory.md) · [Building (건물)](../entities/Building.md) · [유닛 카탈로그](../data/units.md)
+- [Faction (세력)](../entities/Faction.md) · [Territory (영지)](../entities/Territory.md) · [Building (건물)](../entities/Building.md) · [유닛 카탈로그](../data/factions.md)
 - [Parties (부대 배치)](parties.md) — NPC 부대 생성(이 거점의 소속). [Fog of War](fog-of-war.md) · [Building Info](building-info.md) · [Camp Menu](camp-menu.md).
 - 기획: [영지](../../table/세력/영지.md) · [승리조건](../../table/시스템/승리조건.md)

@@ -158,7 +158,7 @@ func _ready() -> void:
 	build_preview.setup(terrain)
 	build_area.setup(terrain)
 	# 첫 거점은 마을회관 티어로 시작(캠프에서 한 번 업그레이드된 상태) — 인구 상한 10, 시작부터 생산 건물 해금.
-	building.setup(terrain, _placement_cell("PlayerBase", _start_cell(UnitTypes.PLAYER_ID)), "town_hall", false, buildings_layer)
+	building.setup(terrain, _placement_cell("PlayerBase", _start_cell(FactionCatalog.PLAYER_ID)), "town_hall", false, buildings_layer)
 	_bmgr.buildings = [building]
 	_setup_factions()
 	_setup_parties()   # 세력별 군대(영웅4+부하12=16) 생성·배치. _pmgr.units·_pmgr.npc_parties·party 설정 → parties.md
@@ -222,7 +222,7 @@ func _generate_map() -> void:
 ## 서쪽=숲 · 동쪽=습지 · 북쪽=사막 · 남쪽=산 · 남동쪽=호수(물). 캠프(중심 반경1)·주인공 배치 칸과 겹치지 않게 떨어뜨린다.
 ## (y가 커질수록 남쪽, x가 커질수록 동쪽.)
 func _place_starting_terrain() -> void:
-	var center := _start_cell(UnitTypes.PLAYER_ID)
+	var center := _start_cell(FactionCatalog.PLAYER_ID)
 	_paint_patches([center + Vector2i(-6, -1), center + Vector2i(-8, 2)], Terrain.FOREST)   # 서쪽 숲
 	_paint_patches([center + Vector2i(6, -1), center + Vector2i(8, 2)], Terrain.SWAMP)      # 동쪽 습지
 	_paint_patches([center + Vector2i(0, -6), center + Vector2i(2, -7)], Terrain.DESERT)    # 북쪽 사막
@@ -252,7 +252,7 @@ func _place_river() -> void:
 ## 장식용 흙길: 플레이어 거점에서 철맥·금맥 자리로 이어지는 길을 Roads 레이어에 그린다.
 ## 순수 시각(이동/BFS와 무관). 경로는 HexGrid로 산·물을 우회해 잇는다. → docs/spec/features/map-and-camera.md
 func _place_roads() -> void:
-	var base := _start_cell(UnitTypes.PLAYER_ID)
+	var base := _start_cell(FactionCatalog.PLAYER_ID)
 	for dest in [base + Vector2i(5, -5), base + Vector2i(8, -3)]:   # 철맥·금맥 씨앗(_place_starting_terrain과 동일)
 		var path := HexGrid.reconstruct_path(terrain, base, dest, MAP_WIDTH + MAP_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
 		if path.size() > 1:
@@ -323,11 +323,11 @@ static func corner_cell(corner: String, map_w: int, map_h: int, margin: int) -> 
 
 ## 세력의 시작 거점 중심 칸 — factions.csv 의 start_corner 로 계산.
 func _start_cell(faction_id: String) -> Vector2i:
-	return corner_cell(UnitTypes.get_faction(faction_id).get("start_corner", "SW"), MAP_WIDTH, MAP_HEIGHT, MARGIN)
+	return corner_cell(FactionCatalog.get_faction(faction_id).get("start_corner", "SW"), MAP_WIDTH, MAP_HEIGHT, MARGIN)
 
 ## 카메라를 플레이어 거점 타일로 이동시킨다.
 func _center_camera() -> void:
-	camera.position = terrain.map_to_local(_placement_cell("PlayerBase", _start_cell(UnitTypes.PLAYER_ID)))
+	camera.position = terrain.map_to_local(_placement_cell("PlayerBase", _start_cell(FactionCatalog.PLAYER_ID)))
 	camera.make_current()
 	_set_zoom(_zoom_level)   # 시작 줌 배율을 카메라에 적용(16px 픽셀아트 기본 ~3× 확대)
 
@@ -335,7 +335,7 @@ func _center_camera() -> void:
 ## 플레이어: 세력 "푸른 왕국" → 영지 "창천성"에 남서 모서리 캠프를 넣는다(자원 수입 대상 _bmgr.territories).
 ## NPC 3세력: 나머지 세 모서리에 수도 영지 + 완성 캠프를 배치한다(_bmgr.npc_buildings, 경제 미사용).
 func _setup_factions() -> void:
-	var spec := UnitTypes.get_faction(UnitTypes.PLAYER_ID)
+	var spec := FactionCatalog.get_faction(FactionCatalog.PLAYER_ID)
 	var territory := Territory.new(spec["territory"], _camp_resources())
 	_player_faction = Faction.new(spec["faction"], spec["color"])
 	_bmgr.player_faction = _player_faction   # 소유권·수입·생산 배정 판정 기준
@@ -344,13 +344,13 @@ func _setup_factions() -> void:
 	_bmgr.territories = [territory]
 	_factions = [_player_faction]
 
-	for id in UnitTypes.NPC_IDS:
+	for id in FactionCatalog.NPC_IDS:
 		_bmgr.npc_buildings.append(_setup_npc_base(id, _placement_cell(id, _start_cell(id))))
 
 ## NPC 세력 하나의 거점을 만든다: 세력 → 수도 영지 → 완성 캠프(중심 base_cell). 캠프 노드를 반환한다.
 ## 세력·영지는 캠프의 territory 참조로 살아 있게 유지된다(_bmgr.npc_buildings가 캠프 노드를 보유).
 func _setup_npc_base(id: String, base_cell: Vector2i) -> Building:
-	var spec := UnitTypes.get_faction(id)
+	var spec := FactionCatalog.get_faction(id)
 	var territory := Territory.new(spec["territory"], _camp_resources())
 	var faction := Faction.new(spec["faction"], spec["color"])
 	faction.add_territory(territory)
@@ -367,95 +367,75 @@ func _camp_resources() -> Dictionary:
 	return (camp_spec.get("resources", {}) as Dictionary).duplicate(true)
 
 ## 부대를 유닛 카탈로그에서 생성한다.
-## 각 세력의 군대(영웅부대 4 + 부하부대 12 = 16)를 생성해 거점 주변에 배치한다. → parties.md
-## 플레이어 16부대는 _pmgr.units, NPC 3세력 48부대는 _pmgr.npc_parties. 활성 부대(party)는 플레이어 첫 영웅.
+## 초기 유닛을 unit_spawns.csv 데이터대로 생성해 맵에 배치한다(개별 유닛 절대좌표 + leader 소속). → parties.md · unit-spawns.md
+## 플레이어 부대는 _pmgr.units, NPC 세력은 _pmgr.npc_parties. 활성 부대(party)는 플레이어 첫 영웅(=$Party 재사용).
+## 지정 좌표가 통과불가·중복이면 인접 빈 칸으로 보정(산·물·겹침 안전망). 생산 유닛은 이후 런타임 변수로만 존재.
 func _setup_parties() -> void:
-	_pmgr.units = _build_faction_army(UnitTypes.PLAYER_ID, party)
-	party = _pmgr.units[0]
-	for id in UnitTypes.NPC_IDS:
-		_pmgr.npc_parties.append_array(_build_faction_army(id, null))
-
-## 한 세력의 16부대(영웅 4 + 각 영웅마다 경보병2·경궁병1)를 생성·배치하고 배열로 반환한다.
-## reuse가 주어지면 첫 영웅부대로 그 노드를 재사용한다(플레이어 $Party). 부하부대의 lord=소속 영웅부대.
-func _build_faction_army(faction_id: String, reuse) -> Array:
-	var fspec := UnitTypes.get_faction(faction_id)
-	var is_player := faction_id == UnitTypes.PLAYER_ID
-	var fname: String = fspec["faction"]
-	var fcolor: Color = fspec["color"]
-	# 영웅=세력색(플레이어는 기본 금색), 일반부대=그보다 약간 어두운 색으로 구분.
-	var hero_col: Color = Color(0.92, 0.78, 0.35) if is_player else fcolor   # 플레이어 금색 = Party 기본
-	var troop_col: Color = hero_col.darkened(0.35)
-	var center_b := _faction_center_building(faction_id)
-	var troop_archetypes := ["light_infantry", "light_infantry", "light_archer"]
-	var parties: Array = []
-	for hi in UnitTypes.HEROES_PER_FACTION:
-		var hp: Party = reuse if (hi == 0 and reuse != null) else _new_party()
-		hp.party_name = UnitTypes.hero_party_name(faction_id, hi)
-		hp.faction_name = fname
-		hp.kind = Party.KIND_HERO
-		hp.token_color = hero_col
-		var hero_name := UnitTypes.hero_name(faction_id, hi)
-		hp.commander_name = hero_name
-		hp.soldiers = GameUnits.max_hp("hero")   # 영웅 병력 = 지휘관 클래스 HP 풀(lang 전투와 동일 값)
-		parties.append(hp)
-		for arche in troop_archetypes:
-			var tp := _new_party()
-			tp.party_name = "%s %s" % [hero_name, UnitTypes.troop_name(arche)]
-			tp.faction_name = fname
-			tp.kind = Party.KIND_TROOP
-			tp.troop_type = arche   # 병종 → 병합 가능 판정(같은 병종끼리만). → party-composition.md
-			tp.lord = hp   # 소속 영웅부대 → Party.md 소속(Lord)
-			tp.token_color = troop_col   # 일반부대는 약간 어두운 색
-			tp.commander_name = UnitTypes.troop_name(arche)
-			tp.soldiers = UnitTypes.TROOP_SIZE   # 일반부대 병력 = 10
-			parties.append(tp)
-	_place_army(parties, center_b.center_cell())
-	return parties
-
-## 세력의 거점 중심 건물(플레이어=마을회관, NPC=수도 캠프). NPC는 _setup_factions에서 NPC_IDS 순으로 채워진다.
-func _faction_center_building(faction_id: String) -> Building:
-	if faction_id == UnitTypes.PLAYER_ID:
-		return building
-	return _bmgr.npc_buildings[UnitTypes.NPC_IDS.find(faction_id)]
+	var occupied := {}          # 점유 셀(세력 간 겹침 방지 + 보정 기준)
+	var id_to_party := {}       # 스폰 id → Party (leader 연결용)
+	var hero_index := {}        # faction → 다음 영웅 순번(등장 순서 = FactionCatalog hero index)
+	var by_faction := {}        # faction → Array[Party] (생성 순서 유지)
+	var active_hero: Party = null   # 재사용한 플레이어 첫 영웅(=활성 부대). CSV 행 순서와 무관하게 확정.
+	# 1) entry 순서대로 Party 생성·배치. 플레이어 첫 영웅만 기존 $Party 노드를 재사용한다.
+	for e in UnitSpawns.entries():
+		var fid: String = e["faction"]
+		var type: String = e["type"]
+		var is_hero := type == "hero"
+		var fspec := FactionCatalog.get_faction(fid)
+		var is_player := fid == FactionCatalog.PLAYER_ID
+		var hero_col: Color = Color(0.92, 0.78, 0.35) if is_player else fspec["color"]   # 플레이어 금색 = Party 기본
+		var reuse_active := is_player and is_hero and not hero_index.has(fid)   # 플레이어 첫 영웅
+		var p: Party = party if reuse_active else _new_party()
+		if reuse_active:
+			active_hero = p
+		p.faction_name = fspec["faction"]
+		if is_hero:
+			var hi: int = hero_index.get(fid, 0)
+			hero_index[fid] = hi + 1
+			p.kind = Party.KIND_HERO
+			p.token_color = hero_col
+			p.commander_name = FactionCatalog.hero_name(fid, hi)
+			p.party_name = FactionCatalog.hero_party_name(fid, hi)
+			p.soldiers = UnitTypes.max_hp("hero")   # 영웅 병력 = 지휘관 클래스 HP 풀(lang 전투와 동일 값)
+		else:
+			p.kind = Party.KIND_TROOP
+			p.troop_type = type   # 병종 → 병합 가능 판정(같은 병종끼리만). → party-composition.md
+			p.token_color = hero_col.darkened(0.35)   # 일반부대는 약간 어두운 색
+			p.soldiers = FactionCatalog.TROOP_SIZE   # 일반부대 병력 = 10
+			# 이름·lord 는 2단계에서 확정(leader 참조 행이 뒤에 올 수 있어서).
+		# 배치: 지정 셀이 통과가능·미점유면 그대로, 아니면 인접 빈 칸으로 보정.
+		var cell: Vector2i = e["cell"]
+		if occupied.has(cell) or not Terrain.is_passable(terrain.get_cell_source_id(cell)):
+			var free := _nearby_free_cells(cell, 1, occupied)
+			if not free.is_empty():
+				cell = free[0]
+			else:
+				push_error("unit_spawns: '%s' 좌표 %s 배치 불가(통과 가능한 빈 칸 없음)" % [e["id"], str(cell)])
+		p.position = terrain.map_to_local(cell)
+		occupied[cell] = true
+		id_to_party[e["id"]] = p
+		if not by_faction.has(fid):
+			by_faction[fid] = []
+		by_faction[fid].append(p)
+	# 2) leader → lord 소속 연결 + 부하부대 이름 확정("{소속 영웅} {병종}"). → Party.md 소속(Lord)
+	for e in UnitSpawns.entries():
+		if e["leader"] == "":
+			continue
+		var tp: Party = id_to_party[e["id"]]
+		var lord = id_to_party.get(e["leader"], null)
+		tp.lord = lord
+		if lord != null:
+			tp.commander_name = FactionCatalog.troop_name(e["type"])
+			tp.party_name = "%s %s" % [lord.commander_name, FactionCatalog.troop_name(e["type"])]
+	# 3) 플레이어/NPC 분류 + 활성 부대(재사용한 플레이어 첫 영웅).
+	_pmgr.units = by_faction.get(FactionCatalog.PLAYER_ID, [])
+	party = active_hero if active_hero != null else (_pmgr.units[0] if not _pmgr.units.is_empty() else party)
+	for fid in FactionCatalog.NPC_IDS:
+		_pmgr.npc_parties.append_array(by_faction.get(fid, []))
 
 ## 빈 새 부대 노드(PartyManager 위임). 카탈로그 정보는 호출부가 채운다.
 func _new_party() -> Party:
 	return _pmgr.new_party()
-
-## 세력 부대들을 거점 주변에 배치한다. 첫 경보병 1부대를 거점 중심에 세워(중심 점거 = 방어),
-## 나머지는 영웅별로 부하부대를 묶어 성 안쪽 부채꼴 앵커에 각각 흩어 배치한다(그룹끼리 떨어뜨림). → parties.md · camp-capture.md
-func _place_army(parties: Array, center_cell: Vector2i) -> void:
-	var defender: Party = null
-	for p in parties:
-		if p.kind == Party.KIND_TROOP:
-			defender = p
-			break
-	defender.position = terrain.map_to_local(center_cell)   # 중심 점거 = 거점 방어 → camp-capture.md
-	var occupied := {center_cell: true}
-	# 성이 모서리에 있으므로 맵 안쪽(중앙) 방향으로만 벌린다. 영웅별 앵커 4개(2×2 부채꼴).
-	var sx := signi(MAP_WIDTH / 2 - center_cell.x)
-	var sy := signi(MAP_HEIGHT / 2 - center_cell.y)
-	if sx == 0:
-		sx = 1
-	if sy == 0:
-		sy = 1
-	var anchors := [
-		Vector2i(4 * sx, 4 * sy), Vector2i(10 * sx, 4 * sy),
-		Vector2i(4 * sx, 10 * sy), Vector2i(10 * sx, 10 * sy),
-	]
-	var heroes: Array = parties.filter(func(p): return p.kind == Party.KIND_HERO)
-	for hi in heroes.size():
-		var hero: Party = heroes[hi]
-		var group: Array = [hero]   # 영웅 + 그 소속 부하부대(중심 방어 부대 제외)
-		for p in parties:
-			if p != defender and p.kind == Party.KIND_TROOP and p.lord == hero:
-				group.append(p)
-		var anchor: Vector2i = center_cell + (anchors[hi] if hi < anchors.size() else Vector2i(7 * sx, 7 * sy))
-		var cells := _nearby_free_cells(anchor, group.size(), occupied)
-		for j in group.size():
-			if j < cells.size():
-				group[j].position = terrain.map_to_local(cells[j])
-				occupied[cells[j]] = true
 
 ## anchor 주변에서 통과 가능(산 제외)·미점유 셀을 거리순으로 count개 모은다. 반경을 넓혀 가며 확보.
 func _nearby_free_cells(anchor: Vector2i, count: int, occupied: Dictionary) -> Array:
@@ -1053,8 +1033,8 @@ func _resolve_battle_headless(attacker, defender, distance := 1) -> void:
 	var d_unit := LangBridge.unit_from_party(defender, 1)
 	var res: Dictionary
 	if distance >= 2:
-		var a_rounds := 1 if GameUnits.is_ranged(attacker.archetype()) else 0
-		var d_rounds := 1 if GameUnits.is_ranged(defender.archetype()) else 0
+		var a_rounds := 1 if UnitTypes.is_ranged(attacker.archetype()) else 0
+		var d_rounds := 1 if UnitTypes.is_ranged(defender.archetype()) else 0
 		res = LangResolver.resolve_ranged(rng, a_unit, d_unit, a_rounds, d_rounds)
 	else:
 		res = LangResolver.resolve_engagement(rng, a_unit, d_unit)

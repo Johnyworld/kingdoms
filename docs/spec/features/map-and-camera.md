@@ -9,8 +9,8 @@
 - **지형 데이터/렌더 분리** → [Terrain](../data/terrain.md).
   - **데이터 레이어** `TerrainLayer`(보이지 않음): 지형 타입을 source id로 보관(`0` 초원·`1` 숲·`2` 습지·`3` 산·`4` 사막·`7` 물·`8` 철맥·`9` 금맥, atlas `(0,0)`). BFS·좌표 지오메트리 기준. `tiles/terrain_tileset.tres`, 헥스 16×16.
   - **비주얼 레이어** `TerrainVisual`(LaPetiteTile 오토타일 스택): `TerrainRenderer`가 데이터를 읽어 그린다. 헥스 형태(16×16), 코너 매칭.
-- **4왕국 모서리 배치**: 플레이어 + NPC 3세력의 거점을 맵 네 모서리 근처(안쪽 `MARGIN=10`칸)에 둔다. 각 세력의 모서리는 [factions.csv](../data/units.md#세력-카탈로그-factionscsv) `start_corner`가 정하고, 좌표는 `corner_cell(corner, map_w, map_h, margin)`가 계산한다. → [NPC Bases](npc-bases.md).
-  - 플레이어 거점(마을회관) = `start_corner=SW` → `corner_cell` = `(10, 39)`(50×50·MARGIN10). `_start_cell(UnitTypes.PLAYER_ID)`로 얻는다.
+- **4왕국 모서리 배치**: 플레이어 + NPC 3세력의 거점을 맵 네 모서리 근처(안쪽 `MARGIN=10`칸)에 둔다. 각 세력의 모서리는 [factions.csv](../data/factions.md#세력-카탈로그-factionscsv) `start_corner`가 정하고, 좌표는 `corner_cell(corner, map_w, map_h, margin)`가 계산한다. → [NPC Bases](npc-bases.md).
+  - 플레이어 거점(마을회관) = `start_corner=SW` → `corner_cell` = `(10, 39)`(50×50·MARGIN10). `_start_cell(FactionCatalog.PLAYER_ID)`로 얻는다.
 - **손맵(직접 제작)**: `_generate_map`이 세 경우를 자동 판별한다.
   1. **비주얼 손맵(권장·WYSIWYG)**: `TerrainVisual` 아래 오토타일 레이어(Ground/Ocean/Grass/Cliff/Decoration…)를 **에디터에서 직접 칠하면** 그 그림을 **그대로 두고**(`repaint` 안 함), 게임 로직용 지형타입을 비주얼에서 **역산**한다(`_visual_authored`/`_derive_data_from_visuals`/`_derive_type` — **물=Ocean 있고 Ground 없음**(Ocean은 전체 바닥 underlay라 땅이 안 덮인 칸만 물·강), Cliff·Ground바위=MOUNTAIN, 나무=FOREST, GroundOverlay swamp=SWAMP·그 외 모래=DESERT, 나머지 PLAINS). 제작법: `game.tscn` 열고 `TerrainVisual`의 레이어 선택 → TileMap Terrains로 칠하고 저장 → 실행.
   2. **데이터 손맵**: 비주얼은 비었고 숨김 데이터 레이어(`TerrainLayer`)에 칠해진 게 있으면 그걸 쓰고 `TerrainRenderer`로 비주얼을 그린다. `terrain_tileset` 팔레트는 각 지형 실제 렌더를 캡처한 미리보기(`tiles/terrain_preview/*.png`)로 보인다.
@@ -18,13 +18,13 @@
      - **강**(`_place_river`): 맵 중앙 사인 곡선 `WATER`(거점 4곳과 떨어짐·가장자리 미접촉 → 맵을 완전히 가르지 않아 양끝 우회 가능). 통행 불가 자연 장벽(다리는 후속), Ocean 오토타일이 둑 렌더.
      - **길**(`_place_roads`): 거점↔철맥·금맥 잇는 장식 흙길(`Roads` 레이어, `HexGrid.reconstruct_path` 우회 경로). 순수 시각 — 이동/BFS 무관(이동 보너스는 후속).
 - 데이터 레이어(`TerrainLayer`)는 런타임에 항상 `visible = false`.
-- **거점 배치 마커**(`Placements/PlayerBase`·`batur`·`balthazar`·`qasim`, Marker2D): `_placement_cell`이 마커가 있으면 그 칸(`local_to_map`으로 스냅)을, 없으면 `start_corner`로 계산한 기본 모서리 좌표(`_start_cell`)를 거점 위치로 쓴다. 에디터에서 마커를 원하는 칸으로 드래그하면 거점 + 소속 부대가 거기 생긴다(부대는 `_faction_center_building` 기준 배치).
+- **거점 배치 마커**(`Placements/PlayerBase`·`batur`·`balthazar`·`qasim`, Marker2D): `_placement_cell`이 마커가 있으면 그 칸(`local_to_map`으로 스냅)을, 없으면 `start_corner`로 계산한 기본 모서리 좌표(`_start_cell`)를 거점 위치로 쓴다. 에디터에서 마커를 원하는 칸으로 드래그하면 **거점 건물**이 거기 생긴다. 초기 유닛은 마커와 무관하게 [unit_spawns.csv](../data/unit-spawns.md)의 절대좌표로 배치된다(마커 이동은 건물만 옮긴다).
 - **레이어 잠금**: TerrainVisual의 지형 레이어·TerrainLayer·BuildingsLayer는 에디터 Lock(`metadata/_edit_lock_`)이 걸려 있어 실수로 이동되지 않는다(칠할 땐 Scene 트리에서 선택).
 - **한계**: 부대 **개별** 스폰 지점은 아직 미지원(거점 단위 배치). 철맥·금맥은 겉보기 구분 불가라 비주얼 손맵에선 초원으로 취급. 완전한 엔티티 배치는 후속 [맵 데이터 포맷].
 
 ## 카메라
 
-- 시작 시 **플레이어 거점(남서 모서리)** 타일로 이동(`_center_camera` → `_start_cell(UnitTypes.PLAYER_ID)`).
+- 시작 시 **플레이어 거점(남서 모서리)** 타일로 이동(`_center_camera` → `_start_cell(FactionCatalog.PLAYER_ID)`).
 - **이동 방법** (`_process`):
   - 키보드: **WASD**
   - 마우스: 화면 가장자리(`EDGE_MARGIN = 24px`)에 커서를 대면 해당 방향으로 스크롤.

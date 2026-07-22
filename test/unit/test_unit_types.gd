@@ -1,80 +1,49 @@
 extends GutTest
-## 유닛·부대 카탈로그(UnitTypes) 테스트 — 순수 class+count 모델.
-## 세력별 영웅 4명(이름) + 병종 아키타입(경보병·경궁병). 개별 Human·스탯은 없다.
+## UnitTypes — 게임 아키타입 카탈로그(단일 출처, res://data/unit_types.csv).
+## HP·시야·원거리·kind·전투 스탯(at/df·mv·cmd_range·cmd_at/cmd_df)이 모두 카탈로그 값임을 검증.
 
-var types = load("res://scenes/party/unit_types.gd")
+func test_archetype_specs() -> void:
+	assert_eq(UnitTypes.kind("hero"), "hero", "영웅 kind")
+	assert_eq(UnitTypes.kind("light_infantry"), "infantry", "경보병 kind")
+	assert_eq(UnitTypes.kind("light_archer"), "archer", "경궁병 kind")
+	assert_eq(UnitTypes.max_hp("light_infantry"), 10, "병력(HP) 10")
+	assert_true(UnitTypes.is_ranged("light_archer"), "경궁병은 원거리")
+	assert_false(UnitTypes.is_ranged("light_infantry"), "경보병은 근접")
+	assert_false(UnitTypes.is_ranged("hero"), "영웅은 근접")
 
-# --- id 상수 ---
+func test_display_name() -> void:
+	assert_eq(UnitTypes.display_name("light_infantry"), "경보병", "병종 표시명")
+	assert_eq(UnitTypes.display_name("light_archer"), "경궁병", "병종 표시명")
+	assert_eq(UnitTypes.display_name("hero"), "", "영웅은 표시명 없음(hero_name 사용)")
+	assert_eq(UnitTypes.display_name("없음"), "", "미지 아키타입 → 빈 문자열")
 
-func test_id_constants() -> void:
-	assert_eq(types.PLAYER_ID, "azel", "플레이어 세력 id")
-	assert_eq(types.NPC_IDS, ["qasim", "balthazar", "batur"], "NPC 세력 3종")
-	assert_eq(types.FACTION_IDS, ["azel", "qasim", "balthazar", "batur"], "전 세력 4종")
-	assert_eq(types.TROOP_SIZE, 10, "일반부대 병사 10명")
-	assert_eq(types.HEROES_PER_FACTION, 4, "세력당 영웅 4명")
+func test_kind_mapping() -> void:
+	assert_eq(UnitTypes.kind("light_infantry"), "infantry", "근접 = infantry 병종")
+	assert_eq(UnitTypes.kind("light_archer"), "archer", "원거리 = archer 병종(근접 상성 페널티)")
+	assert_eq(UnitTypes.kind("hero"), "hero", "영웅 kind(상성 중립 — TypeAdvantage에 hero 행 없음)")
 
-# --- 세력 카탈로그 ---
+func test_combat_stats() -> void:
+	# unit_types.csv: 경보병·경궁병 = at23·df21·mv6·cmd_range3·cmd_at2·cmd_df2, 영웅 = at27·df24·mv6·cmd_range4·cmd_at2·cmd_df4.
+	assert_eq(UnitTypes.movement("light_infantry"), 6, "이동력")
+	assert_eq(UnitTypes.command_range("light_infantry"), 3, "지휘범위")
+	assert_eq(UnitTypes.movement("hero"), 6, "영웅 이동력")
+	assert_eq(UnitTypes.command_range("hero"), 4, "영웅 지휘범위")
+	assert_eq(UnitTypes.base_at("hero"), 27, "영웅 기본 AT")
+	assert_eq(UnitTypes.base_df("hero"), 24, "영웅 기본 DF")
+	assert_eq(UnitTypes.base_at("light_infantry"), 23, "경보병 기본 AT")
 
-func test_all_factions_have_keys() -> void:
-	for id in types.FACTION_IDS:
-		var spec: Dictionary = types.get_faction(id)
-		for key in ["faction", "color", "territory", "start_corner", "heroes"]:
-			assert_true(spec.has(key), "%s 스펙에 %s 키 존재" % [id, key])
-		assert_eq((spec["heroes"] as Array).size(), 4, "%s 영웅 4명" % id)
+func test_combat_stats_bundle() -> void:
+	# LangResolver 주입용 번들 — at/df/cmd_*/kind 를 한 번에.
+	var s: Dictionary = UnitTypes.combat_stats("hero")
+	assert_eq(s["at"], 27, "번들 at")
+	assert_eq(s["df"], 24, "번들 df")
+	assert_eq(s["cmd_range"], 4, "번들 cmd_range")
+	assert_eq(s["cmd_at"], 2, "번들 cmd_at")
+	assert_eq(s["cmd_df"], 4, "번들 cmd_df")
+	assert_eq(s["kind"], "hero", "번들 kind")
 
-func test_faction_start_corner() -> void:
-	assert_eq(types.get_faction("azel")["start_corner"], "SW", "플레이어 = 남서")
-	assert_eq(types.get_faction("qasim")["start_corner"], "SE", "사막 술탄국 = 남동")
-	assert_eq(types.get_faction("balthazar")["start_corner"], "NE", "암흑 제국 = 북동")
-	assert_eq(types.get_faction("batur")["start_corner"], "NW", "초원 칸국 = 북서")
-
-func test_faction_color_loaded_from_hex() -> void:
-	# CSV hex(#334DCC) → Color 복원. 정확값이 아니라 로드 성공(기본색이 아님)만 확인.
-	assert_eq(types.get_faction("azel")["color"], Color.html("#334DCC"), "azel 색 = hex 복원값")
-
-func test_hero_faction_referential_integrity() -> void:
-	# heroes.csv 의 모든 영웅이 유효 세력에 FK-join 되어 세력당 4명 채워졌는지.
-	for id in types.FACTION_IDS:
-		assert_eq((types.get_faction(id)["heroes"] as Array).size(), types.HEROES_PER_FACTION,
-			"%s FK join → 영웅 %d명" % [id, types.HEROES_PER_FACTION])
-
-func test_player_faction_spec() -> void:
-	var spec: Dictionary = types.get_faction("azel")
-	assert_eq(spec["faction"], "푸른 왕국", "세력 = 푸른 왕국")
-	assert_eq(spec["territory"], "창천성", "수도 = 창천성")
-
-func test_npc_territory_names() -> void:
-	assert_eq(types.get_faction("qasim")["territory"], "알사바흐", "사막 술탄국 수도")
-	assert_eq(types.get_faction("balthazar")["territory"], "흑요요새", "암흑 제국 수도")
-	assert_eq(types.get_faction("batur")["territory"], "텡그리 언덕", "초원 칸국 수도")
-
-# --- 영웅 이름 ---
-
-func test_hero_name_azel_first() -> void:
-	assert_eq(types.hero_name("azel", 0), "아젤 하르윈", "azel 첫 영웅(지휘관)")
-
-func test_hero_names_azel_four_no_elwin() -> void:
-	var names: Array = types.get_faction("azel")["heroes"]
-	assert_eq(names, ["아젤 하르윈", "로엔 카스터", "미라 벨포드", "가레스 던"], "엘윈 사수 제거, 4명")
-
-func test_hero_party_name() -> void:
-	assert_eq(types.hero_party_name("azel", 0), "아젤 하르윈 부대", "영웅부대명")
-
-func test_hero_bounds() -> void:
-	assert_eq(types.hero_name("azel", 9), "", "범위 밖 index → 빈 문자열")
-	assert_eq(types.hero_party_name("azel", 9), "", "범위 밖 index → 빈 문자열")
-
-# --- 병종 이름 ---
-
-func test_troop_name() -> void:
-	assert_eq(types.troop_name("light_infantry"), "경보병", "경보병 이름")
-	assert_eq(types.troop_name("light_archer"), "경궁병", "경궁병 이름")
-
-# --- 경계 ---
-
-func test_unknown_faction_empty() -> void:
-	assert_eq(types.get_faction("없음").size(), 0, "없는 세력 → 빈 Dictionary")
-	assert_eq(types.hero_name("없음", 0), "", "없는 세력 → 빈 문자열")
-
-func test_unknown_troop_empty() -> void:
-	assert_eq(types.troop_name("없음"), "", "없는 병종 → 빈 문자열")
+func test_unknown_archetype() -> void:
+	assert_eq(UnitTypes.kind("없음"), "", "미지 아키타입 → 빈 kind")
+	assert_eq(UnitTypes.max_hp("없음"), 0, "미지 → HP 0")
+	assert_eq(UnitTypes.movement("없음"), 0, "미지 → 이동력 0")
+	assert_false(UnitTypes.is_ranged("없음"), "미지 → 원거리 아님")

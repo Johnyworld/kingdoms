@@ -6,7 +6,7 @@ const Battlefield = preload("res://scenes/lang_battle/lang_battlefield.gd")
 const Presenter = preload("res://scenes/lang_battle/lang_battle.gd")
 
 ## make_unit 은 이제 전투 스탯 블록을 직접 받는다(class_id 참조 제거).
-## Resolver 순수함수 검증은 튜닝 가능한 units.csv 값에서 **의도적으로 격리**한다 — 여기 고정 스탯 블록을
+## Resolver 순수함수 검증은 튜닝 가능한 unit_types.csv 값에서 **의도적으로 격리**한다 — 여기 고정 스탯 블록을
 ## 주입해 밸런스 조정이 Resolver 단위 테스트를 깨지 않게 한다. 값은 과거 class_stats.csv(1/4/8/27)에서
 ## 옮긴 것(다양한 at/df 조합으로 RNG·조립 결정론 검증). kind 는 미포함 → make_unit 기본 ""(상성 중립).
 func _stats(class_no: int) -> Dictionary:
@@ -782,7 +782,7 @@ func test_config_holder_mode_defaults_melee() -> void:
 func test_mk_custom_unit_maps_kinds() -> void:
 	var p = Presenter.new()
 	var hero := p._mk_custom_unit({"kind": "hero", "count": 7}, 0)
-	assert_eq(int(hero["at"]), GameUnits.base_at("hero"), "영웅=지휘관 클래스 스탯(at27)")
+	assert_eq(int(hero["at"]), UnitTypes.base_at("hero"), "영웅=지휘관 클래스 스탯(at27)")
 	assert_false(hero["self_cmd"], "단독 영웅은 자기 지휘보정 없음")
 	assert_eq(String(hero["kind"]), "hero", "영웅 kind(상성 중립 — TypeAdvantage에 hero 행 없음)")
 	assert_eq(int(hero["max_soldiers"]), 7, "영웅 count=HP/몫")

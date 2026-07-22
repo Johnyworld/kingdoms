@@ -23,7 +23,7 @@
 
 선택한 부대에 **인접한 같은 병종의 아군 일반부대**를 합친다(재조직 — 턴 소비 없음).
 
-- **병합 제약**: **같은 병종([`troop_type`](../entities/Party.md#정체-identity))끼리만**, **일반부대(`KIND_TROOP`)끼리만**, 그리고 **합쳐도 병력 상한([`TROOP_SIZE`](../data/units.md#상수), 10)을 넘지 않을 때만** 병합할 수 있다(예: 4+6·5+5 가능, 6+5 불가). 영웅부대는 지휘관 1인 단독이라 **병합 자체가 없다**(대상도, 개시도 불가). 판정은 [`Party.can_merge_with(other)`](../entities/Party.md#동작)이 단일 출처.
+- **병합 제약**: **같은 병종([`troop_type`](../entities/Party.md#정체-identity))끼리만**, **일반부대(`KIND_TROOP`)끼리만**, 그리고 **합쳐도 병력 상한([`TROOP_SIZE`](../data/factions.md#상수), 10)을 넘지 않을 때만** 병합할 수 있다(예: 4+6·5+5 가능, 6+5 불가). 영웅부대는 지휘관 1인 단독이라 **병합 자체가 없다**(대상도, 개시도 불가). 판정은 [`Party.can_merge_with(other)`](../entities/Party.md#동작)이 단일 출처.
 - **대상 판정**(`_update_ranges` → `_compute_merge_targets`): 활성 부대 칸에 **인접**하고 병력이 있는 **다른 플레이어 부대** 중 [`party.can_merge_with(p)`](../entities/Party.md#동작)이 참인 것만. cell → party. (병합 불가한 부대는 대상에서 빠져 **[병합] 팝업이 뜨지 않는다**.)
 - **클릭**: 활성 부대 선택 상태에서 인접 아군 부대 칸을 클릭 → **[병합] 팝업**([공격] 팝업과 같은 `PartyActionMenu`). (선택 중 인접 아군 클릭은 전환 대신 병합 팝업 — 전환하려면 먼저 선택 해제.)
 - **[병합]**: `Party.merge_from(other)` — 그 아군 부대(other)의 **병력을 활성 부대로 흡수**하고(`soldiers += other.soldiers`), other는 `PartyManager.units`에서 빼고 free한다. 활성 부대는 자리를 지키고 병력이 합쳐진다. 병합 후 활성 부대는 **이번 턴 행동을 끝낸다**(`mark_attacked`). 대상이 같은 병종으로 걸러졌으므로 병합 후에도 부대는 **하나의 병종으로 동질**하게 유지된다.

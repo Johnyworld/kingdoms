@@ -39,7 +39,7 @@ const START_SOLDIERS := 10
 # 사격(RANGED) 타이밍
 const SHOT_STAGGER := 0.06  # 라운드 내 화살 발사 간격(초) — 빠른 볼리(붙기 전 사격 마치게)
 const ROUND_GAP := 0.55     # 라운드 사이 간격(초, 사상자 반영 뒤 다음 볼리)
-# 병종 아키타입(전투 스탯은 GameUnits.combat_stats 단일 출처, 개활지 회피 5).
+# 병종 아키타입(전투 스탯은 UnitTypes.combat_stats 단일 출처, 개활지 회피 5).
 # 경궁병·경보병은 동일 base 스탯(공정 비교) — 차이는 역할(사격)+kind 상성뿐.
 const ARCHER_ARCHE := "light_archer"
 const INFANTRY_ARCHE := "light_infantry"
@@ -263,15 +263,15 @@ func _mk_custom_unit(cfg: Dictionary, side: int) -> Dictionary:
 		"hero":
 			return _mk_hero_unit(side, count)
 		"archer":
-			return LangResolver.make_unit(GameUnits.combat_stats(ARCHER_ARCHE), side, count, 0, 0, 0, 3, 5)
+			return LangResolver.make_unit(UnitTypes.combat_stats(ARCHER_ARCHE), side, count, 0, 0, 0, 3, 5)
 		_:
-			return LangResolver.make_unit(GameUnits.combat_stats(INFANTRY_ARCHE), side, count, 0, 0, 0, 3, 5)
+			return LangResolver.make_unit(UnitTypes.combat_stats(INFANTRY_ARCHE), side, count, 0, 0, 0, 3, 5)
 
 ## 영웅 유닛 — 지휘관 클래스(27/24) 단독. count=병사 몫/HP. 회피 기본(acc_mod 0).
 ## 근접·스커미시·영웅 전투 공용(스탯 설정 분산 방지).
 ## kind="hero"(combat_stats 포함)는 type_advantage.csv 에 hero 행이 없어 상성 중립 → bonus ZERO.
 func _mk_hero_unit(side: int, count: int) -> Dictionary:
-	var u := LangResolver.make_unit(GameUnits.combat_stats(HERO_ARCHE), side, count, 0, 0, 0, 3, 0)
+	var u := LangResolver.make_unit(UnitTypes.combat_stats(HERO_ARCHE), side, count, 0, 0, 0, 3, 0)
 	u["self_cmd"] = false   # 단독 영웅 — 자기 지휘보정 없음(27/24 유지)
 	return u
 
@@ -398,13 +398,13 @@ func _begin_skirmish_melee() -> void:
 		_enter(St.DONE)  # 돌격측이 화살만으로 전멸 → 근접 없음
 		return
 	# 궁병 근접 취약은 병종 상성(보병>궁병)이 담당. 돌격측이 영웅이면 지휘관 클래스 단독.
-	var am := LangResolver.make_unit(GameUnits.combat_stats(ARCHER_ARCHE), archer_side, _sk_archer_count, 0, 0, 0, 3, 5)
+	var am := LangResolver.make_unit(UnitTypes.combat_stats(ARCHER_ARCHE), archer_side, _sk_archer_count, 0, 0, 0, 3, 5)
 	var cm: Dictionary
 	if _sk_charger_kind == "hero":
 		cm = _mk_hero_unit(charger_side, _open_d_surv)
 	else:
 		# ★ 경보병 kind=infantry → 병종 상성(보병>궁병 +4/+2). 이게 빠지면 궁병이 압살함.
-		cm = LangResolver.make_unit(GameUnits.combat_stats(INFANTRY_ARCHE), charger_side, _open_d_surv, 0, 0, 0, 3, 5)
+		cm = LangResolver.make_unit(UnitTypes.combat_stats(INFANTRY_ARCHE), charger_side, _open_d_surv, 0, 0, 0, 3, 5)
 	_a = am if archer_side == 0 else cm
 	_d = am if archer_side == 1 else cm
 	_result = LangResolver.resolve_engagement(_fresh_rng(), _a, _d)
@@ -424,11 +424,11 @@ func _fresh_rng() -> LangRng:
 func _mk_archer(side: int) -> Dictionary:
 	# make_unit(stats, side, soldiers, gx, gy, item_id, level, acc_mod). 개활지 회피 5.
 	# kind=archer(combat_stats 포함) → 병종 상성: 근접 모든 병종에 약함.
-	return LangResolver.make_unit(GameUnits.combat_stats(ARCHER_ARCHE), side, START_SOLDIERS, 0, 0, 0, 3, 5)
+	return LangResolver.make_unit(UnitTypes.combat_stats(ARCHER_ARCHE), side, START_SOLDIERS, 0, 0, 0, 3, 5)
 
 func _mk_infantry(side: int) -> Dictionary:
 	# kind=infantry(combat_stats 포함) → 병종 상성: 궁병에 우위(+4/+2).
-	return LangResolver.make_unit(GameUnits.combat_stats(INFANTRY_ARCHE), side, START_SOLDIERS, 0, 0, 0, 3, 5)
+	return LangResolver.make_unit(UnitTypes.combat_stats(INFANTRY_ARCHE), side, START_SOLDIERS, 0, 0, 0, 3, 5)
 
 ## shots(발사 순서 배열)를 라운드별로 그룹핑 → [round][{side,kill}].
 func _group_shots_by_round(shots: Array) -> Array:

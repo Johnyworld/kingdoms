@@ -86,8 +86,8 @@ func test_battle_config_from_parties() -> void:
 	assert_eq(LangBridge.battle_config(atk, deff, 3)["mode"], "ranged", "거리 3 → 원거리")
 
 func test_battle_config_hero_count_from_soldiers() -> void:
-	# 영웅부대는 생성 시 soldiers = GameUnits.max_hp("hero")로 세팅된다.
-	var hero := _party(PartyScript.KIND_HERO, "", GameUnits.max_hp("hero"))
+	# 영웅부대는 생성 시 soldiers = UnitTypes.max_hp("hero")로 세팅된다.
+	var hero := _party(PartyScript.KIND_HERO, "", UnitTypes.max_hp("hero"))
 	var cfg: Dictionary = LangBridge.battle_config(hero, hero, 1)
 	assert_eq(cfg["a"]["kind"], "hero", "영웅 kind")
-	assert_eq(cfg["a"]["count"], GameUnits.max_hp("hero"), "영웅 병력 = 클래스 HP 풀(party.soldiers)")
+	assert_eq(cfg["a"]["count"], UnitTypes.max_hp("hero"), "영웅 병력 = 클래스 HP 풀(party.soldiers)")

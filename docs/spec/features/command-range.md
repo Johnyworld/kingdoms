@@ -8,10 +8,10 @@
 
 ## 지휘 범위 — `Party.command_range()`
 
-영웅부대의 지휘 반경(헥스). **부대 아키타입의 `cmd_range`** 로 결정한다([GameUnits](../data/units.md), units.csv 인라인). 구 개별 병사 스탯 기반 공식은 [순수 랑그릿사 유닛 모델 전환](lang-battle.md#게임-통합)으로 폐기.
+영웅부대의 지휘 반경(헥스). **부대 아키타입의 `cmd_range`** 로 결정한다([UnitTypes](../data/unit-types.md), unit_types.csv 인라인). 구 개별 병사 스탯 기반 공식은 [순수 랑그릿사 유닛 모델 전환](lang-battle.md#게임-통합)으로 폐기.
 
 ```
-command_range() = GameUnits.command_range(archetype())   # = lang 클래스 cmd_range
+command_range() = UnitTypes.command_range(archetype())   # = lang 클래스 cmd_range
 ```
 
 - 영웅(클래스 4) `cmd_range = 4`, 경보병·경궁병(클래스 1) `cmd_range = 3`. 아키타입 없으면 `0`.
@@ -78,4 +78,4 @@ command_range() = GameUnits.command_range(archetype())   # = lang 클래스 cmd_
 ## 관련
 
 - [Party (부대)](../entities/Party.md) — `lord`·`command_range`·`command_buffed`. [Party Lord](party-lord.md) — 소속 설정. [Squad Stance](squad-stance.md) — 하위부대를 영웅 곁으로 모으는 작전(추종 등).
-- 전투 판정은 [Lang Battle](lang-battle.md)(lang 클래스). 지휘 범위값은 [GameUnits](../data/units.md) 클래스 `cmd_range`.
+- 전투 판정은 [Lang Battle](lang-battle.md)(lang 클래스). 지휘 범위값은 [UnitTypes](../data/unit-types.md) 클래스 `cmd_range`.
