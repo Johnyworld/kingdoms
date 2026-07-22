@@ -54,26 +54,57 @@ static func cells_within_any(terrain: TileMapLayer, sources: Array, radius: int,
 				frontier.append(n)
 	return dist.keys()
 
-## 이동력 기준 이동/공격 범위를 분할해 돌려준다(지형 반영).
-## - 산(Terrain.IMPASSABLE)은 진입·통과 불가라 dist에서 아예 제외된다.
-## - move: 각 셀의 지형 이동 상한(Terrain.move_cap) 이내로 도달 가능한 칸(시작칸 거리 0 제외).
-##   숲 칸은 ceil(이동력/2), 습지 칸은 floor(이동력/2)까지만 이동 목적지가 된다.
-## - attack: **이동 가능 영역(+시작칸) 바로 바깥 한 칸**. 숲/습지로 이동이 짧아진 방향에서도
-##   공격 링이 실제 이동 프런티어에 붙는다(평지에선 거리 move_range+1 링과 같다). 산 칸은 제외.
-## - dist: 시작칸 포함 거리 맵 (산 제외). max_dist = move_range.
-static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Dictionary:
-	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE, blocked_cells)
+## 한 칸의 진입비용. 건물 override(cell_costs)가 있으면 그 값을, 없으면 지형(Terrain.enter_cost)을 쓴다.
+## 반환 < 0(Terrain.BLOCKED)이면 진입 불가.
+static func _cell_enter_cost(terrain: TileMapLayer, cell: Vector2i, cell_costs: Dictionary) -> int:
+	if cell_costs.has(cell):
+		return cell_costs[cell]
+	return Terrain.enter_cost(terrain.get_cell_source_id(cell))
+
+## start에서 이동력(budget) 이내로 도달 가능한 각 칸까지의 누적 진입비용 { cell: cost }(start=0).
+## - 칸마다 진입비용(지형 Terrain.enter_cost, 또는 cell_costs의 건물비용)을 더한다(가중 BFS = Dijkstra).
+## - 진입 불가 칸(비용<0)·blocked_cells(점유 칸)·맵 밖·budget 초과는 제외한다.
+## - cell_costs: { cell: 진입비용 } 건물 발자국 override(도시=2 등, 음수면 불가). → build_planner.movement_costs
+static func cost_distances(terrain: TileMapLayer, start: Vector2i, budget: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Dictionary:
+	var cost := {start: 0}
+	var frontier: Array = [[0, start]]   # [누적비용, 셀]. 규모가 작아 매번 최소비용 원소를 선형 탐색해 꺼낸다.
+	while not frontier.is_empty():
+		var bi := 0
+		for i in range(1, frontier.size()):
+			if frontier[i][0] < frontier[bi][0]:
+				bi = i
+		var top: Array = frontier.pop_at(bi)
+		var cd: int = top[0]
+		var cur: Vector2i = top[1]
+		if cd > int(cost[cur]):
+			continue   # 이미 더 싼 경로로 확정된 낡은 항목
+		for n in terrain.get_surrounding_cells(cur):
+			if not _in_bounds(n, map_w, map_h) or blocked_cells.has(n):
+				continue
+			var ec := _cell_enter_cost(terrain, n, cell_costs)
+			if ec < 0:
+				continue   # 진입 불가(산·물·불가 건물)
+			var nc := cd + ec
+			if nc <= budget and nc < int(cost.get(n, nc + 1)):
+				cost[n] = nc
+				frontier.append([nc, n])
+	return cost
+
+## 이동력 기준 이동/공격 범위를 분할해 돌려준다(칸당 진입비용 반영).
+## - move: 이동력(budget) 이내 누적비용으로 도달 가능한 칸(시작칸 비용 0 제외). 숲(2)·습지(3)·도시(2)가 더 비싸다.
+## - attack: **이동 가능 영역(+시작칸) 바로 바깥 한 칸**. 진입 불가 칸(산·물·불가 건물)은 제외.
+## - dist: 시작칸(0) 포함 누적비용 맵 (진입 불가 제외).
+static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Dictionary:
+	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs)
 	var move_set := {}
 	var move_cells: Array[Vector2i] = []
-	for cell in dist:
-		var d: int = dist[cell]
-		if d == 0:
+	for cell in cost:
+		if int(cost[cell]) == 0:
 			continue  # 주인공이 선 칸은 제외
-		if d <= Terrain.move_cap(terrain.get_cell_source_id(cell), move_range):
-			move_set[cell] = true
-			move_cells.append(cell)
+		move_set[cell] = true
+		move_cells.append(cell)
 
-	# 공격 = 이동 가능 칸 및 시작칸의 이웃 중, 이동칸/시작칸이 아니고 통과 가능한 칸.
+	# 공격 = 이동 가능 칸 및 시작칸의 이웃 중, 이동칸/시작칸이 아니고 진입 가능한 칸.
 	var attack_set := {}
 	var seeds := move_cells.duplicate()
 	seeds.append(start)
@@ -83,33 +114,38 @@ static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: 
 				continue
 			if move_set.has(n) or attack_set.has(n):
 				continue
-			if terrain.get_cell_source_id(n) in Terrain.IMPASSABLE:
+			if _cell_enter_cost(terrain, n, cell_costs) < 0:
 				continue
 			attack_set[n] = true
 	var attack_cells: Array[Vector2i] = []
 	for cell in attack_set:
 		attack_cells.append(cell)
-	return {"move": move_cells, "attack": attack_cells, "dist": dist}
+	return {"move": move_cells, "attack": attack_cells, "dist": cost}
 
-## start에서 dest까지 최단 헥스 경로(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적한다.
-## - 산(Terrain.IMPASSABLE)·맵 밖·blocked_cells(점유 칸)는 제외한다(이동 계산과 같은 규칙).
+## start에서 dest까지 최소비용 경로(칸 목록, start·dest 포함)를 누적비용 맵에서 역추적한다.
+## - 진입 불가(산·물·불가 건물)·맵 밖·blocked_cells(점유 칸)는 제외한다(이동 계산과 같은 규칙).
 ## - dest에 도달 불가하면 빈 배열, start == dest면 [start].
 ## - NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
-static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Array[Vector2i]:
+static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Array[Vector2i]:
 	if start == dest:
 		return [start]
-	var dist := bfs_distances(terrain, start, move_range, map_w, map_h, Terrain.IMPASSABLE, blocked_cells)
-	if not dist.has(dest):
+	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs)
+	if not cost.has(dest):
 		return []
-	# dest에서 거리가 1씩 작은 이웃을 따라 start까지 거꾸로 짚어간다.
+	# dest에서 "누적비용 - 그 칸 진입비용" == 이웃 누적비용인 선행 칸을 따라 start까지 거꾸로 짚어간다.
 	var path: Array[Vector2i] = [dest]
 	var cur := dest
 	while cur != start:
+		var need: int = int(cost[cur]) - _cell_enter_cost(terrain, cur, cell_costs)
+		var stepped := false
 		for n in terrain.get_surrounding_cells(cur):
-			if dist.get(n, -1) == dist[cur] - 1:
+			if int(cost.get(n, -1)) == need:
 				cur = n
 				path.append(cur)
+				stepped = true
 				break
+		if not stepped:
+			return []   # 안전장치: 역추적 실패(정상 경로에선 발생하지 않음)
 	path.reverse()
 	return path
 
@@ -119,8 +155,8 @@ static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vecto
 ## - 링 우선: 도달 가능한 영웅 인접 칸(get_surrounding_cells)이 있으면 그중 진행 방향으로 가장 앞선 칸(월드 내적 최대),
 ##   동률이면 하위부대에서 가까운 칸. from_cell==hero_cell(방향 없음)이면 전방 점수 0 → 가까운 링 칸(분산).
 ## - 접근 폴백: 도달 가능한 링 칸이 없으면 영웅 지형 거리(bfs) 최소 칸(동률 시 근접). 더 못 가까워지면 제자리.
-static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}) -> Vector2i:
-	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells)
+static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}) -> Vector2i:
+	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells, cell_costs)
 	var self_dist: Dictionary = ranges["dist"]   # 하위부대로부터의 거리(제자리 0)
 	var big := map_w * map_h + 1
 	var reachable := {follower_cell: true}

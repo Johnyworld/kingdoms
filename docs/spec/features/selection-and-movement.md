@@ -29,23 +29,23 @@
    - 예외: **부대가 캠프 위에 서 있고 정보 패널이 이미 열려 있으면**(= 같은 칸을 한 번 더 클릭) `CAMP_MENU` — [캠프 메뉴](camp-menu.md)를 연다. (캠프 위 부대는 첫 클릭 = 부대, 두 번째 클릭 = 캠프 메뉴)
 2. **NPC 부대 칸 클릭 → NPC 정보** (`FOCUS_NPC`) — 그 NPC의 [정보 패널](party-info.md)만 연다(선택·범위 없음). 선택 중이던 플레이어 부대는 해제한다. **공격은 여기서 하지 않는다** — `[공격]` 메뉴 → `ATTACK` 모드에서 한다([party-action-menu](party-action-menu.md)·[Lang Battle](lang-battle.md)).
    - **이동보다 앞 순위**라 이동 범위 안 NPC 칸을 클릭해도 이동하지 않는다. 안개에 가려 보이지 않는 NPC는 `on_npc = false`라 이 경로를 타지 않는다.
-3. **선택 중 + 이동 범위 칸 → 이동** (`MOVE`) — 시작 칸에서 목적지까지 **경로를 따라 애니메이션**으로 이동한다(아래). 클릭 즉시 `party.mark_moved()`로 **이번 턴 이동 완료** 처리(흐리게 표시, 재선택 불가)하고 선택 해제·정보 패널 닫기까지 확정한다. **건물 칸이어도 이동이 우선**이다 — 건물은 이동을 막지 않으므로 **모든 건물(캠프·농장·건설 중) 위로 통행**할 수 있다.
+3. **선택 중 + 이동 범위 칸 → 이동** (`MOVE`) — 시작 칸에서 목적지까지 **경로를 따라 애니메이션**으로 이동한다(아래). 클릭 즉시 `party.mark_moved()`로 **이번 턴 이동 완료** 처리(흐리게 표시, 재선택 불가)하고 선택 해제·정보 패널 닫기까지 확정한다. **도시 건물 칸이어도 이동이 우선**이다 — 도시·거점 건물은 **통과 가능(진입비용 2)** 하므로 그 위로 지나가거나 멈출 수 있다(이동력 페널티만). 불가 랜드마크(피라미드 등)는 예외로 진입 불가.
 4. **캠프 칸 클릭 → 캠프 메뉴** (`CAMP_MENU`) — 부대가 없거나 범위 밖이면. 선택 중이면 해제하고 정보 패널을 닫은 뒤 캠프 메뉴를 연다.
    - **메뉴·재클릭 판정은 캠프에만 적용**된다(`on_camp = building.contains_cell(cell)`, 캠프 단일 노드). 농장 등 다른 건물은 **통행만** 되고 메뉴가 없으므로, 선택·범위 밖에서 클릭하면 `DESELECT`로 처리된다.
 5. **그 외 건물 칸(농장 등) 클릭 → 건물 정보** (`BUILDING_INFO`).
 6. **그 외 칸 클릭 → 선택 해제** (`DESELECT`) — 선택을 해제하고 정보 패널을 닫는다.
 
 > 부대는 **한 턴에 1회만** 이동할 수 있다([Turn](turn.md)). 이동한 부대는 흐리게 표시되고, 턴 종료 시 `reset_turn()`으로 다시 이동 가능해진다.
-> 건물이 이동을 막지 않는 것은 **BFS 범위 계산(`HexGrid`)이 건물을 장애물로 취급하지 않기** 때문이다(아래 범위 계산 참고). `ClickRouter`는 이동을 캠프 메뉴 열기보다 앞 순위에 둬 캠프 위로도 이동할 수 있게 한다.
+> 도시 건물은 이동을 **막지 않되 진입비용 2**로 지나갈 수 있다 — `HexGrid` 이동 BFS가 건물 발자국을 `cell_costs`(도시 2, 불가 랜드마크 BLOCKED)로 반영한다(아래 범위 계산 참고). `ClickRouter`는 이동을 캠프 메뉴 열기보다 앞 순위에 둬 캠프 위로도 이동할 수 있게 한다.
 > 반면 **지형(산)은 이동을 막는다** — 건물이 아니라 타일 종류이며, BFS가 산 칸을 통과·진입 대상에서 제외한다([Terrain](../data/terrain.md)).
 
 ## 유닛 점유(충돌)
 
 부대는 **다른 부대가 있는 칸을 통과하거나 그 칸에서 멈출 수 없다** — 점유된 칸을 산처럼 **완전 장애물**로 취급하며, BFS가 그 칸을 우회한다. 아군/적 구분 없이 **자기 외 모든 부대**([플레이어 부대 + NPC](../entities/Party.md))가 서로 막는다.
 
-- **건물은 계속 통행 가능**하다 — 충돌은 **유닛끼리만** 적용된다(건물 통행 규칙은 그대로).
-- 구현: `game.gd`가 "자기 외 모든 부대의 현재 칸" 집합(`_occupied_cells(exclude)`)을 만들어 `HexGrid`에 넘긴다. 이동 범위·클릭 이동 경로·NPC 목적지 계산이 모두 이를 반영한다.
-- `HexGrid`의 `bfs_distances`/`movement_ranges`/`reconstruct_path`는 **선택 인자 `blocked_cells: Dictionary`**(기본 `{}`)로 특정 칸을 막는다 — 산(`Terrain.IMPASSABLE` 지형)과 별개다. 시야 계산(`cells_within`)은 이 인자를 쓰지 않아 유닛에 막히지 않는다.
+- **도시 건물은 통행 가능**(진입비용 2)하고, **불가 랜드마크**(피라미드 등)만 막힌다 — 유닛 점유(완전 차단)와는 별개 체계다.
+- 구현: `game.gd`가 "자기 외 모든 부대의 현재 칸" 집합(`_occupied_cells(exclude)` = `blocked_for`)을 만들어 완전 차단으로 넘기고, 건물 발자국 비용(`_building_costs()` = `BuildPlanner.movement_costs`)은 `cell_costs`로 넘긴다. 이동 범위·클릭 이동 경로·NPC 목적지 계산이 모두 이를 반영한다.
+- `HexGrid`의 `cost_distances`/`movement_ranges`/`reconstruct_path`/`follow_destination`은 **`blocked_cells: Dictionary`**(완전 차단, 유닛 점유)와 **`cell_costs: Dictionary`**(칸별 진입비용 override, 건물)를 받는다 — 둘 다 지형 규칙(`Terrain.enter_cost`)과 별개다. 시야 계산(`cells_within`)은 이 인자들을 쓰지 않아 유닛·건물에 막히지 않는다.
 - **점유는 이동(move)에만 반영**된다 — 공격 범위(빨강)는 점유 칸을 제외하지 않는다(인접한 적을 공격 대상으로 보는 게 자연스럽고, 전투가 아직 미구현이라 표시만 한다).
 - **점유 판정은 각 부대의 현재 칸**(`local_to_map(position)`)으로 한다. NPC 이동은 계획 전에 모두 목적지로 스냅되므로 정확하고, 드물게 NPC 애니메이션 중 플레이어가 이동하면 한 칸 근사일 수 있다(일시적).
 
@@ -55,17 +55,18 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 
 - 부대 위치에서 **BFS**로 도달 셀과 거리를 계산.
 - **이동력은 부대 기준** — `party.movement()`(아키타입 lang 클래스 `mv`). 병력 구성과 무관(부대는 단일 병종).
-- **이동 범위**: 각 칸의 **지형 이동 상한**([Terrain](../data/terrain.md)) 이내로 도달 가능한 칸 → 파랑 헥스.
-  - 초원·사막: 거리 1 ~ `movement`.
-  - **숲**: `ceil(movement/2)`, **습지**: `floor(movement/2)`까지만(목적지 지형이 이동력을 반감).
-  - **산**: 진입·통과 불가. BFS가 산 칸을 건너뛰므로 `dist`에서 아예 빠진다.
+- **이동 범위**: 칸마다 **진입비용**([Terrain](../data/terrain.md))을 누적해 이동력(`movement`) 이내로 도달 가능한 칸 → 파랑 헥스(가중 BFS `cost_distances`).
+  - 초원·사막·철맥·금맥: 진입비용 1.
+  - **숲**: 2, **습지**: 3 (지날 때마다 그만큼 소모).
+  - **도시 건물**: 2, **불가 랜드마크**: 진입 불가(`cell_costs` override).
+  - **산·물**: 진입·통과 불가(`Terrain.BLOCKED`). BFS가 그 칸을 건너뛰므로 `dist`(누적비용 맵)에서 아예 빠진다.
 - **공격 가능 적(빨강)**: 범위 영역이 아니라 **적 타일 자체**에 빨강을 그린다. 각 보이는 NPC마다 근접(현재 칸∪이동칸 중 인접 칸 존재) 또는 사격(원거리 무기·`cells_within(시작칸, attack_range())` 안) 가능하면 그 타일을 빨강으로. 상세 판정은 [행동 메뉴](party-action-menu.md).
 - 부대가 선 칸(거리 0)은 이동 범위에서 제외.
 - 클릭 이동 판정(`reachable`)은 이 **이동 목적지 집합**의 포함 여부로 한다(단순 거리로 판정하면 숲/습지 상한을 무시하므로).
 
 ### 경로 재구성 (`HexGrid.reconstruct_path`)
 
-`reconstruct_path(terrain, start, dest, move_range, map_w, map_h, blocked_cells := {}) -> Array[Vector2i]` — 시작에서 목적지까지 **최단 헥스 경로**(칸 목록, start·dest 포함)를 BFS 거리 맵에서 역추적해 구한다. 산(`Terrain.IMPASSABLE`)·맵 밖·`blocked_cells`(점유 칸)는 제외한다. 도달 불가(목적지가 막혔거나 격리)하면 빈 배열, `start == dest`면 `[start]`. NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
+`reconstruct_path(terrain, start, dest, move_range, map_w, map_h, blocked_cells := {}, cell_costs := {}) -> Array[Vector2i]` — 시작에서 목적지까지 **최소비용 경로**(칸 목록, start·dest 포함)를 누적비용 맵(`cost_distances`)에서 역추적해 구한다. 산·물(`Terrain.BLOCKED`)·맵 밖·`blocked_cells`(점유 칸)·불가 건물은 제외하고, 진입비용(지형·건물 `cell_costs`)이 싼 경로를 고른다. 도달 불가(목적지가 막혔거나 이동력 부족)하면 빈 배열, `start == dest`면 `[start]`. NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
 
 ### 사거리 판정 (`HexGrid.cells_within`)
 
@@ -111,8 +112,12 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 - [경계] `dist` 맵에는 시작칸(거리 0) 포함, `move_range`까지
 - [경계] 맵 모서리에서 BFS가 맵 밖(음수/초과)으로 나가지 않음
 - [지형] 산 이웃은 `dist`·이동·공격 모두에서 제외(통과 불가)
-- [지형] 이동력 1 + 습지 이웃 → 이동 목적지 아님(`floor(1/2)=0`), 이웃 6칸 중 5칸만 이동
-- [지형] 같은 거리라도 숲(`ceil`)은 도달, 습지(`floor`)는 제외 — 이동력 1에서 확인
+- [지형] 이동력 1 + 습지 이웃(비용 3) → 진입 불가, 이웃 6칸 중 5칸만 이동
+- [지형] 이동력 2: 숲(비용 2) 도달, 습지(비용 3) 제외 — 진입비용 차이
+- [지형] 진입비용 누적: 이동력 3 + 숲(2) 이웃 → 그 칸 누적비용 2
+- [지형] 사방 습지(3) + 이동력 2 → 이동 가능 칸 0(누적 페널티로 사거리 축소)
+- [건물] `cell_costs` override: 도시(2)는 이동력 2에서 도달·1에선 불가, 불가 건물(BLOCKED)은 이동력 무관 진입 불가
+- [경로] `reconstruct_path`: 습지(3) 목적지는 이동력 3이면 직행·2면 빈 경로
 - [지형] 공격 링이 이동 프런티어에 붙음 — 이동력 1 + 습지 이웃은 이동 불가지만 공격 범위엔 포함
 - [지형] 시야(`cells_within`)는 산에 막히지 않음(`blocked` 기본 `[]`)
 - [사거리] `cells_within_any`(다중 시작점): 두 시작점 각각의 반경 합집합. 반경 1이면 각 시작점+이웃, 시작점끼리 겹치면 중복 없음
@@ -123,9 +128,9 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 
 ### 지형 이동 규칙 — `test/unit/test_terrain.gd`
 
-- [정상] 초원·사막 `move_cap` = 이동력 그대로 / 미도색(-1)도 초원 취급
-- [정상] 숲 `ceil(m/2)`, 습지 `floor(m/2)`, 산 `-1`
-- [경계] 산만 `is_passable=false`, `IMPASSABLE=[MOUNTAIN]`
+- [정상] 초원·사막·철맥·금맥 `enter_cost` = 1 / 미도색(-1)도 초원(1) 취급
+- [정상] 숲 = 2, 습지 = 3, 산·물 = `BLOCKED`(-1)
+- [경계] 산·물만 `is_passable=false`, `IMPASSABLE=[MOUNTAIN, WATER]`
 
 ### 클릭 우선순위 — `test/unit/test_click_router.gd`
 

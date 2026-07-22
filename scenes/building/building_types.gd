@@ -25,6 +25,18 @@ static func next_center(type_id: String) -> String:
 		return ""
 	return CENTER_IDS[t + 1]
 
+# --- 이동(통행) ---
+# 도시·거점·생산 건물 발자국의 진입비용(통과 가능하나 이동력 페널티). → docs/spec/features/selection-and-movement.md
+const CITY_MOVE_COST := 2
+# 통행 불가 랜드마크 종류(피라미드·기념물 등). 현재 카탈로그엔 없음 — 후속 랜드마크 배치용 훅.
+const IMPASSABLE_TYPES := ["pyramid", "monument"]
+
+## 그 건물 종류 칸의 이동 진입비용. 불가 종류면 Terrain.BLOCKED(-1), 그 외(도시·거점·생산건물)는 CITY_MOVE_COST(2).
+static func move_cost(type_id: String) -> int:
+	if type_id in IMPASSABLE_TYPES:
+		return Terrain.BLOCKED
+	return CITY_MOVE_COST
+
 # 건축(캠프 메뉴)에서 지을 수 있는 종류. 거점(캠프·마을회관·성)은 제외 — 캠프=새 영지(미구현), 마을회관·성=업그레이드.
 # 순서 = 캠프 메뉴 리스트 표시 순서. 선행 미충족 종류도 뜨되 비활성.
 const BUILDABLE_IDS := ["farm", "lumberjack", "iron_mine", "gold_mine", "house"]   # 공성 작업장은 공성 삭제와 함께 제거

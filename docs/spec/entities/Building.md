@@ -14,6 +14,8 @@
 
 차지하는 **발자국(footprint)은 종류별**이다([카탈로그](../data/buildings.md) `footprint`). 거점(캠프·마을회관·성)은 **중심 1헥스 + 주변 6헥스 = 7헥스**, 소형 건물(농장·벌목소·철광·금광·집)은 **중심 1헥스**만 차지한다. `setup`이 `_spec.footprint`(기본 7)로 점유 셀을 잡는다.
 헥스 중 하나라도 클릭되면 게임 쪽에서 종류에 따라 UI를 연다: **캠프**는 [캠프 메뉴](../features/camp-menu.md)(자원·건축), **그 외 건물(농장)**은 [건물 정보 패널](../features/building-info.md).
+
+**통행(이동)**: 완성 건물 발자국은 이동에 영향을 준다 — 도시·거점·생산 건물은 **통과 가능하나 진입비용 2**(이동력 페널티), 불가 랜드마크(`BuildingTypes.IMPASSABLE_TYPES` — 피라미드·기념물, 현재 카탈로그엔 없는 후속 훅)는 **진입 불가**. 소속(아군/적) 무관. 종류별 비용은 `BuildingTypes.move_cost(type_id)`, 발자국→비용 맵은 `BuildPlanner.movement_costs(buildings)`가 만들어 이동 BFS의 `cell_costs`로 넘긴다(건설 중 건물은 제외). → [선택과 이동](../features/selection-and-movement.md)·[Terrain](../data/terrain.md)
 **렌더**: 완성된 건물은 공유 `BuildingsLayer`(TileMapLayer, `Tileset_Elements` terrain_set 2)에 LaPetiteTile 건물 오토타일로 그린다 — 성=성(castle), 그 외(캠프·마을회관·농장·집·벌목소·광산)=마을(village). 거점(footprint 7)은 **티어별로 크기 차등** — 캠프=작은 마을(footprint 중 3칸만), 마을회관=풀 마을(7칸), 성=성(7칸). 소형 건물(footprint 1)은 같은 마을 테라인이 1칸이라 **작은 집**으로 나온다(`BuildingRenderer.render_cells`). **세력마다 색이 다르다**([BuildingRenderer](../../scenes/building/building_renderer.gd)의 세력→terrain 매핑, 4색). 건물이 자기 발자국을 `refresh_body()`로 그 레이어에 칠하고(setup·완성·업그레이드·세력변경 시), `_exit_tree()`에서 지운다(철거·파괴). **건설 중**이거나 레이어가 없을 때만 `_draw()`의 흐린 색 폴리곤(+텐트)으로 그린다. 라벨(영지·세력)·배지(건설 중/수비)는 항상 `_draw()`가 그린다.
 
 **세력 깃발**: 완성된 거점(캠프·마을회관·성) 위에 세력색 깃발(웨이빙 애니 `AnimatedSprite2D`, `SpriteFrame_FlagBlack`)이 뜬다. 검정 깃발 천이 밝아 `modulate = 세력색`으로 색이 입혀진다(무소속=흰색). `_update_flag()`가 `refresh_body()`에서 함께 갱신 — 세력이 바뀌면 깃발 색도 바뀌고, 건설 중·비거점·레이어 없음이면 숨긴다. 깃발 노드는 건물의 자식이라 철거 시 함께 사라진다.

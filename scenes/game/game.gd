@@ -287,10 +287,14 @@ func _derive_data_from_visuals() -> void:
 			terrain.set_cell(c, _derive_type(c), Terrain.ATLAS)
 
 ## 한 칸의 비주얼 타일에서 게임 지형타입을 추정한다(TerrainRenderer.PAINT의 역). 우선순위:
-## 물(Ocean) > 산(Cliff 또는 Ground 바위) > 숲(Decoration 나무) > 습지/사막(GroundOverlay) > 초원.
+## 물(Ocean만·Ground 없음) > 산(Cliff 또는 Ground 바위) > 숲(Decoration 나무) > 습지/사막(GroundOverlay) > 초원.
 ## 철맥·금맥은 겉보기로 구분 불가라 초원으로 취급된다(전용 표식은 후속 과제).
+## 물 판정 규칙: Ocean은 전체 바닥 underlay로 깔리므로, "Ocean 있음"만으론 물이 아니다.
+## Ground가 안 덮여 물이 드러난 칸(Ocean 있고 Ground 없음)만 물(통행 불가). 땅이 덮이면 육지.
+## → LaPetiteTile 정석 기법(Ground 틈으로 Ocean이 비쳐 바다·강이 됨). docs/spec/features/map-and-camera.md
 func _derive_type(cell: Vector2i) -> int:
-	if $TerrainVisual/Ocean.get_cell_source_id(cell) != -1:
+	var has_ground: bool = $TerrainVisual/Ground.get_cell_source_id(cell) != -1
+	if $TerrainVisual/Ocean.get_cell_source_id(cell) != -1 and not has_ground:
 		return Terrain.WATER
 	if $TerrainVisual/Cliff.get_cell_source_id(cell) != -1:
 		return Terrain.MOUNTAIN
@@ -473,7 +477,7 @@ func _nearby_free_cells(anchor: Vector2i, count: int, occupied: Dictionary) -> A
 func _update_ranges() -> void:
 	var start := _cell_of(party)
 	var move_range: int = party.movement() if party.can_move() else 0
-	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, blocked_for(party))
+	var ranges := HexGrid.movement_ranges(terrain, start, move_range, MAP_WIDTH, MAP_HEIGHT, blocked_for(party), _building_costs())
 	var move_cells: Array[Vector2i] = ranges["move"]
 	_reachable = {}
 	for c in move_cells:
@@ -824,6 +828,11 @@ func _occupied_cells(exclude) -> Dictionary:
 ## party의 이동 장애물 = 다른 부대 점유 칸. 이동 범위·경로에 넘긴다.
 func blocked_for(party) -> Dictionary:
 	return _occupied_cells(party)
+
+## 건물 발자국의 이동 진입비용 override { cell: cost }(도시=2, 불가 건물=BLOCKED). 이동 계산 cell_costs로 넘긴다.
+## 소속 무관 — 플레이어·NPC 거점 모두 포함(all_buildings). NPC 경로계획(NpcPlanner)과 같은 집합.
+func _building_costs() -> Dictionary:
+	return BuildPlanner.movement_costs(all_buildings())
 
 ## [공격] 근접: 적 인접 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령.
 func _melee_attack(entry: Dictionary) -> void:
@@ -1418,7 +1427,7 @@ func _finish_pending_npc_moves() -> void:
 ## then_attack가 주어지면 이동 완료 후 그 적과 전투를 시작하고,
 ## 아니면 이동 후 공격 범위에 적이 있는지 재평가한다(빨강 재표시).
 func _move_player_to(start_cell: Vector2i, dest_cell: Vector2i, then_attack = null) -> void:
-	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(party))
+	var path := HexGrid.reconstruct_path(terrain, start_cell, dest_cell, party.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(party), _building_costs())
 	_player_move_target = dest_cell
 	var tw := _animate_path(party, path, 0.0, func(_cell: Vector2i) -> void: _update_fog())
 	if tw == null:
@@ -1548,9 +1557,9 @@ func _engage_with_lord(hero) -> void:
 		# 1) 보이는 적 중 최근접으로 접근(더 가까워질 수 없으면 제자리).
 		if not targets.is_empty():
 			var blocked := blocked_for(f)
-			var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, targets)
+			var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, targets, _building_costs())
 			if dest != start:
-				var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+				var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
 				if path.size() >= 2:
 					f.mark_moved()
 					await _move_party_await(f, path)
@@ -1588,7 +1597,7 @@ func _enter_charge_target(hero) -> void:
 		if not f.can_move():
 			continue
 		var start := _cell_of(f)
-		for c in HexGrid.movement_ranges(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(f))["move"]:
+		for c in HexGrid.movement_ranges(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked_for(f), _building_costs())["move"]:
 			reach[c] = true
 	var blue: Array[Vector2i] = []
 	for c in reach:
@@ -1623,9 +1632,9 @@ func _charge_with_lord(hero, target_cell: Vector2i) -> void:
 		var blocked := blocked_for(f)
 		var reach: int = maxi(f.attack_range(), 1)
 		# 1) 목표 방향 도달 칸으로 경로를 잡고, 사거리 내 적이 들어오는 첫 지점까지만 전진.
-		var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, [target_cell])
+		var dest: Vector2i = NpcAi.choose_destination(terrain, start, f.movement(), MAP_WIDTH, MAP_HEIGHT, _rng, blocked, [target_cell], _building_costs())
 		if dest != start:
-			var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+			var path := HexGrid.reconstruct_path(terrain, start, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
 			if path.size() >= 2:
 				var stop := HexGrid.attack_move_stop(terrain, path, _visible_enemy_cells(f.faction_name), reach, MAP_WIDTH, MAP_HEIGHT)
 				if stop >= 1:
@@ -1655,10 +1664,10 @@ func _follow_with_lord(hero, hero_cell: Vector2i, from_cell: Vector2i) -> void:
 		if not f.can_move():
 			continue   # 이미 이동/공격했으면 → 그 자리에 남음
 		var f_cell := _cell_of(f)
-		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, from_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+		var dest: Vector2i = HexGrid.follow_destination(terrain, hero_cell, from_cell, f_cell, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
 		if dest == f_cell:
 			continue   # 이미 최선 위치(인접) → 이동·턴 소비 없음
-		var path := HexGrid.reconstruct_path(terrain, f_cell, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked)
+		var path := HexGrid.reconstruct_path(terrain, f_cell, dest, f.movement(), MAP_WIDTH, MAP_HEIGHT, blocked, _building_costs())
 		if path.size() < 2:
 			continue
 		f.mark_moved()   # 따라 움직인 하위부대는 이번 턴 이동 소모

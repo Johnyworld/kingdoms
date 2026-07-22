@@ -66,7 +66,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Resources (자원)](data/resources.md) — 4종(목재·식량·철·금) + 인구(병력 예약)
 - [Units (유닛·부대 카탈로그)](data/units.md) — 세력별 영웅 4명 + 병종 아키타입(경보병·경궁병 10인). 부대 이분화(영웅/일반). game.gd가 여기서 부대 생성
 - [Buildings (건물 종류)](data/buildings.md)
-- [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막, 지형별 이동 규칙(산 불가·숲 ceil·습지 floor)
+- [Terrain (지형)](data/terrain.md) — 초원·숲·습지·산·사막·물, 칸당 진입비용(초원 1·숲 2·습지 3·산/물 불가)
 
 ## 파일 매핑
 

@@ -1,32 +1,27 @@
 extends GutTest
-## Terrain 카탈로그: 지형별 이동 상한(move_cap)·진입 가능 여부·라벨.
-## 규칙: 목적지 지형이 이동력을 반감 — 숲 ceil, 습지 floor, 산 도달 불가.
+## Terrain 카탈로그: 지형별 진입비용(enter_cost)·진입 가능 여부·라벨.
+## 규칙: 칸마다 진입비용 누적 — 초원 1·숲 2·습지 3, 산·물 진입 불가(BLOCKED).
 
-# --- move_cap ---
+# --- enter_cost ---
 
-func test_grass_and_desert_keep_full_movement() -> void:
-	assert_eq(Terrain.move_cap(Terrain.PLAINS, 3), 3, "초원은 이동력 그대로")
-	assert_eq(Terrain.move_cap(Terrain.DESERT, 3), 3, "사막은 이동력 그대로")
+func test_grass_and_desert_cost_one() -> void:
+	assert_eq(Terrain.enter_cost(Terrain.PLAINS), 1, "초원 진입비용 1")
+	assert_eq(Terrain.enter_cost(Terrain.DESERT), 1, "사막 진입비용 1")
 
 func test_unknown_source_treated_as_grass() -> void:
-	# 미도색 셀은 get_cell_source_id가 -1을 준다 → 초원 취급.
-	assert_eq(Terrain.move_cap(-1, 3), 3, "알 수 없는 지형(-1)은 초원처럼 이동력 그대로")
+	# 미도색 셀은 get_cell_source_id가 -1을 준다 → 초원(1) 취급.
+	assert_eq(Terrain.enter_cost(-1), 1, "알 수 없는 지형(-1)은 초원처럼 비용 1")
 
-func test_forest_halves_round_up() -> void:
-	assert_eq(Terrain.move_cap(Terrain.FOREST, 3), 2, "숲: ceil(3/2)=2")
-	assert_eq(Terrain.move_cap(Terrain.FOREST, 2), 1, "숲: ceil(2/2)=1")
-	assert_eq(Terrain.move_cap(Terrain.FOREST, 4), 2, "숲: ceil(4/2)=2")
-	assert_eq(Terrain.move_cap(Terrain.FOREST, 1), 1, "숲: ceil(1/2)=1")
+func test_forest_costs_two() -> void:
+	assert_eq(Terrain.enter_cost(Terrain.FOREST), 2, "숲 진입비용 2")
 
-func test_swamp_halves_round_down() -> void:
-	assert_eq(Terrain.move_cap(Terrain.SWAMP, 3), 1, "습지: floor(3/2)=1")
-	assert_eq(Terrain.move_cap(Terrain.SWAMP, 2), 1, "습지: floor(2/2)=1")
-	assert_eq(Terrain.move_cap(Terrain.SWAMP, 4), 2, "습지: floor(4/2)=2")
-	assert_eq(Terrain.move_cap(Terrain.SWAMP, 1), 0, "습지: floor(1/2)=0 (이동력 1이면 진입 불가)")
+func test_swamp_costs_three() -> void:
+	assert_eq(Terrain.enter_cost(Terrain.SWAMP), 3, "습지 진입비용 3")
 
-func test_mountain_and_water_unreachable() -> void:
-	assert_eq(Terrain.move_cap(Terrain.MOUNTAIN, 5), -1, "산은 도달 거리 -1")
-	assert_eq(Terrain.move_cap(Terrain.WATER, 5), -1, "물은 도달 거리 -1")
+func test_mountain_and_water_blocked() -> void:
+	assert_eq(Terrain.enter_cost(Terrain.MOUNTAIN), Terrain.BLOCKED, "산은 진입 불가(BLOCKED)")
+	assert_eq(Terrain.enter_cost(Terrain.WATER), Terrain.BLOCKED, "물은 진입 불가(BLOCKED)")
+	assert_true(Terrain.BLOCKED < 0, "BLOCKED는 음수(가중 BFS가 진입 불가로 취급)")
 
 # --- is_passable / label ---
 
@@ -57,6 +52,6 @@ func test_production_terrain_ids_and_labels() -> void:
 func test_production_terrain_passable_and_normal_move() -> void:
 	for id in [Terrain.IRON_VEIN, Terrain.GOLD_VEIN]:
 		assert_true(Terrain.is_passable(id), "생산 지형 통행 가능: %d" % id)
-		assert_eq(Terrain.move_cap(id, 3), 3, "기본 이동(이동력 그대로): %d" % id)
+		assert_eq(Terrain.enter_cost(id), 1, "생산 지형 진입비용 1: %d" % id)
 
 # 돌(5)·동물(6)·물가(7)·은맥(10) 상수는 제거됐다 — 참조 시 parse 에러이므로 테스트에서도 참조하지 않는다.

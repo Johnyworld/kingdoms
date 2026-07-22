@@ -102,30 +102,69 @@ func test_mountain_neighbor_excluded_from_ranges() -> void:
 	assert_does_not_have(r["attack"], mountain, "산은 공격 범위 제외")
 
 func test_swamp_neighbor_excluded_when_movement_one() -> void:
-	# 이동력 1 + 습지 이웃: floor(1/2)=0 → 그 칸은 이동 목적지가 될 수 없다.
+	# 이동력 1 + 습지 이웃: 습지 진입비용 3 > 1 → 그 칸엔 못 들어간다.
 	var swamp: Vector2i = terrain.get_surrounding_cells(_center())[0]
 	terrain.set_cell(swamp, Terrain.SWAMP, Terrain.ATLAS)
 	var r := HexGrid.movement_ranges(terrain, _center(), 1, MAP, MAP)
-	assert_does_not_have(r["move"], swamp, "이동력 1이면 습지 이웃은 이동 불가(cap 0)")
+	assert_does_not_have(r["move"], swamp, "이동력 1이면 습지 이웃 진입 불가(비용 3)")
 	assert_eq((r["move"] as Array).size(), 5, "이동력 1: 이웃 6 중 습지 1칸 빠져 5칸")
 
 func test_forest_reachable_where_swamp_is_not() -> void:
-	# 같은 거리(1)라도 숲은 ceil(1/2)=1로 도달, 습지는 floor(1/2)=0로 제외 — ceil/floor 차이.
+	# 이동력 2: 숲(비용 2) 이웃은 도달, 습지(비용 3) 이웃은 제외 — 진입비용 차이.
 	var neighbors := terrain.get_surrounding_cells(_center())
 	terrain.set_cell(neighbors[0], Terrain.FOREST, Terrain.ATLAS)
 	terrain.set_cell(neighbors[1], Terrain.SWAMP, Terrain.ATLAS)
-	var r := HexGrid.movement_ranges(terrain, _center(), 1, MAP, MAP)
-	assert_has(r["move"], neighbors[0], "이동력 1: 숲 이웃은 도달(cap 1)")
-	assert_does_not_have(r["move"], neighbors[1], "이동력 1: 습지 이웃은 제외(cap 0)")
+	var r := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP)
+	assert_has(r["move"], neighbors[0], "이동력 2: 숲 이웃 도달(비용 2)")
+	assert_does_not_have(r["move"], neighbors[1], "이동력 2: 습지 이웃 제외(비용 3)")
 
 func test_attack_hugs_move_frontier_on_slow_terrain() -> void:
-	# 이동력 1 + 습지 이웃: 그 칸은 이동 불가(cap 0)지만 시작칸에 인접하므로 공격 범위에 붙는다.
+	# 이동력 1 + 습지 이웃: 그 칸은 진입 불가(비용 3)지만 시작칸에 인접하므로 공격 범위에 붙는다.
 	# (고정 거리 move_range+1 링이 아니라 실제 이동 프런티어 바깥 한 칸.)
 	var swamp: Vector2i = terrain.get_surrounding_cells(_center())[0]
 	terrain.set_cell(swamp, Terrain.SWAMP, Terrain.ATLAS)
 	var r := HexGrid.movement_ranges(terrain, _center(), 1, MAP, MAP)
-	assert_does_not_have(r["move"], swamp, "습지 이웃은 이동 불가(cap 0)")
-	assert_has(r["attack"], swamp, "이동 못 하는 습지 이웃도 인접하므로 공격 범위에 포함")
+	assert_does_not_have(r["move"], swamp, "습지 이웃은 진입 불가(비용 3 > 1)")
+	assert_has(r["attack"], swamp, "진입 못 하는 습지 이웃도 인접하므로 공격 범위에 포함")
+
+# --- 칸당 진입비용 누적(가중 BFS) ---
+
+func test_cost_accumulates_per_step() -> void:
+	# 이동력 3 + 첫 이웃이 숲(비용 2): 그 칸까지 2 소모, 그 너머 한 칸(총 2+1=3) 도달, 그 다음(4)은 불가.
+	var n0: Vector2i = terrain.get_surrounding_cells(_center())[0]
+	terrain.set_cell(n0, Terrain.FOREST, Terrain.ATLAS)
+	var cost := HexGrid.cost_distances(terrain, _center(), 3, MAP, MAP)
+	assert_eq(int(cost[n0]), 2, "숲 이웃 진입 누적비용 2")
+	assert_true(cost.has(n0), "이동력 3이면 숲(2) 도달")
+
+func test_movement_penalty_shrinks_reach() -> void:
+	# 시작칸을 습지로 둘러싸면(비용 3), 이동력 2로는 아무 데도 못 감(모든 이웃 3 > 2).
+	for n in terrain.get_surrounding_cells(_center()):
+		terrain.set_cell(n, Terrain.SWAMP, Terrain.ATLAS)
+	var r := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP)
+	assert_eq((r["move"] as Array).size(), 0, "사방 습지(3) + 이동력 2 → 이동 가능 칸 0")
+
+func test_cell_costs_building_penalty_and_block() -> void:
+	# cell_costs override: 한 이웃은 도시(비용 2), 한 이웃은 불가(BLOCKED).
+	var ns := terrain.get_surrounding_cells(_center())
+	var city: Vector2i = ns[0]
+	var wall: Vector2i = ns[1]
+	var costs := {city: 2, wall: Terrain.BLOCKED}
+	var r := HexGrid.movement_ranges(terrain, _center(), 1, MAP, MAP, {}, costs)
+	assert_does_not_have(r["move"], city, "이동력 1: 도시 칸(비용 2) 진입 불가")
+	assert_does_not_have(r["move"], wall, "불가 건물 칸은 진입 불가")
+	var r2 := HexGrid.movement_ranges(terrain, _center(), 2, MAP, MAP, {}, costs)
+	assert_has(r2["move"], city, "이동력 2: 도시 칸(비용 2) 도달")
+	assert_does_not_have(r2["move"], wall, "이동력 2라도 불가 건물 칸은 진입 불가")
+
+func test_reconstruct_path_respects_entry_cost_budget() -> void:
+	# 습지 이웃(비용 3): 이동력 3이면 직행 경로 [start, swamp], 이동력 2면 도달 불가(빈 경로).
+	var swamp: Vector2i = terrain.get_surrounding_cells(_center())[0]
+	terrain.set_cell(swamp, Terrain.SWAMP, Terrain.ATLAS)
+	var ok := HexGrid.reconstruct_path(terrain, _center(), swamp, 3, MAP, MAP)
+	assert_eq(ok, [_center(), swamp] as Array[Vector2i], "이동력 3: 습지(3)로 직행 경로")
+	var no := HexGrid.reconstruct_path(terrain, _center(), swamp, 2, MAP, MAP)
+	assert_eq(no.size(), 0, "이동력 2: 습지(3) 도달 불가 → 빈 경로")
 
 func test_vision_ignores_mountains() -> void:
 	# 시야(cells_within 기본 blocked=[])는 지형에 막히지 않는다 — 산 이웃도 포함.

@@ -12,7 +12,7 @@
 - **4왕국 모서리 배치**: 플레이어 + NPC 3세력의 거점을 맵 네 모서리 근처(안쪽 `MARGIN=10`칸)에 둔다. → [NPC Bases](npc-bases.md).
   - 플레이어 거점(마을회관) = **남서(SW)** 모서리 `PLAYER_BASE = (MARGIN, MAP_HEIGHT-1-MARGIN) = (10, 39)`.
 - **손맵(직접 제작)**: `_generate_map`이 세 경우를 자동 판별한다.
-  1. **비주얼 손맵(권장·WYSIWYG)**: `TerrainVisual` 아래 오토타일 레이어(Ground/Ocean/Grass/Cliff/Decoration…)를 **에디터에서 직접 칠하면** 그 그림을 **그대로 두고**(`repaint` 안 함), 게임 로직용 지형타입을 비주얼에서 **역산**한다(`_visual_authored`/`_derive_data_from_visuals`/`_derive_type` — 물=WATER, Cliff·Ground바위=MOUNTAIN, 나무=FOREST, GroundOverlay swamp=SWAMP·그 외 모래=DESERT, 나머지 PLAINS). 제작법: `game.tscn` 열고 `TerrainVisual`의 레이어 선택 → TileMap Terrains로 칠하고 저장 → 실행.
+  1. **비주얼 손맵(권장·WYSIWYG)**: `TerrainVisual` 아래 오토타일 레이어(Ground/Ocean/Grass/Cliff/Decoration…)를 **에디터에서 직접 칠하면** 그 그림을 **그대로 두고**(`repaint` 안 함), 게임 로직용 지형타입을 비주얼에서 **역산**한다(`_visual_authored`/`_derive_data_from_visuals`/`_derive_type` — **물=Ocean 있고 Ground 없음**(Ocean은 전체 바닥 underlay라 땅이 안 덮인 칸만 물·강), Cliff·Ground바위=MOUNTAIN, 나무=FOREST, GroundOverlay swamp=SWAMP·그 외 모래=DESERT, 나머지 PLAINS). 제작법: `game.tscn` 열고 `TerrainVisual`의 레이어 선택 → TileMap Terrains로 칠하고 저장 → 실행.
   2. **데이터 손맵**: 비주얼은 비었고 숨김 데이터 레이어(`TerrainLayer`)에 칠해진 게 있으면 그걸 쓰고 `TerrainRenderer`로 비주얼을 그린다. `terrain_tileset` 팔레트는 각 지형 실제 렌더를 캡처한 미리보기(`tiles/terrain_preview/*.png`)로 보인다.
   3. **절차 생성**(둘 다 비었을 때): 전체 초원 + **방향별 지형 덩어리**(서=숲·동=습지·북=사막·남=산·남동=호수, 씨앗+이웃 6칸 `_place_starting_terrain`) + 강 + 길을 만들고 `TerrainRenderer.repaint`. (y↑=남, x↑=동; 캠프·주인공 칸과 안 겹치게)
      - **강**(`_place_river`): 맵 중앙 사인 곡선 `WATER`(거점 4곳과 떨어짐·가장자리 미접촉 → 맵을 완전히 가르지 않아 양끝 우회 가능). 통행 불가 자연 장벽(다리는 후속), Ocean 오토타일이 둑 렌더.

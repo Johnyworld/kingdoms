@@ -6,9 +6,10 @@ extends RefCounted
 ## (terrain_tileset.tres, 모두 atlas (0,0)). 실제 맵 그림은 TerrainRenderer가 이 데이터를 읽어
 ## LaPetiteTile 오토타일 비주얼 레이어 스택에 그린다. → scenes/game/terrain_renderer.gd
 ##
-## 이동 규칙(목적지 지형이 이동력을 반감):
-## - 도착 칸의 지형에 따라, 그 칸까지 갈 수 있는 최대 헥스 거리(이동력)가 정해진다.
-## - 산·물은 진입·통과 불가(도달 거리 -1). BFS 통과도 막는다.
+## 이동 규칙(칸마다 진입비용 누적):
+## - 지나는 칸마다 그 칸의 진입비용(enter_cost)을 이동력에서 소모한다(가중 BFS). → scenes/game/hex_grid.gd
+## - 산·물은 진입 불가(비용 BLOCKED). BFS 통과도 막는다.
+## - 도시 건물·거점 칸은 지형 대신 건물 통행비용이 우선한다(건물 발자국). → scenes/building/build_planner.gd
 
 const PLAINS := 0    # 초원 — 기본 이동 (농장·식량)
 const FOREST := 1    # 숲 — 이동력 1/2(올림) (벌목소·목재)
@@ -46,16 +47,19 @@ static func label(source_id: int) -> String:
 static func is_passable(source_id: int) -> bool:
 	return not IMPASSABLE.has(source_id)
 
-## full 이동력 기준, 이 지형 칸에서 이동을 끝낼 수 있는 최대 헥스 거리.
-## - 숲: ceil(이동력/2), 습지: floor(이동력/2), 산·물: -1(도달 불가), 그 외: 이동력 그대로.
-## - 미도색 셀(source id -1)은 초원으로 취급한다.
-static func move_cap(source_id: int, movement: int) -> int:
+## 진입 불가 칸의 비용 표식(enter_cost 반환값). 가중 BFS가 이 값이면 진입 자체를 막는다.
+const BLOCKED := -1
+
+## 이 지형 칸에 진입하는 데 드는 이동력 비용(칸마다 누적).
+## - 초원·사막·철맥·금맥: 1, 숲: 2, 습지: 3. 산·물: BLOCKED(진입 불가).
+## - 미도색 셀(source id -1)은 초원(1)으로 취급한다.
+static func enter_cost(source_id: int) -> int:
 	match source_id:
 		FOREST:
-			return int(ceil(movement / 2.0))
+			return 2
 		SWAMP:
-			return movement / 2   # 정수 나눗셈 = 내림
+			return 3
 		MOUNTAIN, WATER:
-			return -1
+			return BLOCKED
 		_:
-			return movement
+			return 1

@@ -15,38 +15,40 @@
 
 ## 지형 목록
 
-| id | 상수 | 라벨 | 이동 | 비주얼 렌더(레이어·terrain) |
+| id | 상수 | 라벨 | 진입비용 | 비주얼 렌더(레이어·terrain) |
 | --- | --- | --- | --- | --- |
-| 0 | `PLAINS` | 초원 | 기본 (이동력 그대로) | Ground=GroundGrass + Grass=Light + 성긴 덤불 산재(Decoration Tree_Bush) |
-| 1 | `FOREST` | 숲 | 이동력 **1/2 올림**(`ceil`) | Ground=GroundGrass + Grass=Dark + Decoration=Tree_Pines |
-| 2 | `SWAMP` | 습지 | 이동력 **1/2 내림**(`floor`) | Ground=GroundGrass + GroundOverlay=Swamp |
-| 3 | `MOUNTAIN` | 산 | **진입·통과 불가** | Ground=GroundRock + Cliff=CliffRock + Decoration=Mountain_Basic |
-| 4 | `DESERT` | 사막 | 기본 (이동력 그대로) | Ground=GroundGrass + GroundOverlay=SandTile |
-| 7 | `WATER` | 물 | **진입·통과 불가** | Ocean=Shallow + Waves |
-| 8 | `IRON_VEIN` | 철맥 | 기본 (철광 지형) | Ground=Grass + Decoration=Mountain_Basic (회색 바위 노두) |
-| 9 | `GOLD_VEIN` | 금맥 | 기본 (금광 지형) | Ground=Grass + Decoration=Mountain_SandDune (노란 사구) |
+| 0 | `PLAINS` | 초원 | **1** | Ground=GroundGrass + Grass=Light + 성긴 덤불 산재(Decoration Tree_Bush) |
+| 1 | `FOREST` | 숲 | **2** | Ground=GroundGrass + Grass=Dark + Decoration=Tree_Pines |
+| 2 | `SWAMP` | 습지 | **3** | Ground=GroundGrass + GroundOverlay=Swamp |
+| 3 | `MOUNTAIN` | 산 | **불가**(`BLOCKED`) | Ground=GroundRock + Cliff=CliffRock + Decoration=Mountain_Basic |
+| 4 | `DESERT` | 사막 | **1** | Ground=GroundGrass + GroundOverlay=SandTile |
+| 7 | `WATER` | 물(강 포함) | **불가**(`BLOCKED`) | Ocean 오버레이가 Ground 틈으로 드러남(강도 좁은 물) |
+| 8 | `IRON_VEIN` | 철맥 | **1** | Ground=Grass + Decoration=Mountain_Basic (회색 바위 노두) |
+| 9 | `GOLD_VEIN` | 금맥 | **1** | Ground=Grass + Decoration=Mountain_SandDune (노란 사구) |
 
 > **생산 지형**은 **초원(농장·식량)·숲(벌목소·목재)·철맥(철광)·금맥(금광)** 넷([production.md](../features/production.md)의 `buildable_terrains` 대상). 철맥·금맥은 초원 위에 **바위 노두(철맥=회색, 금맥=노란 사구)** 표식을 얹어 광산 자리를 한눈에 보이게 한다(통행은 가능 — 표식은 Decoration 장식일 뿐 이동/판정에 영향 없음).
 > **남은 id는 재번호하지 않는다**(철맥 8·금맥 9 유지 — 타일셋 참조 안정). id 5·6·10은 공백(제거된 돌·동물·은맥). 데이터 타일셋의 옛 SVG 소스는 보이지 않는 레이어라 렌더에 안 쓰이며 **미사용**으로 남는다(에셋 정리는 후속).
 
-## 이동 규칙 (`move_cap`)
+## 이동 규칙 (`enter_cost`)
 
-**목적지 지형이 이동력을 반감**하는 모델. `move_cap(source_id, movement)`는 그 지형 칸에서 이동을 끝낼 수 있는 최대 헥스 거리를 준다.
+**칸마다 진입비용을 누적**하는 모델(가중 BFS). `enter_cost(source_id)`는 그 지형 칸에 진입하는 데 드는 이동력 비용을 준다. 이동 BFS(`HexGrid.cost_distances`)가 지나는 칸마다 이 비용을 더해, 누적이 이동력 이내인 칸까지 도달할 수 있다.
 
-- 초원·사막: `movement` 그대로.
-- 숲: `ceil(movement/2)` — 예) 이동력 3 → 2, 2 → 1, 1 → 1.
-- 습지: `floor(movement/2)` — 예) 이동력 3 → 1, 2 → 1, **1 → 0**(진입 불가).
-- 산·물: `-1`(도달 불가). `is_passable = false`이며 `IMPASSABLE = [MOUNTAIN, WATER]`로 BFS **통과**도 막는다.
-- **미도색 셀**(`get_cell_source_id` = -1)은 초원으로 취급한다.
+- 초원·사막·철맥·금맥: `1`.
+- 숲: `2`.
+- 습지: `3`.
+- 산·물: `BLOCKED`(-1, 진입 불가). `is_passable = false`이며 `IMPASSABLE = [MOUNTAIN, WATER]`로 BFS **통과**도 막는다.
+- **미도색 셀**(`get_cell_source_id` = -1)은 초원(`1`)으로 취급한다.
 
-> 경로 비용은 균일(칸당 거리 1)하고, **도착 칸의 지형만** 이동 상한에 영향을 준다. 산·물만 통과 자체를 막는다.
-> 시야(`HexGrid.cells_within`)는 지형에 막히지 않는다 — 이동 BFS에만 `IMPASSABLE`을 넘긴다.
+> 예) 이동력 6, 숲(2)을 한 칸 지나면 4 남아 계속 이동. 습지(3)에 서면 3 소모. 산·물은 진입 자체가 불가.
+> **도시 건물·거점 칸**은 지형 대신 건물 통행비용(2, 불가 랜드마크는 BLOCKED)이 우선한다 — [선택과 이동](../features/selection-and-movement.md)·[Building](../entities/Building.md).
+> 시야(`HexGrid.cells_within`)는 지형에 막히지 않고 헥스 거리(균일 1)를 쓴다 — 진입비용은 이동 BFS(`cost_distances`)에만 적용된다.
 
 ## API
 
 | 함수 / 상수 | 설명 |
 | --- | --- |
-| `move_cap(source_id, movement) -> int` | 그 지형 칸까지 갈 수 있는 최대 헥스 거리(-1 = 도달 불가) |
+| `enter_cost(source_id) -> int` | 그 지형 칸 진입비용(초원 1·숲 2·습지 3, 산·물 `BLOCKED`) |
+| `BLOCKED` | 진입 불가 표식(-1). 가중 BFS가 이 비용이면 진입을 막는다 |
 | `is_passable(source_id) -> bool` | 진입 가능 여부(산·물만 `false`) |
 | `label(source_id) -> String` | 지형 라벨(알 수 없는 id는 "초원") |
 | `IMPASSABLE` | 이동 BFS 통과 불가 지형 id 목록(`[MOUNTAIN, WATER]`) |
@@ -55,9 +57,9 @@
 
 ## 테스트
 
-- `test/unit/test_terrain.gd` — `move_cap`(초원/사막/숲 ceil/습지 floor/산·물)·`is_passable`·`label`·`IMPASSABLE`.
+- `test/unit/test_terrain.gd` — `enter_cost`(초원/사막/철맥/금맥 1·숲 2·습지 3·산·물 BLOCKED)·`is_passable`·`label`·`IMPASSABLE`.
 - `test/unit/test_terrain_renderer.gd` — 데이터 타입이 올바른 비주얼 레이어로 그려지는지(물→Ocean, 산→Ground+Cliff, 초원→Ground+Grass), repaint가 이전 그림을 지우는지.
-- `test/unit/test_hex_grid.gd` — 산 통과 불가·숲/습지 이동 상한이 `movement_ranges`에 반영되는지, 시야는 산에 안 막히는지(데이터 레이어 16×16 헥스 위상 동일 → 반경 셀 수 7/19/37 불변).
+- `test/unit/test_hex_grid.gd` — 산·물 통과 불가·숲(2)/습지(3) 진입비용 누적이 `cost_distances`/`movement_ranges`에 반영되는지, 건물비용(`cell_costs`) override(도시 2·불가 BLOCKED), 시야는 산에 안 막히는지(데이터 레이어 16×16 헥스 위상 동일 → 반경 셀 수 7/19/37 불변).
 
 ## 미구현 / TODO (후속 슬라이스)
 

@@ -70,6 +70,19 @@ static func occupied_cells(buildings: Array) -> Dictionary:
 			occ[c] = true
 	return occ
 
+## 완성 건물 발자국의 이동 진입비용 override { cell: cost }. 도시·거점=CITY_MOVE_COST(2), 불가 랜드마크=Terrain.BLOCKED(-1).
+## 건설 중 건물은 통행에 영향 없음(제외). HexGrid 이동 계산(cost_distances)의 cell_costs로 넘긴다.
+## → docs/spec/features/selection-and-movement.md
+static func movement_costs(buildings: Array) -> Dictionary:
+	var costs := {}
+	for b in buildings:
+		if not b.is_complete():
+			continue
+		var mc := BuildingTypes.move_cost(b.building_type)
+		for c in b.cells:
+			costs[c] = mc
+	return costs
+
 ## center에 건물을 놓을 수 있는지. footprint 7헥스가 모두
 ## ① 맵 범위 [0, map_w) x [0, map_h) 안 ② 시야(vision_cells) 안 ③ occupied(기존 건물 점유 셀)와 미겹침
 ## 이면 참. 하나라도 위반하면 거짓(맵 가장자리라 이웃이 범위를 벗어나면 배치 불가).
