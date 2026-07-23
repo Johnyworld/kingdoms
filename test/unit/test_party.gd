@@ -348,6 +348,29 @@ func test_command_flags_persist_across_reset() -> void:
 	assert_true(p.command_follow, "지휘 설정은 reset_turn에서 유지(따라옴)")
 	assert_true(p.command_engage, "지휘 설정은 reset_turn에서 유지(전투우선)")
 
+# --- 이동 목표(move_goal) — 지속(계속 이동) → selection-and-movement.md ---
+
+func test_move_goal_default_none() -> void:
+	assert_eq(_party().move_goal, Vector2i(-1, -1), "생성 직후 이동 목표 없음")
+
+func test_move_goal_persists_across_reset() -> void:
+	var p := _party()
+	p.move_goal = Vector2i(9, 4)
+	p.reset_turn()
+	assert_eq(p.move_goal, Vector2i(9, 4), "이동 목표는 reset_turn에서 유지(다음 턴 계속 이동)")
+
+# --- 소진 표시(exhausted, "E") → selection-and-movement.md ---
+
+func test_exhausted_default_false() -> void:
+	assert_false(_party().exhausted, "생성 직후 소진 아님")
+
+func test_set_exhausted() -> void:
+	var p := _party()
+	p.set_exhausted(true)
+	assert_true(p.exhausted, "set_exhausted(true) 후 소진 참")
+	p.set_exhausted(false)
+	assert_false(p.exhausted, "set_exhausted(false) 후 거짓")
+
 # --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
 
 func test_melee_power_infantry() -> void:

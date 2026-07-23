@@ -6,6 +6,7 @@ extends Node2D
 
 const BLUE := Color(0.35, 0.7, 1.0, 0.95)     # 이번 턴 이동력이 닿는 구간
 const RED := Color(1.0, 0.35, 0.3, 0.95)       # 이동력을 넘어서는 구간
+const YELLOW := Color(1.0, 0.85, 0.25, 0.9)    # 기억된 이동 목표선(계속 이동)
 const WIDTH := 2.0
 const MARKER_R := 5.0                          # 공격 표식 크기(월드)
 
@@ -14,6 +15,7 @@ var _blue: PackedVector2Array = PackedVector2Array()
 var _red: PackedVector2Array = PackedVector2Array()
 var _marker := ""                              # "" | "melee"(칼) | "ranged"(화살)
 var _marker_pos := Vector2.ZERO
+var _goal: PackedVector2Array = PackedVector2Array()   # 노란 이동 목표선(호버선과 독립 레이어)
 
 func setup(terrain: TileMapLayer) -> void:
 	_terrain = terrain
@@ -26,14 +28,26 @@ func show_path(blue: PackedVector2Array, red: PackedVector2Array, marker := "", 
 	_marker_pos = marker_pos
 	queue_redraw()
 
-## 선·표식을 지운다.
+## 호버 선·표식을 지운다(노란 목표선은 유지 — clear_goal로 따로 지움).
 func clear() -> void:
 	_blue = PackedVector2Array()
 	_red = PackedVector2Array()
 	_marker = ""
 	queue_redraw()
 
+## 노란 이동 목표선(현재→목표 전체 경로)을 그린다(호버선과 독립). → squad-stance.md 계속 이동
+func show_goal(points: PackedVector2Array) -> void:
+	_goal = points
+	queue_redraw()
+
+## 노란 목표선을 지운다(선택 해제 시).
+func clear_goal() -> void:
+	_goal = PackedVector2Array()
+	queue_redraw()
+
 func _draw() -> void:
+	if _goal.size() >= 2:
+		draw_polyline(_goal, YELLOW, WIDTH, true)   # 목표선(아래 레이어)
 	if _blue.size() >= 2:
 		draw_polyline(_blue, BLUE, WIDTH, true)
 	if _red.size() >= 2:

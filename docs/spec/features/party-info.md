@@ -15,7 +15,7 @@
   - **요약** — `"이동력 N · 시야 M · 사거리 <근접|N>"` (`party.movement()`·`party.vision()` + 사거리 표기는 패널 자체 `_range_label(party.attack_range())` — 0이면 "근접", 그 외 "사거리 N").
   - `HSeparator`.
   - **구성** — 한 줄: `"지휘관 <commander_name> · 병력 <soldiers>"` (`party.commander_name`·`party.soldiers`). 순수 class+count 모델이라 개별 멤버 목록은 없다.
-  - **행동 버튼 줄**(HBox) — `open`에 넘긴 `actions`(각 `{id, label}`) 버튼을 가로로 놓는다. 비어 있으면 이 줄을 숨긴다. 중앙 메뉴가 없어져 부대 조작 버튼이 이 박스로 들어왔다: **일반부대 선택** 시 소속 관리 가능하면 `[소속]`([Party Lord](party-lord.md)), **영웅부대 선택** 시 명령 가능한 하위부대가 있으면 `[지휘]`([Squad Command](squad-stance.md)). 버튼 클릭 → `action_selected(id)` 방출(`game.gd`가 처리). NPC·조작 대상 아닌 부대는 `actions`가 비어 버튼 줄이 없다.
+  - **행동 버튼 줄**(HBox) — `open`에 넘긴 `actions`(각 `{id, label}`) 버튼을 가로로 놓는다. 비어 있으면 이 줄을 숨긴다. 중앙 메뉴가 없어져 부대 조작 버튼이 이 박스로 들어왔다: **일반부대 선택** 시 소속 관리 가능하면 `[소속]`([Party Lord](party-lord.md)), **영웅부대 선택** 시 명령 가능한 하위부대가 있으면 `[지휘]`([Squad Command](squad-stance.md)), **이동 목표가 남은 부대**면 `[계속 이동]`([Selection & Movement](selection-and-movement.md#이동-목표-기억계속-이동-move_goal) — 목표로 최대 전진). 버튼 클릭 → `action_selected(id)` 방출(`game.gd`가 처리). NPC·조작 대상 아닌 부대는 `actions`가 비어 버튼 줄이 없다.
 
 ## 표시 규칙 (`game.gd` `_handle_click`)
 
