@@ -7,7 +7,7 @@ extends Node2D
 const BLUE := Color(0.35, 0.7, 1.0, 0.95)     # 이번 턴 이동력이 닿는 구간
 const RED := Color(1.0, 0.35, 0.3, 0.95)       # 이동력을 넘어서는 구간
 const YELLOW := Color(1.0, 0.85, 0.25, 0.9)    # 기억된 이동 목표선(계속 이동)
-const WIDTH := 2.0
+const WIDTH := 1.0
 const MARKER_R := 5.0                          # 공격 표식 크기(월드)
 
 var _terrain: TileMapLayer
@@ -46,12 +46,14 @@ func clear_goal() -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	# 선/표식은 16px 헥스 월드에 얇게(WIDTH) 그려 카메라로 확대하므로, 그냥 그리면 계단처럼 깨진다.
+	# MapDraw(슈퍼샘플)로 그려 기본 3배 줌에서도 선명하게. → scenes/game/map_draw.gd
 	if _goal.size() >= 2:
-		draw_polyline(_goal, YELLOW, WIDTH, true)   # 목표선(아래 레이어)
+		MapDraw.polyline(self, _goal, YELLOW, WIDTH)   # 목표선(아래 레이어)
 	if _blue.size() >= 2:
-		draw_polyline(_blue, BLUE, WIDTH, true)
+		MapDraw.polyline(self, _blue, BLUE, WIDTH)
 	if _red.size() >= 2:
-		draw_polyline(_red, RED, WIDTH, true)
+		MapDraw.polyline(self, _red, RED, WIDTH)
 	if _marker == "melee":
 		_draw_sword(_marker_pos)
 	elif _marker == "ranged":
@@ -60,13 +62,13 @@ func _draw() -> void:
 ## 칼 표식 — 세로 날 + 가로 코등이(간단한 십자형 검).
 func _draw_sword(c: Vector2) -> void:
 	var col := Color(1, 1, 1, 0.95)
-	draw_line(c + Vector2(0, -MARKER_R), c + Vector2(0, MARKER_R), col, WIDTH, true)          # 날
-	draw_line(c + Vector2(-MARKER_R * 0.6, MARKER_R * 0.4), c + Vector2(MARKER_R * 0.6, MARKER_R * 0.4), col, WIDTH, true)  # 코등이
+	MapDraw.segment(self, c + Vector2(0, -MARKER_R), c + Vector2(0, MARKER_R), col, WIDTH)          # 날
+	MapDraw.segment(self, c + Vector2(-MARKER_R * 0.6, MARKER_R * 0.4), c + Vector2(MARKER_R * 0.6, MARKER_R * 0.4), col, WIDTH)  # 코등이
 
 ## 화살 표식 — 촉(∧) + 대(짧은 사선).
 func _draw_arrow(c: Vector2) -> void:
 	var col := Color(1, 1, 1, 0.95)
 	var tip := c + Vector2(0, -MARKER_R)
-	draw_line(tip, tip + Vector2(-MARKER_R * 0.6, MARKER_R * 0.7), col, WIDTH, true)
-	draw_line(tip, tip + Vector2(MARKER_R * 0.6, MARKER_R * 0.7), col, WIDTH, true)
-	draw_line(tip, c + Vector2(0, MARKER_R), col, WIDTH, true)   # 대
+	MapDraw.segment(self, tip, tip + Vector2(-MARKER_R * 0.6, MARKER_R * 0.7), col, WIDTH)
+	MapDraw.segment(self, tip, tip + Vector2(MARKER_R * 0.6, MARKER_R * 0.7), col, WIDTH)
+	MapDraw.segment(self, tip, c + Vector2(0, MARKER_R), col, WIDTH)   # 대

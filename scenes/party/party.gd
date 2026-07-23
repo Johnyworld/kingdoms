@@ -288,17 +288,17 @@ func _draw() -> void:
 	# NPC 공격 연출 하이라이트(공격자·대상 발밑 링). 선택 링과 별개, 살짝 더 크게.
 	# 이동/공격 fade(a)를 곱하지 않는다 — 주의를 끄는 신호라 mark_attacked 후에도 선명해야 한다. → npc-movement.md
 	if highlight.a > 0.0:
-		draw_arc(Vector2.ZERO, _RING_R * 1.25, 0.0, TAU, 40, highlight, 3.0, true)
+		MapDraw.ring(self, Vector2.ZERO, _RING_R * 1.25, highlight, 1.5)
 
 	# 선택되면 발밑에 강조 링.
 	if selected:
-		draw_arc(Vector2.ZERO, _RING_R, 0.0, TAU, 40, Color(1.0, 0.95, 0.4, a), 2.5, true)
+		MapDraw.ring(self, Vector2.ZERO, _RING_R, Color(1.0, 0.95, 0.4, a), 1.25)
 
 	# 지휘 범위 버프 중이면 머리 위에 작은 금색 갈매기(▲) 배지. → command-range.md
 	if command_buffed:
 		var gold := Color(1.0, 0.85, 0.2, a)
 		var ty := -_CMD_BADGE_Y   # 머리 위(작게·가깝게)
-		draw_colored_polygon(PackedVector2Array([
+		MapDraw.polygon(self, PackedVector2Array([
 			Vector2(0, ty - _CMD_BADGE_TOP),
 			Vector2(_CMD_BADGE_W, ty + _CMD_BADGE_BOT),
 			Vector2(-_CMD_BADGE_W, ty + _CMD_BADGE_BOT),
@@ -307,7 +307,7 @@ func _draw() -> void:
 	# 일반부대면 헥스 아래쪽(빈 땅)에 남은 인원수 배지(어두운 배경 원 + 흰 숫자). → Party.md
 	if shows_member_count():
 		var bpos := _COUNT_BADGE_POS   # 발 오른쪽·아래(헥스 안)
-		draw_circle(bpos, _COUNT_BADGE_R, Color(0.1, 0.08, 0.05, 0.85 * a))
+		MapDraw.disc(self, bpos, _COUNT_BADGE_R, Color(0.1, 0.08, 0.05, 0.85 * a))
 		# 숫자는 MapText(갈무리14+볼드+슈퍼샘플)로 선명하게. baseline을 원 중앙에 맞춤(fs*0.36).
 		MapText.draw_centered(self, str(soldiers), bpos.x, bpos.y + _COUNT_BADGE_FS * 0.36, _COUNT_BADGE_FS, Color(1, 1, 1, a))
 

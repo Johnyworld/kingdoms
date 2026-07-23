@@ -117,6 +117,7 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 - 파랑/빨강 분할: `HexGrid.path_reachable_prefix(terrain, path, budget, cell_costs)`로 **이동력(`move_points`)이 닿는 마지막 인덱스**를 구해, `path[0..idx]`는 파랑, `path[idx..]`는 빨강으로 그린다(경계 칸은 두 색이 만난다).
 - 적 위 호버: 경로 선 끝을 **공격 위치**(근접=이동 최소 인접 stand, 원거리=사거리에 드는 이동 최소 칸·제자리 우선)로 잡고, 마우스 커서를 **칼/화살** 표식으로 바꾼다. → [공격 통합](party-action-menu.md#공격-통합-적-클릭)
 - `show_path(blue, red, marker, marker_pos)` / `clear()` — 호버 폴리라인(+공격 표식)을 그리거나 지운다.
+- **렌더**: 선(폴리라인)·공격 표식은 16px 헥스 월드에 얇게(선폭 `WIDTH` 1) 그려 카메라로 3~8배 확대되므로, 그냥 그리면 안티에일리어싱 feather가 함께 확대돼 계단처럼 깨진다. **`MapDraw` 공용 헬퍼**(`scenes/game/map_draw.gd`)로 그린다 — 좌표·선폭을 `SUPERSAMPLE`(3)배로 키워 그린 뒤 `draw_set_transform`으로 1/3 축소(고해상도 래스터 후 축소)해 기본 3배 줌에서도 선명하다. [MapText](../entities/Party.md)(텍스트)의 벡터판. → 하이브리드(픽셀 스프라이트 + 선명한 벡터 UI)
 - **노란 목표선**(별개 레이어): `show_goal(points: PackedVector2Array)` / `clear_goal()` — [이동 목표](#이동-목표-기억계속-이동-move_goal)가 남은 부대 선택 시 현재→목표 전체 경로를 노란색으로 그린다. 호버선과 독립이라 마우스를 움직여도 유지되고, 선택 해제 시 `clear_goal()`로 지운다.
 
 ### 경로 도달 구간 (`HexGrid.path_reachable_prefix`)
