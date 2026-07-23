@@ -29,14 +29,14 @@ content_margin_top = 40.0
 content_margin_right = 40.0
 content_margin_bottom = 40.0
 
-; 버튼: 사각 라운드 버튼(탄색 테두리). 상태는 modulate로만 구분(같은 텍스처 재사용).
+; 버튼: 얇은 테두리 롱버튼(탄 외곽선+네이비 베벨, 올리브 채움). 상태는 modulate로만 구분(같은 텍스처 재사용).
 [sub_resource type="StyleBoxTexture" id="SBT_btn_normal"]
 texture = ExtResource("1_sheet")
-texture_margin_left = 21.0
-texture_margin_top = 21.0
-texture_margin_right = 21.0
-texture_margin_bottom = 21.0
-region_rect = Rect2(582, 303, 84, 81)
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+region_rect = Rect2(960, 318, 96, 45)
 content_margin_left = 16.0
 content_margin_top = 8.0
 content_margin_right = 16.0
@@ -44,11 +44,11 @@ content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxTexture" id="SBT_btn_hover"]
 texture = ExtResource("1_sheet")
-texture_margin_left = 21.0
-texture_margin_top = 21.0
-texture_margin_right = 21.0
-texture_margin_bottom = 21.0
-region_rect = Rect2(582, 303, 84, 81)
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+region_rect = Rect2(960, 318, 96, 45)
 modulate_color = Color(0.85, 0.89, 1, 1)
 content_margin_left = 16.0
 content_margin_top = 8.0
@@ -57,11 +57,11 @@ content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxTexture" id="SBT_btn_pressed"]
 texture = ExtResource("1_sheet")
-texture_margin_left = 21.0
-texture_margin_top = 21.0
-texture_margin_right = 21.0
-texture_margin_bottom = 21.0
-region_rect = Rect2(582, 303, 84, 81)
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+region_rect = Rect2(960, 318, 96, 45)
 modulate_color = Color(0.66, 0.68, 0.75, 1)
 content_margin_left = 16.0
 content_margin_top = 8.0
@@ -70,11 +70,11 @@ content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxTexture" id="SBT_btn_disabled"]
 texture = ExtResource("1_sheet")
-texture_margin_left = 21.0
-texture_margin_top = 21.0
-texture_margin_right = 21.0
-texture_margin_bottom = 21.0
-region_rect = Rect2(582, 303, 84, 81)
+texture_margin_left = 12.0
+texture_margin_top = 12.0
+texture_margin_right = 12.0
+texture_margin_bottom = 12.0
+region_rect = Rect2(960, 318, 96, 45)
 modulate_color = Color(0.6, 0.6, 0.6, 0.5)
 content_margin_left = 16.0
 content_margin_top = 8.0
