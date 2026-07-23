@@ -1,77 +1,61 @@
-# Feature: Party Action Menu (부대 행동 메뉴)
+# Feature: Party Action Menu (부대 행동 — 공격 통합 · 팝업)
 
 > 스크립트: `scenes/party/party_action_menu.gd` (`class_name PartyActionMenu extends CanvasLayer`) · `scenes/game/game.gd`
 
-플레이어 [부대](../entities/Party.md)를 클릭하면 이동 범위(파랑)와 **공격 가능한 적 타일(빨강)** 이 표시되고, 화면 중앙에 행동 메뉴가 뜬다. 이동은 맵 클릭, 공격은 **적 타일 클릭 팝업**, 사격은 메뉴로 한다.
+플레이어 [부대](../entities/Party.md)를 선택하면 이동 범위(파랑)와 **공격 가능한 적 타일(빨강)** 이 표시된다. **중앙 행동 메뉴·`SHOOT` 모드는 없다**([Selection & Movement](selection-and-movement.md)) — 이동은 맵 클릭, **공격은 적을 직접 클릭**한다. `PartyActionMenu`(코드 구성 버튼 패널)는 이제 **대상 옆 팝업**(거점 점령 [흡수]/[파괴], 인접 아군 [병합], 작전 메뉴)에만 쓴다. [소속] 버튼은 [부대 정보 패널](party-info.md) 안으로 옮겼다.
 
 ## 공격 가능 판정 (`game.gd`)
 
-부대가 이번 턴 그 적을 칠 수 있는지 두 가지로 본다([Selection & Movement](selection-and-movement.md)).
+부대가 이번 턴 그 적을 칠 수 있는지 두 가지로 본다([Selection & Movement](selection-and-movement.md)). 이동해서 붙거나 사거리에 들 수 있으면 포함한다(이동력 범위 기준).
 
-- **근접 가능(`can_melee`)** — (현재 칸 ∪ 이동 범위 칸) 중 그 적에 **인접한 칸**이 있으면 참(이동해서 붙을 수 있음). 근접 무기 사거리는 0이라 **인접해야** 친다.
-- **사격 가능(`can_shoot`)** — 부대가 원거리 무기(사거리 ≥ 2)를 갖고, **현재 위치**에서 그 적까지 헥스 거리 ≤ 부대 사거리면 참(제자리 사격).
-- **공격 가능한 적** = `can_melee` 또는 `can_shoot`. 그 적 타일에 **빨강 오버레이**를 그린다(범위 영역이 아니라 적 타일 자체).
+- **근접 가능(`can_melee`)** — (현재 칸 ∪ 이동 범위 칸) 중 그 적에 **인접한 칸**이 있으면 참(이동해 붙을 수 있음). 근접 무기는 인접(거리 1)해야 친다.
+- **사격 가능(`can_shoot`)** — 부대가 원거리 무기(사거리 ≥ 2)를 갖고, (현재 칸 ∪ 이동 범위 칸) 중 그 적까지 헥스 거리 ≤ 사거리인 칸이 있으면 참(필요 시 사거리에 들도록 이동 후 제자리 사격).
+- **공격 가능한 적** = `can_melee` 또는 `can_shoot`. 그 적 타일에 **빨강 오버레이**를 그리고, 그 타일 위 호버 시 커서를 칼/화살로 바꾼다. 병종이 근접이면 근접, 원거리면 사격으로 **자동 결정**(선택지 없음).
 
-## 상호작용 모드 (`game.gd`)
+## 공격 통합 (적 클릭)
 
-| 모드 | 표시 | 클릭 |
-| --- | --- | --- |
-| `MOVE`(기본) | 파랑 이동 범위 + 빨강 공격 가능 적 타일 + 중앙 메뉴 | 도달 빈칸 → 이동, 공격 가능 적 → **적 팝업**, 그 외 NPC → 정보 |
-| `SHOOT` | **사격 사거리 전체(빨강)** | 사거리 내 사격 가능 적 → **제자리 사격**(전투), 그 외 → `MOVE` 취소 |
+공격 가능한 적 타일을 클릭하면 팝업 없이 **바로 공격**한다(`game.gd`가 `ClickRouter` 앞단에서 가로챈다 → [Selection & Movement](selection-and-movement.md)). 대상 칸→`_attack_targets[cell]`(= `{enemy, cell, melee, shoot, stand}`).
 
-- 중앙 메뉴 `[사격]` → `SHOOT` 모드. 적 팝업 `[사격]` → 그 적 바로 사격. 둘 다 현재 위치 원거리 전투.
-- 근접 `[공격]`은 적 팝업에서만.
+- **근접(`melee`)**: `stand`(그 적에 인접한 도달 칸; 이미 인접이면 현재 칸)으로 이동한 뒤 근접 전투. `stand`까지 경로 누적비용만큼 이동력을 소모한다. 승리 시 수비 타일 점령([Lang Battle](lang-battle.md)).
+- **원거리(`shoot`)**: `stand`(사거리에 드는 **가장 먼** 도달 칸 = `HexGrid.best_fire_cell`; 이미 사거리 안이면 현재 칸)으로 (필요 시) 이동한 뒤 제자리 사격(점령 없음). 접근분만큼 이동력 소모.
+- **이동·공격 독립**: 공격은 턴당 1회(`mark_attacked`)지만 **이동력은 별개**다. 접근 이동은 이동력을 쓰되, 타격 자체는 이동력을 쓰지 않는다. 공격 후에도 이동력이 남고 부대가 살아 있으면 `game.gd`가 **전투 종료 뒤 다시 선택**해 계속 이동할 수 있게 한다. 이동을 다 쓴 부대도 공격은 할 수 있다.
+- **방어된 적 거점**은 그 중심 타일 위 부대를 이 방식으로 친다(별도 캠프 공격 없음). → [거점 방어](camp-capture.md#거점-방어-창발--중심-점거).
 
-## 메뉴 버튼 구성 (순수)
+## 팝업 버튼 구성 (순수)
 
-노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`.
+노드 비의존 정적 함수(테스트 용이). 각 원소 `{id, label, enabled}`. (중앙 메뉴 `party_actions`·적 공격 팝업 `enemy_actions`는 **삭제** — 공격은 직접 클릭, [소속]은 [부대 정보](party-info.md)로 이동.)
 
-- `party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_manage_lord := false) -> Array` — **중앙 메뉴**.
-  - `{id="shoot", label="사격", enabled=can_shoot_any}` 가 항상 첫 버튼.
-    - **이동 전**(`moved=false`): `[사격]`.
-    - **이동 후**(`moved=true`): `[사격][대기]`. `{id="wait", label="대기", enabled=true}` 는 **효과 없이 턴만 종료**. `can_undo`면 뒤에 `{id="undo", label="취소", enabled=true}` 추가.
-    - **일반부대이고 소속 관리 가능**(`can_manage_lord=true` — 인접 아군 영웅부대 있음 또는 이미 소속 보유)이면 `{id="lord", label="소속"}`이 **맨 뒤**에 추가된다([소속 UI](party-lord.md)). 턴 소비 없음.
-  - ([휴식]·[경계]·[분할]·[장비] 버튼은 순수 랑그릿사화(M4-A/B/C)로 제거됨 — 개별 병사 HP·장비 없음.)
-- `stance_actions() -> Array` — **작전 메뉴**(영웅 이동 직후 하위부대 통솔). 이번 슬라이스는 `[{id="st_follow", label="추종"}, {id="st_hold", label="대기"}]`(둘 다 활성). 교전·돌격은 후속. → [Squad Stance](squad-stance.md).
-- `enemy_actions(can_melee: bool, can_shoot: bool) -> Array` — **적 클릭 팝업** `[공격][사격]`.
-  - `{id="attack", label="공격", enabled=can_melee}` · `{id="shoot", label="사격", enabled=can_shoot}`.
-  - 방어된 적 거점은 그 **중심 타일 위 부대를 이 팝업으로 공격**한다(별도 캠프 공격 팝업 없음). → [거점 방어](camp-capture.md#거점-방어-창발--중심-점거).
-- `capture_actions() -> Array` — **적 거점 클릭 팝업** `[흡수][파괴]`(둘 다 활성). → [Camp Capture](camp-capture.md).
-  - `{id="absorb", label="흡수", enabled=true}` · `{id="destroy", label="파괴", enabled=true}`.
+- `capture_actions() -> Array` — **적 거점 클릭 팝업** `[흡수][파괴]`(둘 다 활성). → [Camp Capture](camp-capture.md). `{id="absorb", label="흡수"}` · `{id="destroy", label="파괴"}`.
 - `merge_actions() -> Array` — **인접 아군 부대 클릭 팝업** `[병합]`. → [Party Composition](party-composition.md).
+- (`stance_actions` 작전 메뉴는 **삭제** — 영웅 지휘는 [부대 정보](party-info.md)의 [지휘] 지속 설정으로 대체. → [Squad Command](squad-stance.md))
 
 ## UI (`party_action_menu.gd`)
 
 - 코드 구성 버튼 패널([camp_menu](camp-menu.md)·[party_info](party-info.md) 패턴). 버튼만 클릭 흡수, 나머지 화면은 맵으로 통과.
-- `open(buttons: Array, screen_pos: Vector2)` — 버튼을 채우고 **클릭한 부대 토큰의 화면 좌표 근처**(우측 하단 오프셋)에 패널을 띄운다. 화면 밖으로 넘치지 않게 클램프.
+- `open(buttons: Array, screen_pos: Vector2)` — 버튼을 채우고 **클릭한 대상의 화면 좌표 근처**에 패널을 띄운다. 화면 밖으로 넘치지 않게 클램프.
 - `close()` — 감춘다. 버튼 클릭 시 `action_selected(id)` 방출(팝업 대상은 `game.gd`가 보관).
 
 ## 행동 효과 (`game.gd`)
 
-- **`[공격]`(근접)**: 적 인접 도달 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령([Lang Battle](lang-battle.md)).
-- **`[사격]`(원거리)**: 현재 위치 원거리 전투(이동·점령 없음).
-- **`[대기]`**(이동 후만): 효과 없이 턴만 종료.
-- **`[취소]`**(이동 후·되돌리기 가능): 아직 공격 전이면 **직전 이동을 되돌린다** — 부대를 이동 전 칸으로 되돌리고 `moved_this_turn`을 해제(다시 이동 가능), 시야 갱신. `game.gd`가 **마지막 이동 1건**만 추적한다(`_undo_party`·`_undo_cell`).
-  - 공격/사격/대기(턴 종료 행동)를 하면 되돌리기가 사라진다. 다른 부대가 이동하면 그 부대로 교체된다(현재 플레이어 부대는 1개라 실질 단일). 턴 종료 시에도 초기화.
-- 취소를 제외한 모든 행동은 부대 행동을 끝낸다(공격/사격/대기=`mark_attacked`).
-- (구 [휴식]·[경계]는 순수 랑그릿사화(M4-C)로 제거 — 개별 병사 HP·회복 개념 없음.)
+- **근접 공격**: 적 인접 도달 칸으로 이동 후 근접 전투. 승리 시 수비 타일 점령([Lang Battle](lang-battle.md)).
+- **원거리 공격**: 사거리에 드는 가장 먼 칸으로 (필요 시) 이동 후 제자리 사격(점령 없음).
+- **점령([흡수]/[파괴])**: 무방비 적 거점을 흡수(세력 편입)하거나 파괴. 인접 칸으로 이동 후 실행. 행동 종료(`mark_attacked`).
+- **병합([병합])**: 인접 아군 부대를 병합. → [Party Composition](party-composition.md).
+- 공격·점령은 부대 공격 행동을 끝낸다(`mark_attacked`). ([사격]/[대기]/[취소] 중앙 버튼, [휴식]·[경계]는 삭제됨.)
 
 ## 테스트 시나리오
 
 ### 버튼 구성 — `test/unit/test_party_action_menu.gd`
-- [정상] `party_actions(false, true, false)` → `[사격(활성)]`(이동 전)
-- [정상] `party_actions(true, true, false)` → `[사격(활성), 대기]`(이동 후)
-- [정상] `party_actions(true, false, true)` → `[사격(비활성), 대기, 취소]`(되돌리기 가능)
-- [경계] `party_actions(false, true, true)` → `[사격]`(이동 전이면 취소 없음)
-- [정상] `can_manage_lord=true` → 맨 뒤에 `{id="lord"}` 추가
-- [정상] `stance_actions()` → `[추종, 대기, 교전, 돌격]`([Squad Stance](squad-stance.md))
-- [정상] `enemy_actions(true, false)` → `[공격(활성), 사격(비활성)]`
-- [정상] `enemy_actions(false, true)` → `[공격(비활성), 사격(활성)]`
+- [정상] `capture_actions()` → `[흡수, 파괴]`(둘 다 활성)
+- [정상] `merge_actions()` → `[병합]`
+- (중앙 `party_actions`·적 팝업 `enemy_actions`·작전 `stance_actions`는 삭제 — 관련 테스트 제거)
 
-### 모드·연출 (실행 확인)
-- 부대 클릭 → 파랑 이동 범위 + 공격 가능 적 빨강 + **토큰 근처** 메뉴 [사격].
-- 공격 가능 적 클릭 → 팝업 [공격][사격]. [공격] 시 인접 이동 후 전투·승리 시 점령.
+### 공격 판정 (실행 확인 — `game.gd`)
+공격 가능 판정(`_attack_targets`)·적 클릭 공격·커서·전투 후 재선택은 씬 트리·전투 오버레이 의존이라 실행으로 확인한다.
+- 근접 부대 선택 → 사거리(이동+인접) 안 적 빨강, 호버 시 칼 커서 + 인접 칸까지 경로. 클릭 → 이동 후 전투, 승리 시 점령.
+- 원거리 부대 선택 → 이동해 사거리에 들 수 있는 적 빨강, 호버 시 화살 커서 + 사격 위치까지 경로. 클릭 → (필요 시) 이동 후 제자리 사격.
+- 공격 후 이동력이 남으면 그 부대가 다시 선택돼 계속 이동 가능(이동·공격 독립).
 
 ## 관련
 
-- 공격 가능 판정·범위·이동은 [Selection & Movement](selection-and-movement.md), 전투는 [Lang Battle](lang-battle.md), 정보 패널은 [Party Info](party-info.md).
+- 공격 가능 판정·범위·이동·경로 미리보기·`best_fire_cell`은 [Selection & Movement](selection-and-movement.md), 전투는 [Lang Battle](lang-battle.md), 정보 패널·[소속] 버튼은 [Party Info](party-info.md).

@@ -1,8 +1,8 @@
 class_name PartyActionMenu
 extends CanvasLayer
-## 부대 행동 메뉴. 부대/적 클릭 시 클릭한 토큰 근처에 버튼을 띄운다(부대: [사격][휴식][경계]/[사격][대기], 적: [공격][사격]).
-## 버튼만 클릭을 흡수하고 나머지 화면은 맵으로 통과시킨다(이동·타겟팅은 맵 클릭).
-## UI는 코드로 구성한다(camp_menu·party_info와 같은 패턴, 별도 .tscn 없음).
+## 부대 행동 팝업. 대상(거점/인접 아군) 근처에 버튼을 띄운다(거점: [흡수][파괴], 아군: [병합], 작전: [추종]…).
+## 중앙 메뉴·적 공격 팝업은 삭제됨 — 공격은 적 직접 클릭, [소속]은 부대 정보 박스로 이동(→ party-action-menu.md).
+## 버튼만 클릭을 흡수하고 나머지 화면은 맵으로 통과시킨다. UI는 코드로 구성(camp_menu·party_info 패턴, 별도 .tscn 없음).
 
 signal action_selected(id: String)
 
@@ -11,34 +11,6 @@ const CLICK_OFFSET := Vector2(24, 12)   # 클릭 지점 기준 패널 좌상단 
 var _root: Control
 var _panel: PanelContainer
 var _list: VBoxContainer
-
-## 부대 메뉴 버튼. 이동 전 [사격](+소속), 이동 후 [사격][대기](+취소).
-## 노드 비의존. → party-lord.md  (휴식·경계·분할은 순수 랑그릿사화(M4-C)로 제거 — 개별 병사 HP 없음)
-static func party_actions(moved: bool, can_shoot_any: bool, can_undo: bool, can_manage_lord := false) -> Array:
-	var out: Array = [{"id": "shoot", "label": "사격", "enabled": can_shoot_any}]
-	if moved:
-		out.append({"id": "wait", "label": "대기", "enabled": true})
-		if can_undo:
-			out.append({"id": "undo", "label": "취소", "enabled": true})
-	if can_manage_lord:
-		out.append({"id": "lord", "label": "소속", "enabled": true})   # 일반부대 소속 영웅 설정/해제(인접 영웅) → party-lord.md
-	return out
-
-## 작전 메뉴 버튼(영웅 이동 직후 하위부대 일괄 통솔). [추종][대기][교전][돌격]. → squad-stance.md
-static func stance_actions() -> Array:
-	return [
-		{"id": "st_follow", "label": "추종", "enabled": true},   # 영웅 목적지 인접 빈 칸으로 집결
-		{"id": "st_hold", "label": "대기", "enabled": true},     # 제자리 유지(방어 버프 미구현)
-		{"id": "st_engage", "label": "교전", "enabled": true},   # 보이는 적 중 최근접 접근·사거리 내 전투(신중)
-		{"id": "st_charge", "label": "돌격", "enabled": true},   # 목표 1지점 어택무브(경로 상 적 무조건 교전)
-	]
-
-## 적 클릭 팝업 버튼 [공격][사격]을 각 활성 조건으로(이동은 없음).
-static func enemy_actions(can_melee: bool, can_shoot: bool) -> Array:
-	return [
-		{"id": "attack", "label": "공격", "enabled": can_melee},
-		{"id": "shoot", "label": "사격", "enabled": can_shoot},
-	]
 
 ## 적 거점 클릭 팝업 버튼 [흡수][파괴]. 인접 가능한 캠프에서만 열리므로 둘 다 활성.
 static func capture_actions() -> Array:

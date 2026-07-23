@@ -63,10 +63,12 @@
 | --- | --- | --- |
 | 위치 | `position` | Node2D 위치. 맵 토큰으로서 부대가 선 칸 |
 | 선택됨 | `selected` | 선택 상태. `set_selected(value)`로 변경 시 강조 링을 다시 그린다 |
-| 이번 턴 이동함 | `moved_this_turn` | 이번 [턴](../features/turn.md)에 이미 이동했는지 |
+| 잔여 이동력 | `move_points` | 이번 [턴](../features/turn.md)에 남은 이동력(`int`). 생성·`reset_turn()` 시 `movement()`로 채워지고, 범위 안 칸으로 이동할 때마다 경로 누적비용만큼 `spend_movement(cost)`로 차감된다. `> 0`이면 계속 이동 가능(다중 클릭). NPC·공격 접근처럼 "이동 종료"가 필요하면 `mark_moved()`로 0으로 만든다 |
 | 이번 턴 공격함 | `attacked_this_turn` | 이번 턴에 이미 공격했는지. 공격은 그 부대의 행동을 끝낸다([전투](../features/lang-battle.md)) |
+| 추종 방식 | `command_follow` | 영웅부대 지휘 설정. `true`=따라옴(하위부대 자동 추종), `false`=직접명령. 기본 `false`. **지속**(reset_turn에서 안 바뀜). → [Squad Command](../features/squad-stance.md) |
+| 전투 스탠스 | `command_engage` | 영웅부대 지휘 설정. `true`=전투우선(따라오다 사거리 적 교전), `false`=전투회피. 기본 `false`. 따라옴일 때만 의미. **지속**. → [Squad Command](../features/squad-stance.md) |
 
-한 턴에 **이동 1회 + 공격 1회**가 가능하다. 이동해도 공격은 아직 할 수 있지만, 공격하면 이동·공격 모두 끝난다. 어느 하나라도 했으면 토큰을 흐리게 표시한다.
+한 턴에 **이동력을 여러 번에 걸쳐 소진(이동 여러 번) + 공격 1회**가 가능하다(문명/에오원4식). **이동과 공격은 독립**이다 — 이동력이 남으면 (공격했든 안 했든) 계속 이동할 수 있고, 이동을 마쳤어도 아직 공격할 수 있다([Turn](../features/turn.md)). 이동력이 0이면서 공격까지 마쳤으면(할 게 없으면) 토큰을 흐리게 표시한다.
 
 ## 맵 토큰 외형 (Sprite)
 
@@ -102,14 +104,14 @@
 - `melee_power() -> int` / `ranged_power() -> int` — 교전 선호 판정([NPC 이동](../features/npc-movement.md))용 파워. 병종이 근접이면 `melee_power = 클래스 AT × soldiers`·`ranged_power = 0`, 원거리(경궁병)면 반대. [UnitTypes](../data/unit-types.md) 기반.
 - `archetype() -> String` — 이 부대의 아키타입 id(UnitTypes 카탈로그 키). 영웅부대는 `"hero"`, 그 외는 `troop_type`. 위 클래스 기반 스탯의 조회 키.
 - `set_selected(bool)` — 선택 상태를 토글하고 `queue_redraw()`.
-- `can_move() -> bool` — 이번 턴에 이동 가능한지(`not moved_this_turn and not attacked_this_turn` — 공격했으면 이동 불가).
+- `can_move() -> bool` — 이번 턴에 이동 가능한지 = **이동력이 남았으면**(`move_points > 0`). 공격 여부와 무관(이동·공격 독립).
 - `can_attack() -> bool` — 이번 턴에 공격 가능한지(`not attacked_this_turn` — 이동만 했으면 아직 가능).
-- `mark_moved() -> void` — 이동 완료 표시(`moved_this_turn = true`). 흐리게 다시 그린다.
+- `spend_movement(cost: int) -> void` — 이동력을 `cost`만큼 차감한다(`move_points = max(0, move_points - cost)`). 0 미만으로 내려가지 않는다. 다중 클릭 이동·ESC 정지가 실제 이동한 누적비용만큼 부른다. 흐리게 다시 그린다.
+- `mark_moved() -> void` — 이동력을 0으로 만들어 이번 턴 이동을 끝낸다(`move_points = 0`). NPC 1회 이동·공격 접근처럼 "더 못 움직임"을 확정할 때 쓴다. 흐리게 다시 그린다.
 - `mark_attacked() -> void` — 공격 완료 표시(`attacked_this_turn = true`, 행동 종료). 흐리게 다시 그린다. [대기]도 이걸 쓴다.
-- `undo_move() -> void` — 이동 되돌리기. `moved_this_turn = false`(다시 이동 가능)로 되돌리고 불투명하게 다시 그린다. 위치 복원·시야 갱신은 `game.gd`([행동 메뉴](../features/party-action-menu.md) `[취소]`).
 - `can_rest() -> bool` — 아직 행동(대기 등)이 가능한지(`not attacked_this_turn`). 선택 가능 판정에 쓴다.
-- `reset_turn() -> void` — 턴 종료 시 호출. `moved_this_turn`·`attacked_this_turn`를 `false`로 되돌리고 불투명하게 다시 그린다.
-- `_draw()` — `soldiers <= 0`(전멸)이면 스프라이트를 숨기고 아무것도 그리지 않는다("사라짐"). 그 외엔 자식 [스프라이트](#맵-토큰-외형-sprite)의 프레임·틴트·재생을 현재 상태에 맞추고, 캔버스로 오버레이를 얹는다: 선택 시 발밑 강조 링(노란색), NPC 공격 [하이라이트](../features/npc-movement.md) 링, [지휘 버프](../features/command-range.md) 중이면 캐릭터 **머리 위**에 아주 작은 금색 갈매기(▲) 배지, `shows_member_count()`면 **발=중심 기준 아래-우측**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자, 폰트 **갈무리14**(`_BADGE_FONT`, 픽셀 폰트 — fallback 벡터 폰트는 흐릿해 교체)). **배지·삼각형은 16px 헥스 규모**의 작은 상수로 잡는다(`_CMD_BADGE_*`: 반폭 2.5·머리 위 y −10.5; `_COUNT_BADGE_*`: 중심 (4,4)·반지름 3·폰트 4). **숫자는 `MapText` 공용 헬퍼**(`scenes/game/map_text.gd`)로 그린다 — 갈무리14(픽셀)+합성 볼드(`variation_embolden` 0.4, regular만 있어 합성)를 **슈퍼샘플**(3배 래스터 후 1/3 축소)해 작아도 기본 3배 줌에서 48px 헥스급으로 또렷하다. 부대 노드는 `texture_filter = NEAREST`. (거점/세력 라벨도 같은 헬퍼를 쓴다 → [건물 렌더](../features/building.md).) 캐릭터 스프라이트는 헥스 위로 조금 솟을 수 있다. `moved_this_turn`/`attacked_this_turn`이면 스프라이트·오버레이를 반투명하게(`_MOVED_ALPHA`). 인원 배지는 플레이어·보이는 NPC 일반부대 모두 표시(사상자로 줄어든 병력 확인). 몸통 원·외곽선·코드 병종 아이콘은 스프라이트로 대체되어 그리지 않는다.
+- `reset_turn() -> void` — 턴 종료 시 호출. `move_points`를 `movement()`로 채우고 `attacked_this_turn`를 `false`로 되돌린 뒤 불투명하게 다시 그린다.
+- `_draw()` — `soldiers <= 0`(전멸)이면 스프라이트를 숨기고 아무것도 그리지 않는다("사라짐"). 그 외엔 자식 [스프라이트](#맵-토큰-외형-sprite)의 프레임·틴트·재생을 현재 상태에 맞추고, 캔버스로 오버레이를 얹는다: 선택 시 발밑 강조 링(노란색), NPC 공격 [하이라이트](../features/npc-movement.md) 링, [지휘 버프](../features/command-range.md) 중이면 캐릭터 **머리 위**에 아주 작은 금색 갈매기(▲) 배지, `shows_member_count()`면 **발=중심 기준 아래-우측**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자, 폰트 **갈무리14**(`_BADGE_FONT`, 픽셀 폰트 — fallback 벡터 폰트는 흐릿해 교체)). **배지·삼각형은 16px 헥스 규모**의 작은 상수로 잡는다(`_CMD_BADGE_*`: 반폭 2.5·머리 위 y −10.5; `_COUNT_BADGE_*`: 중심 (4,4)·반지름 3·폰트 4). **숫자는 `MapText` 공용 헬퍼**(`scenes/game/map_text.gd`)로 그린다 — 갈무리14(픽셀)+합성 볼드(`variation_embolden` 0.4, regular만 있어 합성)를 **슈퍼샘플**(3배 래스터 후 1/3 축소)해 작아도 기본 3배 줌에서 48px 헥스급으로 또렷하다. 부대 노드는 `texture_filter = NEAREST`. (거점/세력 라벨도 같은 헬퍼를 쓴다 → [건물 렌더](../features/building.md).) 캐릭터 스프라이트는 헥스 위로 조금 솟을 수 있다. **이동력을 다 썼고(`move_points == 0`) 공격까지 마쳤으면(`attacked_this_turn`)** — 이번 턴 더 할 게 없을 때 — 스프라이트·오버레이를 반투명하게(`_MOVED_ALPHA`). 인원 배지는 플레이어·보이는 NPC 일반부대 모두 표시(사상자로 줄어든 병력 확인). 몸통 원·외곽선·코드 병종 아이콘은 스프라이트로 대체되어 그리지 않는다.
 
 ## 테스트 시나리오
 
@@ -164,16 +166,20 @@
 - [정상] 경보병 부대 → `movement() ==` 클래스 mv(6); 아키타입 없으면 0
 - [정상] 경보병 부대 → `vision() ==` 클래스 카탈로그 시야
 - [정상] 경궁병 → `attack_range() == 3`(원거리); 경보병 → 0(근접)
-- [정상] 생성 직후 `moved_this_turn`·`attacked_this_turn` 거짓, `can_move()`·`can_attack()` 참
-- [정상] `mark_moved()` 후 `moved_this_turn` 참, `can_move()` 거짓, `can_attack()`는 **여전히 참**(이동 후 공격 가능)
-- [정상] `mark_attacked()` 후 `can_attack()` 거짓, `can_move()`도 거짓(공격이 이동도 끝냄)
-- [정상] `mark_moved()` 후 `undo_move()` → `moved_this_turn` 거짓, `can_move()` 다시 참
+- [정상] 경보병 부대 `reset_turn()` 후 `move_points == movement()`(6), `can_move()`·`can_attack()` 참
+- [정상] `spend_movement(2)`(이동력 6일 때) → `move_points == 4`, `can_move()` 여전히 참; `can_attack()` 참(공격은 별개)
+- [정상] 남은 이동력을 모두 `spend_movement`로 소진 → `move_points == 0`, `can_move()` 거짓
+- [경계] `spend_movement(cost)`가 남은 이동력보다 크면 `move_points`는 0에서 멈춘다(음수 안 됨)
+- [정상] `mark_moved()` 후 `move_points == 0`, `can_move()` 거짓, `can_attack()`는 **여전히 참**(이동 후 공격 가능)
+- [정상] `mark_attacked()` 후 `can_attack()` 거짓, `can_move()`도 거짓(이번 슬라이스: 공격이 이동도 끝냄)
 - [정상] `can_rest()`는 행동 전 참, `mark_attacked()` 후 거짓
-- [정상] `reset_turn()` 후 다시 `can_move()`·`can_attack()`·`can_rest()` 참
-- [정상] `TurnManager.end_turn`에 넘긴 부대의 `moved_this_turn`이 참이면 호출 후 거짓으로 리셋
+- [정상] 이동력 소진(`move_points == 0`) 부대를 `reset_turn()` → 다시 `move_points == movement()`, `can_move()`·`can_attack()`·`can_rest()` 참
+- [정상] `TurnManager.end_turn`에 넘긴 부대의 `move_points`가 0이었으면 호출 후 `movement()`로 리셋
+- [정상] 생성 직후 `command_follow == false`, `command_engage == false`(직접명령·전투회피 기본)
+- [정상] `command_follow`·`command_engage`를 `true`로 두고 `reset_turn()` 해도 유지(지속 설정 — 리셋 안 됨)
 
 ## 관련
 
-- 부대 이동력·시야는 [Selection & Movement](../features/selection-and-movement.md), [Fog of War](../features/fog-of-war.md)에서 사용. 부대는 서로의 칸을 통과·점유할 수 없다([유닛 점유](../features/selection-and-movement.md)).
-- 턴당 1회 이동 제한(`moved_this_turn`/`can_move`/`mark_moved`/`reset_turn`)은 [Turn](../features/turn.md)에서 사용.
+- 부대 이동력·시야는 [Selection & Movement](../features/selection-and-movement.md), [Fog of War](../features/fog-of-war.md)에서 사용. **아군(같은 세력) 부대 칸은 통과 가능하되 겹칠(정지) 수 없고, 적 부대 칸은 완전 차단**이다([유닛 점유](../features/selection-and-movement.md)).
+- 턴당 이동력 풀(`move_points`/`can_move`/`spend_movement`/`mark_moved`/`reset_turn`)은 [Turn](../features/turn.md)에서 사용.
 - 병력·전투 파워는 클래스 기반([유닛 카탈로그](../data/factions.md)·[UnitTypes](../features/lang-battle.md)). 개별 병사 스탯은 없다.

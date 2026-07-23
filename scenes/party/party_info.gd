@@ -2,12 +2,15 @@ extends CanvasLayer
 ## 부대 정보 패널. 부대를 클릭하면 화면 우측 상단에 이름·이동력·시야·멤버를 표시한다.
 ## 캠프 메뉴(camp_menu.gd)·턴 HUD(turn_hud.gd)처럼 UI를 코드로 구성한다(별도 .tscn 없음).
 
+signal action_selected(id: String)   # 행동 버튼([소속] 등)을 누르면 방출. game.gd가 처리. → party-lord.md
+
 const MARGIN := 16
 
 var _title: Label          # 제목 = 부대 이름
 var _faction: Label        # 소속 세력 이름(비면 숨김)
 var _summary: Label        # 요약 = "이동력 N · 시야 M"
 var _member_list: VBoxContainer  # 멤버 한 명당 라벨 한 줄
+var _actions: HBoxContainer      # 행동 버튼 줄([소속] 등). 비면 숨김 — 중앙 메뉴 삭제로 이리 옮김. → party-action-menu.md
 
 func _ready() -> void:
 	layer = 48
@@ -47,8 +50,13 @@ func _build() -> void:
 	_member_list.add_theme_constant_override("separation", 4)
 	vbox.add_child(_member_list)
 
-## 부대 정보를 채우고 패널을 보인다. 멤버 리스트는 비우고 다시 채운다(재오픈 대비).
-func open(party) -> void:
+	_actions = HBoxContainer.new()
+	_actions.add_theme_constant_override("separation", 6)
+	vbox.add_child(_actions)
+
+## 부대 정보를 채우고 패널을 보인다. 멤버 리스트·행동 버튼은 비우고 다시 채운다(재오픈 대비).
+## actions = [{id, label}, …] 행동 버튼(예: [소속]). 비면 버튼 줄을 숨긴다. → party-lord.md
+func open(party, actions := []) -> void:
 	_title.text = party.party_name
 	_faction.text = party.faction_name
 	_faction.visible = not party.faction_name.is_empty()   # 세력명이 없으면 줄을 숨긴다.
@@ -60,6 +68,15 @@ func open(party) -> void:
 	var label := Label.new()
 	label.text = "지휘관 %s · 병력 %d" % [party.commander_name, party.soldiers]
 	_member_list.add_child(label)
+
+	for child in _actions.get_children():
+		child.free()
+	for a in actions:
+		var btn := Button.new()
+		btn.text = a["label"]
+		btn.pressed.connect(func() -> void: action_selected.emit(a["id"]))
+		_actions.add_child(btn)
+	_actions.visible = not actions.is_empty()
 
 	show()
 

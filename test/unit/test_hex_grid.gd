@@ -352,6 +352,126 @@ func test_path_blocked_dest_returns_empty() -> void:
 	var path := HexGrid.reconstruct_path(terrain, start, dest, 2, MAP, MAP, {dest: true})
 	assert_eq(path.size(), 0, "목적지가 점유 칸이면 도달 불가(빈 경로)")
 
+# --- 아군 통과(no_stop_cells) — 아군은 벽이 아니다(통과 O·정지 X) → selection-and-movement.md ---
+
+## gate 하나만 남기고 start 이웃을 산으로 막아 유일 출구를 만든다. gate 너머 칸(beyond) 반환.
+func _chokepoint_beyond(start: Vector2i, gate: Vector2i, neighbors: Array) -> Vector2i:
+	for i in range(neighbors.size()):
+		if neighbors[i] != gate:
+			terrain.set_cell(neighbors[i], Terrain.MOUNTAIN, Terrain.ATLAS)
+	for c in terrain.get_surrounding_cells(gate):
+		if c != start and not (c in neighbors) and Terrain.enter_cost(terrain.get_cell_source_id(c)) >= 0:
+			return c
+	return start
+
+func test_no_stop_cell_excluded_from_move() -> void:
+	var start := _center()
+	var nb: Vector2i = terrain.get_surrounding_cells(start)[0]
+	var r := HexGrid.movement_ranges(terrain, start, 3, MAP, MAP, {}, {}, {}, {nb: true})
+	assert_does_not_have(r["move"], nb, "no_stop(아군) 칸은 이동 목적지에서 제외(겹칠 수 없음)")
+
+func test_no_stop_does_not_shrink_reach() -> void:
+	# no_stop은 통과를 막지 않으므로, 도달 범위(dist)는 아무것도 없을 때와 같다(이동력 손해 없음).
+	var start := _center()
+	var nb: Vector2i = terrain.get_surrounding_cells(start)[0]
+	var open := HexGrid.movement_ranges(terrain, start, 3, MAP, MAP)
+	var r := HexGrid.movement_ranges(terrain, start, 3, MAP, MAP, {}, {}, {}, {nb: true})
+	assert_eq((r["dist"] as Dictionary).size(), (open["dist"] as Dictionary).size(),
+		"no_stop는 BFS 확장을 막지 않아 도달 범위(dist) 동일")
+	assert_eq((r["move"] as Array).size(), (open["move"] as Array).size() - 1,
+		"move에서는 no_stop 칸 하나만 빠진다")
+
+func test_no_stop_vs_blocked_through_chokepoint() -> void:
+	var start := _center()
+	var neighbors := terrain.get_surrounding_cells(start)
+	var gate: Vector2i = neighbors[0]
+	var beyond := _chokepoint_beyond(start, gate, neighbors)
+	assert_ne(beyond, start, "선행: gate 너머 칸을 찾음")
+	# 아군(no_stop) gate는 통과 가능 → 너머 도달, 단 gate 자체엔 정지 불가.
+	var pass_r := HexGrid.movement_ranges(terrain, start, 3, MAP, MAP, {}, {}, {}, {gate: true})
+	assert_has(pass_r["move"], beyond, "아군(no_stop) gate 통과 → 너머 도달")
+	assert_does_not_have(pass_r["move"], gate, "단 gate 자체엔 정지 불가")
+	# 적(blocked) gate는 통과 불가 → 갇혀 너머 도달 불가(대비).
+	var block_r := HexGrid.movement_ranges(terrain, start, 3, MAP, MAP, {gate: true})
+	assert_does_not_have(block_r["move"], beyond, "적(blocked) gate는 통과 불가 → 너머 도달 불가")
+
+func test_reconstruct_path_no_stop_dest_empty() -> void:
+	var start := _center()
+	var nb: Vector2i = terrain.get_surrounding_cells(start)[0]
+	var path := HexGrid.reconstruct_path(terrain, start, nb, 2, MAP, MAP, {}, {}, {}, {nb: true})
+	assert_eq(path.size(), 0, "목적지가 no_stop 칸이면 빈 경로(겹칠 수 없음)")
+
+func test_reconstruct_path_through_no_stop_chokepoint() -> void:
+	var start := _center()
+	var neighbors := terrain.get_surrounding_cells(start)
+	var gate: Vector2i = neighbors[0]
+	var beyond := _chokepoint_beyond(start, gate, neighbors)
+	assert_ne(beyond, start, "선행: gate 너머 칸")
+	var path := HexGrid.reconstruct_path(terrain, start, beyond, 3, MAP, MAP, {}, {}, {}, {gate: true})
+	assert_eq(path[path.size() - 1], beyond, "no_stop gate를 지나 너머 목적지 도달")
+	assert_true(gate in path, "경로가 no_stop gate를 지난다(유일 통로)")
+
+# --- 경로 도달 구간 (path_reachable_prefix) — 파랑/빨강 분할·최대 전진 → selection-and-movement.md ---
+# (_straight_path(len)은 아래 attack_move 테스트와 공용 — 중앙에서 +x로 len칸 평지 사슬)
+
+func test_path_prefix_plains_budget() -> void:
+	var path := _straight_path(4)   # 4칸 [c0..c3], 칸당 비용 1(누적 c3=3)
+	assert_eq(HexGrid.path_reachable_prefix(terrain, path, 2), 2, "budget 2 → 인덱스 2")
+
+func test_path_prefix_budget_zero() -> void:
+	var path := _straight_path(4)
+	assert_eq(HexGrid.path_reachable_prefix(terrain, path, 0), 0, "budget 0 → 시작칸만(인덱스 0)")
+
+func test_path_prefix_budget_exceeds() -> void:
+	var path := _straight_path(3)
+	assert_eq(HexGrid.path_reachable_prefix(terrain, path, 99), path.size() - 1, "budget 충분 → 마지막 인덱스(전부 파랑)")
+
+func test_path_prefix_forest_cost() -> void:
+	# 첫 이웃을 숲(비용 2)으로: 경로 [start, 숲]. budget 2 → 숲까지(인덱스 1), budget 1 → 인덱스 0.
+	var start := _center()
+	var n0: Vector2i = terrain.get_surrounding_cells(start)[0]
+	terrain.set_cell(n0, Terrain.FOREST, Terrain.ATLAS)
+	var path := HexGrid.reconstruct_path(terrain, start, n0, 2, MAP, MAP)
+	assert_eq(HexGrid.path_reachable_prefix(terrain, path, 2), 1, "숲(비용 2) 도달 → 인덱스 1")
+	assert_eq(HexGrid.path_reachable_prefix(terrain, path, 1), 0, "budget 1 < 숲비용 2 → 인덱스 0")
+
+# --- 사격 위치 (best_fire_cell) — 원거리 카이팅(사거리 내 가장 먼 칸) → selection-and-movement.md ---
+
+func test_best_fire_cell_farthest_in_range() -> void:
+	var enemy := _center()
+	var d := HexGrid.bfs_distances(terrain, enemy, 3, MAP, MAP)
+	var c1 := enemy
+	var c2 := enemy
+	var c3 := enemy
+	for c in d:
+		if d[c] == 1: c1 = c
+		elif d[c] == 2: c2 = c
+		elif d[c] == 3: c3 = c
+	var best := HexGrid.best_fire_cell(terrain, [c1, c2, c3], enemy, 2, MAP, MAP)
+	assert_eq(int(d[best]), 2, "사거리 내(≤2) 후보 중 가장 먼 칸 = 거리 2(카이팅)")
+
+func test_best_fire_cell_none_in_range() -> void:
+	var enemy := _center()
+	var d := HexGrid.bfs_distances(terrain, enemy, 4, MAP, MAP)
+	var far := enemy
+	for c in d:
+		if d[c] == 4:
+			far = c
+			break
+	assert_eq(HexGrid.best_fire_cell(terrain, [far], enemy, 2, MAP, MAP), Vector2i(-1, -1), "사거리 밖 후보뿐 → (-1,-1)")
+
+func test_best_fire_cell_includes_start_in_range() -> void:
+	var enemy := _center()
+	var d := HexGrid.bfs_distances(terrain, enemy, 2, MAP, MAP)
+	var adj := enemy
+	for c in d:
+		if d[c] == 1:
+			adj = c
+			break
+	# 후보가 적 인접(거리 1)뿐이면 그 칸이 최선(사거리 2 이내).
+	var best := HexGrid.best_fire_cell(terrain, [adj], enemy, 2, MAP, MAP)
+	assert_eq(best, adj, "사거리 내 후보가 하나면 그 칸")
+
 # --- follow_destination (하위부대 작전 추종 목적지) ---
 
 ## 영웅으로부터의 지형 거리 맵(산만 제외, 유닛 무관) — 후보 근접 비교용.
@@ -377,6 +497,16 @@ func test_follow_never_targets_hero_cell() -> void:
 	var follower: Vector2i = hero + Vector2i(2, 0)
 	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 5, MAP, MAP)
 	assert_ne(dest, hero, "영웅 칸 자체는 목적지가 아니다")
+
+func test_follow_avoids_no_stop_ring_cell() -> void:
+	# 아군(no_stop)이 낀 링 칸엔 못 멈추고 다른 도달 가능 링 칸을 고른다(통과는 가능·정지 불가).
+	# 하위부대끼리 서로를 벽으로 막지 않게 하는 핵심(가끔 안따라오던 문제). → squad-stance.md
+	var hero := _center()
+	var follower: Vector2i = hero + Vector2i(3, 0)
+	var open := HexGrid.follow_destination(terrain, hero, hero, follower, 3, MAP, MAP)
+	assert_true(open in terrain.get_surrounding_cells(hero), "선행: 막지 않으면 링 칸에 배치")
+	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 3, MAP, MAP, {}, {}, {}, {open: true})
+	assert_ne(dest, open, "no_stop로 막은 링 칸은 목적지로 고르지 않는다")
 
 func test_follow_stays_when_already_adjacent() -> void:
 	var hero := _center()
@@ -447,7 +577,7 @@ func test_follow_trapped_stays() -> void:
 	var dest := HexGrid.follow_destination(terrain, hero, hero, follower, 3, MAP, MAP, blocked)
 	assert_eq(dest, follower, "완전히 갇히면 제자리")
 
-# --- attack_move_stop (돌격 어택무브 정지 지점) ---
+# --- 직선 경로 헬퍼 (path_reachable_prefix 테스트 등 공용) ---
 
 ## 중심에서 동쪽으로 뻗는 직선 경로(같은 행 가로 이웃은 헥스 인접). 좌표계가 바뀌면
 ## 이 가정이 깨지므로, 경로가 실제로 헥스 인접 사슬인지 여기서 검증해 조용히 틀리지 않게 한다.
@@ -460,30 +590,3 @@ func _straight_path(len: int) -> Array:
 			assert_true(cell in terrain.get_surrounding_cells(path[i - 1]), "직선 경로 %s가 헥스 인접(좌표계 가정)" % cell)
 		path.append(cell)
 	return path
-
-func test_attack_move_stops_at_first_contact() -> void:
-	var path := _straight_path(4)   # (20,20)..(23,20)
-	var enemy: Vector2i = _center() + Vector2i(4, 0)   # (24,20) — path[3]에 인접
-	assert_true(enemy in terrain.get_surrounding_cells(path[3]), "적이 path[3]에 인접(전제)")
-	var stop := HexGrid.attack_move_stop(terrain, path, [enemy], 1, MAP, MAP)
-	assert_eq(stop, 3, "사거리 1: 적에 인접해지는 첫 칸(index 3)에서 정지")
-
-func test_attack_move_no_enemy_reaches_end() -> void:
-	var path := _straight_path(4)
-	var stop := HexGrid.attack_move_stop(terrain, path, [], 1, MAP, MAP)
-	assert_eq(stop, 3, "사거리 내 적 없으면 끝(마지막 index)까지")
-
-func test_attack_move_stop_at_start_when_already_in_reach() -> void:
-	var path := _straight_path(3)
-	# 시작 칸의 이웃(경로 밖) 하나를 적으로 — 시작부터 사거리 안.
-	var enemy := _center() + Vector2i(0, 1)
-	if enemy == path[1]:
-		enemy = _center() + Vector2i(0, -1)
-	var stop := HexGrid.attack_move_stop(terrain, path, [enemy], 1, MAP, MAP)
-	assert_eq(stop, 0, "시작 칸이 이미 사거리 내면 index 0(이동 없이 교전)")
-
-func test_attack_move_ranged_stops_earlier() -> void:
-	var path := _straight_path(4)
-	var enemies := [_center() + Vector2i(4, 0)]   # (24,20)
-	var stop := HexGrid.attack_move_stop(terrain, path, enemies, 2, MAP, MAP)
-	assert_eq(stop, 2, "사거리 2: 근접(3)보다 한 칸 일찍(index 2) 정지")

@@ -36,7 +36,7 @@ command_range() = UnitTypes.command_range(archetype())   # = lang 클래스 cmd_
 
 - `Party.command_buffed: bool`(기본 `false`). 참이면 토큰에 **지휘 배지**(작은 금색 표식)를 그린다(`_draw`).
 - `_refresh_command_buffs()`(`game.gd`): `PartyManager.units + PartyManager.npc_parties`의 각 부대에 `command_buffed = _in_command(p)`를 세팅하고, 값이 바뀌면 다시 그린다.
-- **갱신 시점**(위치가 정착하는 지점): 턴 종료, 플레이어 이동 완료, 추종·교전·돌격 시퀀스 종료, NPC 이동 완료, 소속 변경(`_on_lord_changed`), 부대 분할·병합.
+- **갱신 시점**(위치가 정착하는 지점): 턴 종료, 플레이어 이동 완료, 추종/전투우선 지휘 시퀀스 종료, NPC 이동 완료, 소속 변경(`_on_lord_changed`), 부대 분할·병합.
 - 전투 직전 `_run_battle`도 먼저 `_refresh_command_buffs()`를 불러 `command_buffed`(배지)를 최신화한다. (전투 판정엔 반영되지 않음 — 배지 표시 목적.)
 
 ## API

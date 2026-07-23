@@ -3,11 +3,13 @@
 > 스크립트: `scenes/turn/turn_manager.gd` (`class_name TurnManager extends RefCounted`) · `scenes/turn/turn_hud.gd` (`extends CanvasLayer`)
 
 게임을 **턴** 단위로 진행한다. 플레이어는 [부대](../entities/Party.md)를 움직인 뒤 **턴 종료**를 눌러 다음 턴으로 넘어간다.
-턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동 상태가 리셋되며 ③ 모든 영지의 인구가 상한까지 +1 자연 증가하고 ④ 모든 영지의 건설이 1턴 진행된 뒤, ⑤ **자원 생산**([1차 생산](production.md), `game.gd`)·**세력 소멸 유예 판정**([승패](victory.md))을 하고, ⑥ **NPC 부대가 이동**한다([NPC Movement](npc-movement.md)).
+턴이 종료되면 ① 턴 번호가 1 증가하고 ② 모든 부대의 이동력이 리셋되며 ③ 모든 영지의 인구가 상한까지 +1 자연 증가하고 ④ 모든 영지의 건설이 1턴 진행된 뒤, ⑤ **자원 생산**([1차 생산](production.md), `game.gd`)·**세력 소멸 유예 판정**([승패](victory.md))을 하고, ⑥ **NPC 부대가 이동**한다([NPC Movement](npc-movement.md)).
 
 ## 규칙
 
-- **부대는 턴당 이동 1회 + 공격 1회.** 이동한 부대는 그 턴에 다시 이동할 수 없지만 공격은 아직 가능하고, 공격/대기하면 행동이 끝난다([Selection & Movement](selection-and-movement.md)·[Lang Battle](lang-battle.md)·[행동 메뉴](party-action-menu.md)). 턴 종료 시 상태(`moved_this_turn`·`attacked_this_turn`)가 모두 리셋된다.
+- **부대는 턴당 이동력 풀을 여러 번에 나눠 소진 + 공격 1회.** (문명/에오원4식) 부대는 매 턴 **이동력(`move_points`)** 을 갖고, 범위 안 칸을 클릭할 때마다 경로 누적비용만큼 차감된다. 이동력이 남아 있으면 **같은 턴에 계속 이동**할 수 있고(작게 여러 번 클릭), 0이 되면 그 턴 이동이 끝난다([Selection & Movement](selection-and-movement.md)). 이동 중 **ESC로 현재 칸에서 멈추면** 간 만큼만 소모하고 남은 이동력으로 재경로가 가능하다.
+  - 공격은 **턴당 1회**(`attacked_this_turn`)이며 **이동력과 독립**이다 — 공격해도 이동력이 남으면 계속 이동할 수 있고, 이동을 다 써도 공격은 할 수 있다([행동 통합](party-action-menu.md#공격-통합-적-클릭)). `can_move() = move_points > 0`, `can_attack() = not attacked_this_turn`.
+  - 턴 종료 시 상태(`move_points`는 `movement()`로, `attacked_this_turn`는 `false`로)가 모두 리셋된다.
 - **건물 건설 시작은 턴 제한을 받지 않는다.** 턴당 1회 제한은 **부대 이동에만** 적용된다. 단 건설 자체는 시작 후 `build_turns`만큼 턴이 지나야 완성된다([건축](building.md) 참고).
 - 턴 번호는 **1부터** 시작한다.
 
@@ -21,7 +23,7 @@
 
 - `end_turn(units: Array, territories: Array) -> void` — 한 번의 턴 종료 처리를 모아서 실행한다. `units`에는 [부대](../entities/Party.md)가 들어간다.
   1. `number += 1`
-  2. 각 `unit`(부대)에 대해 `unit.reset_turn()` — 이동·공격 상태 리셋.
+  2. 각 `unit`(부대)에 대해 `unit.reset_turn()` — **이동력을 `movement()`로 채우고** 공격 상태를 리셋.
   3. 각 `territory`에 대해 `territory.grow_population()` — 인구를 상한까지 +1(자연 증가).
   4. 각 `territory`에 대해 `territory.advance_construction()` — 건설 중 건물을 1턴 진행.
   - 새로 완성된 집의 인구 상한은 **다음 턴부터** 인구 증가(3)에 반영된다(건설 진행 4가 인구 증가 뒤).
@@ -69,7 +71,7 @@
 
 - [정상] 생성 직후 `TurnManager.number == 1`
 - [정상] `end_turn([], [])` 후 `number == 2`, 두 번 호출하면 `3`
-- [정상] `end_turn`에 넘긴 부대의 `moved_this_turn`이 `true`였다면 호출 후 `false`로 리셋
+- [정상] `end_turn`에 넘긴 부대의 `move_points`가 소진(0)돼 있었다면 호출 후 `movement()`로 리셋
 - [정상] 건설 중 농장을 가진 영지를 `end_turn` → 건설 1턴 진행(remaining −1); build_turns회 후 완성
 - [정상] 인구 상한(집 완성으로 12) > 현재 인구(10) 영지를 `end_turn` → 인구 11로 증가; 상한 도달 후엔 유지
 - (자원 생산은 `end_turn` 밖 `game.gd`가 처리 — 검증은 [production.md](production.md) 및 헤드리스)
@@ -82,6 +84,6 @@
 
 ## 관련
 
-- 부대 이동 1회 제한·흐림 표시는 [Selection & Movement](selection-and-movement.md). 부대 이동 상태(`moved_this_turn` 등)의 상세 테스트는 `test/unit/test_party.gd`.
+- 부대 이동력 풀·다중 클릭·ESC 정지·흐림 표시는 [Selection & Movement](selection-and-movement.md). 부대 이동 상태(`move_points` 등)의 상세 테스트는 `test/unit/test_party.gd`.
 - 자원 생산은 [1차 생산](production.md)(턴 종료 시 `game.gd`).
 - 영지 자원은 [Territory](../entities/Territory.md), [Camp Menu](camp-menu.md)에 표시.

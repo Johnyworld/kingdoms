@@ -4,9 +4,9 @@
 
 랑그릿사식 편제에서 **일반부대**([Party](../entities/Party.md) `KIND_TROOP`)는 하나의 **영웅부대**(`KIND_HERO`)에 소속될 수 있다. 이 기능은 그 소속을 **런타임에 바꾸는 UI**다. 소속돼도 부대는 독립 토큰으로 자유 이동하며, 소속은 지금은 **메타데이터**다(영웅 근처 소속 부대 버프는 `미구현`). 초기 소속은 [시작 편제](parties.md)에서 정해진다.
 
-## 진입 — `[소속]` 버튼 ([행동 메뉴](party-action-menu.md))
+## 진입 — `[소속]` 버튼 ([부대 정보 패널](party-info.md))
 
-- 플레이어가 **일반부대**를 선택하면 [행동 메뉴](party-action-menu.md)에 **[소속]**이 뜬다(맨 뒤).
+- 플레이어가 **일반부대**를 선택하면 우측 상단 [부대 정보 패널](party-info.md)의 **행동 버튼 줄**에 **[소속]**이 뜬다(중앙 메뉴가 삭제돼 이 박스로 이동 — [행동 통합](party-action-menu.md)). 버튼 클릭 → 패널이 `action_selected("lord")` 방출 → `game.gd`가 소속 모달을 연다.
 - 노출 조건(`game.gd` `_can_manage_lord(party)`): `party.kind == KIND_TROOP` **그리고** (**인접한 아군 영웅부대가 있음** 또는 **이미 소속 보유**(`has_lord`)). 즉 붙일 영웅도 없고 뗄 소속도 없으면 버튼을 숨긴다.
 - 영웅부대(`KIND_HERO`)에는 [소속]이 없다(영웅은 소속을 갖지 않는다).
 
@@ -44,9 +44,10 @@
 
 ## 테스트 시나리오
 
-**`[소속]` 버튼** — `test/unit/test_party_action_menu.gd`:
-- [정상] `can_manage_lord=true` → 버튼 목록에 `[소속]` 포함(맨 뒤)
-- [경계] `can_manage_lord=false` → `[소속]` 없음
+**`[소속]` 버튼** — `test/unit/test_party_info.gd`(패널 행동 버튼 줄):
+- [정상] `open(troop, [{id="lord", label="소속"}])` → [소속] 버튼 표시, 클릭 시 `action_selected("lord")` 방출
+- [경계] `open(troop, [])` → 행동 버튼 줄 숨김
+- (노출 조건 `_can_manage_lord`은 `game.gd` 배선이라 실행 확인)
 
 **소속 메서드** — `test/unit/test_party.gd`:
 - [정상] `set_lord(hero)`/`clear_lord()` ([Party 시나리오](../entities/Party.md#테스트-시나리오))

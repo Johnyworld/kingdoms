@@ -58,7 +58,7 @@ Splash ──(자동/입력 스킵)──▶ Title ──(시작)────▶
 - [Camp Capture (캠프 점령·방어)](features/camp-capture.md) — 거점 방어=중심 타일 점거 부대(창발, 별도 상태 없음)·"수비 N" 배지 / 인접한 적 거점 점령 → [흡수](영지 획득)/[파괴](제거) 선택
 - [Party Composition (부대 편성)](features/party-composition.md) — 다중 부대 + 선택, 병합으로 재조직(분할은 M4-C로 제거)
 - [Party Lord (소속 영웅)](features/party-lord.md) — 일반부대의 소속 영웅부대 설정/해제 UI([소속] 버튼 → 모달, 소속=인접 영웅 필요·해제 자유·턴 무소비)
-- [Squad Stance (부대 작전 — 이동 후 하위부대 명령)](features/squad-stance.md) — 영웅 이동 직후 작전 메뉴 [추종][대기][교전][돌격]로 하위부대 일괄 통솔. 교전=최근접 적 접근·신중 전투, 돌격=목표 1지점 어택무브(공격적)
+- [Squad Command (부대 지휘 — 따라옴·전투 스탠스)](features/squad-stance.md) — 영웅부대 [지휘] 지속 설정([따라옴|직접명령]·[전투우선|전투회피]). 따라옴이면 영웅 이동마다 하위부대 자동 추종, 전투우선이면 사거리 적 교전
 - [Command Range (지휘 범위 버프)](features/command-range.md) — 소속 하위부대가 영웅(`lord`) 지휘 범위(lang 클래스 `cmd_range`, 3~4칸) 안인지 판정해 맵 배지 표시. 전투 배율 효과는 RPG 전투 수학 폐기로 **현재 미반영**(lang 연동 미정), 모든 세력
 - [Victory & Defeat (승패)](features/victory.md) — 세력 소멸(10턴 유예)로만 승패 · 정복 승리 · 결과 오버레이 · 타이틀 복귀
 

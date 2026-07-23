@@ -106,13 +106,16 @@ static func cost_distances(terrain: TileMapLayer, start: Vector2i, budget: int, 
 ## - move: 이동력(budget) 이내 누적비용으로 도달 가능한 칸(시작칸 비용 0 제외). 숲(2)·습지(3)·도시(2)가 더 비싸다.
 ## - attack: **이동 가능 영역(+시작칸) 바로 바깥 한 칸**. 진입 불가 칸(산·물·불가 건물)은 제외.
 ## - dist: 시작칸(0) 포함 누적비용 맵 (진입 불가 제외).
-static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Dictionary:
+## no_stop_cells: 통과는 가능하되 목적지로는 못 삼는 칸(아군 점유). BFS 확장은 막지 않고 move 목적지에서만 제외한다. → selection-and-movement.md
+static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}, no_stop_cells: Dictionary = {}) -> Dictionary:
 	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges)
 	var move_set := {}
 	var move_cells: Array[Vector2i] = []
 	for cell in cost:
 		if int(cost[cell]) == 0:
 			continue  # 주인공이 선 칸은 제외
+		if no_stop_cells.has(cell):
+			continue  # 아군 점유 — 통과는 가능(cost엔 있음)하나 목적지로는 못 삼음
 		move_set[cell] = true
 		move_cells.append(cell)
 
@@ -138,9 +141,12 @@ static func movement_ranges(terrain: TileMapLayer, start: Vector2i, move_range: 
 ## - 진입 불가(산·물·불가 건물)·맵 밖·blocked_cells(점유 칸)는 제외한다(이동 계산과 같은 규칙).
 ## - dest에 도달 불가하면 빈 배열, start == dest면 [start].
 ## - NPC·플레이어 이동 애니메이션이 토큰을 칸 단위로 걸어가게 하는 데 쓴다.
-static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Array[Vector2i]:
+## no_stop_cells: 아군 점유 칸. 경로가 지나갈 수는 있으나 dest로는 못 삼는다(dest면 빈 경로). → selection-and-movement.md
+static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}, no_stop_cells: Dictionary = {}) -> Array[Vector2i]:
 	if start == dest:
 		return [start]
+	if no_stop_cells.has(dest):
+		return []   # 아군 점유 칸엔 멈출 수 없다(겹칠 수 없음)
 	var cost := cost_distances(terrain, start, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges)
 	if not cost.has(dest):
 		return []
@@ -170,8 +176,9 @@ static func reconstruct_path(terrain: TileMapLayer, start: Vector2i, dest: Vecto
 ## - 링 우선: 도달 가능한 영웅 인접 칸(get_surrounding_cells)이 있으면 그중 진행 방향으로 가장 앞선 칸(월드 내적 최대),
 ##   동률이면 하위부대에서 가까운 칸. from_cell==hero_cell(방향 없음)이면 전방 점수 0 → 가까운 링 칸(분산).
 ## - 접근 폴백: 도달 가능한 링 칸이 없으면 영웅 지형 거리(bfs) 최소 칸(동률 시 근접). 더 못 가까워지면 제자리.
-static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}) -> Vector2i:
-	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges)
+## - no_stop_cells(아군·예약 칸)는 통과는 되나 목적지로는 못 삼는다 — 하위부대가 서로를 벽으로 막지 않게(뚫고 지나감). → selection-and-movement.md
+static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_cell: Vector2i, follower_cell: Vector2i, move_range: int, map_w: int, map_h: int, blocked_cells: Dictionary = {}, cell_costs: Dictionary = {}, blocked_edges: Dictionary = {}, no_stop_cells: Dictionary = {}) -> Vector2i:
+	var ranges := movement_ranges(terrain, follower_cell, move_range, map_w, map_h, blocked_cells, cell_costs, blocked_edges, no_stop_cells)
 	var self_dist: Dictionary = ranges["dist"]   # 하위부대로부터의 거리(제자리 0)
 	var big := map_w * map_h + 1
 	var reachable := {follower_cell: true}
@@ -207,20 +214,31 @@ static func follow_destination(terrain: TileMapLayer, hero_cell: Vector2i, from_
 			best = c
 	return best
 
-## 돌격 어택무브의 정지 지점: path를 순서대로 훑어 그 칸에서 reach 헥스 이내에 적(enemy_cells)이 있는 첫 인덱스.
-## 거기서 멈춰 교전한다("어택땅"). 시작 칸이 이미 사거리 안이면 0(이동 없이 교전),
-## 경로 내내 사거리 내 적이 없으면 마지막 인덱스(끝까지 이동), 빈 경로면 0. → docs/spec/features/squad-stance.md
-static func attack_move_stop(terrain: TileMapLayer, path: Array, enemy_cells: Array, reach: int, map_w: int, map_h: int) -> int:
-	if path.is_empty():
-		return 0
-	var enemies := {}
-	for e in enemy_cells:
-		enemies[e] = true
-	for i in path.size():
-		for c in cells_within(terrain, path[i], reach, map_w, map_h):
-			if enemies.has(c):
-				return i
-	return path.size() - 1
+## 경로(path)를 훑어 시작(path[0])부터의 누적 진입비용이 budget 이하인 마지막 인덱스를 반환한다.
+## 호버 미리보기 파랑/빨강 분할, 범위 밖 최대 전진 목적지의 단일 출처. path[0]은 항상 포함(0 반환 가능).
+## cell_costs = 건물 진입비용 override(도시 2 등). 노드 비의존 순수 함수. → selection-and-movement.md
+static func path_reachable_prefix(terrain: TileMapLayer, path: Array, budget: int, cell_costs: Dictionary = {}) -> int:
+	var idx := 0
+	var acc := 0
+	for i in range(1, path.size()):
+		acc += _cell_enter_cost(terrain, path[i], cell_costs)
+		if acc <= budget:
+			idx = i
+		else:
+			break
+	return idx
+
+## candidates(도달 가능 정지 칸 ∪ 시작칸) 중 적까지 헥스 거리 reach 이내이면서 가장 먼 칸을 고른다(원거리 카이팅).
+## 동점이면 candidates 순서상 먼저 것. 사거리 내 후보가 없으면 (-1,-1). 노드 비의존 순수 함수. → selection-and-movement.md
+static func best_fire_cell(terrain: TileMapLayer, candidates: Array, enemy_cell: Vector2i, reach: int, map_w: int, map_h: int) -> Vector2i:
+	var d := bfs_distances(terrain, enemy_cell, reach, map_w, map_h)   # 적으로부터 헥스 거리(≤reach인 칸만)
+	var best := Vector2i(-1, -1)
+	var best_d := -1
+	for c in candidates:
+		if d.has(c) and int(d[c]) > best_d:
+			best_d = int(d[c])
+			best = c
+	return best
 
 static func _in_bounds(cell: Vector2i, map_w: int, map_h: int) -> bool:
 	return cell.x >= 0 and cell.x < map_w and cell.y >= 0 and cell.y < map_h

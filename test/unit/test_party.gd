@@ -241,83 +241,112 @@ func test_attack_range_ranged_vs_melee() -> void:
 func test_attack_range_empty_zero() -> void:
 	assert_eq(_party().attack_range(), 0, "아키타입 없으면 공격거리 0")
 
-# --- 턴당 1이동 상태 ---
+# --- 이동력 풀 (move_points) → turn.md · selection-and-movement.md ---
 
-func test_can_move_by_default() -> void:
-	var p := _party()
-	assert_false(p.moved_this_turn, "생성 직후 이동 안 함")
-	assert_true(p.can_move(), "생성 직후 이동 가능")
-
-func test_mark_moved_blocks_move() -> void:
-	var p := _party()
-	p.mark_moved()
-	assert_true(p.moved_this_turn, "mark_moved 후 이동함 표시")
-	assert_false(p.can_move(), "이동한 부대는 이동 불가")
-
-func test_reset_turn_restores_move() -> void:
-	var p := _party()
-	p.mark_moved()
+func _mover() -> Node2D:
+	# 이동력 있는 부대(경보병 mv). reset_turn으로 턴 시작 이동력을 채운다.
+	var p := _troop("light_infantry")
 	p.reset_turn()
-	assert_false(p.moved_this_turn, "reset_turn 후 이동 안 함으로 리셋")
-	assert_true(p.can_move(), "reset_turn 후 다시 이동 가능")
+	return p
 
-# --- 공격 상태 (이동 1 + 공격 1) ---
+func test_reset_turn_fills_move_points() -> void:
+	var p := _mover()
+	assert_eq(p.move_points, p.movement(), "reset_turn 후 이동력이 movement()만큼 채워짐")
+	assert_true(p.can_move(), "이동력 있으면 이동 가능")
+	assert_true(p.can_attack(), "리셋 직후 공격 가능")
+
+func test_spend_movement_partial_keeps_moving() -> void:
+	var p := _mover()
+	var full: int = p.movement()
+	p.spend_movement(2)
+	assert_eq(p.move_points, full - 2, "이동력 2 소모")
+	assert_true(p.can_move(), "이동력 남으면 계속 이동 가능(다중 클릭)")
+	assert_true(p.can_attack(), "이동해도 공격은 별개")
+
+func test_spend_movement_all_blocks_move() -> void:
+	var p := _mover()
+	p.spend_movement(p.movement())
+	assert_eq(p.move_points, 0, "이동력 전부 소모")
+	assert_false(p.can_move(), "이동력 0이면 이동 불가")
+
+func test_spend_movement_clamps_at_zero() -> void:
+	var p := _mover()
+	p.spend_movement(p.movement() + 5)   # 남은 것보다 크게
+	assert_eq(p.move_points, 0, "이동력은 음수로 내려가지 않음(0에서 멈춤)")
+
+func test_mark_moved_zeroes_move_points() -> void:
+	var p := _mover()
+	p.mark_moved()
+	assert_eq(p.move_points, 0, "mark_moved는 이동력을 0으로(NPC·공격 접근 종료)")
+	assert_false(p.can_move(), "이동 종료 → 이동 불가")
+	assert_true(p.can_attack(), "이동 종료해도 공격은 여전히 가능")
+
+# --- 공격 상태 (이동력 풀 + 공격 1) ---
 
 func test_attack_defaults() -> void:
-	var p := _party()
-	assert_false(p.attacked_this_turn, "생성 직후 공격 안 함")
-	assert_true(p.can_attack(), "생성 직후 공격 가능")
+	var p := _mover()
+	assert_false(p.attacked_this_turn, "리셋 직후 공격 안 함")
+	assert_true(p.can_attack(), "리셋 직후 공격 가능")
 
-func test_moved_still_can_attack() -> void:
-	var p := _party()
-	p.mark_moved()
-	assert_false(p.can_move(), "이동 후 재이동 불가")
-	assert_true(p.can_attack(), "이동해도 공격은 아직 가능")
-
-func test_attacked_ends_actions() -> void:
-	var p := _party()
+func test_attack_independent_of_move() -> void:
+	var p := _mover()
 	p.mark_attacked()
 	assert_false(p.can_attack(), "공격 후 재공격 불가")
-	assert_false(p.can_move(), "공격이 이동도 끝냄")
+	assert_true(p.can_move(), "공격해도 이동력 남으면 이동 가능(이동·공격 독립)")
 
-func test_reset_turn_restores_attack() -> void:
-	var p := _party()
+func test_move_then_still_can_attack() -> void:
+	var p := _mover()
+	p.spend_movement(p.movement())   # 이동력 소진
+	assert_false(p.can_move(), "이동력 0 → 이동 불가")
+	assert_true(p.can_attack(), "이동 다 써도 공격은 가능(독립)")
+
+func test_reset_turn_restores_after_actions() -> void:
+	var p := _mover()
 	p.mark_moved()
 	p.mark_attacked()
 	p.reset_turn()
+	assert_eq(p.move_points, p.movement(), "reset 후 이동력 회복")
 	assert_true(p.can_move(), "reset 후 이동 가능")
 	assert_true(p.can_attack(), "reset 후 공격 가능")
 
 # --- 대기/행동 가능(can_rest = 선택 판정) ---
 
 func test_can_rest_by_default() -> void:
-	assert_true(_party().can_rest(), "생성 직후 행동 가능")
-
-func test_undo_move_restores_move() -> void:
-	var p := _party()
-	p.mark_moved()
-	assert_false(p.can_move(), "이동 후 이동 불가")
-	p.undo_move()
-	assert_false(p.moved_this_turn, "undo_move 후 이동 안 함으로")
-	assert_true(p.can_move(), "undo_move 후 다시 이동 가능")
+	assert_true(_mover().can_rest(), "행동 전 can_rest 참")
 
 func test_attacked_blocks_rest() -> void:
-	var p := _party()
+	var p := _mover()
 	p.mark_attacked()
 	assert_false(p.can_rest(), "공격까지 마치면 행동 불가")
 
 func test_reset_turn_restores_rest() -> void:
-	var p := _party()
+	var p := _mover()
 	p.mark_attacked()
 	p.reset_turn()
 	assert_true(p.can_rest(), "reset 후 다시 행동 가능")
 
-func test_end_turn_resets_party() -> void:
+func test_end_turn_refills_move_points() -> void:
 	var tm: Object = load("res://scenes/turn/turn_manager.gd").new()
-	var p := _party()
-	p.mark_moved()
+	var p := _mover()
+	p.spend_movement(p.movement())   # 소진(0)
+	assert_eq(p.move_points, 0, "선행: 이동력 0")
 	tm.end_turn([p], [])
-	assert_false(p.moved_this_turn, "턴 종료 시 부대 이동 상태 리셋")
+	assert_eq(p.move_points, p.movement(), "턴 종료 시 이동력 회복")
+
+# --- 지휘 설정(따라옴·전투 스탠스) — 지속 → squad-stance.md ---
+
+func test_command_flags_default() -> void:
+	var p := _party()
+	assert_false(p.command_follow, "기본 직접명령(command_follow=false)")
+	assert_false(p.command_engage, "기본 전투회피(command_engage=false)")
+
+func test_command_flags_persist_across_reset() -> void:
+	var p := _party()
+	p.command_follow = true
+	p.command_engage = true
+	p.reset_turn()
+	assert_true(p.command_follow, "지휘 설정은 reset_turn에서 유지(따라옴)")
+	assert_true(p.command_engage, "지휘 설정은 reset_turn에서 유지(전투우선)")
 
 # --- 근·원거리 파워(교전 선호) → docs/spec/features/npc-movement.md ---
 

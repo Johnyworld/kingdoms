@@ -1,7 +1,7 @@
 extends GutTest
-## 부대 행동 메뉴 버튼 구성(PartyActionMenu) — 노드 비의존 순수 로직.
-## party_actions(can_shoot_any): 중앙 메뉴 [사격](+대기/취소/소속). 휴식·경계·분할은 M4-C로 제거.
-## enemy_actions(can_melee, can_shoot): 적 팝업 [공격][사격].
+## 부대 행동 팝업 버튼 구성(PartyActionMenu) — 노드 비의존 순수 로직.
+## 중앙 메뉴(party_actions)·적 공격 팝업(enemy_actions)·작전 메뉴(stance_actions)는 공격 통합·[소속]/[지휘] 이전으로 삭제됨.
+## 남은 팝업: capture_actions([흡수][파괴]), merge_actions([병합]).
 
 func _by_id(list: Array, id: String) -> Dictionary:
 	for a in list:
@@ -14,56 +14,6 @@ func _ids(list: Array) -> Array:
 	for a in list:
 		out.append(a["id"])
 	return out
-
-# --- 중앙 메뉴 (party_actions) ---
-
-func test_party_actions_before_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true, false)), ["shoot"], "이동 전 사격(휴식·경계 제거)")
-
-func test_party_actions_after_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(true, true, false)), ["shoot", "wait"], "이동 후 사격·대기")
-
-func test_party_actions_after_move_with_undo() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(true, false, true)), ["shoot", "wait", "undo"], "되돌리기 가능하면 취소 추가")
-
-func test_party_actions_no_undo_before_move() -> void:
-	assert_eq(_ids(PartyActionMenu.party_actions(false, true, true)), ["shoot"], "이동 전이면 can_undo여도 취소 없음")
-
-func test_party_actions_shoot_enabled_by_target() -> void:
-	assert_true(_by_id(PartyActionMenu.party_actions(false, true, false), "shoot")["enabled"], "사격 대상 있으면 활성")
-	assert_false(_by_id(PartyActionMenu.party_actions(false, false, false), "shoot")["enabled"], "없으면 비활성")
-
-func test_party_actions_wait_enabled() -> void:
-	assert_true(_by_id(PartyActionMenu.party_actions(true, false, false), "wait")["enabled"], "대기 활성")
-
-# --- 작전 메뉴 (stance_actions) ---
-
-func test_stance_actions_buttons() -> void:
-	assert_eq(_ids(PartyActionMenu.stance_actions()), ["st_follow", "st_hold", "st_engage", "st_charge"], "작전 메뉴 [추종][대기][교전][돌격]")
-
-func test_stance_actions_labels_and_enabled() -> void:
-	var a := PartyActionMenu.stance_actions()
-	assert_eq(_by_id(a, "st_follow")["label"], "추종", "추종 라벨")
-	assert_eq(_by_id(a, "st_hold")["label"], "대기", "대기 라벨")
-	assert_eq(_by_id(a, "st_engage")["label"], "교전", "교전 라벨")
-	assert_eq(_by_id(a, "st_charge")["label"], "돌격", "돌격 라벨")
-	for id in ["st_follow", "st_hold", "st_engage", "st_charge"]:
-		assert_true(_by_id(a, id)["enabled"], "%s 활성" % id)
-
-# --- 적 팝업 (enemy_actions) ---
-
-func test_enemy_actions_buttons() -> void:
-	assert_eq(_ids(PartyActionMenu.enemy_actions(true, true)), ["attack", "shoot"], "공격·사격(이동 없음)")
-
-func test_enemy_actions_melee_only() -> void:
-	var a := PartyActionMenu.enemy_actions(true, false)
-	assert_true(_by_id(a, "attack")["enabled"], "근접 가능 → 공격 활성")
-	assert_false(_by_id(a, "shoot")["enabled"], "사거리 밖 → 사격 비활성")
-
-func test_enemy_actions_shoot_only() -> void:
-	var a := PartyActionMenu.enemy_actions(false, true)
-	assert_false(_by_id(a, "attack")["enabled"], "근접 불가 → 공격 비활성")
-	assert_true(_by_id(a, "shoot")["enabled"], "사거리 내 → 사격 활성")
 
 # --- 거점 점령 팝업 (capture_actions) ---
 
@@ -79,14 +29,3 @@ func test_capture_actions_both_enabled() -> void:
 
 func test_merge_actions_button() -> void:
 	assert_eq(_ids(PartyActionMenu.merge_actions()), ["merge"], "인접 아군 팝업 [병합]")
-
-# --- 소속([소속]) — party-lord.md ---
-
-func test_party_actions_lord_when_can_manage() -> void:
-	# 일반부대 + 소속 관리 가능 → [소속]이 맨 뒤.
-	var out := PartyActionMenu.party_actions(false, true, false, true)
-	assert_eq(_ids(out), ["shoot", "lord"], "소속 버튼 추가")
-
-func test_party_actions_no_lord_when_cannot() -> void:
-	var out := PartyActionMenu.party_actions(false, true, false, false)
-	assert_false("lord" in _ids(out), "소속 관리 불가 시 [소속] 없음")

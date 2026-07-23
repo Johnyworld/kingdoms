@@ -78,8 +78,11 @@ var selected := false
 var command_buffed := false
 ## 토큰 테두리 강조색(알파 0이면 없음). NPC 공격 연출에서 공격자·대상을 잠깐 표시(game.gd `_npc_engage`). → npc-movement.md
 var highlight := Color(0, 0, 0, 0)
-var moved_this_turn := false      # 이번 턴에 이미 이동했는지. true면 재이동 불가(공격은 아직 가능).
+var move_points: int = 0          # 이번 턴 잔여 이동력. reset_turn에서 movement()로 채우고 이동할 때마다 차감. 0이면 이번 턴 이동 끝.
 var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
+## 영웅부대 지휘 설정(하위부대 대상, 턴 지속 — reset_turn에서 안 바뀜). → docs/spec/features/squad-stance.md
+var command_follow := false       # true=따라옴(하위부대 자동 추종), false=직접명령.
+var command_engage := false       # true=전투우선(따라오다 사거리 적 교전), false=전투회피. 따라옴일 때만 의미.
 
 ## 영웅부대인지(kind == KIND_HERO). 일반부대는 거짓.
 func is_hero() -> bool:
@@ -179,9 +182,9 @@ func set_selected(value: bool) -> void:
 	selected = value
 	queue_redraw()
 
-## 이번 턴에 이동 가능한지. 이동했거나 공격했으면(행동 종료) 불가.
+## 이번 턴에 이동 가능한지 = 이동력이 남았으면. 공격 여부와 무관(이동·공격 독립). → turn.md
 func can_move() -> bool:
-	return not moved_this_turn and not attacked_this_turn
+	return move_points > 0
 
 ## 이번 턴에 공격 가능한지. 이동만 했으면 아직 가능, 공격했으면 불가.
 func can_attack() -> bool:
@@ -191,11 +194,16 @@ func can_attack() -> bool:
 func can_rest() -> bool:
 	return not attacked_this_turn
 
-## 이동 완료 표시. 흐리게(반투명) 다시 그린다.
+## 이동력을 cost만큼 차감한다(0 미만으로 내려가지 않음). 다중 클릭 이동·ESC 정지가 실제 이동한 누적비용만큼 부른다. 흐리게 다시 그린다.
+func spend_movement(cost: int) -> void:
+	move_points = maxi(0, move_points - cost)
+	queue_redraw()
+
+## 이동력을 0으로 만들어 이번 턴 이동을 끝낸다. NPC 1회 이동·공격 접근처럼 "더 못 움직임"을 확정할 때 쓴다. 흐리게 다시 그린다.
 func mark_moved() -> void:
-	if moved_this_turn:
+	if move_points == 0:
 		return
-	moved_this_turn = true
+	move_points = 0
 	queue_redraw()
 
 ## 공격 완료 표시(그 부대의 행동 종료). 흐리게 다시 그린다.
@@ -205,16 +213,9 @@ func mark_attacked() -> void:
 	attacked_this_turn = true
 	queue_redraw()
 
-## 이동 되돌리기. moved_this_turn을 해제해 다시 이동 가능하게 한다(위치 복원은 game.gd). 다시 그린다.
-func undo_move() -> void:
-	moved_this_turn = false
-	queue_redraw()
-
-## 턴 종료 시 호출. 이동·공격 상태를 리셋하고 불투명하게 다시 그린다.
+## 턴 종료(및 생성 시) 호출. 이동력을 movement()로 채우고 공격 상태를 리셋한 뒤 불투명하게 다시 그린다.
 func reset_turn() -> void:
-	if not moved_this_turn and not attacked_this_turn:
-		return
-	moved_this_turn = false
+	move_points = movement()
 	attacked_this_turn = false
 	queue_redraw()
 
@@ -255,8 +256,8 @@ func _draw() -> void:
 			_sprite.hide()   # 병력 0(전멸)이면 스프라이트도 숨긴다 — "사라짐".
 		return
 
-	# 이번 턴에 이동·공격 중 하나라도 했으면 전체를 반투명하게.
-	var a := _MOVED_ALPHA if (moved_this_turn or attacked_this_turn) else 1.0
+	# 이동력을 다 썼고 공격까지 마쳤으면(이번 턴 더 할 게 없으면) 전체를 반투명하게.
+	var a := _MOVED_ALPHA if (move_points == 0 and attacked_this_turn) else 1.0
 
 	# 병종 스프라이트(몸통)를 현재 상태에 맞춘다. 오버레이는 그 위/아래로 캔버스에 얹는다.
 	_sync_sprite(a)

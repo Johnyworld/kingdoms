@@ -60,3 +60,25 @@ func test_open_shows_close_hides() -> void:
 	assert_true(panel.visible, "open 후 표시")
 	panel.close()
 	assert_false(panel.visible, "close 후 숨김")
+
+# --- 행동 버튼 줄 (open의 actions) → party-lord.md · party-action-menu.md ---
+
+func test_actions_hidden_by_default() -> void:
+	panel.open(_party())   # actions 기본 []
+	assert_false(panel._actions.visible, "actions 없으면 행동 버튼 줄 숨김")
+
+func test_action_button_shown_and_emits() -> void:
+	watch_signals(panel)
+	panel.open(_party(), [{"id": "lord", "label": "소속"}])
+	assert_true(panel._actions.visible, "actions 있으면 버튼 줄 표시")
+	assert_eq(panel._actions.get_child_count(), 1, "버튼 1개")
+	var btn := panel._actions.get_child(0) as Button
+	assert_eq(btn.text, "소속", "버튼 라벨 = 소속")
+	btn.pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "action_selected", ["lord"])
+
+func test_reopen_clears_actions() -> void:
+	panel.open(_party(), [{"id": "lord", "label": "소속"}])
+	panel.open(_party())   # actions 없이 재오픈
+	assert_false(panel._actions.visible, "재오픈(빈 actions) 시 버튼 줄 숨김")
+	assert_eq(panel._actions.get_child_count(), 0, "이전 버튼 제거")

@@ -52,14 +52,16 @@ func test_end_turn_increments_number() -> void:
 	tm.end_turn([], [])
 	assert_eq(tm.number, 3, "턴 종료 2회 → 3")
 
-# --- 부대 1턴 1이동 (부대 상태 상세는 test_party.gd) ---
+# --- 부대 이동력 풀 리셋 (부대 상태 상세는 test_party.gd) ---
 
-func test_end_turn_resets_units() -> void:
+func test_end_turn_refills_move_points() -> void:
 	var tm := _turn_manager()
 	var p := _party()
-	p.mark_moved()
+	p.troop_type = "light_infantry"   # 이동력 있는 병종
+	p.mark_moved()   # 이동력 소진(0)
+	assert_eq(p.move_points, 0, "선행: 이동력 0")
 	tm.end_turn([p], [])
-	assert_false(p.moved_this_turn, "턴 종료 시 부대 이동 상태 리셋")
+	assert_eq(p.move_points, p.movement(), "턴 종료 시 부대 이동력이 movement()로 리셋")
 
 # flat 생산·2차 가공은 폐지됨 — 모든 생산이 game.gd의 1차 생산포인트(거리 기반)로 이관. → production.md
 
