@@ -122,6 +122,7 @@ var _in_battle := false
 var _game_over := false
 var result_overlay: ResultOverlay   # 결과 화면(코드 생성, _ready에서 추가)
 var confirm_dialog: ConfirmDialog   # 확인 다이얼로그(코드 생성, _ready에서 추가). 철거 등 확인용(동작은 open 콜백).
+var esc_menu: EscMenu               # ESC(시스템) 메뉴(코드 생성, _ready에서 추가). 취소할 게 없을 때 ESC로 오픈. → esc-menu.md
 var toast: Toast                    # 점령/함락 알림(코드 생성, _ready에서 추가)
 var turn_banner: TurnBanner         # 현재 행동 세력 배너(코드 생성, _ready에서 추가). → turn.md
 var _npc_turn_active := false       # NPC 턴 진행 중 — 플레이어 좌클릭·턴 종료 잠금. → turn.md
@@ -189,6 +190,9 @@ func _ready() -> void:
 	result_overlay.dismissed.connect(_on_result_dismissed)
 	confirm_dialog = ConfirmDialog.new()   # 확인 다이얼로그(코드 생성). 동작은 open의 콜백으로 넘긴다.
 	add_child(confirm_dialog)
+	esc_menu = EscMenu.new()   # ESC(시스템) 메뉴(코드 생성). → esc-menu.md
+	add_child(esc_menu)
+	esc_menu.action_selected.connect(_on_esc_action)
 	toast = Toast.new()   # 점령/함락 알림(코드 생성)
 	add_child(toast)
 	turn_banner = TurnBanner.new()   # 현재 행동 세력 배너(코드 생성). → turn.md
@@ -1999,12 +2003,24 @@ func _refresh_building_info(b) -> void:
 
 ## ESC·우클릭: 이동 애니메이션 중이면 향하던 칸에서 정지(선택 유지), 아니면 선택 해제. → selection-and-movement.md
 ## 공격·점령 접근 이동(_move_path 빈)은 멈추지 않는다. 전투·지휘 시퀀스·NPC 턴 중엔 해제도 막는다(무시).
-func _cancel_or_stop() -> void:
+## 실제로 정지·해제한 게 있으면 true, 취소할 게 없으면 false(ESC는 이때 시스템 메뉴를 연다). → esc-menu.md
+func _cancel_or_stop() -> bool:
 	if _player_moving and not _move_path.is_empty():
 		_stop_player_move()
+		return true
 	elif _selected and not _player_moving and not _command_busy and not _in_battle and not _game_over and not _npc_turn_active:
 		_deselect()
 		_hide_party_info()
+		return true
+	return false
+
+## ESC 메뉴 선택 라우팅. 되돌리기 어려운 이탈은 확인 다이얼로그를 거친다(취소하면 메뉴로 복귀). → esc-menu.md
+func _on_esc_action(id: String) -> void:
+	match id:
+		"title":
+			confirm_dialog.open("타이틀로 나가시겠습니까? 진행 상황이 사라집니다.", "나가기", func() -> void: SceneManager.change_scene(TITLE_SCENE))
+		"quit":
+			confirm_dialog.open("게임을 종료하시겠습니까?", "종료", func() -> void: get_tree().quit())
 
 ## 줌 조절: 마우스 휠 / 트랙패드 두 손가락 스크롤 / 트랙패드 핀치.
 ## 값이 작을수록 확대이므로, 확대 = _zoom_level 감소.
@@ -2015,9 +2031,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _build_mode:
 		_handle_build_input(event)
 		return
-	# ESC/우클릭: 이동 중이면 정지(향하던 칸), 아니면 선택 해제. → selection-and-movement.md
+	# ESC: 취소 우선(이동 정지·선택 해제), 취소할 게 없으면 시스템 메뉴 오픈. → esc-menu.md / selection-and-movement.md
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		_cancel_or_stop()
+		if not _cancel_or_stop():
+			esc_menu.open()
+			get_viewport().set_input_as_handled()   # ESC로 메뉴를 열었으니 입력 소비(Modal의 open/close 입력 소비와 대칭)
 		return
 	# 호버 경로 미리보기(선택 중, 이동/전투/지휘 시퀀스 아님). → selection-and-movement.md
 	if event is InputEventMouseMotion:
