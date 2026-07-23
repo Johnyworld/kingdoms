@@ -228,16 +228,25 @@ static func path_reachable_prefix(terrain: TileMapLayer, path: Array, budget: in
 			break
 	return idx
 
-## candidates(도달 가능 정지 칸 ∪ 시작칸) 중 적까지 헥스 거리 reach 이내이면서 가장 먼 칸을 고른다(원거리 카이팅).
-## 동점이면 candidates 순서상 먼저 것. 사거리 내 후보가 없으면 (-1,-1). 노드 비의존 순수 함수. → selection-and-movement.md
-static func best_fire_cell(terrain: TileMapLayer, candidates: Array, enemy_cell: Vector2i, reach: int, map_w: int, map_h: int) -> Vector2i:
+## candidates(도달 가능 정지 칸 ∪ 시작칸) 중 적까지 헥스 거리 reach 이내인 칸을, **이동을 최소화**해 고른다.
+## move_cost = 시작칸→각 칸 누적 이동비용(시작칸=0). 사거리에 드는 후보 중 이동비용이 가장 작은 칸을 고른다.
+## → 시작칸이 이미 사거리에 들면 비용 0이라 제자리를 골라 불필요한 이동을 하지 않는다. 이동해야 하면 가장 가까운(적은 이동) 사격 위치.
+## 이동비용 동률이면 적에게서 더 먼 칸(안전 카이팅), 그래도 동률이면 candidates 순서상 먼저 것.
+## move_cost 미제공(기본 {})이면 모든 비용 0 취급 → 가장 먼 칸(레거시 카이팅). 사거리 내 후보 없으면 (-1,-1). 노드 비의존 순수 함수. → selection-and-movement.md
+static func best_fire_cell(terrain: TileMapLayer, candidates: Array, enemy_cell: Vector2i, reach: int, map_w: int, map_h: int, move_cost: Dictionary = {}) -> Vector2i:
 	var d := bfs_distances(terrain, enemy_cell, reach, map_w, map_h)   # 적으로부터 헥스 거리(≤reach인 칸만)
 	var best := Vector2i(-1, -1)
-	var best_d := -1
+	var best_cost := -1
+	var best_far := -1
 	for c in candidates:
-		if d.has(c) and int(d[c]) > best_d:
-			best_d = int(d[c])
+		if not d.has(c):
+			continue
+		var mc: int = int(move_cost.get(c, 0))
+		var far: int = int(d[c])
+		if best == Vector2i(-1, -1) or mc < best_cost or (mc == best_cost and far > best_far):
 			best = c
+			best_cost = mc
+			best_far = far
 	return best
 
 static func _in_bounds(cell: Vector2i, map_w: int, map_h: int) -> bool:

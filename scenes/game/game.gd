@@ -475,7 +475,7 @@ func _update_ranges() -> void:
 	for c in move_cells:
 		_reachable[c] = true
 	_move_cells = move_cells
-	_compute_attack_targets(start)
+	_compute_attack_targets(start, ranges["dist"])
 	_compute_camp_targets(start)
 	_compute_merge_targets(start)
 	_refresh_overlay()
@@ -492,8 +492,9 @@ func _compute_merge_targets(start: Vector2i) -> void:
 			_merge_targets[pcell] = p
 
 ## 보이는 각 NPC를 공격 가능 여부로 분류하고 공격 위치(stand)를 정한다.
-## 근접(rng 0)=(현재∪이동칸 중 인접칸 존재), stand=인접 도달 칸. 사격(rng≥2)=사거리에 드는 도달 칸 존재, stand=가장 먼 칸(카이팅).
-func _compute_attack_targets(start: Vector2i) -> void:
+## 근접(rng 0)=(현재∪이동칸 중 인접칸 존재), stand=이동 최소 인접 도달 칸. 사격(rng≥2)=사거리에 드는 도달 칸 존재, stand=이동 최소 사격 칸(제자리 우선).
+## move_cost = 시작칸→각 칸 누적 이동비용(시작칸=0). stand을 최소 이동으로 고르는 데 쓴다.
+func _compute_attack_targets(start: Vector2i, move_cost: Dictionary = {}) -> void:
 	_attack_targets = {}
 	_attack_cells = []
 	if not party.can_attack():
@@ -511,13 +512,13 @@ func _compute_attack_targets(start: Vector2i) -> void:
 		var shoot := false
 		var stand := Vector2i(-1, -1)
 		if ranged:
-			var fire := HexGrid.best_fire_cell(terrain, fire_cands, ec, rng, MAP_WIDTH, MAP_HEIGHT)
+			var fire := HexGrid.best_fire_cell(terrain, fire_cands, ec, rng, MAP_WIDTH, MAP_HEIGHT, move_cost)
 			if fire != Vector2i(-1, -1):
 				shoot = true
 				stand = fire
 		elif _cell_melee_reachable(ec, start):
 			melee = true
-			stand = _adjacent_stand(ec, start)   # 인접이면 start, 아니면 인접 도달 칸
+			stand = _adjacent_stand(ec, start, move_cost)   # 인접이면 start, 아니면 이동 최소 인접 도달 칸
 		if melee or shoot:
 			_attack_targets[ec] = {"enemy": p, "cell": ec, "melee": melee, "shoot": shoot, "stand": stand}
 			_attack_cells.append(ec)
@@ -923,15 +924,22 @@ func _transfer_camp(camp, new_faction) -> void:
 func _destroy_camp(camp) -> void:
 	toast.show_message("%s 파괴!" % _bmgr.destroy_camp(camp))   # 플레이어만 파괴 → 항상 플레이어 행동
 
-## 적 인접 칸: 이미 인접이면 현재 칸, 아니면 인접한 도달 칸 하나, 없으면 현재 칸.
-func _adjacent_stand(enemy_cell: Vector2i, start: Vector2i) -> Vector2i:
+## 적 인접 칸: 이미 인접이면 현재 칸(제자리 근접), 아니면 인접한 도달 칸 중 **이동이 가장 적은** 칸, 없으면 현재 칸.
+## move_cost = 시작칸→각 칸 누적 이동비용(시작칸=0). 멀리 돌아가지 않고 가장 가까운 인접 칸에 붙는다.
+func _adjacent_stand(enemy_cell: Vector2i, start: Vector2i, move_cost: Dictionary = {}) -> Vector2i:
 	var neighbors := terrain.get_surrounding_cells(enemy_cell)
 	if start in neighbors:
 		return start
+	var best := Vector2i(-1, -1)
+	var best_cost := -1
 	for n in neighbors:
-		if _reachable.has(n):
-			return n
-	return start
+		if not _reachable.has(n):
+			continue
+		var mc: int = int(move_cost.get(n, 0))
+		if best == Vector2i(-1, -1) or mc < best_cost:
+			best = n
+			best_cost = mc
+	return best if best != Vector2i(-1, -1) else start
 
 ## 플레이어가 적에게 개시하는 전투. 공격은 공격 행동을 끝낸다(mark_attacked)지만 이동력은 별개다(이동·공격 독립).
 ## distance=교전 헥스 거리(근접=1), occupy_cell=근접 승리 시 이동할 수비 타일((-1,-1)이면 점령 없음). → battle.md

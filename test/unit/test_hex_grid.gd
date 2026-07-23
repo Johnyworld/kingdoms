@@ -435,9 +435,10 @@ func test_path_prefix_forest_cost() -> void:
 	assert_eq(HexGrid.path_reachable_prefix(terrain, path, 2), 1, "숲(비용 2) 도달 → 인덱스 1")
 	assert_eq(HexGrid.path_reachable_prefix(terrain, path, 1), 0, "budget 1 < 숲비용 2 → 인덱스 0")
 
-# --- 사격 위치 (best_fire_cell) — 원거리 카이팅(사거리 내 가장 먼 칸) → selection-and-movement.md ---
+# --- 사격 위치 (best_fire_cell) — 최소 이동 사격 위치(제자리 우선) → selection-and-movement.md ---
 
-func test_best_fire_cell_farthest_in_range() -> void:
+func test_best_fire_cell_farthest_without_move_cost() -> void:
+	# move_cost 미제공(기본 {}) → 모든 비용 0 취급, 동률 tie-break으로 가장 먼 칸(레거시 카이팅).
 	var enemy := _center()
 	var d := HexGrid.bfs_distances(terrain, enemy, 3, MAP, MAP)
 	var c1 := enemy
@@ -448,7 +449,34 @@ func test_best_fire_cell_farthest_in_range() -> void:
 		elif d[c] == 2: c2 = c
 		elif d[c] == 3: c3 = c
 	var best := HexGrid.best_fire_cell(terrain, [c1, c2, c3], enemy, 2, MAP, MAP)
-	assert_eq(int(d[best]), 2, "사거리 내(≤2) 후보 중 가장 먼 칸 = 거리 2(카이팅)")
+	assert_eq(int(d[best]), 2, "move_cost 없으면 사거리 내(≤2) 가장 먼 칸 = 거리 2")
+
+func test_best_fire_cell_min_movement() -> void:
+	# move_cost가 있으면 적에게서 먼 칸이 아니라 이동이 가장 적은 칸을 고른다.
+	var enemy := _center()
+	var d := HexGrid.bfs_distances(terrain, enemy, 3, MAP, MAP)
+	var c1 := enemy
+	var c2 := enemy
+	var c3 := enemy
+	for c in d:
+		if d[c] == 1: c1 = c
+		elif d[c] == 2: c2 = c
+		elif d[c] == 3: c3 = c
+	# 적에 가까운 c1이 이동비용 최소 → 멀리(c3) 가지 않고 c1을 고른다.
+	var best := HexGrid.best_fire_cell(terrain, [c1, c2, c3], enemy, 3, MAP, MAP, {c1: 1, c2: 2, c3: 3})
+	assert_eq(best, c1, "이동이 가장 적은 사격 칸(가장 먼 칸 아님)")
+
+func test_best_fire_cell_stays_when_in_range() -> void:
+	# 시작칸(이동비용 0)이 사거리에 들면, 더 먼 사격 칸이 있어도 제자리를 골라 이동하지 않는다.
+	var enemy := _center()
+	var d := HexGrid.bfs_distances(terrain, enemy, 3, MAP, MAP)
+	var start := enemy
+	var far := enemy
+	for c in d:
+		if d[c] == 2: start = c   # 시작칸(사거리 3 이내)
+		elif d[c] == 3: far = c   # 더 먼 사격 칸
+	var best := HexGrid.best_fire_cell(terrain, [start, far], enemy, 3, MAP, MAP, {start: 0, far: 4})
+	assert_eq(best, start, "이미 사거리 안이면 제자리(이동비용 0) 사격")
 
 func test_best_fire_cell_none_in_range() -> void:
 	var enemy := _center()

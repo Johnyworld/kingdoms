@@ -115,7 +115,7 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 - 호버 처리(`game.gd`): 선택·행동 가능·이동 중 아님일 때 마우스 칸이 바뀌면(`_hover_cell`) 미리보기를 갱신한다. 카메라·모달·건설 모드에선 끈다.
 - 경로 계산: 부대 칸→호버 칸의 **전체 경로**(예산 무시, 큰 budget)를 `reconstruct_path`(적 `blocked_cells`·아군 `no_stop_cells`·건물·경계 반영)로 구한다. 경로가 없으면(도달 불가·아군 겹침 등) 선을 지운다.
 - 파랑/빨강 분할: `HexGrid.path_reachable_prefix(terrain, path, budget, cell_costs)`로 **이동력(`move_points`)이 닿는 마지막 인덱스**를 구해, `path[0..idx]`는 파랑, `path[idx..]`는 빨강으로 그린다(경계 칸은 두 색이 만난다).
-- 적 위 호버: 경로 선 끝을 **공격 위치**(근접=인접 stand, 원거리=사거리에 드는 가장 먼 칸)로 잡고, 마우스 커서를 **칼/화살** 표식으로 바꾼다. → [공격 통합](party-action-menu.md#공격-통합-적-클릭)
+- 적 위 호버: 경로 선 끝을 **공격 위치**(근접=이동 최소 인접 stand, 원거리=사거리에 드는 이동 최소 칸·제자리 우선)로 잡고, 마우스 커서를 **칼/화살** 표식으로 바꾼다. → [공격 통합](party-action-menu.md#공격-통합-적-클릭)
 - `show_path(blue, red, marker, marker_pos)` / `clear()` — 호버 폴리라인(+공격 표식)을 그리거나 지운다.
 - **노란 목표선**(별개 레이어): `show_goal(points: PackedVector2Array)` / `clear_goal()` — [이동 목표](#이동-목표-기억계속-이동-move_goal)가 남은 부대 선택 시 현재→목표 전체 경로를 노란색으로 그린다. 호버선과 독립이라 마우스를 움직여도 유지되고, 선택 해제 시 `clear_goal()`로 지운다.
 
@@ -125,7 +125,7 @@ BFS와 범위 분할 규칙은 `scenes/game/hex_grid.gd`의 `HexGrid` 헬퍼로 
 
 ### 사격 위치 (`HexGrid.best_fire_cell`)
 
-`best_fire_cell(terrain, candidates: Array, enemy_cell, reach, map_w, map_h) -> Vector2i` — `candidates`(도달 가능 정지 칸 ∪ 시작칸) 중 적까지 헥스 거리 `reach` **이내이면서 가장 먼** 칸을 고른다(원거리 카이팅 — 최소 이동으로 사거리에 듦). 동점이면 후보 순서상 먼저 것. 사거리 내 후보가 없으면 `(-1,-1)`. 근접(reach 1)엔 쓰지 않는다(인접 stand 사용).
+`best_fire_cell(terrain, candidates: Array, enemy_cell, reach, map_w, map_h, move_cost := {}) -> Vector2i` — `candidates`(도달 가능 정지 칸 ∪ 시작칸) 중 적까지 헥스 거리 `reach` **이내**인 칸을 **이동을 최소화**해 고른다. `move_cost`는 시작칸→각 칸 누적 이동비용(시작칸 0)이며, 사거리에 드는 후보 중 이동비용이 가장 작은 칸을 고른다 — **시작칸이 이미 사거리에 들면 비용 0이라 제자리를 골라 불필요한 이동/카이팅을 하지 않는다**. 이동해야 하면 가장 가까운(적은 이동) 사격 위치. 이동비용 동률이면 적에게서 더 먼 칸(안전), 그래도 동률이면 후보 순서상 먼저 것. `move_cost` 미제공이면 모든 비용 0 취급 → 가장 먼 칸(레거시). 사거리 내 후보가 없으면 `(-1,-1)`. 근접(reach 1)엔 쓰지 않는다(인접 stand 사용).
 
 ## 범위 오버레이 (`range_overlay.gd`)
 
