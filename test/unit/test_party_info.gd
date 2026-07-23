@@ -82,3 +82,72 @@ func test_reopen_clears_actions() -> void:
 	panel.open(_party())   # actions 없이 재오픈
 	assert_false(panel._actions.visible, "재오픈(빈 actions) 시 버튼 줄 숨김")
 	assert_eq(panel._actions.get_child_count(), 0, "이전 버튼 제거")
+
+# --- 지휘 토글 인라인 (영웅부대, show_command) → squad-stance.md ---
+
+func _hero(cmdr := "아젤") -> Node2D:
+	var p: Node2D = load("res://scenes/party/party.gd").new()
+	add_child_autofree(p)
+	p.party_name = "영웅 부대"
+	p.kind = p.KIND_HERO
+	p.commander_name = cmdr
+	return p
+
+func test_command_hidden_by_default() -> void:
+	panel.open(_hero())   # show_command 기본 false
+	assert_false(panel._command_box.visible, "show_command 없으면 지휘 토글 숨김")
+
+func test_command_hidden_for_troop() -> void:
+	panel.open(_party(), [], true)   # 일반부대는 show_command=true여도 숨김
+	assert_false(panel._command_box.visible, "일반부대는 지휘 토글 숨김")
+
+func test_command_shows_toggles() -> void:
+	panel.open(_hero(), [], true)
+	assert_true(panel._command_box.visible, "영웅+show_command면 지휘 토글 표시")
+	assert_not_null(panel._follow_btn, "[따라옴] 버튼")
+	assert_not_null(panel._direct_btn, "[직접명령] 버튼")
+	assert_not_null(panel._engage_btn, "[전투우선] 버튼")
+	assert_not_null(panel._avoid_btn, "[전투회피] 버튼")
+
+func test_command_current_side_highlighted() -> void:
+	panel.open(_hero(), [], true)   # 기본 직접명령·전투회피
+	# 선택된 쪽은 밝게(불투명 1.0), 반대쪽은 흐리게(<1.0). disabled로 표시하지 않는다.
+	assert_eq(panel._direct_btn.modulate.a, 1.0, "현재=직접명령 → [직접명령] 밝게(선택 표시)")
+	assert_lt(panel._follow_btn.modulate.a, 1.0, "[따라옴]은 흐리게")
+	assert_eq(panel._avoid_btn.modulate.a, 1.0, "현재=전투회피 → [전투회피] 밝게")
+	assert_lt(panel._engage_btn.modulate.a, 1.0, "[전투우선]은 흐리게")
+	assert_false(panel._direct_btn.disabled, "선택 표시는 밝기로 — 버튼은 비활성이 아니다")
+
+func test_command_reflects_current_values() -> void:
+	var h := _hero()
+	h.command_follow = true
+	h.command_engage = true
+	panel.open(h, [], true)
+	assert_eq(panel._follow_btn.modulate.a, 1.0, "현재=따라옴 → [따라옴] 밝게")
+	assert_lt(panel._direct_btn.modulate.a, 1.0, "[직접명령]은 흐리게")
+	assert_eq(panel._engage_btn.modulate.a, 1.0, "현재=전투우선 → [전투우선] 밝게")
+	assert_lt(panel._avoid_btn.modulate.a, 1.0, "[전투회피]는 흐리게")
+
+func test_follow_button_emits() -> void:
+	watch_signals(panel)
+	panel.open(_hero(), [], true)
+	panel._follow_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "command_changed", ["follow", true])
+
+func test_direct_button_emits() -> void:
+	watch_signals(panel)
+	panel.open(_hero(), [], true)
+	panel._direct_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "command_changed", ["follow", false])
+
+func test_engage_button_emits() -> void:
+	watch_signals(panel)
+	panel.open(_hero(), [], true)
+	panel._engage_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "command_changed", ["engage", true])
+
+func test_avoid_button_emits() -> void:
+	watch_signals(panel)
+	panel.open(_hero(), [], true)
+	panel._avoid_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "command_changed", ["engage", false])

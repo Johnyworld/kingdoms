@@ -71,7 +71,6 @@ var _merge_targets: Dictionary = {}       # 인접 아군 부대: cell → party
 var _merge_target = null                  # 병합 팝업의 대상 부대(없으면 아님)
 var party_action_menu: PartyActionMenu    # 부대 행동 팝업(거점 점령·병합, 코드 생성, _ready에서 추가)
 var lord_menu: LordMenu                      # 소속 모달(코드 생성, _ready에서 추가). 일반부대 소속 영웅 설정/해제 → party-lord.md
-var command_menu: CommandMenu                # 지휘 모달(코드 생성). 영웅부대 따라옴/전투 스탠스 설정 → squad-stance.md
 
 # 턴 진행. 턴 종료 시 유닛 이동 리셋 + 영지 자원 수입.
 var _turn := TurnManager.new()
@@ -180,13 +179,11 @@ func _ready() -> void:
 	add_child(party_action_menu)
 	party_action_menu.action_selected.connect(_on_party_action)
 	party_info.action_selected.connect(_on_party_info_action)   # 부대 정보 박스 [소속] 버튼 → party-lord.md
+	party_info.command_changed.connect(_on_command_changed)     # 영웅 지휘 토글(따라옴/전투) 인라인 → squad-stance.md
 
 	lord_menu = LordMenu.new()   # 소속 모달(코드 생성 UI) → party-lord.md
 	add_child(lord_menu)
 	lord_menu.changed.connect(_on_lord_changed)
-	command_menu = CommandMenu.new()   # 지휘 모달(따라옴/전투 스탠스) → squad-stance.md
-	add_child(command_menu)
-	command_menu.changed.connect(_on_command_changed)
 	result_overlay = ResultOverlay.new()   # 결과 화면(코드 생성)
 	add_child(result_overlay)
 	result_overlay.dismissed.connect(_on_result_dismissed)
@@ -1194,14 +1191,12 @@ func _on_party_action(id: String) -> void:
 				_capture_camp(entry, false)
 		return
 
-## 부대 정보 박스 행동 버튼([소속]·[지휘]·[계속 이동]) 처리. → party-lord.md · squad-stance.md · selection-and-movement.md
+## 부대 정보 박스 행동 버튼([소속]·[계속 이동]·[대기]) 처리. 지휘(따라옴/전투)는 인라인 토글 → _on_command_changed. → party-lord.md · selection-and-movement.md
 func _on_party_info_action(id: String) -> void:
 	if not _selected:
 		return
 	if id == "lord":
 		lord_menu.open(party, _adjacent_player_heroes(party))   # 소속 영웅 설정/해제(턴 소비 없음)
-	elif id == "command":
-		command_menu.open(party)   # 영웅 따라옴/전투 스탠스 지속 설정(턴 소비 없음)
 	elif id == "continue":
 		# 기억된 이동 목표로 최대 전진(도달 시 _settle_after_move가 목표 해제). 경로 없으면 목표 취소.
 		if party.move_goal != Vector2i(-1, -1) and not _try_max_advance(_cell_of(party), party.move_goal):
@@ -1215,9 +1210,12 @@ func _on_party_info_action(id: String) -> void:
 		_hide_party_info()
 		_update_fog()
 
-## 지휘 설정 변경 후 — 정보 패널([지휘] 버튼 상태)을 갱신한다. 턴 소비 없음. → squad-stance.md
-func _on_command_changed() -> void:
-	if _selected and party != null:
+## 인라인 지휘 토글 변경 — 영웅에 값을 세팅하고 정보 패널(토글 선택 표시)을 갱신한다. 턴 소비 없음. → squad-stance.md
+func _on_command_changed(field: String, value: bool) -> void:
+	if party == null:
+		return
+	party["command_" + field] = value   # command_follow / command_engage
+	if _selected:
 		_show_party_info(party)
 
 ## 턴 종료: 번호 +1, 모든 유닛 이동 리셋, 모든 영지 자원 수입, NPC 이동. 진행 중 선택은 해제한다.
@@ -1842,22 +1840,23 @@ func _deselect() -> void:
 	_hover_cell = Vector2i(-9999, -9999)
 
 ## 부대 정보 패널을 연다. 우측 상단을 공유하는 부대 일람·건물 정보는 감춘다.
-## 선택 중인 플레이어 부대면 행동 버튼을 붙인다: 일반부대=[소속](관리 가능 시), 영웅부대=[지휘](명령 가능 하위부대 있을 시). → party-lord.md · squad-stance.md
+## 선택 중인 플레이어 부대면 행동 버튼을 붙인다: 일반부대=[소속](관리 가능 시). 영웅부대는 지휘 토글(따라옴/전투)을 인라인 노출(명령 가능 하위부대 있을 시). → party-lord.md · squad-stance.md
 func _show_party_info(party_to_show) -> void:
 	building_info.close()
 	var actions: Array = []
+	var show_command := false
 	if _selected and party_to_show == party:
 		if _can_manage_lord(party_to_show):
 			actions.append({"id": "lord", "label": "소속"})
-		if party_to_show.is_hero() and _can_command_subordinates(party_to_show):
-			actions.append({"id": "command", "label": "지휘"})
+		# 영웅+명령 가능 하위부대면 지휘 토글(따라옴/전투)을 인라인 상시 노출. → squad-stance.md
+		show_command = party_to_show.is_hero() and _can_command_subordinates(party_to_show)
 		# 이동 목표가 남았고 아직 이동력이 있으면 [계속 이동]. → selection-and-movement.md
 		if party_to_show.move_goal != Vector2i(-1, -1) and party_to_show.move_goal != _cell_of(party_to_show) and party_to_show.can_move():
 			actions.append({"id": "continue", "label": "계속 이동"})
 		# 아직 할 게 남은 부대면 [대기] — 남은 이동력·공격을 포기하고 강제 E 진입. → turn.md
 		if _has_commands(party_to_show, _building_costs(), barrier_edges()):
 			actions.append({"id": "wait", "label": "대기"})
-	party_info.open(party_to_show, actions)
+	party_info.open(party_to_show, actions, show_command)
 	party_roster.hide()
 
 ## 부대 정보·건물 정보 패널을 닫고, 부대 일람을 다시 표시한다.

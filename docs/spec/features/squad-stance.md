@@ -1,10 +1,10 @@
 # Feature: Squad Command (부대 지휘 — 따라옴 · 전투 스탠스)
 
-> 스크립트: `scenes/party/command_menu.gd` (`CommandMenu`) · `scenes/party/party.gd` (`command_follow`·`command_engage`) · `scenes/game/game.gd` (`_command_follow`, `_settle_after_move`, `_subordinates_of`, `_can_command_subordinates`) · `scenes/game/hex_grid.gd` (`follow_destination`)
+> 스크립트: `scenes/party/party_info.gd` (지휘 토글 인라인·`command_changed`) · `scenes/party/party.gd` (`command_follow`·`command_engage`) · `scenes/game/game.gd` (`_on_command_changed`, `_settle_after_move`, `_subordinates_of`, `_can_command_subordinates`) · `scenes/game/hex_grid.gd` (`follow_destination`)
 
-랑그릿사식 편제에서 **영웅부대**([Party](../entities/Party.md) `KIND_HERO`)는 자신에 [소속](party-lord.md)된 **하위부대**(`lord == 영웅`)의 **지휘 방식을 지속 설정**한다. 설정은 영웅부대에 저장되고 **턴이 바뀌어도 유지**된다. 플레이어는 [부대 정보 패널](party-info.md)의 **[지휘] 버튼**으로 연다.
+랑그릿사식 편제에서 **영웅부대**([Party](../entities/Party.md) `KIND_HERO`)는 자신에 [소속](party-lord.md)된 **하위부대**(`lord == 영웅`)의 **지휘 방식을 지속 설정**한다. 설정은 영웅부대에 저장되고 **턴이 바뀌어도 유지**된다. 지휘 토글은 [부대 정보 패널](party-info.md) **우측 상단에 인라인 상시 노출**된다(영웅 선택 즉시 보임 — 별도 버튼·모달 없음).
 
-(이전의 one-shot 작전 메뉴 — 이동 직후 뜨던 추종/대기/교전/돌격 — 은 **삭제**됐다. 다중 클릭 이동([Selection & Movement](selection-and-movement.md))과 양립하지 않아 지속 설정으로 대체했다.)
+(이전의 one-shot 작전 메뉴 — 이동 직후 뜨던 추종/대기/교전/돌격 — 은 **삭제**됐다. 다중 클릭 이동([Selection & Movement](selection-and-movement.md))과 양립하지 않아 지속 설정으로 대체했다. 이후 지속 설정도 [지휘] 모달 → **부대 정보 패널 인라인 토글**로 옮겼다.)
 
 ## 지휘 설정 (영웅부대 저장, 지속)
 
@@ -13,22 +13,23 @@
 | 추종 방식 | `command_follow` | `false`(직접명령) | `true`=**따라옴**(하위부대가 영웅 이동마다 자동 추종), `false`=**직접명령**(자동 이동 없음, 플레이어가 하위부대를 직접 조작) |
 | 전투 스탠스 | `command_engage` | `false`(전투회피) | `true`=**전투우선**(따라오다 사거리 안에 적이 들면 그 자리에서 교전), `false`=**전투회피**(이동만). **따라옴일 때만** 의미 있다 |
 
-- **기본값은 직접명령 + 전투회피** — 새 게임 시작 시 하위부대는 자동으로 움직이지 않는다. 플레이어가 [지휘]로 따라옴을 켜야 자동 추종이 시작된다.
+- **기본값은 직접명령 + 전투회피** — 새 게임 시작 시 하위부대는 자동으로 움직이지 않는다. 플레이어가 지휘 토글에서 [따라옴]을 켜야 자동 추종이 시작된다.
 - 두 값은 **`reset_turn()`에서 리셋되지 않는다**(지속 설정).
 
-## [지휘] 메뉴 (`CommandMenu`)
+## 지휘 토글 (부대 정보 패널 인라인)
 
-[소속 모달](party-lord.md)과 같은 공용 [Modal](modal.md) 기반. 토글 2줄:
+[부대 정보 패널](party-info.md) 우측 상단 창 안에, 멤버·행동 버튼 아래로 지휘 토글 2줄이 **상시 노출**된다. 조건은 **영웅부대이고 이번 턴 명령 가능한 하위부대가 있을 때**(`_can_command_subordinates`) — 아니면 숨긴다. 별도 [지휘] 버튼·모달 없이 영웅 선택 즉시 보인다.
 
-- **추종**: `[따라옴]` · `[직접명령]` — 현재 값인 쪽 버튼은 비활성(선택 표시). 누르면 `hero.command_follow` 설정 → `changed` 방출.
-- **전투**: `[전투우선]` · `[전투회피]` — 현재 값인 쪽 비활성. 누르면 `hero.command_engage` 설정 → `changed` 방출.
-- 턴 소비 없음(순수 설정). `game.gd`가 `changed`를 받아 정보 패널([지휘] 버튼 상태)을 갱신한다.
+- **추종**: `[따라옴]` · `[직접명령]` — 현재 값인 쪽 버튼은 밝게 강조(불투명+금색 글자=선택 표시), 반대쪽은 흐리게. 누르면 `command_changed("follow", …)` 방출.
+- **전투**: `[전투우선]` · `[전투회피]` — 현재 값인 쪽 밝게 강조, 반대쪽 흐리게. 누르면 `command_changed("engage", …)` 방출.
+- 선택을 **밝기로 표시**하는 이유: 중세 테마의 `disabled` 스타일이 어두워서 `disabled`로 표시하면 "선택=어두움"으로 거꾸로 읽힌다. 버튼은 항상 활성이며(현재 값 재클릭은 무해), `modulate` 불투명도와 금색 글자로만 선택을 나타낸다.
+- 패널은 **모델을 직접 수정하지 않는다**(뷰 유지). `game.gd`의 `_on_command_changed(field, value)`가 `hero.command_follow`/`command_engage`를 세팅하고 패널을 재렌더(토글 선택 표시 갱신)한다. **턴 소비 없음**(순수 설정).
 
-`CommandMenu` API:
+`PartyInfo` 지휘 API:
 | 함수/시그널 | 설명 |
 | --- | --- |
-| `open(hero) -> void` | 그 영웅의 현재 설정을 읽어 토글을 그리고 모달을 연다 |
-| `changed` (signal) | 설정을 바꾼 뒤 방출 |
+| `open(party, actions, show_command) -> void` | `show_command`이고 영웅이면 현재 설정을 읽어 토글 4버튼을 그리고 노출(현재 값 쪽 밝게 강조) |
+| `command_changed(field, value)` (signal) | 토글을 누르면 방출(`field`=`"follow"`/`"engage"`). `game.gd`가 세팅·재렌더 |
 
 ## 발동 흐름 (`game.gd`)
 
@@ -50,7 +51,7 @@
 ### API (`game.gd`)
 
 - `_subordinates_of(hero) -> Array` — `lord == hero`·멤버 있는 하위부대.
-- `_can_command_subordinates(hero) -> bool` — 위 중 `can_move()`가 하나라도 있는지([지휘] 버튼 노출·즉시 추종 발동 조건).
+- `_can_command_subordinates(hero) -> bool` — 위 중 `can_move()`가 하나라도 있는지(지휘 토글 노출·즉시 추종 발동 조건).
 - `_launch_follow(hero, hero_dest, from_cell) -> void` — 영웅 목적지 링으로 비차단 스태거 트레일 출발(영웅과 동시). 이전 트레일은 스냅 후 재launch.
 - `_engage_followers(hero) -> void`(async) — 전투우선: 트레일 완료 대기 후 사거리 적 순차 교전(입력 잠금).
 - `_finish_pending_follow_moves()` / `_stop_follow_trails()` — 트레일 턴 종료 스냅 / ESC 현재 위치 정지.
@@ -72,10 +73,11 @@ static func follow_destination(terrain, hero_cell, from_cell, follower_cell, mov
 
 ## 적용 대상
 
-- **[지휘] 설정 UI는 플레이어 전용**이다. **NPC 하위부대는 자동으로 영웅을 추종**(항상 따라옴)하며 지휘 범위 내 적은 교전한다([NPC 편제](npc-movement.md)) — `follow_destination`을 NPC 이동 계획이 재사용한다.
+- **지휘 설정 UI(인라인 토글)는 플레이어 전용**이다. **NPC 하위부대는 자동으로 영웅을 추종**(항상 따라옴)하며 지휘 범위 내 적은 교전한다([NPC 편제](npc-movement.md)) — `follow_destination`을 NPC 이동 계획이 재사용한다.
 
 ## 미구현
 
+- **목표우선**(추종 3분기의 신규 항목) — **요청됨·후속**. 추종을 `[따라옴]`·`[직접명령]` 2택이 아니라 `[따라옴]`·`[목표우선]`·`[직접명령]` 3택으로 나눈다. 목표우선은 하위부대가 영웅을 따라가는 대신 **클릭한 타일을 향해 이동**한다. 세부(영웅 동반 이동 여부·목표 지속성·저장 모델)는 미확정 — 이번 인라인화 작업에서는 제외했다.
 - 대기(방어 자세) 스탠스 — 삭제됨(직접명령이 대체). 방어 버프는 후속.
 - 돌격(어택무브 목표 지정) — 삭제됨. `HexGrid.attack_move_stop`도 제거.
 - 소속 부대 지휘 버프(영웅 근처) — [Party Lord](party-lord.md)와 별개 후속.
@@ -87,12 +89,12 @@ static func follow_destination(terrain, hero_cell, from_cell, follower_cell, mov
 - [정상] 생성 직후 `command_follow == false`(직접명령), `command_engage == false`(전투회피)
 - [정상] `command_follow`/`command_engage`를 `true`로 두고 `reset_turn()` 해도 **유지**(리셋 대상 아님)
 
-### [지휘] 메뉴 — `test/unit/test_command_menu.gd`
+### 지휘 토글 인라인 — `test/unit/test_party_info.gd`
 
-- [정상] `open(hero)` → 모달 열림(`is_open()`), 현재 설정에 맞는 토글 4버튼
-- [정상] [따라옴] 누르면 `hero.command_follow == true`, `changed` 방출; [직접명령]이면 `false`
-- [정상] [전투우선]/[전투회피] 누르면 `hero.command_engage` 토글, `changed` 방출
-- [정상] 현재 값인 쪽 버튼은 비활성(선택 표시)
+- [정상] `open(hero, [], true)` → 지휘 토글 노출(`_command_box.visible`), 토글 4버튼 존재
+- [숨김] `show_command` 없거나 일반부대면 지휘 토글 숨김
+- [정상] [따라옴]/[직접명령] 누르면 `command_changed("follow", true/false)` 방출; [전투우선]/[전투회피]는 `command_changed("engage", …)`
+- [정상] 현재 값인 쪽 버튼은 밝게(`modulate.a == 1`, 선택 표시)·반대쪽은 흐리게(`< 1`) — 현재 값(`command_follow`/`command_engage`)을 반영. 버튼은 비활성이 아님
 
 ### 추종 목적지 판정 — `test/unit/test_hex_grid.gd` (실제 헥스 TileMapLayer)
 
@@ -107,7 +109,7 @@ static func follow_destination(terrain, hero_cell, from_cell, follower_cell, mov
 
 `_settle_after_move`의 따라옴 발동·비차단 트레일·전투우선 시퀀스·입력 잠금·턴 종료 스냅은 씬 트리·전투 오버레이 의존이라 실제 실행으로 확인한다.
 
-- 영웅 [지휘]→[따라옴] 설정 후 영웅을 클릭 이동 → 하위부대가 **영웅과 동시에(시차 두고, 영웅부터)** 목적지 주변 링으로 이동(전방 우선). 이동력 다 쓴 하위는 뒤처짐. 1기씩 순차가 아니라 한 무리로 움직인다.
+- 영웅 지휘 토글에서 [따라옴] 설정 후 영웅을 클릭 이동 → 하위부대가 **영웅과 동시에(시차 두고, 영웅부터)** 목적지 주변 링으로 이동(전방 우선). 이동력 다 쓴 하위는 뒤처짐. 1기씩 순차가 아니라 한 무리로 움직인다.
 - [직접명령]이면 하위부대가 자동으로 안 움직인다(수동 조작).
 - [전투우선]이면 따라오다 사거리 안 적을 만나면 자동 교전(입력 잠금), [전투회피]면 이동만.
 - 비차단 트레일 도중 턴 종료 → 하위부대가 목적지로 스냅.
@@ -115,4 +117,4 @@ static func follow_destination(terrain, hero_cell, from_cell, follower_cell, mov
 
 ## 관련
 
-- [Party (부대)](../entities/Party.md) — `command_follow`·`command_engage`·`lord`. [Party Lord (소속)](party-lord.md). [Party Info](party-info.md) — [지휘]·[소속] 버튼. [Selection & Movement](selection-and-movement.md) — 이동·`follow_destination`이 쓰는 BFS. [NPC Movement](npc-movement.md) — NPC 자동 추종.
+- [Party (부대)](../entities/Party.md) — `command_follow`·`command_engage`·`lord`. [Party Lord (소속)](party-lord.md). [Party Info](party-info.md) — 지휘 토글(따라옴/전투)·[소속] 버튼. [Selection & Movement](selection-and-movement.md) — 이동·`follow_destination`이 쓰는 BFS. [NPC Movement](npc-movement.md) — NPC 자동 추종.
