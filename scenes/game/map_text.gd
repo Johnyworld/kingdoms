@@ -3,14 +3,14 @@ class_name MapText
 ## 좌표·크기는 16px 헥스 월드 기준으로 작게 잡되, 기본 카메라 3배 줌(16px→48px)에서 뭉개지지 않도록
 ## 글리프를 SUPERSAMPLE배 해상도로 래스터한 뒤 1/배 축소한다(48px 헥스급 디테일).
 ## ⚠️ 호출하는 CanvasItem은 `texture_filter = TEXTURE_FILTER_NEAREST`여야 확대 시 선명하다.
-## 폰트는 갈무리14(픽셀) + 합성 볼드(작은 글자 가독성). fallback(벡터) 폰트는 축소·줌 시 흐릿해 쓰지 않는다.
+## 폰트는 Cafe24 서라운드 Air(본문) + 합성 볼드(작은 글자 가독성). 슈퍼샘플로 래스터하므로 벡터도 선명하다.
 
 const SUPERSAMPLE := 3
 const EMBOLDEN := 0.4
-const TTF := preload("res://assets/ui/fonts/Galmuri14.ttf")
+const TTF := preload("res://assets/ui/fonts/Cafe24SsurroundAir.otf")
 
 static var _font: FontVariation
-## 갈무리14 + 합성 볼드 폰트(전역 공유, 지연 생성).
+## Cafe24 Air + 합성 볼드 폰트(전역 공유, 지연 생성).
 static func font() -> FontVariation:
 	if _font == null:
 		_font = FontVariation.new()

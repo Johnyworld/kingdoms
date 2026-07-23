@@ -30,6 +30,7 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="Menu"]
 layout_mode = 2
+theme_type_variation = &"TitleLabel"
 theme_override_colors/font_color = Color(0.91, 0.72, 0.29, 1)
 theme_override_font_sizes/font_size = 64
 text = "KINGDOMS"

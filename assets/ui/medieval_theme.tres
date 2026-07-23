@@ -1,7 +1,8 @@
-[gd_resource type="Theme" load_steps=12 format=3]
+[gd_resource type="Theme" load_steps=13 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/ui/darkages/32x32-Tilesheet@3x.png" id="1_sheet"]
-[ext_resource type="FontFile" path="res://assets/ui/fonts/Galmuri14.ttf" id="2_font"]
+[ext_resource type="FontFile" path="res://assets/ui/fonts/Cafe24SsurroundAir.otf" id="2_font"]
+[ext_resource type="FontFile" path="res://assets/ui/fonts/Cafe24Ssurround.otf" id="3_bold"]
 
 ; 기본 패널: 얇은 어두운 브레이드 프레임 (@3x 좌표). HUD·정보·로스터 등 상시 패널.
 [sub_resource type="StyleBoxTexture" id="SBT_panel_dark"]
@@ -131,3 +132,5 @@ ParchmentLabel/colors/font_color = Color(0.28, 0.2, 0.12, 1)
 ParchmentPanel/base_type = &"PanelContainer"
 ParchmentPanel/styles/panel = SubResource("SBT_parchment")
 PanelContainer/styles/panel = SubResource("SBT_panel_dark")
+TitleLabel/base_type = &"Label"
+TitleLabel/fonts/font = ExtResource("3_bold")

@@ -58,6 +58,7 @@ func _build_ui() -> void:
 	add_child(root)
 
 	var title := Label.new()
+	title.theme_type_variation = &"TitleLabel"
 	title.text = "전투 설정"
 	title.add_theme_font_size_override("font_size", 48)
 	title.add_theme_color_override("font_color", Color(0.91, 0.72, 0.29))
@@ -98,6 +99,7 @@ func _build_side_panel(side: int, name_ko: String, name_col: Color) -> Control:
 	box.custom_minimum_size = Vector2(460, 0)
 
 	var header := Label.new()
+	header.theme_type_variation = &"TitleLabel"
 	header.text = name_ko
 	header.add_theme_font_size_override("font_size", 30)
 	header.add_theme_color_override("font_color", name_col)

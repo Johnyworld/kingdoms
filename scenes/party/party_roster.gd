@@ -31,6 +31,7 @@ func _build() -> void:
 	panel.add_child(vbox)
 
 	var title := Label.new()
+	title.theme_type_variation = &"TitleLabel"
 	title.text = "부대 일람"
 	title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(title)

@@ -1,12 +1,14 @@
 extends GutTest
-## 중세풍 UI 테마(Slice 1) — medieval_theme.tres + 갈무리14 폰트 + DarkAgesUi 타일시트.
-## 전역 테마 등록·프레임 StyleBox·모달 OrnatePanel 변형을 검증한다. → docs/spec/features/ui-theme.md
+## 중세풍 UI 테마 — medieval_theme.tres + Cafe24 서라운드 폰트(Air 본문/Ssurround 굵게) + DarkAgesUi 타일시트.
+## 전역 테마 등록·프레임 StyleBox·모달 OrnatePanel 변형·벡터 폰트 전환(Slice 5)을 검증한다. → docs/spec/features/ui-theme.md
 
 const THEME_PATH := "res://assets/ui/medieval_theme.tres"
-const FONT_PATH := "res://assets/ui/fonts/Galmuri14.ttf"
+const FONT_AIR_PATH := "res://assets/ui/fonts/Cafe24SsurroundAir.otf"
+const FONT_BOLD_PATH := "res://assets/ui/fonts/Cafe24Ssurround.otf"
 const SHEET_PATH := "res://assets/ui/darkages/32x32-Tilesheet@3x.png"
 const ModalScript = preload("res://scenes/modal/modal.gd")
 const ToastScript = preload("res://scenes/game/toast.gd")
+const MapTextScript = preload("res://scenes/game/map_text.gd")
 
 func _theme() -> Theme:
 	return load(THEME_PATH) as Theme
@@ -22,8 +24,8 @@ func test_theme_default_font() -> void:
 	assert_eq(t.default_font_size, 14, "테마 default_font_size는 14")
 
 func test_font_file_loads() -> void:
-	var f = load(FONT_PATH)
-	assert_true(f is FontFile, "Galmuri14.ttf가 FontFile로 로드돼야 한다")
+	var f = load(FONT_AIR_PATH)
+	assert_true(f is FontFile, "Cafe24 Air가 FontFile로 로드돼야 한다")
 
 # --- 프레임 StyleBox ---
 
@@ -131,3 +133,30 @@ func test_toast_uses_parchment() -> void:
 	add_child_autofree(t)
 	assert_eq(t._box.theme_type_variation, &"ParchmentPanel", "토스트 상자=ParchmentPanel")
 	assert_eq(t._label.theme_type_variation, &"ParchmentLabel", "토스트 라벨=ParchmentLabel")
+
+# --- Slice 5: 벡터 폰트 전환 (Cafe24 서라운드) ---
+
+func test_bold_font_file_loads() -> void:
+	assert_true(load(FONT_BOLD_PATH) is FontFile, "Cafe24 Ssurround(굵게)가 FontFile로 로드돼야 한다")
+
+func test_default_font_is_air() -> void:
+	var f := _theme().default_font
+	assert_not_null(f, "default_font 지정")
+	assert_eq(f.resource_path, FONT_AIR_PATH, "default_font는 Cafe24 Air여야 한다")
+
+func test_title_label_variation_is_bold() -> void:
+	var t := _theme()
+	assert_true(t.has_font("font", "TitleLabel"), "TitleLabel 변형에 font가 정의돼야 한다")
+	var f := t.get_font("font", "TitleLabel")
+	assert_eq(f.resource_path, FONT_BOLD_PATH, "TitleLabel 폰트는 굵은 Ssurround여야 한다")
+	assert_ne(f.resource_path, t.default_font.resource_path, "TitleLabel 폰트는 본문(Air)과 달라야 한다")
+
+func test_map_text_uses_air() -> void:
+	assert_eq(MapTextScript.TTF.resource_path, FONT_AIR_PATH,
+		"map_text.gd의 TTF는 Cafe24 Air를 가리켜야 한다")
+
+func test_modal_title_uses_title_variation() -> void:
+	var m = ModalScript.new()
+	add_child_autofree(m)
+	assert_eq(m._title_label.theme_type_variation, &"TitleLabel",
+		"모달 타이틀 라벨=TitleLabel 변형")

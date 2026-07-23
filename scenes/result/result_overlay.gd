@@ -38,6 +38,7 @@ func _build() -> void:
 	center.add_child(vbox)
 
 	_title = Label.new()
+	_title.theme_type_variation = &"TitleLabel"
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.add_theme_font_size_override("font_size", 64)
 	vbox.add_child(_title)

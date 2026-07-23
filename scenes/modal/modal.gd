@@ -83,6 +83,7 @@ func _build() -> void:
 	var header := HBoxContainer.new()
 	vbox.add_child(header)
 	_title_label = Label.new()
+	_title_label.theme_type_variation = &"TitleLabel"
 	_title_label.text = title
 	_title_label.add_theme_font_size_override("font_size", 20)
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL

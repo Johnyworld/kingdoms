@@ -6,6 +6,7 @@ extends CanvasLayer
 
 const HOLD := 2.4    # 알림 표시 유지(초)
 const FADE := 0.6    # 알림 페이드 아웃(초) — 합 ≈ 3초
+const BOLD_FONT := preload("res://assets/ui/fonts/Cafe24Ssurround.otf")   # 배너 강조용 굵은 폰트
 
 var _label: Label          # NPC 진행 배너 라벨
 var _box: Control          # NPC 진행 배너 박스(어두운 브레이드)
@@ -32,6 +33,7 @@ func _build() -> void:
 	root.add_child(_box)
 
 	_label = Label.new()
+	_label.theme_type_variation = &"TitleLabel"
 	_label.add_theme_font_size_override("font_size", 26)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_box.add_child(_label)
@@ -46,6 +48,7 @@ func _build() -> void:
 
 	_herald_label = Label.new()
 	_herald_label.theme_type_variation = &"ParchmentLabel"   # 밝은 양피지 위 어두운 글자
+	_herald_label.add_theme_font_override("font", BOLD_FONT)   # 색은 양피지용 유지, 폰트만 굵게
 	_herald_label.add_theme_font_size_override("font_size", 26)
 	_herald_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_herald.add_child(_herald_label)

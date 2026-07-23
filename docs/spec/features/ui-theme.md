@@ -2,7 +2,7 @@
 
 > 테마 리소스: `assets/ui/medieval_theme.tres` (`Theme`)
 > 에셋: `assets/ui/darkages/` — 원본 `32x32-Tilesheet.png`(DarkAgesUi_v1.0, 작가 Hypnobius) + StyleBox 소스로 쓰는 ×3 업스케일본 `32x32-Tilesheet@3x.png` + `LICENSE.txt`·`README.txt`
-> 폰트: `assets/ui/fonts/Galmuri14.ttf` (갈무리14, SIL OFL, 한글 픽셀 폰트)
+> 폰트: 본문 `assets/ui/fonts/Cafe24SsurroundAir.otf`(Air, 일반) · 제목 `assets/ui/fonts/Cafe24Ssurround.otf`(굵게) — 카페24 서라운드, 한글 전체(11,172음절)+ASCII 지원 벡터 폰트. 구 `Galmuri14.ttf`(갈무리14 픽셀 폰트)는 **미사용**(Slice 5에서 교체, 리포에는 잔존)
 > 전역 등록: `project.godot` → `[gui] theme/custom`
 
 게임 전체 UI를 **중세 다크판타지 픽셀아트**로 통일하는 중앙 테마. 기존 UI는 전부 코드로 만든
@@ -32,7 +32,7 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
   적용 여부는 기존 지형 렌더 영향을 실행 검증(Verification)에서 확인 후 결정한다(**Slice 1에서는 미변경**).
 
 ### 테마 리소스 `medieval_theme.tres`
-- **default_font** = 갈무리14, **default_font_size** = 14(픽셀 폰트 권장 크기).
+- **default_font** = 갈무리14, **default_font_size** = 14(픽셀 폰트 권장 크기). *(Slice 5에서 default_font를 Cafe24 Air로 교체 — 크기 14 유지.)*
 - **`Label/colors/font_color`** = 밝은 크림(본문 기본색). 제목 등 강조색은 각 UI의 기존 `add_theme_color_override`가 위에 얹힘.
 - `PanelContainer/panel` StyleBoxTexture → 어두운 사각 프레임(나인패치). 상시 패널 기본 스킨.
 - 타입 변형 **`OrnatePanel`**(base_type `PanelContainer`)의 `panel` StyleBoxTexture → 금장 장식 프레임.
@@ -94,13 +94,49 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
   전투 병력바는 `draw_rect` 커스텀이라 테마 대상 아님), `.tscn` 메뉴 씬(title·splash·lang_setup·result)
   폰트 크기 재튜닝(현재는 전역 폰트만 상속, 크기 override 유지).
 
+## Slice 5 — 벡터 폰트 전환 (구현)
+
+UI를 벡터(슈퍼샘플) 렌더로 전환함에 따라 픽셀 비트맵 폰트(갈무리14)를 부드러운 벡터 폰트
+**카페24 서라운드**로 교체한다. **본문은 Air(일반), 제목·배너는 굵은 Ssurround**를 쓴다.
+
+### 에셋 반입
+- `assets/ui/fonts/Cafe24SsurroundAir.otf`(Air, 일반) + `Cafe24Ssurround.otf`(굵게), 각 라이선스 PDF 동봉.
+- 두 폰트 모두 한글 음절 전체(11,172)+ASCII(95) 포함(cmap 검증 완료). 상업 배포 허용 폰트.
+- `.import`: 벡터 폰트이므로 `antialiasing = 1`(그레이스케일 AA). 임베디드 비트맵 없음.
+  최초 1회 `godot --headless --import`로 `.godot/imported` 생성.
+- 구 `Galmuri14.ttf`는 더 이상 참조되지 않음(리포에는 잔존, 필요 시 별도 커밋에서 제거).
+
+### 테마 (`medieval_theme.tres`)
+- **default_font = Cafe24 Air**, `default_font_size = 14` 유지(개별 씬 크기 override 불변).
+- 타입 변형 **`TitleLabel`**(base_type `Label`): `fonts/font` = 굵은 Ssurround. 제목/배너 라벨용.
+  크기·색은 각 소비자의 기존 `add_theme_*_override`가 위에 얹힌다.
+- 버튼은 전부 default(Air) 유지 — 별도 굵게 버튼 변형 없음.
+
+### 소비자 (굵게 = `theme_type_variation` 한 줄 추가)
+| 위치 | 대상 | 변형 |
+| --- | --- | --- |
+| `splash.tscn` | 스플래시 타이틀 | `TitleLabel` |
+| `title.tscn` | "KINGDOMS" 타이틀 | `TitleLabel` |
+| `result_overlay.gd` | 결과 타이틀(승/패) | `TitleLabel` |
+| `turn_banner.gd` | NPC 진행 배너 라벨 | `TitleLabel` |
+| `turn_banner.gd` | 플레이어 턴 헤럴드 라벨(양피지) | `ParchmentLabel` 유지 + 굵은 폰트 `add_theme_font_override` (색은 양피지용 어두운 글자 유지) |
+| `modal.gd` | 모달 타이틀(전 모달 공통) | `TitleLabel` |
+| `party_roster.gd`·`party_info.gd`·`camp_menu.gd`·`building_info.gd` | 패널 섹션 제목 | `TitleLabel` |
+| `lang_setup.gd` | 셋업 타이틀·섹션 헤더 | `TitleLabel` |
+
+그 외 본문·HUD·토스트·결과 서브타이틀·모든 버튼(시작 포함)은 default(Air) 유지.
+
+### 지도 텍스트 (`scenes/game/map_text.gd`)
+- 월드 라벨 폰트 `const TTF` preload를 Air(`Cafe24SsurroundAir.otf`)로 교체(본문 계열).
+  슈퍼샘플 파이프라인·`font_size` 기준은 불변.
+
 ## 테스트 시나리오
 
 `test/unit/test_ui_theme.gd`.
 
 - [정상] `res://assets/ui/medieval_theme.tres` 로드 성공 → `Theme` 인스턴스
 - [정상] 테마 `default_font` 존재(null 아님), `default_font_size` == 14
-- [정상] 폰트 파일 `res://assets/ui/fonts/Galmuri14.ttf` 로드 성공 → `FontFile`
+- [정상] 본문 폰트 `res://assets/ui/fonts/Cafe24SsurroundAir.otf` 로드 성공 → `FontFile`
 - [정상] 테마에 `PanelContainer`의 `panel` StyleBox 정의됨(`has_stylebox("panel","PanelContainer")`)
 - [정상] 타입 변형 `OrnatePanel`의 `panel` StyleBox 정의됨(`has_stylebox("panel","OrnatePanel")`)
 - [정상] `PanelContainer/panel`·`OrnatePanel/panel` 모두 `StyleBoxTexture`이고 `texture` 지정됨
@@ -117,6 +153,11 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
 - [Slice3][정상] 타입 변형 `ParchmentLabel`의 `font_color`가 어두운 색(밝기 낮음)으로 정의됨
 - [Slice3][정상] `Modal` 인스턴스의 닫기 버튼에 아이콘(`icon`)이 지정됨(텍스트 "X" 아님)
 - [Slice3][정상] `Toast` 인스턴스의 `_box`는 `ParchmentPanel`, `_label`은 `ParchmentLabel` 변형
+- [Slice5][정상] 굵은 폰트 `res://assets/ui/fonts/Cafe24Ssurround.otf` 로드 성공 → `FontFile`
+- [Slice5][정상] 테마 `default_font`의 `resource_path`가 Air 폰트(`Cafe24SsurroundAir.otf`)
+- [Slice5][정상] 타입 변형 `TitleLabel`에 `font`가 정의됨(`has_font("font","TitleLabel")`)이고 굵은 폰트(default_font와 다름)
+- [Slice5][정상] `map_text.gd`의 `TTF` 상수 `resource_path`가 Air 폰트를 가리킴
+- [Slice5][정상] `Modal` 인스턴스의 타이틀 라벨 `theme_type_variation` == `"TitleLabel"`
 
 ## 관련
 

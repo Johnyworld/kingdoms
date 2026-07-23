@@ -55,6 +55,7 @@ func _build_resource_panel() -> Control:
 	panel.add_child(vbox)
 
 	var title := Label.new()
+	title.theme_type_variation = &"TitleLabel"
 	title.text = "자원"
 	title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(title)
