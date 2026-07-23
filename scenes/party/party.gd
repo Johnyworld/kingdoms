@@ -80,6 +80,7 @@ var command_buffed := false
 var highlight := Color(0, 0, 0, 0)
 var move_points: int = 0          # 이번 턴 잔여 이동력. reset_turn에서 movement()로 채우고 이동할 때마다 차감. 0이면 이번 턴 이동 끝.
 var attacked_this_turn := false   # 이번 턴에 이미 공격했는지. true면 이동·공격 모두 끝.
+var waited := false               # 이번 턴 [대기]로 강제 소진했는지. 공격 불가로 만들되 흐림엔 안 건다(E 배지만). reset_turn에서 리셋.
 ## 영웅부대 지휘 설정(하위부대 대상, 턴 지속 — reset_turn에서 안 바뀜). → docs/spec/features/squad-stance.md
 var command_follow := false       # true=따라옴(하위부대 자동 추종), false=직접명령.
 var command_engage := false       # true=전투우선(따라오다 사거리 적 교전), false=전투회피. 따라옴일 때만 의미.
@@ -197,13 +198,13 @@ func set_exhausted(value: bool) -> void:
 func can_move() -> bool:
 	return move_points > 0
 
-## 이번 턴에 공격 가능한지. 이동만 했으면 아직 가능, 공격했으면 불가.
+## 이번 턴에 공격 가능한지. 이동만 했으면 아직 가능, 공격했거나 [대기]했으면 불가.
 func can_attack() -> bool:
-	return not attacked_this_turn
+	return not attacked_this_turn and not waited
 
-## 이번 턴에 아직 행동(대기 등)이 가능한지 — 공격/행동 종료 전이면 참. 선택 가능 판정에 쓴다.
+## 이번 턴에 아직 행동(대기 등)이 가능한지 — 공격/[대기]/행동 종료 전이면 참. 선택 가능 판정에 쓴다.
 func can_rest() -> bool:
-	return not attacked_this_turn
+	return not attacked_this_turn and not waited
 
 ## 이동력을 cost만큼 차감한다(0 미만으로 내려가지 않음). 다중 클릭 이동·ESC 정지가 실제 이동한 누적비용만큼 부른다. 흐리게 다시 그린다.
 func spend_movement(cost: int) -> void:
@@ -224,10 +225,17 @@ func mark_attacked() -> void:
 	attacked_this_turn = true
 	queue_redraw()
 
-## 턴 종료(및 생성 시) 호출. 이동력을 movement()로 채우고 공격 상태를 리셋한 뒤 불투명하게 다시 그린다.
+## [대기]: 남은 이동력과 공격 기회를 모두 포기하고 이번 턴을 끝낸다(강제 소진). 흐림 대신 E 배지로만 표시(공격 후 흐림과 구분). 다음 턴 reset_turn으로 복원. → turn.md
+func wait() -> void:
+	move_points = 0
+	waited = true
+	queue_redraw()
+
+## 턴 종료(및 생성 시) 호출. 이동력을 movement()로 채우고 공격·[대기] 상태를 리셋한 뒤 불투명하게 다시 그린다.
 func reset_turn() -> void:
 	move_points = movement()
 	attacked_this_turn = false
+	waited = false
 	queue_redraw()
 
 ## 병종 idle 스프라이트 자식을 만든다(빈 프레임). 아키타입은 아직 미정이라 _draw에서 맞춘다.

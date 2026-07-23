@@ -169,6 +169,7 @@ func _ready() -> void:
 	party_roster.party_selected.connect(_on_party_focused)
 	turn_hud.set_turn(_turn.number)
 	turn_hud.ended.connect(_on_turn_ended)
+	turn_hud.next_unit.connect(_on_next_unit_requested)
 	camp_menu.build_selected.connect(_on_build_selected)
 	camp_menu.upgrade_requested.connect(_on_upgrade_requested)
 	camp_menu.found_camp_requested.connect(_on_found_camp_requested)
@@ -1199,6 +1200,12 @@ func _on_party_info_action(id: String) -> void:
 			party.move_goal = Vector2i(-1, -1)
 			_refresh_goal_line()
 			_show_party_info(party)
+	elif id == "wait":
+		# [대기]: 남은 이동력·공격을 포기하고 강제 E. 더 할 게 없으니 선택 해제·패널 닫고 배지·카운터 갱신. → turn.md
+		party.wait()
+		_deselect()
+		_hide_party_info()
+		_update_fog()
 
 ## 지휘 설정 변경 후 — 정보 패널([지휘] 버튼 상태)을 갱신한다. 턴 소비 없음. → squad-stance.md
 func _on_command_changed() -> void:
@@ -1214,6 +1221,9 @@ func _on_turn_ended() -> void:
 	if _selected:
 		_deselect()
 	_hide_party_info()
+	# NPC 턴 진입: 입력·"명령 남음" 카운터를 잠근다. end_turn이 플레이어 이동력을 리셋하므로
+	# 이 플래그를 리셋·_update_fog보다 먼저 세워야 리셋된 카운트가 NPC 턴에 새지 않는다. → turn.md
+	_npc_turn_active = true
 	# 플레이어 부대 + NPC 부대 모두 이동 상태를 리셋한다(일람은 우리 세력만이라 _pmgr.units만 등록).
 	_turn.end_turn(all_parties(), _bmgr.territories)
 	_bmgr.tick_production()   # 1차 생산 건물 생산포인트 산출(1÷거리, 거리 기반) → production.md
@@ -1221,17 +1231,17 @@ func _on_turn_ended() -> void:
 	_update_fog()   # 건설 완료 농장 시야 + NPC 현재 위치 표시를 안개에 반영.
 	_update_endgame()   # 세력 소멸 유예 판정 → 소멸 시 부대 붕괴 + 정복 승리/패배
 	if _game_over:
-		return   # 승패 확정 → NPC 이동 생략
-	# NPC 턴: 입력을 잠그고 NPC 페이즈를 끝까지 기다린 뒤 플레이어 턴으로 돌아온다. → turn.md
-	_npc_turn_active = true
+		return   # 승패 확정 → NPC 이동 생략(입력 잠금은 게임 오버가 대신 막음)
+	# NPC 턴: 입력을 잠근 채(_npc_turn_active는 위에서 세움) NPC 페이즈를 끝까지 기다린 뒤 플레이어 턴으로. → turn.md
 	await _move_npcs()
 	_npc_turn_active = false
 	if not _game_over:
 		_begin_player_turn()
 
-## 플레이어 턴 시작 — 배너를 감춘다(플레이어 차례엔 "○○ 진행 중…"을 띄우지 않음). → turn.md
+## 플레이어 턴 시작 — 배너를 감추고, "명령 남음" 카운터를 새 턴 상태로 다시 계산해 표시한다. → turn.md
 func _begin_player_turn() -> void:
 	turn_banner.clear()
+	_refresh_exhausted()   # NPC 턴 동안 0으로 숨겨둔 카운터를 플레이어 부대 기준으로 복원
 
 ## NPC 턴: 세력 순차 → 영웅그룹 순차. 각 그룹은 이동을 마친 뒤 곧바로 공격한다(영웅 먼저·하위 순서). → turn.md · npc-movement.md
 ## 세력 차례 시작 시 배너, 그룹·교전이 시야 안이면 카메라 포커스+하이라이트, 시야 밖이면 즉시 처리.
@@ -1636,13 +1646,32 @@ func _refresh_command_buffs() -> void:
 			p.command_buffed = buffed
 			p.queue_redraw()
 
-## 플레이어 부대(영웅 포함)의 "E"(이번 턴 더 할 것 없음) 표시를 갱신한다: 이동력 0 + 현재 칸 공격 대상 없음. → selection-and-movement.md
+## 플레이어 부대(영웅 포함)의 "E"(이번 턴 더 할 것 없음) 표시를 갱신하고, 그 반대(명령 남은 부대 수)를 HUD에 넘긴다. → selection-and-movement.md
 func _refresh_exhausted() -> void:
+	var commandable := 0
+	# 건물 비용·경계 장벽은 부대 무관이라 루프 밖에서 1회만 계산한다(_update_fog 경유로 애니 매 스텝 도는 핫패스).
+	var costs := _building_costs()
+	var edges := barrier_edges()
 	for p in _pmgr.units:
-		if p.soldiers <= 0:
-			p.set_exhausted(false)
-			continue
-		p.set_exhausted(p.move_points == 0 and not _has_target_from_cell(p))
+		var has := _has_commands(p, costs, edges)   # 살아있고 이동력·공격 중 하나라도 남음 = E의 반대
+		p.set_exhausted(p.soldiers > 0 and not has)
+		if has:
+			commandable += 1
+	# NPC 턴 중엔 플레이어 부대 이동력이 이미 리셋돼 있으므로 카운터를 숨긴다(플레이어 차례에만 노출). → turn.md
+	turn_hud.set_commands_left(0 if _npc_turn_active else commandable)
+
+## p가 이번 턴 아직 명령 가능한지 = 살아있고 (실제 갈 수 있는 이동 칸이 있거나 현재 칸 공격 대상 있음). "E"의 반대·"명령 남음" 집계용. → turn.md
+## 이동력이 남아도 아군 정지·지형·적으로 막혀 정지할 칸이 하나도 없으면 명령 없음으로 본다. costs·edges는 부대 무관 값 — 호출부에서 1회 계산해 넘긴다.
+func _has_commands(p, costs: Dictionary, edges: Dictionary) -> bool:
+	return p.soldiers > 0 and (_has_move_cell(p, costs, edges) or _has_target_from_cell(p))
+
+## p가 이번 턴 이동력으로 실제 **정지 가능한** 칸이 하나라도 있는지 — _update_ranges와 같은 점유·지형·경계 규칙(HexGrid.movement_ranges)으로 판정. → selection-and-movement.md
+func _has_move_cell(p, costs: Dictionary, edges: Dictionary) -> bool:
+	if p.move_points <= 0:
+		return false
+	var start := _cell_of(p)
+	var ranges := HexGrid.movement_ranges(terrain, start, p.move_points, MAP_WIDTH, MAP_HEIGHT, _enemy_occupied_cells(p), costs, edges, _ally_occupied_cells(p))
+	return not (ranges["move"] as Array).is_empty()
 
 ## p가 현재 칸에서 지금 칠 수 있는 보이는 적이 있는지 — 공격 가능(미공격) + (근접=인접 / 원거리=사거리 내). "E" 판정용.
 func _has_target_from_cell(p) -> bool:
@@ -1755,6 +1784,7 @@ func _settle_follower(f, cell: Vector2i) -> void:
 		f.spend_movement(int(_follow_dist[f].get(cell, 0)))
 	_follow_dist.erase(f)
 	_follow_targets.erase(f)
+	_refresh_exhausted()   # 이동력 차감 직후 "E" 갱신 — 애니 중 마지막 fog는 차감 전이라 stale(_settle_after_move와 동일 관례). → selection-and-movement.md
 
 ## 진행 중인 추종 트레일을 즉시 끝낸다(턴 종료 시): 트윈을 죽이고 각 하위부대를 목적지 칸으로 스냅 + 전량 차감. → squad-stance.md
 func _finish_pending_follow_moves() -> void:
@@ -1811,6 +1841,9 @@ func _show_party_info(party_to_show) -> void:
 		# 이동 목표가 남았고 아직 이동력이 있으면 [계속 이동]. → selection-and-movement.md
 		if party_to_show.move_goal != Vector2i(-1, -1) and party_to_show.move_goal != _cell_of(party_to_show) and party_to_show.can_move():
 			actions.append({"id": "continue", "label": "계속 이동"})
+		# 아직 할 게 남은 부대면 [대기] — 남은 이동력·공격을 포기하고 강제 E 진입. → turn.md
+		if _has_commands(party_to_show, _building_costs(), barrier_edges()):
+			actions.append({"id": "wait", "label": "대기"})
 	party_info.open(party_to_show, actions)
 	party_roster.hide()
 
@@ -1823,6 +1856,29 @@ func _hide_party_info() -> void:
 ## 부대 일람에서 항목을 클릭하면 그 부대 위치로 카메라를 즉시 이동한다(맵 범위 클램프).
 func _on_party_focused(focused_party) -> void:
 	_focus_camera(focused_party.position)
+
+## "명령 남음 N" 클릭 → 명령 남은 플레이어 부대 중 현재 활성 부대 다음으로 순환 포커스·선택한다. → turn.md
+## NPC 턴·전투·건설·이동 중엔 무시(플레이어 조작 잠금 상황과 동일 게이트).
+func _on_next_unit_requested() -> void:
+	if _npc_turn_active or _in_battle or _game_over or _command_busy or _player_moving or _build_mode:
+		return
+	var candidates: Array = []
+	var costs := _building_costs()
+	var edges := barrier_edges()
+	for p in _pmgr.units:
+		if _has_commands(p, costs, edges):
+			candidates.append(p)
+	if candidates.is_empty():
+		return
+	var here := candidates.find(party)   # 현재 활성 부대의 다음(없으면 처음)으로 순환
+	var next_party = candidates[(here + 1) % candidates.size()] if here != -1 else candidates[0]
+	if _selected:
+		_deselect()
+	party = next_party
+	_focus_camera(party.position)
+	_show_party_info(party)
+	if party.can_move() or party.can_rest():
+		_select()
 
 ## 캠프 메뉴에서 건물을 선택하면 건설 모드로 들어간다.
 ## 건물을 지을 수 있는 영역(영지 시야) 윤곽선을 파랑으로 표시한다 — 시야는 배치 중 변하지 않으므로 한 번만 계산한다.

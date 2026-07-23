@@ -111,6 +111,7 @@ static func follow_destination(terrain, hero_cell, from_cell, follower_cell, mov
 - [직접명령]이면 하위부대가 자동으로 안 움직인다(수동 조작).
 - [전투우선]이면 따라오다 사거리 안 적을 만나면 자동 교전(입력 잠금), [전투회피]면 이동만.
 - 비차단 트레일 도중 턴 종료 → 하위부대가 목적지로 스냅.
+- 추종 이동이 끝난 하위부대(예: 궁병)가 이동력·공격을 다 쓰면 **정착 즉시 "E" 배지**가 뜬다(`_settle_follower`가 이동분 차감 직후 `_refresh_exhausted` 호출 — 애니 중 마지막 fog는 차감 전이라 stale이었음). → [소진 표시 (E)](selection-and-movement.md#소진-표시-e)
 
 ## 관련
 

@@ -4,11 +4,14 @@ extends CanvasLayer
 
 ## 턴 종료 버튼을 누르면 방출. game.gd가 받아 TurnManager.end_turn을 실행한다.
 signal ended
+## "명령 남음 N"을 누르면 방출. game.gd가 받아 다음 명령 가능 부대로 포커스·선택한다. → turn.md
+signal next_unit
 
 const MARGIN := 16
 
 var _turn_label: Label
 var _grace_box: VBoxContainer   # 소멸 위기 세력 목록(턴 라벨 위)
+var _cmd_btn: Button            # "명령 남음 N"(턴 종료 왼쪽). 0이면 숨김. → turn.md
 
 func _ready() -> void:
 	layer = 32
@@ -40,17 +43,33 @@ func _build() -> void:
 	_turn_label.add_theme_font_size_override("font_size", 18)
 	box.add_child(_turn_label)
 
+	# 턴 종료 버튼과 그 왼쪽 "명령 남음 N"을 한 줄로. 우측 정렬이라 명령 표시가 버튼 왼쪽에 붙는다.
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override("separation", 6)
+	box.add_child(row)
+
+	_cmd_btn = Button.new()
+	_cmd_btn.pressed.connect(func() -> void: next_unit.emit())
+	row.add_child(_cmd_btn)
+
 	var end_btn := Button.new()
 	end_btn.text = "턴 종료"
 	end_btn.custom_minimum_size = Vector2(120, 44)
 	end_btn.pressed.connect(func() -> void: ended.emit())
-	box.add_child(end_btn)
+	row.add_child(end_btn)
 
 	set_turn(1)
+	set_commands_left(0)
 
 ## 표시 턴 번호를 갱신한다.
 func set_turn(number: int) -> void:
 	_turn_label.text = "턴 %d" % number
+
+## "명령 남음 N" 표시를 갱신한다. 0이면 숨긴다(모두 소진). → turn.md
+func set_commands_left(count: int) -> void:
+	_cmd_btn.text = "명령 남음 %d" % count
+	_cmd_btn.visible = count > 0
 
 ## 소멸 위기 세력 목록을 갱신한다. entries: [{text, color}]. 비면 아무것도 표시하지 않는다.
 func set_grace(entries: Array) -> void:

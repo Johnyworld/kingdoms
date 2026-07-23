@@ -255,6 +255,22 @@ func test_reset_turn_fills_move_points() -> void:
 	assert_true(p.can_move(), "이동력 있으면 이동 가능")
 	assert_true(p.can_attack(), "리셋 직후 공격 가능")
 
+func test_wait_gives_up_move_and_attack() -> void:
+	var p := _mover()
+	assert_true(p.can_move() and p.can_attack(), "대기 전엔 이동·공격 가능")
+	p.wait()
+	assert_eq(p.move_points, 0, "대기 후 이동력 0")
+	assert_false(p.can_move(), "대기 후 이동 불가")
+	assert_false(p.can_attack(), "대기 후 공격 불가(강제 소진)")
+	assert_false(p.attacked_this_turn, "대기는 공격 플래그를 세우지 않는다(흐림 조건 회피 — E 배지로만 표시)")
+
+func test_wait_restored_by_reset_turn() -> void:
+	var p := _mover()
+	p.wait()
+	p.reset_turn()
+	assert_eq(p.move_points, p.movement(), "다음 턴 이동력 복원")
+	assert_true(p.can_attack(), "다음 턴 공격 가능 복원")
+
 func test_spend_movement_partial_keeps_moving() -> void:
 	var p := _mover()
 	var full: int = p.movement()
