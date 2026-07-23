@@ -67,10 +67,16 @@
 
 ## 턴 배너 (`turn_banner.gd`)
 
-> `extends CanvasLayer` — 현재 행동 중인 세력을 화면 상단 중앙에 표시(코드 구성, 입력 통과).
+> `extends CanvasLayer` — 화면 상단 중앙 표시(코드 구성, 입력 통과). **두 모드**: NPC 세력 진행 배너(어두운 브레이드, 지속) + 플레이어 턴 시작 알림(크림 양피지, 자동 페이드). 두 박스는 동시에 뜨지 않는다.
 
-- `set_faction(text: String, color: Color) -> void` — 배너 라벨을 그 세력 이름·색으로 채우고 보인다.
-- `clear() -> void` — 배너를 감춘다.
+- `set_faction(text: String, color: Color) -> void` — **NPC 진행 배너**. 어두운 브레이드 박스에 세력 이름·색을 채워 보인다(플레이어가 감출 때까지 지속). 알림 박스는 감춘다.
+- `announce(text: String) -> void` — **플레이어 턴 시작 알림**. 크림 양피지 박스(`ParchmentPanel`)에 문구를 띄우고 `HOLD(2.4s)` 유지 후 `FADE(0.6s)` 페이드 아웃(합 ≈ 3초, [Toast](toast.md)와 같은 Tween 패턴). 진행 배너 박스는 감춘다.
+- `clear() -> void` — 두 박스를 모두 감춘다(진행 중 페이드 Tween도 중단).
+
+### 플레이어 턴 시작 알림 (`game.gd`, `_begin_player_turn(announce)`)
+
+- NPC 턴이 끝나 **플레이어 턴으로 복귀할 때**(`_begin_player_turn(true)`)만 `announce("플레이어 턴입니다")`로 상단 중앙에 양피지 배너를 ~3초 띄운다.
+- **게임 시작 첫 턴**(초기화 시 `_begin_player_turn()`, `announce=false`)엔 띄우지 않는다 — 첫 조작을 방해하지 않게 `clear()`만 한다.
 
 ## 테스트 시나리오
 
@@ -87,7 +93,11 @@
 
 - [정상] `set_faction("암흑 제국", Color(0.5,0,0))` → 라벨 텍스트에 `"암흑 제국"` 포함, `visible == true`
 - [정상] `clear()` → `visible == false`
-- (입력 잠금·NPC 페이즈 await·세력 배너 전환 타이밍은 `game.gd` 배선이라 실제 실행으로 확인.)
+- [정상] `announce("플레이어 턴입니다")` → 알림 라벨 텍스트에 `"플레이어 턴입니다"` 포함, `visible == true`
+- [정상] `announce(...)`는 진행 배너 박스를 숨기고 알림 박스를 보인다(`_box.visible == false`, `_herald.visible == true`)
+- [정상] `set_faction(...)`은 반대로 진행 배너를 보이고 알림 박스를 숨긴다(`_box.visible == true`, `_herald.visible == false`)
+- [정상] `announce(...)` 후 `clear()` → `visible == false`
+- (입력 잠금·NPC 페이즈 await·세력 배너 전환 타이밍, 게임 시작 첫 턴 미표시·NPC 복귀 시 표시·3초 자동 페이드는 `game.gd`/Tween 배선이라 실제 실행으로 확인.)
 
 ### 명령 남음 표시 — `test/unit/test_turn_hud.gd`
 

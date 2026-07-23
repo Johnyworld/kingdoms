@@ -1236,11 +1236,16 @@ func _on_turn_ended() -> void:
 	await _move_npcs()
 	_npc_turn_active = false
 	if not _game_over:
-		_begin_player_turn()
+		_begin_player_turn(true)   # NPC 턴을 거쳐 복귀 → "플레이어 턴입니다" 알림 표시
 
-## 플레이어 턴 시작 — 배너를 감추고, "명령 남음" 카운터를 새 턴 상태로 다시 계산해 표시한다. → turn.md
-func _begin_player_turn() -> void:
-	turn_banner.clear()
+## 플레이어 턴 시작 — "명령 남음" 카운터를 새 턴 상태로 다시 계산해 표시한다. → turn.md
+## announce=true(NPC 턴 후 복귀)면 상단 중앙에 "플레이어 턴입니다" 양피지 배너를 ~3초 띄우고,
+## false(게임 시작 첫 턴)면 첫 조작을 방해하지 않게 배너를 감추기만 한다.
+func _begin_player_turn(announce := false) -> void:
+	if announce:
+		turn_banner.announce("플레이어 턴입니다")
+	else:
+		turn_banner.clear()
 	_refresh_exhausted()   # NPC 턴 동안 0으로 숨겨둔 카운터를 플레이어 부대 기준으로 복원
 
 ## NPC 턴: 세력 순차 → 영웅그룹 순차. 각 그룹은 이동을 마친 뒤 곧바로 공격한다(영웅 먼저·하위 순서). → turn.md · npc-movement.md
