@@ -78,6 +78,31 @@ func test_battle_config_dark_hero_sprite() -> void:
 	assert_eq(cfg["a"]["sprite"], "eliteorc", "암흑 영웅 → eliteorc")
 	assert_eq(cfg["a"]["kind"], "hero", "kind는 여전히 hero(상성 중립)")
 
+# --- battle_config: 세력·부대 정체성을 cfg에 실어 전달(전투 HUD 표기) ---
+
+func test_battle_config_carries_faction_and_party() -> void:
+	var atk := _party(PartyScript.KIND_HERO, "hero", UnitTypes.max_hp("hero"))
+	atk.faction_name = "푸른 왕국"
+	atk.party_name = "아젤 하르윈 부대"
+	var dfd := _party(PartyScript.KIND_TROOP, "orc_infantry", 10)
+	dfd.faction_name = "암흑 제국"
+	dfd.party_name = "오크 전사대"
+	var cfg: Dictionary = LangBridge.battle_config(atk, dfd, 1)
+	assert_eq(cfg["a"]["faction"], "푸른 왕국", "공격측 세력명")
+	assert_eq(cfg["a"]["party"], "아젤 하르윈 부대", "공격측 부대명")
+	assert_eq(cfg["b"]["faction"], "암흑 제국", "방어측 세력명")
+	assert_eq(cfg["b"]["party"], "오크 전사대", "방어측 부대명")
+
+func test_battle_config_carries_faction_color() -> void:
+	# 색은 factions.csv 세력 색(표시명 역조회) — 맵 토큰 색(token_color)이 아님.
+	var atk := _party(PartyScript.KIND_TROOP, "light_infantry", 10)
+	atk.faction_name = "푸른 왕국"
+	var dfd := _party(PartyScript.KIND_TROOP, "orc_infantry", 10)
+	dfd.faction_name = "암흑 제국"
+	var cfg: Dictionary = LangBridge.battle_config(atk, dfd, 1)
+	assert_eq(cfg["a"]["color"], Color.html("#334DCC"), "공격측 = 푸른 왕국 색")
+	assert_eq(cfg["b"]["color"], Color.html("#803D99"), "방어측 = 암흑 제국 색")
+
 func test_dark_hero_unit_treated_as_hero() -> void:
 	# dark_hero도 hero처럼 처리 — is_hero 판정은 리터럴이 아니라 kind 기준.
 	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_HERO, "dark_hero", UnitTypes.max_hp("dark_hero")), 0)

@@ -170,6 +170,23 @@ func _load_custom(cfg: Dictionary) -> void:
 			_load_custom_skirmish(a, b, archer_side)     # 사격 오프닝 → 근접
 	else:
 		_load_custom_melee(a, b)                   # 근접유닛끼리
+	_apply_identity(cfg)   # 게임 오버레이면 세력·부대 표기로 HUD 제목·포트레이트를 덮음(사후 적용)
+
+## 세력·부대 정체성 표기(게임 오버레이 전용). cfg에 faction 키가 있을 때만 —
+## 병종 기반 제목을 "{세력A} vs {세력B}"로 덮고, 부대명 라벨·세력 색 포트레이트를 세팅한다.
+## 설정 화면·시나리오 cfg엔 이 키가 없어 no-op(병종 제목·청/적 포트레이트 유지). → lang-battle.md HUD 세력·부대 표기
+func _apply_identity(cfg: Dictionary) -> void:
+	var a: Dictionary = cfg["a"]
+	var b: Dictionary = cfg["b"]
+	if not a.has("faction") and not b.has("faction"):
+		return
+	_hud.set_matchup_title(String(a.get("faction", "")), String(b.get("faction", "")))
+	_hud.set_party_name(0, String(a.get("party", "")))
+	_hud.set_party_name(1, String(b.get("party", "")))
+	if a.has("color"):
+		_hud.set_banner_color(0, a["color"])
+	if b.has("color"):
+		_hud.set_banner_color(1, b["color"])
 
 ## 커스텀 근접 — 병종/인원 임의. resolve_engagement + CHARGE→CLASH→RETREAT 재사용.
 func _load_custom_melee(a: Dictionary, b: Dictionary) -> void:

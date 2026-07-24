@@ -78,3 +78,13 @@ func test_unknown_faction_empty() -> void:
 
 func test_unknown_troop_empty() -> void:
 	assert_eq(types.troop_name("없음"), "", "없는 병종 → 빈 문자열")
+
+# --- 세력 색 역조회(표시명 기준 — 전투 HUD 정체성) ---
+
+func test_color_of_by_display_name() -> void:
+	# 전투 시점엔 party.faction_name(표시명)만 있어 id가 아닌 표시명으로 역조회한다.
+	assert_eq(types.color_of("푸른 왕국"), Color.html("#334DCC"), "azel 표시명 → 세력 색")
+	assert_eq(types.color_of("암흑 제국"), Color.html("#803D99"), "balthazar 표시명 → 세력 색")
+
+func test_color_of_unknown_name_white() -> void:
+	assert_eq(types.color_of("없는세력"), Color.WHITE, "없는 표시명 → 흰색")

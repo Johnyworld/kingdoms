@@ -76,6 +76,15 @@ static func get_faction(id: String) -> Dictionary:
 	_ensure_loaded()
 	return _factions.get(id, {})
 
+## 세력 표시명(name)으로 세력 색을 역조회한다(id 아님). 전투 HUD는 party.faction_name(표시명)만
+## 알므로 id 대신 표시명으로 찾는다. 없는 이름이면 Color.WHITE. → lang-battle.md HUD 세력·부대 표기
+static func color_of(name: String) -> Color:
+	_ensure_loaded()
+	for spec in _factions.values():
+		if spec["faction"] == name:
+			return spec["color"]
+	return Color.WHITE
+
 ## 세력의 index번째 영웅 이름. 범위 밖이면 빈 문자열.
 static func hero_name(faction: String, index: int) -> String:
 	var heroes: Array = get_faction(faction).get("heroes", [])

@@ -24,8 +24,10 @@ var _lv := {}      # side -> Label
 var _at := {}
 var _df := {}
 var _count := {}   # 큰 병력 숫자
-var _name := {}    # 진영 이름(포트레이트 아래 X, 대신 중앙 상단 사용)
+var _party_lbl := {}  # 포트레이트 아래 부대 이름(게임 오버레이 전용, 폴백은 빈 문자열)
 var _portrait := {}
+# 진영 색(포트레이트 인물·중앙 미니 병사). 기본 청(side0)/적(side1) — 게임 오버레이면 세력 색으로 덮음.
+var _banner := {0: Color(0.31, 0.45, 0.78), 1: Color(0.72, 0.26, 0.24)}
 var _mid_title: Label
 var _mid_hit_a: Label
 var _mid_hit_b: Label
@@ -54,11 +56,15 @@ func _place(l: Label, r: Rect2) -> void:
 	l.size = r.size
 
 func _build_side(side: int, p: Rect2, mirror: bool) -> void:
-	# 포트레이트 박스
+	# 포트레이트 박스 (아래에 부대 이름표 공간 확보)
 	var port_w := 150.0
 	var port_x: float = p.position.x + (p.size.x - port_w - 14.0 if mirror else 14.0)
-	var pr := Rect2(port_x, p.position.y + 20, port_w, p.size.y - 40)
+	var pr := Rect2(port_x, p.position.y + 20, port_w, p.size.y - 66)
 	_portrait[side] = pr  # _draw 에서 사용
+	# 부대 이름표 — 포트레이트 아래(게임 오버레이면 채우고, 폴백이면 빈 문자열 유지)
+	var nm := _make_label("", 24, GOLD_HI, 4)
+	_place(nm, Rect2(port_x - 20, pr.position.y + pr.size.y + 4, port_w + 40, 32))
+	_party_lbl[side] = nm
 
 	# 스탯 열(작은 AT/DF) — 포트레이트 안쪽
 	var stat_x: float = port_x + (-150.0 if mirror else port_w + 6.0)
@@ -116,6 +122,20 @@ func set_hits(a_hit: int, b_hit: int) -> void:
 	_mid_hit_a.text = "%d%%" % a_hit
 	_mid_hit_b.text = "%d%%" % b_hit
 
+# ── 세력·부대 표기(게임 오버레이 전용) ─────────────────────────────────────
+## 중앙 상단 제목을 "{세력A}  vs  {세력B}"로. 병종 기반 제목을 덮어쓴다.
+func set_matchup_title(faction_a: String, faction_b: String) -> void:
+	_mid_title.text = "%s  vs  %s" % [faction_a, faction_b]
+
+## 진영 부대 이름(포트레이트 아래). 폴백(정체성 없음)에선 호출 안 해 빈 문자열 유지.
+func set_party_name(side: int, name: String) -> void:
+	_party_lbl[side].text = name
+
+## 진영 색(포트레이트 인물·중앙 미니 병사). 세력 색으로 덮어 정체성 표시.
+func set_banner_color(side: int, color: Color) -> void:
+	_banner[side] = color
+	queue_redraw()
+
 # ── 장식 프레임 ────────────────────────────────────────────────────────────
 func _draw() -> void:
 	# 전체 바 배경
@@ -158,8 +178,8 @@ func _draw_portrait(side: int, _mirror: bool) -> void:
 	var r: Rect2 = _portrait[side]
 	draw_rect(r, Color(0.12, 0.14, 0.22))
 	_draw_bevel(r, GOLD_HI, GOLD_DK, 3)
-	# 플레이스홀더 얼굴
-	var body := Color(0.31, 0.45, 0.78) if side == 0 else Color(0.72, 0.26, 0.24)
+	# 플레이스홀더 얼굴 — 갑옷·투구는 진영 색(_banner: 기본 청/적, 게임 오버레이면 세력 색)
+	var body: Color = _banner[side]
 	var cx := r.position.x + r.size.x * 0.5
 	draw_rect(Rect2(r.position.x + 20, r.position.y + r.size.y - 70,
 		r.size.x - 40, 70), body)  # 어깨/갑옷
@@ -168,6 +188,6 @@ func _draw_portrait(side: int, _mirror: bool) -> void:
 	draw_arc(Vector2(cx, r.position.y + r.size.y - 88), 44, PI, TAU, 16, GOLD_HI, 3.0)
 
 func _mini_soldier(pos: Vector2, side: int) -> void:
-	var body := Color(0.4, 0.55, 0.9) if side == 0 else Color(0.85, 0.35, 0.32)
+	var body: Color = _banner[side].lerp(Color.WHITE, 0.15)  # 진영 색(살짝 밝게 — 미니 도형 가독성)
 	draw_rect(Rect2(pos.x - 10, pos.y - 8, 20, 26), body)
 	draw_circle(pos + Vector2(0, -16), 9, Color(0.86, 0.72, 0.56))

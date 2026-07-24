@@ -34,9 +34,13 @@ static func battle_config(attacker, defender, distance: int) -> Dictionary:
 
 ## 부대 한 쪽의 오버레이 cfg 항목. kind=병종 상성(hero/archer/infantry), count=party.soldiers,
 ## sprite=캐릭터 세트(UnitTypes.sprite — 외형은 side가 아닌 병종으로 결정, 세력 정체성 유지).
+## faction/party/color는 전투 HUD 세력·부대 표기용(color는 표시명 역조회한 세력 색). → lang-battle.md HUD 세력·부대 표기
 static func _cfg_side(party) -> Dictionary:
 	return {
 		"kind": UnitTypes.kind(party.archetype()),
 		"count": party.soldiers,
 		"sprite": UnitTypes.sprite(party.archetype()),
+		"faction": party.faction_name,
+		"party": party.party_name,
+		"color": FactionCatalog.color_of(party.faction_name),
 	}
