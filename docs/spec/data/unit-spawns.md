@@ -16,15 +16,17 @@
 | --- | --- |
 | `id` | 스폰 인스턴스 식별자(파일 내 유일). `leader` 참조 대상 |
 | `faction` | 세력 id — [factions.csv](factions.md) **FK** |
-| `type` | 병종 아키타입 id — [unit_types.csv](unit-types.md)(`hero`/`light_infantry`/`light_archer`) |
-| `leader` | 소속 영웅부대의 `id`(같은 파일). **영웅 행은 빈 값**, 부하 행은 `type=="hero"`인 id |
+| `type` | 병종 아키타입 id — [unit_types.csv](unit-types.md). 인간 세력=`hero`/`light_infantry`/`light_archer`, 암흑세력(balthazar)=`dark_hero`/`orc_infantry`/`skel_archer`(오크 외형, 스탯 동일) |
+| `leader` | 소속 영웅부대의 `id`(같은 파일). **영웅 행은 빈 값**, 부하 행은 영웅 아키타입(`hero`/`dark_hero`)인 id |
 | `x,y` | 절대 셀 좌표(맵 셀, y↑=남·x↑=동) |
 
-**참조 무결성**(로드 시 `push_error`): `id` 유일 · `faction`이 factions.csv에 존재 · `type`이 unit_types.csv에 존재 · `leader`가 비었거나 같은 파일 내 영웅(`type=="hero"`) id.
+**참조 무결성**(로드 시 `push_error`): `id` 유일 · `faction`이 factions.csv에 존재 · `type`이 unit_types.csv에 존재 · `leader`가 비었거나 같은 파일 내 **영웅 아키타입**(`UnitTypes.kind(type)=="hero"` — `hero`·`dark_hero` 포함) id. 영웅 판정은 리터럴 `"hero"`가 아니라 `kind=="hero"` 기준이다(오크 영웅 `dark_hero` 대응).
 
 ## 편제 (현재 데이터)
 
-세력당 **영웅 4 + 각 영웅 소속 경보병 2·경궁병 1(부하 12) = 16행**, 총 **64행**. 세력별 영웅 행의 등장 순서가 그 세력 hero index(0=지휘관)를 정한다([FactionCatalog.hero_name](factions.md)).
+세력당 **영웅 4 + 각 영웅 소속 근접 2·궁병 1(부하 12) = 16행**, 총 **64행**. 세력별 영웅 행의 등장 순서가 그 세력 hero index(0=지휘관)를 정한다([FactionCatalog.hero_name](factions.md)).
+
+인간 세력(azel·qasim·batur)은 `hero`/`light_infantry`/`light_archer`, **암흑세력(balthazar)은 `dark_hero`/`orc_infantry`/`skel_archer`**를 쓴다(스탯 동일, 외형만 오크·해골). 즉 세력별 외형 차이는 세력이 쓰는 아키타입으로 갈린다.
 
 좌표는 각 세력의 **거점 건물 중심 셀**을 기준으로 16유닛을 안쪽(맵 중앙 방향)으로 뭉치게 배치한다. 각 세력의 **첫 부하부대(`{faction}_t0`)를 거점 건물 중심 셀에 두어 캠프를 점거**한다 → [거점 방어](../features/camp-capture.md)(`_camp_defender`는 건물 `center_cell()` 점거로 판정). 개별 좌표는 손으로 튜닝·플레이테스트로 조정하는 것을 전제로 한다(절대좌표 모델).
 
@@ -36,6 +38,10 @@ azel_h0,azel,hero,,12,39
 azel_t0,azel,light_infantry,azel_h0,11,40
 azel_t1,azel,light_infantry,azel_h0,13,39
 azel_t2,azel,light_archer,azel_h0,12,38
+...
+balthazar_h0,balthazar,dark_hero,,39,11
+balthazar_t0,balthazar,orc_infantry,balthazar_h0,40,10
+balthazar_t2,balthazar,skel_archer,balthazar_h0,39,12
 ...
 ```
 
@@ -59,7 +65,8 @@ azel_t2,azel,light_archer,azel_h0,12,38
 
 - [정상] `entries()` 64행; 세력별 16(영웅 4 + 부하 12)
 - [정상] `id` 유일; faction·type FK 유효
-- [정상] 영웅은 `leader` 빈 값, 부하 `leader`는 같은 세력의 영웅 id
+- [정상] 영웅은 `leader` 빈 값, 부하 `leader`는 같은 세력의 영웅 아키타입(`kind=="hero"`) id
+- [정상] **암흑세력(balthazar) 스폰은 오크 병종** — 모든 balthazar 행 type ∈ {`dark_hero`,`orc_infantry`,`skel_archer`}; 인간 세력(azel·qasim·batur) 행 type ∈ {`hero`,`light_infantry`,`light_archer`}
 - [정상] 좌표는 맵(50×50) 안; 같은 세력 스폰끼리 좌표 충돌 없음
 - [정상] 세력마다 방어자 스폰(`{faction}_t0`, 일반부대) 존재 (실제 거점 중심 점거는 런타임 배치가 건물 중심에 맞춤)
 

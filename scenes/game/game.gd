@@ -387,7 +387,7 @@ func _setup_parties() -> void:
 	for e in UnitSpawns.entries():
 		var fid: String = e["faction"]
 		var type: String = e["type"]
-		var is_hero := type == "hero"
+		var is_hero := UnitTypes.kind(type) == "hero"   # dark_hero 포함(리터럴 아닌 kind 기준)
 		var fspec := FactionCatalog.get_faction(fid)
 		var is_player := fid == FactionCatalog.PLAYER_ID
 		var hero_col: Color = Color(0.92, 0.78, 0.35) if is_player else fspec["color"]   # 플레이어 금색 = Party 기본
@@ -400,10 +400,11 @@ func _setup_parties() -> void:
 			var hi: int = hero_index.get(fid, 0)
 			hero_index[fid] = hi + 1
 			p.kind = Party.KIND_HERO
+			p.troop_type = type   # 영웅도 자기 아키타입 저장(hero/dark_hero) → archetype()·스프라이트 세트 결정
 			p.token_color = hero_col
 			p.commander_name = FactionCatalog.hero_name(fid, hi)
 			p.party_name = FactionCatalog.hero_party_name(fid, hi)
-			p.soldiers = UnitTypes.max_hp("hero")   # 영웅 병력 = 지휘관 클래스 HP 풀(lang 전투와 동일 값)
+			p.soldiers = UnitTypes.max_hp(type)   # 영웅 병력 = 지휘관 클래스 HP 풀(lang 전투와 동일 값)
 		else:
 			p.kind = Party.KIND_TROOP
 			p.troop_type = type   # 병종 → 병합 가능 판정(같은 병종끼리만). → party-composition.md

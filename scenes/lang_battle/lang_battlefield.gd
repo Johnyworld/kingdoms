@@ -108,6 +108,8 @@ const WALL_DK := Color8(44, 40, 34)
 const PIT := Color8(24, 22, 20)
 
 var _soldiers := {0: [], 1: []}
+# side별 스프라이트 세트 키(병종 데이터로 결정 — set_side_sprites로 주입). 비었으면 _sprite_set이 side 폴백.
+var _side_sprite := {0: "", 1: ""}
 var _flashes: Array = []
 var _effects: Array = []  # 전방으로 날아가는 공격 이펙트 [0x1860]
 var _shake := 0.0
@@ -239,6 +241,11 @@ func setup_hero(hero_hp: int, infantry_n: int) -> void:
 	_spawn_side(1, infantry_n)
 	_retarget_all()
 	queue_redraw()
+
+## side별 스프라이트 세트 키를 주입한다(병종 데이터 = UnitTypes.sprite). setup_* 호출 전에 부른다.
+## 빈 문자열이면 _sprite_set이 기존 side 기반 매핑으로 폴백(설정 화면·직접 진입 호환).
+func set_side_sprites(a_sprite: String, b_sprite: String) -> void:
+	_side_sprite = {0: a_sprite, 1: b_sprite}
 
 ## 커스텀 근접 전투(설정 화면): 각 side {kind, count}로 스폰. hero/infantry/archer 혼합 지원.
 ##  - hero: 1스프라이트(HP=count, 병사 몫), 중앙 단독 배치
@@ -604,6 +611,7 @@ func _make_soldier(side: int, pos: Vector2, home: Vector2) -> Dictionary:
 		"target": null,
 		"state": CHARGE,
 		"kind": "infantry",   # "infantry"(근접) / "archer"(경궁병, 활+색조)
+		"sprite": String(_side_sprite.get(side, "")),  # 캐릭터 세트(병종 데이터). ""면 _sprite_set이 side 폴백
 		"strike_t": 0.0,
 		"strike_cd": _rng.randf_range(0.0, STRIKE_INTERVAL),  # 자동 공방 쿨다운(위상 분산)
 		"push_rem": 0.0,  # 펜싱 밀림 잔여(X, 애니메이션으로 소진)
@@ -1216,10 +1224,14 @@ func _sync_sprites() -> void:
 			_sprites[id].queue_free()
 			_sprites.erase(id)
 
-## 스프라이트 세트: 진영·병종별 캐릭터. 영웅(hero 플래그) 우선 판정 후 경궁병·경보병.
+## 스프라이트 세트: 병종 데이터(s["sprite"], UnitTypes.sprite)로 결정 — side가 아니라 병종이 외형을 정한다.
+## sprite가 비어 있으면(설정 화면·직접 시나리오 진입 등 부대 없는 경로) 기존 side 기반 매핑으로 폴백:
 ##   A(0): 영웅=sword / 경궁병=archer_a / 경보병=soldier
 ##   B(1): 영웅=eliteorc / 경궁병=skelarcher / 경보병=orc
 func _sprite_set(s: Dictionary) -> String:
+	var key := String(s.get("sprite", ""))
+	if key != "":
+		return key
 	var side: int = s["side"]
 	if s.get("hero", false):
 		return "sword" if side == 0 else "eliteorc"

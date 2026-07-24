@@ -8,11 +8,13 @@ extends RefCounted
 ## → docs/spec/features/lang-battle.md 게임 통합 · docs/spec/data/unit-types.md
 ##
 ## 데이터는 res://data/unit_types.csv 에서 lazy-load 한다. CSV 헤더:
-##   id,name,kind,hp,vision,ranged,range,at,df,mv,cmd_range,cmd_at,cmd_df
+##   id,name,kind,hp,vision,ranged,range,at,df,mv,cmd_range,cmd_at,cmd_df,sprite
 ##   name  = 병종 표시명(경보병/경궁병). 영웅(hero)은 표시명 없음(hero_name 사용).
 ##   kind  = 병종 상성 분류(infantry/archer/cavalry/spear/hero). hero 는 상성 중립.
 ##   hp·vision·전투 스탯 선택은 밸런스 튜닝 지점(현재 병력 10 균일). ROM 참조 없이 직접 조정.
 ##   range = 월드맵 공격거리(헥스). 근접 0, 원거리(경궁병) 3.
+##   sprite = 전투씬/맵 토큰 캐릭터 세트 키(assets/units/<sprite>_*.png). 외형은 side가 아닌 이 값으로 결정.
+##            암흑세력은 오크 병종(orc_infantry/skel_archer/dark_hero)으로 몬스터 외형(스탯은 인간 병종과 동일).
 
 const _UNITS_CSV := "res://data/unit_types.csv"
 
@@ -35,7 +37,7 @@ static func _load_units() -> void:
 	f.get_csv_line()  # 헤더 스킵
 	while not f.eof_reached():
 		var c := f.get_csv_line()   # 따옴표·구분자 처리(스프레드시트 저장 대응)
-		if c.size() < 13:
+		if c.size() < 14:
 			continue
 		var id := c[0]
 		var kind := c[2]
@@ -55,6 +57,7 @@ static func _load_units() -> void:
 			"cmd_range": int(c[10]),
 			"cmd_at": int(c[11]),
 			"cmd_df": int(c[12]),
+			"sprite": c[13],
 		}
 
 ## 아키타입 스펙(없는 id면 빈 Dictionary).
@@ -111,6 +114,12 @@ static func base_at(arche: String) -> int:
 static func base_df(arche: String) -> int:
 	_ensure_loaded()
 	return _archetypes.get(arche, {}).get("df", 0)
+
+## 전투씬·맵 토큰 캐릭터 스프라이트 세트 키(assets/units/<sprite>_*.png). 외형은 side가 아닌 병종으로 결정.
+## 없는 아키타입이면 빈 문자열(호출부가 기본 세트로 폴백).
+static func sprite(arche: String) -> String:
+	_ensure_loaded()
+	return _archetypes.get(arche, {}).get("sprite", "")
 
 ## LangResolver 주입용 전투 스탯 번들. 없는 아키타입이면 0/빈 kind.
 ## → LangResolver.make_unit 의 stats 인자로 그대로 넘긴다.

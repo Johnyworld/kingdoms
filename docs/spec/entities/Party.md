@@ -79,7 +79,7 @@
 
 부대 토큰은 병종별 **idle 애니메이션 스프라이트**(`AnimatedSprite2D`)로 그린다. 전투 화면([Lang Battle](../features/lang-battle.md))과 **같은 에셋**(`res://assets/units/*_idle.png`, 100×100 프레임 6장)을 쓴다.
 
-- **세트 매핑**(`UnitSprites.set_key(archetype)`) — `hero → "sword"`, `light_infantry → "soldier"`, `light_archer → "archer_a"`. 미지원/빈 아키타입은 `"soldier"`로 대체. 부대는 `archetype()`(영웅=`"hero"`, 그 외=`troop_type`)로 세트를 고른다.
+- **세트 매핑**(`UnitSprites.set_key(archetype)`) — [`UnitTypes.sprite(archetype)`](../data/unit-types.md) 위임(단일 출처). `hero → "sword"`, `light_infantry → "soldier"`, `light_archer → "archer_a"`, 암흑세력 `dark_hero → "eliteorc"`·`orc_infantry → "orc"`·`skel_archer → "skelarcher"`. 미지원/빈 아키타입은 `"soldier"`로 대체. 부대는 `archetype()`(영웅=`"hero"`, 그 외=`troop_type`)로 세트를 고른다. **맵 토큰과 전투씬이 같은 매핑을 공유**하므로 세력 외형이 두 화면에서 일치한다.
 - **프레임 캐시**(`UnitSprites.idle_frames`) — 세트별 idle `SpriteFrames`(6프레임 루프)를 **정적 캐시**로 1개만 만들어 64부대가 공유한다(부대마다 새로 만들지 않음). `AnimatedSprite2D`는 기본 `"default"` 애니메이션에 idle 프레임을 담아 재생한다.
 - **크기·정렬** — 스프라이트를 `SPRITE_SCALE`(≈0.55)로 축소해 **16px 헥스**(`tile_size` 16×16, `tile_shape` 육각)에 맞춘다. `centered = true` + 세로 `offset`(`_SPRITE_OFFSET_Y`)으로 정렬하되, **머리를 기준으로 크기를 키워** 발은 칸 중심(부대 `position`)보다 살짝 아래에 온다(크기 조정 시 머리 위치 유지·아래로 성장). 그림자(`_SHADOW_Y`)도 발에 맞춰 함께 내린다.
 - **필터** — 스프라이트·부대 노드 모두 `texture_filter = TEXTURE_FILTER_NEAREST`([전투 화면](../features/lang-battle.md)과 동일). 스프라이트 픽셀·`draw_string`(인원 배지 숫자) 글리프가 축소·줌 확대에도 **선명**하게 유지된다(Linear면 흐릿).
@@ -122,11 +122,12 @@
 
 ### 맵 토큰 스프라이트 세트 (`test/unit/test_unit_sprites.gd`)
 
-`UnitSprites.set_key(archetype)` — 순수 매핑(파일시스템 무관):
+`UnitSprites.set_key(archetype)` — `UnitTypes.sprite` 위임(파일시스템 무관):
 
 - [정상] `"hero"` → `"sword"`
 - [정상] `"light_infantry"` → `"soldier"`
 - [정상] `"light_archer"` → `"archer_a"`
+- [정상] 암흑세력 `"orc_infantry"` → `"orc"`, `"skel_archer"` → `"skelarcher"`, `"dark_hero"` → `"eliteorc"`
 - [예외] 빈 문자열 `""` → `"soldier"`(근접 기본 대체)
 - [예외] 미지원 아키타입(`"dragon"` 등) → `"soldier"`(대체)
 

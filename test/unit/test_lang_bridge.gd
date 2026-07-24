@@ -52,3 +52,35 @@ func test_bridged_units_resolve() -> void:
 	assert_between(res["final_d_soldiers"], 0, 10, "방어측 최종 병력 0~10")
 	# 1교전은 소모전 — 한 번에 전멸시키지 않는다(양측 대부분 생존).
 	assert_gt(res["final_a_soldiers"] + res["final_d_soldiers"], 0, "1교전으로 양측 동시 전멸하지 않음")
+
+# --- battle_config: 스프라이트를 cfg에 실어 전달(전투씬 외형은 병종 데이터로 결정) ---
+
+func test_battle_config_carries_sprite() -> void:
+	var atk := _party(PartyScript.KIND_TROOP, "light_infantry", 10)
+	var dfd := _party(PartyScript.KIND_TROOP, "light_archer", 10)
+	var cfg: Dictionary = LangBridge.battle_config(atk, dfd, 1)
+	assert_eq(cfg["a"]["sprite"], "soldier", "공격측 sprite = 경보병 세트")
+	assert_eq(cfg["b"]["sprite"], "archer_a", "방어측 sprite = 경궁병 세트")
+
+func test_battle_config_sprite_independent_of_side() -> void:
+	# 같은 병종이면 공/방 무관 동일 sprite (side 기반 아님 — 세력 정체성 유지).
+	var cfg: Dictionary = LangBridge.battle_config(
+		_party(PartyScript.KIND_TROOP, "orc_infantry", 10),
+		_party(PartyScript.KIND_TROOP, "orc_infantry", 10), 1)
+	assert_eq(cfg["a"]["sprite"], "orc", "공격측 오크")
+	assert_eq(cfg["b"]["sprite"], "orc", "방어측도 오크(side 무관)")
+
+func test_battle_config_dark_hero_sprite() -> void:
+	# 영웅부대가 자기 아키타입(dark_hero)을 기억해 오크 영웅 세트로 렌더된다.
+	var cfg: Dictionary = LangBridge.battle_config(
+		_party(PartyScript.KIND_HERO, "dark_hero", UnitTypes.max_hp("dark_hero")),
+		_party(PartyScript.KIND_TROOP, "orc_infantry", 10), 1)
+	assert_eq(cfg["a"]["sprite"], "eliteorc", "암흑 영웅 → eliteorc")
+	assert_eq(cfg["a"]["kind"], "hero", "kind는 여전히 hero(상성 중립)")
+
+func test_dark_hero_unit_treated_as_hero() -> void:
+	# dark_hero도 hero처럼 처리 — is_hero 판정은 리터럴이 아니라 kind 기준.
+	var u: Dictionary = LangBridge.unit_from_party(_party(PartyScript.KIND_HERO, "dark_hero", UnitTypes.max_hp("dark_hero")), 0)
+	assert_eq(u["at"], UnitTypes.base_at("dark_hero"), "오크 영웅 at = hero at")
+	assert_eq(u["kind"], "hero", "kind hero(상성 중립)")
+	assert_false(u["self_cmd"], "단독 영웅 — 자기 지휘보정 없음(dark_hero도 동일)")

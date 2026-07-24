@@ -94,8 +94,8 @@ func test_battle_config_from_parties() -> void:
 	var atk := _party(PartyScript.KIND_TROOP, "light_infantry", 10)
 	var deff := _party(PartyScript.KIND_TROOP, "light_archer", 6)
 	var cfg: Dictionary = LangBridge.battle_config(atk, deff, 1)
-	assert_eq(cfg["a"], {"kind": "infantry", "count": 10}, "공격측 = 경보병 10")
-	assert_eq(cfg["b"], {"kind": "archer", "count": 6}, "방어측 = 경궁병 6")
+	assert_eq(cfg["a"], {"kind": "infantry", "count": 10, "sprite": "soldier"}, "공격측 = 경보병 10")
+	assert_eq(cfg["b"], {"kind": "archer", "count": 6, "sprite": "archer_a"}, "방어측 = 경궁병 6")
 	assert_eq(cfg["mode"], "melee", "거리 1 → 근접")
 	assert_eq(LangBridge.battle_config(atk, deff, 3)["mode"], "ranged", "거리 3 → 원거리")
 

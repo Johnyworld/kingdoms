@@ -49,7 +49,8 @@ static func _load_spawns() -> void:
 			push_error("unit_spawns.csv: '%s' 의 faction '%s' 가 factions.csv 에 없음" % [id, faction])
 		if UnitTypes.spec(type).is_empty():
 			push_error("unit_spawns.csv: '%s' 의 type '%s' 가 unit_types.csv 에 없음" % [id, type])
-		if type == "hero":
+		# 영웅 판정은 리터럴 "hero"가 아니라 kind 기준(오크 영웅 dark_hero 대응).
+		if UnitTypes.kind(type) == "hero":
 			hero_ids[id] = true
 		var entry := {
 			"id": id,

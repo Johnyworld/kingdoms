@@ -42,8 +42,32 @@ func test_combat_stats_bundle() -> void:
 	assert_eq(s["cmd_df"], 4, "번들 cmd_df")
 	assert_eq(s["kind"], "hero", "번들 kind")
 
+func test_sprite_mapping() -> void:
+	# 전투씬 캐릭터 세트는 side(공/방)가 아니라 병종 데이터로 결정된다.
+	assert_eq(UnitTypes.sprite("hero"), "sword", "영웅 → sword")
+	assert_eq(UnitTypes.sprite("light_infantry"), "soldier", "경보병 → soldier")
+	assert_eq(UnitTypes.sprite("light_archer"), "archer_a", "경궁병 → archer_a")
+	assert_eq(UnitTypes.sprite("dark_hero"), "eliteorc", "오크 영웅 → eliteorc")
+	assert_eq(UnitTypes.sprite("orc_infantry"), "orc", "오크 → orc")
+	assert_eq(UnitTypes.sprite("skel_archer"), "skelarcher", "해골궁병 → skelarcher")
+
+func test_dark_faction_stats_equal_human() -> void:
+	# 암흑세력 병종은 인간 병종과 스탯 동일 — 순수 시각 변형(밸런스 불변).
+	assert_eq(UnitTypes.combat_stats("orc_infantry"), UnitTypes.combat_stats("light_infantry"), "오크 = 경보병 전투 스탯")
+	assert_eq(UnitTypes.combat_stats("skel_archer"), UnitTypes.combat_stats("light_archer"), "해골궁병 = 경궁병 전투 스탯")
+	assert_eq(UnitTypes.combat_stats("dark_hero"), UnitTypes.combat_stats("hero"), "오크 영웅 = 영웅 전투 스탯")
+	assert_eq(UnitTypes.max_hp("orc_infantry"), UnitTypes.max_hp("light_infantry"), "HP 동일")
+
+func test_dark_faction_kind_and_range() -> void:
+	assert_eq(UnitTypes.kind("orc_infantry"), "infantry", "오크 보병 kind=infantry")
+	assert_eq(UnitTypes.kind("skel_archer"), "archer", "해골궁병 kind=archer")
+	assert_eq(UnitTypes.kind("dark_hero"), "hero", "오크 영웅 kind=hero(상성 중립)")
+	assert_true(UnitTypes.is_ranged("skel_archer"), "해골궁병은 원거리")
+	assert_false(UnitTypes.is_ranged("orc_infantry"), "오크 보병은 근접")
+
 func test_unknown_archetype() -> void:
 	assert_eq(UnitTypes.kind("없음"), "", "미지 아키타입 → 빈 kind")
 	assert_eq(UnitTypes.max_hp("없음"), 0, "미지 → HP 0")
 	assert_eq(UnitTypes.movement("없음"), 0, "미지 → 이동력 0")
 	assert_false(UnitTypes.is_ranged("없음"), "미지 → 원거리 아님")
+	assert_eq(UnitTypes.sprite("없음"), "", "미지 → sprite 빈 문자열")

@@ -148,6 +148,8 @@ func _load_custom(cfg: Dictionary) -> void:
 	var a: Dictionary = cfg["a"]
 	var b: Dictionary = cfg["b"]
 	var mode := String(cfg.get("mode", "melee"))
+	# side별 캐릭터 세트 주입(병종 데이터). 설정 화면 cfg엔 sprite가 없어 ""→_sprite_set side 폴백.
+	_field.call("set_side_sprites", String(a.get("sprite", "")), String(b.get("sprite", "")))
 	_scenario = -1
 	_a_cur = int(a["count"])
 	_b_cur = int(b["count"])

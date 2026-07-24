@@ -1,4 +1,7 @@
-id,name,kind,hp,vision,ranged,range,at,df,mv,cmd_range,cmd_at,cmd_df
-hero,,hero,10,6,false,0,27,24,6,4,2,4
-light_infantry,경보병,infantry,10,5,false,0,23,21,6,3,2,2
-light_archer,경궁병,archer,10,5,true,3,23,21,6,3,2,2
+id,name,kind,hp,vision,ranged,range,at,df,mv,cmd_range,cmd_at,cmd_df,sprite
+hero,,hero,10,6,false,0,27,24,6,4,2,4,sword
+light_infantry,경보병,infantry,10,5,false,0,23,21,6,3,2,2,soldier
+light_archer,경궁병,archer,10,5,true,3,23,21,6,3,2,2,archer_a
+dark_hero,,hero,10,6,false,0,27,24,6,4,2,4,eliteorc
+orc_infantry,오크,infantry,10,5,false,0,23,21,6,3,2,2,orc
+skel_archer,해골궁병,archer,10,5,true,3,23,21,6,3,2,2,skelarcher

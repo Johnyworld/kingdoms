@@ -113,9 +113,12 @@ func can_merge_with(other) -> bool:
 		return false
 	return soldiers + other.soldiers <= FactionCatalog.TROOP_SIZE
 
-## 이 부대의 아키타입 id(UnitTypes 카탈로그 키). 영웅부대는 "hero", 그 외는 병종(troop_type). → unit_types.gd
+## 이 부대의 아키타입 id(UnitTypes 카탈로그 키). troop_type에 자기 아키타입을 저장한다
+## (일반부대=병종, 영웅부대=hero/dark_hero 등). 미지정 영웅부대는 기본 "hero"(하위호환). → unit_types.gd
 func archetype() -> String:
-	return "hero" if kind == KIND_HERO else troop_type
+	if troop_type != "":
+		return troop_type
+	return "hero" if kind == KIND_HERO else ""
 
 ## 이 부대 병종이 원거리인지 — 클래스 기반(경궁병). 전투·NPC AI 파워/사격 판별에 쓴다(월드맵 근접/원거리 구분은 스프라이트로 드러남). → Party.md
 func is_ranged() -> bool:

@@ -19,11 +19,22 @@ func test_set_key_empty_falls_back_to_soldier() -> void:
 func test_set_key_unknown_falls_back_to_soldier() -> void:
 	assert_eq(UnitSprites.set_key("dragon"), "soldier", "미지원 아키타입은 soldier로 대체")
 
+# --- 암흑세력 오크 병종(UnitTypes.sprite 위임 — 맵 토큰·전투 매핑 통일) ---
+
+func test_set_key_orc_infantry_is_orc() -> void:
+	assert_eq(UnitSprites.set_key("orc_infantry"), "orc", "오크 보병 → orc 세트")
+
+func test_set_key_skel_archer_is_skelarcher() -> void:
+	assert_eq(UnitSprites.set_key("skel_archer"), "skelarcher", "해골궁병 → skelarcher 세트")
+
+func test_set_key_dark_hero_is_eliteorc() -> void:
+	assert_eq(UnitSprites.set_key("dark_hero"), "eliteorc", "오크 영웅 → eliteorc 세트")
+
 # --- idle SpriteFrames (에셋 경로 회귀 방지) ---
 
 func test_idle_frames_loads_six_frames() -> void:
-	# 세트 idle 시트(soldier/archer_a/sword)가 실제로 로드되고 6프레임이 담기는지 — 에셋 경로 오타 방지.
-	for arche in ["hero", "light_infantry", "light_archer"]:
+	# 세트 idle 시트가 실제로 로드되고 6프레임이 담기는지 — 에셋 경로 오타 방지(인간·오크 6세트).
+	for arche in ["hero", "light_infantry", "light_archer", "dark_hero", "orc_infantry", "skel_archer"]:
 		var sf: SpriteFrames = UnitSprites.idle_frames(arche)
 		assert_eq(sf.get_frame_count("default"), UnitSprites.IDLE_COUNT,
 			"%s idle → default 애니 %d프레임" % [arche, UnitSprites.IDLE_COUNT])

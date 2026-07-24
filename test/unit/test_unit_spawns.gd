@@ -13,9 +13,9 @@ func test_sixteen_per_faction() -> void:
 	for fid in FactionCatalog.FACTION_IDS:
 		var rows := _entries().filter(func(e): return e["faction"] == fid)
 		assert_eq(rows.size(), 16, "%s 편제 16" % fid)
-		var heroes := rows.filter(func(e): return e["type"] == "hero")
+		var heroes := rows.filter(func(e): return UnitTypes.kind(e["type"]) == "hero")
 		assert_eq(heroes.size(), 4, "%s 영웅 4" % fid)
-		var troops := rows.filter(func(e): return e["type"] != "hero")
+		var troops := rows.filter(func(e): return UnitTypes.kind(e["type"]) != "hero")
 		assert_eq(troops.size(), 12, "%s 부하 12" % fid)
 
 func test_ids_unique() -> void:
@@ -32,12 +32,12 @@ func test_fk_integrity() -> void:
 
 func test_leader_points_to_hero_in_same_faction() -> void:
 	# 영웅은 leader 빈 값, 부하는 같은 세력의 영웅 스폰 id 를 가리켜야 한다.
-	var hero_faction := {}   # hero id → faction
+	var hero_faction := {}   # hero id → faction (영웅 판정은 kind 기준 — dark_hero 포함)
 	for e in _entries():
-		if e["type"] == "hero":
+		if UnitTypes.kind(e["type"]) == "hero":
 			hero_faction[e["id"]] = e["faction"]
 	for e in _entries():
-		if e["type"] == "hero":
+		if UnitTypes.kind(e["type"]) == "hero":
 			assert_eq(e["leader"], "", "영웅은 leader 없음: %s" % e["id"])
 		else:
 			assert_true(hero_faction.has(e["leader"]), "부하 leader 가 영웅 id: %s" % e["id"])
@@ -65,4 +65,14 @@ func test_camp_defender_spawn_exists() -> void:
 	for fid in FactionCatalog.FACTION_IDS:
 		var t0 := _entries().filter(func(e): return e["id"] == "%s_t0" % fid)
 		assert_eq(t0.size(), 1, "%s 방어자 스폰(t0) 존재" % fid)
-		assert_ne(t0[0]["type"], "hero", "%s 방어자는 일반부대" % fid)
+		assert_ne(UnitTypes.kind(t0[0]["type"]), "hero", "%s 방어자는 일반부대" % fid)
+
+func test_dark_faction_uses_orc_units() -> void:
+	# 암흑세력(balthazar)은 오크 병종, 인간 세력은 인간 병종을 쓴다(세력 외형 = 아키타입).
+	var orc_types := ["dark_hero", "orc_infantry", "skel_archer"]
+	var human_types := ["hero", "light_infantry", "light_archer"]
+	for e in _entries():
+		if e["faction"] == "balthazar":
+			assert_true(e["type"] in orc_types, "balthazar 오크 병종: %s (%s)" % [e["id"], e["type"]])
+		else:
+			assert_true(e["type"] in human_types, "인간 세력 인간 병종: %s (%s)" % [e["id"], e["type"]])

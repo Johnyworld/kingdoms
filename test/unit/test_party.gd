@@ -52,6 +52,24 @@ func test_troop_type_settable() -> void:
 	p.troop_type = "light_infantry"
 	assert_eq(p.troop_type, "light_infantry", "병종을 설정할 수 있다")
 
+# --- archetype()(카탈로그 조회 키) — 영웅도 자기 아키타입을 기억(dark_hero 대응) ---
+
+func test_archetype_troop_returns_troop_type() -> void:
+	assert_eq(_troop("orc_infantry").archetype(), "orc_infantry", "일반부대 archetype = troop_type")
+
+func test_archetype_hero_defaults_to_hero() -> void:
+	# 아키타입 미지정 영웅부대는 기본 "hero"(플레이어 첫 영웅 노드 등 하위호환).
+	var p := _party()
+	p.kind = p.KIND_HERO
+	assert_eq(p.archetype(), "hero", "영웅부대 기본 archetype = hero")
+
+func test_archetype_hero_remembers_dark_hero() -> void:
+	# 오크 영웅부대는 troop_type에 저장한 자기 아키타입(dark_hero)을 archetype으로 돌려준다.
+	var p := _party()
+	p.kind = p.KIND_HERO
+	p.troop_type = "dark_hero"
+	assert_eq(p.archetype(), "dark_hero", "오크 영웅부대 archetype = dark_hero")
+
 # --- 소속 세력 ---
 
 func test_faction_name_defaults_empty() -> void:

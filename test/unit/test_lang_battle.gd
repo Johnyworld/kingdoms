@@ -856,3 +856,33 @@ func test_setup_skirmish_hero_charger() -> void:
 	assert_true(bf._soldiers[1][0]["hero"], "영웅 플래그")
 	assert_eq(int(bf._soldiers[1][0]["hp"]), 8, "영웅 HP=돌격 count")
 	bf.free()
+
+# ── 스프라이트 세트: 병종 데이터 기반(_sprite_set) + side 폴백 ─────────────────
+
+func test_sprite_set_data_driven() -> void:
+	# 병사 dict에 sprite가 있으면 side/kind/hero 무시하고 그 값을 쓴다.
+	var bf = Battlefield.new()
+	assert_eq(bf._sprite_set({"side": 0, "sprite": "orc"}), "orc", "sprite 지정 → 그대로(side0)")
+	assert_eq(bf._sprite_set({"side": 1, "sprite": "soldier"}), "soldier", "sprite 지정 → 그대로(side1)")
+	assert_eq(bf._sprite_set({"side": 0, "hero": true, "sprite": "eliteorc"}), "eliteorc", "sprite가 영웅/사이드보다 우선")
+	bf.free()
+
+func test_sprite_set_fallback_when_missing() -> void:
+	# sprite가 없으면 기존 side 기반 매핑으로 폴백(설정 화면·직접 진입 호환).
+	var bf = Battlefield.new()
+	assert_eq(bf._sprite_set({"side": 0, "kind": "infantry"}), "soldier", "폴백 side0 보병")
+	assert_eq(bf._sprite_set({"side": 0, "kind": "archer"}), "archer_a", "폴백 side0 궁병")
+	assert_eq(bf._sprite_set({"side": 0, "hero": true}), "sword", "폴백 side0 영웅")
+	assert_eq(bf._sprite_set({"side": 1, "kind": "infantry"}), "orc", "폴백 side1 보병")
+	assert_eq(bf._sprite_set({"side": 1, "kind": "archer"}), "skelarcher", "폴백 side1 궁병")
+	assert_eq(bf._sprite_set({"side": 1, "hero": true}), "eliteorc", "폴백 side1 영웅")
+	bf.free()
+
+func test_set_side_sprites_threads_to_soldier() -> void:
+	# set_side_sprites로 side별 세트를 지정하면 스폰된 병사 dict에 sprite가 실린다.
+	var bf = Battlefield.new()
+	bf.set_side_sprites("orc", "skelarcher")
+	bf.setup_custom({"kind": "infantry", "count": 3}, {"kind": "archer", "count": 3})
+	assert_eq(String(bf._soldiers[0][0]["sprite"]), "orc", "side0 병사 sprite=orc")
+	assert_eq(String(bf._soldiers[1][0]["sprite"]), "skelarcher", "side1 병사 sprite=skelarcher")
+	bf.free()
