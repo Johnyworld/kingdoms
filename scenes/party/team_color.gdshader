@@ -17,6 +17,7 @@ uniform float min_saturation = 0.55;  // 이 이상 채도만 — 진한 튜닉/
 uniform float max_value = 0.70;       // 이 이하 밝기만 — 어두운 튜닉/머리는 통과, 밝은 얼굴 피부는 제외
 uniform float strength = 1.0;         // 0=원본(치환 안 함), 1=완전 치환. 전투의 세력 없는 시나리오는 0.
 uniform float flash : hint_range(0.0, 1.0) = 0.0;  // 피격 흰색 플래시(전투 공용). 0=없음.
+uniform float tint_mix = 0.15;        // team_color를 흰색으로 섞는 비율(0=원색, 클수록 옅음). 작은 토큰 채도 확보. 맵·전투 공용 단일 출처.
 // 눈 제외(피부에 둘러싸인 붉은 눈동자 보호).
 uniform float eye_guard = 1.0;             // 0=끔, 1=켬
 uniform float skin_min_value = 0.72;       // 피부 판정 밝기 하한
@@ -70,10 +71,13 @@ void fragment() {
 	}
 	mask *= strength;
 
-	// 원본 밝기(value)를 key 밝기 기준으로 정규화해 team_color에 곱함 → 명암 보존.
-	vec3 recolored = team_color.rgb * (hsv.z / max(key.z, 0.001));
+	// 원본 밝기(value)를 key 밝기 기준으로 정규화해 team_color(흰색 tint_mix 섞음)에 곱함 → 명암 보존.
+	vec3 tc = mix(team_color.rgb, vec3(1.0), tint_mix);
+	vec3 recolored = tc * (hsv.z / max(key.z, 0.001));
 
 	vec3 outc = mix(tex.rgb, recolored, mask);
-	outc = mix(outc, vec3(1.0), flash);   // 피격 플래시(전투). 세력색 치환 뒤 흰색으로 덮음.
-	COLOR = vec4(outc, tex.a);
+	// 진입 COLOR는 이미 (텍스처 × modulate). 세력색 치환 뒤 flash로 흰색 덮되, 알파는 COLOR.a(=tex.a×modulate.a)를
+	// 그대로 유지해 이동/공격·사망 페이드(modulate.a)를 보존한다. flash도 알파에 비례(투명 엣지 과발광 방지).
+	outc = mix(outc, vec3(1.0), flash * COLOR.a);
+	COLOR = vec4(outc, COLOR.a);
 }

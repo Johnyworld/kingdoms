@@ -44,9 +44,8 @@ const _SPRITE_SCALE := 0.55
 ## 스프라이트 세로 오프셋(texel) — 머리를 기준으로 크기를 키우려 발을 원점보다 살짝 아래로 둔다(머리 고정, 아래로 성장).
 ## (발끝 texel 56이 원점에 딱 오는 값은 -6. 이보다 크게(위로 덜) 두면 발이 내려가고 머리는 유지.)
 const _SPRITE_OFFSET_Y := -2.4
-## 튜닉에 칠할 세력색을 흰색으로 살짝 섞는 비율(0=원색 그대로, 클수록 옅음). 작은 맵 토큰 채도 확보용.
-const _TINT_MIX := 0.15
-## 세력색 팀컬러 셰이더 — 붉은 튜닉 존만 token_color로 치환하고 몸통 나머지는 원색 유지(명암 보존). → team_color.gdshader
+## 세력색 팀컬러 셰이더 — 붉은 튜닉 존만 token_color로 치환하고 몸통 나머지는 원색 유지(명암 보존).
+## 흰색 섞기(tint_mix)·눈 제외 등은 셰이더 내부. → team_color.gdshader
 const _TEAM_SHADER := preload("res://scenes/party/team_color.gdshader")
 ## 발밑 오버레이(선택/공격 하이라이트 링) 반지름 — 16px 헥스 규모.
 const _RING_R := 8.0
@@ -275,7 +274,7 @@ func _sync_sprite(a: float) -> void:
 	# 세력색은 셰이더가 튜닉 존만 치환(몸통 나머지는 원색). modulate는 이동/공격 페이드(알파)에만 쓴다.
 	var mat := _sprite.material as ShaderMaterial
 	if mat != null:
-		mat.set_shader_parameter("team_color", token_color.lerp(Color.WHITE, _TINT_MIX))
+		mat.set_shader_parameter("team_color", token_color)
 	_sprite.modulate = Color(1, 1, 1, a)
 	_sprite.show()
 

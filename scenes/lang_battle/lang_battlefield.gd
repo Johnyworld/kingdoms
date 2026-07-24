@@ -40,9 +40,9 @@ const ATTACK_FPS := 18.0
 const HURT_FPS := 12.0
 const DEATH_FPS := 10.0
 const HIT_FLASH_DUR := 0.12  # 피격 흰색 플래시 지속(초) — 이 시간동안 flash를 1→0 감쇠
-## 팀컬러+피격플래시 공용 셰이더(맵 토큰과 동일). 세력색은 튜닉/머리 존만 치환, flash로 피격 흰색 팝. → scenes/party/team_color.gdshader
+## 팀컬러+피격플래시 공용 셰이더(맵 토큰과 동일). 세력색은 튜닉/머리 존만 치환, flash로 피격 흰색 팝.
+## 흰색 섞기(tint_mix)는 셰이더 내부 — 맵과 단일 출처. → scenes/party/team_color.gdshader
 const TEAM_SHADER := preload("res://scenes/party/team_color.gdshader")
-const TEAM_TINT_MIX := 0.15  # 세력색을 흰색으로 살짝 섞는 비율(맵 토큰 _TINT_MIX와 동일)
 # 스프라이트 세트 — 진영·병종별 캐릭터(Tiny RPG pack, 100×100 프레임). 개발용 플레이스홀더.
 #   A(side0): 경보병=soldier / 경궁병=archer_a(Archer) / 영웅=sword(Swordsman)
 #   B(side1): 경보병=orc / 경궁병=skelarcher(Skeleton Archer) / 영웅=eliteorc(Elite Orc)
@@ -1201,8 +1201,8 @@ func _sync_sprites() -> void:
 				spr.offset.y = _foot_offset(set_key)  # 세트별 발끝을 그림자(pos.y+8)에 맞춤(뜨는 문제 보정)
 				var mat := ShaderMaterial.new()          # 팀컬러(세력색 존 치환) + 피격 흰색 플래시 공용 셰이더
 				mat.shader = TEAM_SHADER
-				# 세력색은 side별 상수 — 생성 시 1회 설정(맵 토큰과 동일하게 흰색 살짝 섞음).
-				mat.set_shader_parameter("team_color", (_side_color[side] as Color).lerp(Color.WHITE, TEAM_TINT_MIX))
+				# 세력색은 side별 상수 — 생성 시 1회 설정(흰색 섞기는 셰이더 tint_mix가 처리).
+				mat.set_shader_parameter("team_color", _side_color[side])
 				mat.set_shader_parameter("strength", 1.0 if _team_enabled else 0.0)
 				spr.material = mat
 				spr.play("walk")

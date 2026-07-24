@@ -43,15 +43,14 @@ func test_sprite_has_team_color_shader() -> void:
 	assert_eq(mat.shader, p._TEAM_SHADER, "team_color.gdshader를 쓴다")
 
 func test_team_color_param_follows_token_color() -> void:
-	# token_color(흰색 살짝 섞음)가 셰이더 team_color 파라미터로 전달된다. → Party.md 세력 틴트
+	# token_color가 셰이더 team_color 파라미터로 그대로 전달된다(흰색 섞기는 셰이더 tint_mix 담당). → Party.md 세력색
 	var p := _party()
 	p.token_color = Color(0.2, 0.3, 0.8)
 	p.soldiers = 1
 	p._sync_sprite(1.0)   # _draw 경로에서 파라미터를 갱신
 	var mat := p._sprite.material as ShaderMaterial
-	var expected := p.token_color.lerp(Color.WHITE, p._TINT_MIX)
-	assert_eq(mat.get_shader_parameter("team_color"), expected,
-		"team_color 파라미터 = token_color를 흰색으로 살짝 섞은 색")
+	assert_eq(mat.get_shader_parameter("team_color"), Color(0.2, 0.3, 0.8),
+		"team_color 파라미터 = token_color(원색 그대로)")
 
 # --- 병종(월드맵 아이콘 판별) ---
 
