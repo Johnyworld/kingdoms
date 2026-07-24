@@ -58,9 +58,8 @@ func _build_ui() -> void:
 	add_child(root)
 
 	var title := Label.new()
-	title.theme_type_variation = &"TitleLabel"
+	title.theme_type_variation = &"Label2XL"
 	title.text = "전투 설정"
-	title.add_theme_font_size_override("font_size", 48)
 	title.add_theme_color_override("font_color", Color(0.91, 0.72, 0.29))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(title)
@@ -75,10 +74,10 @@ func _build_ui() -> void:
 	panels.add_child(_build_side_panel(1, "적군", COL_RED))
 
 	var start := Button.new()
+	start.theme_type_variation = &"ButtonXL"
 	start.text = "전투 시작"
 	start.focus_mode = Control.FOCUS_NONE
 	start.custom_minimum_size = Vector2(280, 56)
-	start.add_theme_font_size_override("font_size", 28)
 	start.pressed.connect(_on_start)
 	# VBox 중앙정렬에서 버튼이 가로로 늘어나지 않게 감싼다.
 	var wrap := CenterContainer.new()
@@ -86,8 +85,8 @@ func _build_ui() -> void:
 	root.add_child(wrap)
 
 	var hint := Label.new()
+	hint.theme_type_variation = &"LabelSM"
 	hint.text = "ESC = 타이틀로"
-	hint.add_theme_font_size_override("font_size", 18)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.8))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(hint)
@@ -99,9 +98,8 @@ func _build_side_panel(side: int, name_ko: String, name_col: Color) -> Control:
 	box.custom_minimum_size = Vector2(460, 0)
 
 	var header := Label.new()
-	header.theme_type_variation = &"TitleLabel"
+	header.theme_type_variation = &"LabelXL"
 	header.text = name_ko
-	header.add_theme_font_size_override("font_size", 30)
 	header.add_theme_color_override("font_color", name_col)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(header)
@@ -147,8 +145,8 @@ func _build_mode_column() -> Control:
 
 func _section_label(text: String) -> Label:
 	var l := Label.new()
+	l.theme_type_variation = &"LabelLG"
 	l.text = text
-	l.add_theme_font_size_override("font_size", 20)
 	l.add_theme_color_override("font_color", Color(0.82, 0.84, 0.9))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return l
@@ -158,7 +156,6 @@ func _make_choice_button(text: String, min_size: Vector2) -> Button:
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = min_size
-	b.add_theme_font_size_override("font_size", 20)
 	return b
 
 # ── 선택 처리 ────────────────────────────────────────────────────────────────

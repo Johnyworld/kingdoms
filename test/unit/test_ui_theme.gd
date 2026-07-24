@@ -1,6 +1,6 @@
 extends GutTest
 ## 중세풍 UI 테마 — medieval_theme.tres + Cafe24 서라운드 폰트(Air 본문/Ssurround 굵게) + DarkAgesUi 타일시트.
-## 전역 테마 등록·프레임 StyleBox·모달 OrnatePanel 변형·벡터 폰트 전환(Slice 5)을 검증한다. → docs/spec/features/ui-theme.md
+## 전역 테마 등록·프레임 StyleBox·모달 OrnatePanel 변형·벡터 폰트(Slice 5)·타이포 스케일(Slice 6)을 검증한다. → docs/spec/features/ui-theme.md
 
 const THEME_PATH := "res://assets/ui/medieval_theme.tres"
 const FONT_AIR_PATH := "res://assets/ui/fonts/Cafe24SsurroundAir.otf"
@@ -21,7 +21,7 @@ func test_theme_loads() -> void:
 func test_theme_default_font() -> void:
 	var t := _theme()
 	assert_not_null(t.default_font, "테마 default_font가 지정돼야 한다")
-	assert_eq(t.default_font_size, 14, "테마 default_font_size는 14")
+	assert_eq(t.default_font_size, 20, "테마 default_font_size는 20(본문 MD)")
 
 func test_font_file_loads() -> void:
 	var f = load(FONT_AIR_PATH)
@@ -132,7 +132,9 @@ func test_toast_uses_parchment() -> void:
 	var t = ToastScript.new()
 	add_child_autofree(t)
 	assert_eq(t._box.theme_type_variation, &"ParchmentPanel", "토스트 상자=ParchmentPanel")
-	assert_eq(t._label.theme_type_variation, &"ParchmentLabel", "토스트 라벨=ParchmentLabel")
+	# 라벨은 크기(LabelLG)를 변형에서 얻고, 양피지 위 어두운 글자색은 인스턴스 override로 얹는다.
+	assert_eq(t._label.theme_type_variation, &"LabelLG", "토스트 라벨=LabelLG")
+	assert_lt(t._label.get_theme_color("font_color").v, 0.5, "토스트 라벨 글자색은 어두워야 한다")
 
 # --- Slice 5: 벡터 폰트 전환 (Cafe24 서라운드) ---
 
@@ -144,12 +146,13 @@ func test_default_font_is_air() -> void:
 	assert_not_null(f, "default_font 지정")
 	assert_eq(f.resource_path, FONT_AIR_PATH, "default_font는 Cafe24 Air여야 한다")
 
-func test_title_label_variation_is_bold() -> void:
+func test_title_tier_variation_is_bold() -> void:
+	# 타이틀 계층(Label2XL) 변형이 굵은 Ssurround인지(제목 굵게 규칙의 대표 검증).
 	var t := _theme()
-	assert_true(t.has_font("font", "TitleLabel"), "TitleLabel 변형에 font가 정의돼야 한다")
-	var f := t.get_font("font", "TitleLabel")
-	assert_eq(f.resource_path, FONT_BOLD_PATH, "TitleLabel 폰트는 굵은 Ssurround여야 한다")
-	assert_ne(f.resource_path, t.default_font.resource_path, "TitleLabel 폰트는 본문(Air)과 달라야 한다")
+	assert_true(t.has_font("font", "Label2XL"), "Label2XL 변형에 font가 정의돼야 한다")
+	var f := t.get_font("font", "Label2XL")
+	assert_eq(f.resource_path, FONT_BOLD_PATH, "Label2XL 폰트는 굵은 Ssurround여야 한다")
+	assert_ne(f.resource_path, t.default_font.resource_path, "Label2XL 폰트는 본문(Air)과 달라야 한다")
 
 func test_map_text_uses_air() -> void:
 	assert_eq(MapTextScript.TTF.resource_path, FONT_AIR_PATH,
@@ -158,5 +161,42 @@ func test_map_text_uses_air() -> void:
 func test_modal_title_uses_title_variation() -> void:
 	var m = ModalScript.new()
 	add_child_autofree(m)
-	assert_eq(m._title_label.theme_type_variation, &"TitleLabel",
-		"모달 타이틀 라벨=TitleLabel 변형")
+	assert_eq(m._title_label.theme_type_variation, &"LabelLG",
+		"모달 타이틀 라벨=LabelLG 변형(굵게 24)")
+
+# --- Slice 6: 타이포그래피 스케일 ---
+
+const _SCALE := {
+	"LabelXS": 14,
+	"LabelSM": 18,
+	"LabelMD": 20,
+	"LabelLG": 24,
+	"LabelXL": 28,
+	"Label2XL": 32,
+	"LabelHuge": 64,
+	"ButtonXL": 28,
+}
+
+func test_button_default_font_size_is_20() -> void:
+	assert_eq(_theme().get_font_size("font_size", "Button"), 20,
+		"모든 버튼 기본 font_size는 20")
+
+func test_type_scale_font_sizes() -> void:
+	var t := _theme()
+	for name in _SCALE:
+		assert_true(t.has_font_size("font_size", name),
+			"%s 변형에 font_size가 정의돼야 한다" % name)
+		assert_eq(t.get_font_size("font_size", name), int(_SCALE[name]),
+			"%s font_size == %d" % [name, _SCALE[name]])
+
+func test_size_tiers_weight() -> void:
+	# 제목 계층(LG/XL/2XL/HUGE)은 굵은 Ssurround, 본문 계층(XS/SM/MD)은 Air 상속.
+	var t := _theme()
+	for name in ["LabelLG", "LabelXL", "Label2XL", "LabelHuge"]:
+		assert_true(t.has_font("font", name), "%s에 font 정의" % name)
+		assert_eq(t.get_font("font", name).resource_path, FONT_BOLD_PATH,
+			"%s는 굵은 Ssurround여야 한다" % name)
+	# 본문 계층은 굵은 폰트를 지정하지 않아 본문(Air)으로 렌더돼야 한다.
+	for name in ["LabelXS", "LabelSM", "LabelMD"]:
+		assert_ne(t.get_font("font", name).resource_path, FONT_BOLD_PATH,
+			"%s은 본문 폰트(Air)여야 한다(굵게 아님)" % name)

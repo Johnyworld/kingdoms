@@ -82,7 +82,8 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
 - `ParchmentPanel`(base `PanelContainer`) StyleBoxTexture = 크림 양피지(@3x region `Rect2(297, 3, 276, 288)`,
   torn edge 나인패치 margin 27, content_margin 28/22).
 - 밝은 양피지 위에는 크림 글자가 안 보이므로 `ParchmentLabel`(base `Label`) = 어두운 갈색 글자.
-- 소비자: 알림 Toast(`scenes/game/toast.gd`) — `_box`에 `ParchmentPanel`, `_label`에 `ParchmentLabel` 지정.
+- 소비자: 알림 Toast(`scenes/game/toast.gd`) — `_box`에 `ParchmentPanel` 지정. *(Toast `_label`은
+  Slice 6에서 `LabelLG` 변형 + 어두운 글자색 인스턴스 override로 재편성 — 아래 Slice 6 참조.)*
 
 ### 모달 닫기 X 아이콘 (`scenes/modal/modal.gd`)
 - 닫기 버튼을 텍스트 "X" → 시트의 X 아이콘 `AtlasTexture`(@3x region `Rect2(228, 708, 21, 24)`)로 교체.
@@ -91,8 +92,8 @@ UI가 별도 코드 수정 없이 스킨을 상속받는다. 단일 타일시트
 ## Slice 4 (미구현 · 유예)
 
 - 리스트 불릿 다이아 아이콘(리스트 렌더 코드 침투 필요), `ProgressBar` 스킨(**현재 코드베이스에서 미사용** —
-  전투 병력바는 `draw_rect` 커스텀이라 테마 대상 아님), `.tscn` 메뉴 씬(title·splash·lang_setup·result)
-  폰트 크기 재튜닝(현재는 전역 폰트만 상속, 크기 override 유지).
+  전투 병력바는 `draw_rect` 커스텀이라 테마 대상 아님).
+- (~~메뉴 씬 폰트 크기 재튜닝~~ → **Slice 6에서 타이포그래피 스케일로 완료**.)
 
 ## Slice 5 — 벡터 폰트 전환 (구현)
 
@@ -107,12 +108,16 @@ UI를 벡터(슈퍼샘플) 렌더로 전환함에 따라 픽셀 비트맵 폰트
 - 구 `Galmuri14.ttf`는 더 이상 참조되지 않음(리포에는 잔존, 필요 시 별도 커밋에서 제거).
 
 ### 테마 (`medieval_theme.tres`)
-- **default_font = Cafe24 Air**, `default_font_size = 14` 유지(개별 씬 크기 override 불변).
+- **default_font = Cafe24 Air**. *(Slice 5 당시 `default_font_size = 14`였으나 Slice 6에서 본문 MD=**20**으로 상향.)*
 - 타입 변형 **`TitleLabel`**(base_type `Label`): `fonts/font` = 굵은 Ssurround. 제목/배너 라벨용.
-  크기·색은 각 소비자의 기존 `add_theme_*_override`가 위에 얹힌다.
+  *(Slice 6에서 `TitleLabel`→사이즈 스케일 변형(`LabelLG`~`LabelHuge`)으로 재편성. 아래 Slice 6이 정답.)*
 - 버튼은 전부 default(Air) 유지 — 별도 굵게 버튼 변형 없음.
 
 ### 소비자 (굵게 = `theme_type_variation` 한 줄 추가)
+
+> ⚠️ 아래 변형 배정은 **Slice 6(타이포그래피 스케일)에서 재편성**됐다. 현재 각 소비자가 쓰는
+> 변형은 Slice 6 표가 정답이다. 이 표는 Slice 5 시점의 기록으로 남긴다.
+
 | 위치 | 대상 | 변형 |
 | --- | --- | --- |
 | `splash.tscn` | 스플래시 타이틀 | `TitleLabel` |
@@ -130,12 +135,61 @@ UI를 벡터(슈퍼샘플) 렌더로 전환함에 따라 픽셀 비트맵 폰트
 - 월드 라벨 폰트 `const TTF` preload를 Air(`Cafe24SsurroundAir.otf`)로 교체(본문 계열).
   슈퍼샘플 파이프라인·`font_size` 기준은 불변.
 
+## Slice 6 — 타이포그래피 스케일 (구현)
+
+흩어져 있던 UI 폰트 크기를 **사이즈 이름 스케일(XS~HUGE)**로 통합한다. 크기·굵기는 개별 씬의
+`add_theme_font_size_override` 매직넘버 대신 `medieval_theme.tres`의 **타입 변형** 한곳에 정의하고,
+`.tscn`·`.gd` 모두 `theme_type_variation`으로만 참조한다(기존 `TitleLabel` 패턴 확장). 크기 조정은 테마 1곳에서.
+
+### 스케일 (테마 변형)
+
+| 사이즈 | 변형 | base | 폰트 | font_size | 역할·용도 |
+| --- | --- | --- | --- | --- | --- |
+| XS   | `LabelXS`   | Label | Air | 14 | 최소 크기(별도 작은 텍스트용, 현재 상시 소비자 없음) |
+| SM   | `LabelSM`   | Label | Air | 18 | 캡션 — 힌트·부가 텍스트 |
+| MD   | (기본)      | Label/Button | Air | 20 | **본문·버튼 기본** = `default_font_size` / `Button/font_sizes/font_size` |
+| MD   | `LabelMD`   | Label | Air | 20 | 본문 크기를 명시 지정하고 싶을 때(기본과 동일) |
+| LG   | `LabelLG`   | Label | 굵게(Ssurround) | 24 | 서브타이틀 — 모달/패널 제목, 셋업 섹션 라벨, 토스트, 결과 부제, 턴 표시 |
+| XL   | `LabelXL`   | Label | 굵게 | 28 | 헤딩 — 섹션 헤더·배너·헤럴드 |
+| 2XL  | `Label2XL`  | Label | 굵게 | 32 | 타이틀 — 화면 제목(셋업 타이틀 등) |
+| HUGE | `LabelHuge` | Label | 굵게 | 64 | 디스플레이 — 스플래시·타이틀 로고, 결과 대문 |
+| XL   | `ButtonXL`  | Button | Air | 28 | 주요 액션 버튼(전투 시작) — 버튼은 크기만 키우고 Air 유지 |
+
+- **굵기 규칙**("본문 Air·제목 굵게"): 제목 계층 `LG/XL/2XL/HUGE`는 굵은 Ssurround,
+  `XS/SM/MD`(본문·캡션)는 Air 상속. 버튼은 크기만 스케일을 따르고 폰트는 버튼 기본(Air) 유지.
+- **본문 기본 = MD 20**: `default_font_size = 20`으로 크기 지정 없는 모든 본문 텍스트가 20.
+  버튼도 `Button/font_sizes/font_size = 20`으로 기본 20(MD), 더 큰 주요 버튼만 `ButtonXL`(28).
+- 양피지 위 라벨(Toast `_label`, 배너 헤럴드)은 크기·굵기를 `LabelLG`/`LabelXL` 변형에서 얻고,
+  어두운 글자색만 인스턴스 `add_theme_color_override("font_color", …)`로 얹는다(색 전용 변형 불필요).
+
+### 소비자 (현재 배정 — 정답)
+
+| 위치 | 대상 | 변형 |
+| --- | --- | --- |
+| `splash.tscn` | 스플래시 대문 | `LabelHuge` |
+| `title.tscn` | "KINGDOMS" | `LabelHuge` |
+| `result_overlay.gd` | 결과 대문 / 부제 | `LabelHuge` / `LabelLG` |
+| `lang_setup.gd` | 타이틀 / 진영 헤더 / 섹션 라벨 | `Label2XL` / `LabelXL` / `LabelLG` |
+| `lang_setup.gd` | 전투 시작 / 선택 버튼 | `ButtonXL` / (기본 Button MD 20) |
+| `turn_banner.gd` | NPC 진행 라벨 / 턴 헤럴드(양피지) | `LabelXL` / `LabelXL`+색 override |
+| `toast.gd` | 알림 라벨(양피지) | `LabelLG`+색 override |
+| `modal.gd` | 모달 타이틀 | `LabelLG` |
+| `party_roster.gd`·`party_info.gd`·`camp_menu.gd`·`building_info.gd` | 패널 제목 | `LabelLG` |
+| `turn_hud.gd` | 턴 표시 | `LabelLG` |
+| `lang_battle.tscn` | "격리 테스트" 힌트 | `LabelSM` |
+
+### 범위 제외 (별도 시각 시스템)
+
+- **`lang_hud.gd`** — 전투 카드 HUD의 대형 수치(170·40·34·30 등). 게임 아트성 오버레이라 UI 스케일과 분리.
+- **`map_text.gd` 월드 텍스트** — `building.gd` 7/6, `party.gd` 4. 월드(16px 헥스) 기준 슈퍼샘플.
+- **`tile_gallery.gd`** — 개발용 갤러리(7/4).
+
 ## 테스트 시나리오
 
 `test/unit/test_ui_theme.gd`.
 
 - [정상] `res://assets/ui/medieval_theme.tres` 로드 성공 → `Theme` 인스턴스
-- [정상] 테마 `default_font` 존재(null 아님), `default_font_size` == 14
+- [정상] 테마 `default_font` 존재(null 아님), `default_font_size` == 20 *(Slice 6: 본문 MD)*
 - [정상] 본문 폰트 `res://assets/ui/fonts/Cafe24SsurroundAir.otf` 로드 성공 → `FontFile`
 - [정상] 테마에 `PanelContainer`의 `panel` StyleBox 정의됨(`has_stylebox("panel","PanelContainer")`)
 - [정상] 타입 변형 `OrnatePanel`의 `panel` StyleBox 정의됨(`has_stylebox("panel","OrnatePanel")`)
@@ -152,12 +206,16 @@ UI를 벡터(슈퍼샘플) 렌더로 전환함에 따라 픽셀 비트맵 폰트
 - [Slice3][정상] 타입 변형 `ParchmentPanel`의 `panel` StyleBox가 `StyleBoxTexture`로 정의됨
 - [Slice3][정상] 타입 변형 `ParchmentLabel`의 `font_color`가 어두운 색(밝기 낮음)으로 정의됨
 - [Slice3][정상] `Modal` 인스턴스의 닫기 버튼에 아이콘(`icon`)이 지정됨(텍스트 "X" 아님)
-- [Slice3][정상] `Toast` 인스턴스의 `_box`는 `ParchmentPanel`, `_label`은 `ParchmentLabel` 변형
+- [Slice3][정상] `Toast` 인스턴스의 `_box`는 `ParchmentPanel` 변형 *(`_label`은 Slice 6에서 `LabelLG`로 변경)*
 - [Slice5][정상] 굵은 폰트 `res://assets/ui/fonts/Cafe24Ssurround.otf` 로드 성공 → `FontFile`
 - [Slice5][정상] 테마 `default_font`의 `resource_path`가 Air 폰트(`Cafe24SsurroundAir.otf`)
-- [Slice5][정상] 타입 변형 `TitleLabel`에 `font`가 정의됨(`has_font("font","TitleLabel")`)이고 굵은 폰트(default_font와 다름)
+- [Slice6][정상] 제목 계층 대표 변형 `Label2XL`에 `font`가 정의됨(`has_font`)이고 굵은 폰트(default_font와 다름) *(구 `TitleLabel` 시나리오를 대체)*
 - [Slice5][정상] `map_text.gd`의 `TTF` 상수 `resource_path`가 Air 폰트를 가리킴
-- [Slice5][정상] `Modal` 인스턴스의 타이틀 라벨 `theme_type_variation` == `"TitleLabel"`
+- [Slice6][정상] `Modal` 인스턴스의 타이틀 라벨 `theme_type_variation` == `"LabelLG"`
+- [Slice6][정상] `Toast` 인스턴스의 `_label` == `LabelLG` 변형 + 글자색 어두움(v<0.5)
+- [Slice6][정상] 스케일 변형(LabelXS14·SM18·MD20·LG24·XL28·2XL32·Huge64·ButtonXL28)의 `font_size`가 테마에 정의되고 값 일치
+- [Slice6][정상] 테마 `Button/font_sizes/font_size` == 20 (모든 버튼 기본 크기 MD)
+- [Slice6][정상] 제목 계층(LabelLG·XL·2XL·Huge) 변형 `font`가 굵은 Ssurround, 본문 계층(LabelXS·SM·MD)은 별도 font 미지정(Air 상속)
 
 ## 관련
 

@@ -39,8 +39,8 @@ func _build() -> void:
 	box.add_child(_grace_box)
 
 	_turn_label = Label.new()
+	_turn_label.theme_type_variation = &"LabelLG"
 	_turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_turn_label.add_theme_font_size_override("font_size", 18)
 	box.add_child(_turn_label)
 
 	# 턴 종료 버튼과 그 왼쪽 "명령 남음 N"을 한 줄로. 우측 정렬이라 명령 표시가 버튼 왼쪽에 붙는다.

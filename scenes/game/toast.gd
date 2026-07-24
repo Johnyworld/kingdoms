@@ -29,8 +29,8 @@ func _build() -> void:
 	root.add_child(_box)
 
 	_label = Label.new()
-	_label.theme_type_variation = &"ParchmentLabel"   # 밝은 양피지 위 어두운 글자
-	_label.add_theme_font_size_override("font_size", 22)
+	_label.theme_type_variation = &"LabelLG"   # 서브타이틀(굵게 24)
+	_label.add_theme_color_override("font_color", Color(0.28, 0.2, 0.12))   # 양피지 위 어두운 글자색
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_box.add_child(_label)
 
