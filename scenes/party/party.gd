@@ -44,8 +44,10 @@ const _SPRITE_SCALE := 0.55
 ## 스프라이트 세로 오프셋(texel) — 머리를 기준으로 크기를 키우려 발을 원점보다 살짝 아래로 둔다(머리 고정, 아래로 성장).
 ## (발끝 texel 56이 원점에 딱 오는 값은 -6. 이보다 크게(위로 덜) 두면 발이 내려가고 머리는 유지.)
 const _SPRITE_OFFSET_Y := -2.4
-## 세력색 틴트를 흰색으로 섞는 비율(0=원색, 1=세력색 그대로). 스프라이트 가독성 확보용.
-const _TINT_MIX := 0.55
+## 튜닉에 칠할 세력색을 흰색으로 살짝 섞는 비율(0=원색 그대로, 클수록 옅음). 작은 맵 토큰 채도 확보용.
+const _TINT_MIX := 0.15
+## 세력색 팀컬러 셰이더 — 붉은 튜닉 존만 token_color로 치환하고 몸통 나머지는 원색 유지(명암 보존). → team_color.gdshader
+const _TEAM_SHADER := preload("res://scenes/party/team_color.gdshader")
 ## 발밑 오버레이(선택/공격 하이라이트 링) 반지름 — 16px 헥스 규모.
 const _RING_R := 8.0
 
@@ -253,6 +255,10 @@ func _ready() -> void:
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # 축소해도 픽셀 선명(전투 화면과 동일, Linear면 흐릿)
 	# 머리 고정·아래로 성장 오프셋(_SPRITE_OFFSET_Y). 발은 원점보다 살짝 아래.
 	_sprite.offset = Vector2(0, _SPRITE_OFFSET_Y)
+	# 팀컬러 셰이더 머티리얼(부대마다 team_color가 달라 인스턴스별로 둔다). 세력색은 _sync_sprite에서 갱신.
+	var mat := ShaderMaterial.new()
+	mat.shader = _TEAM_SHADER
+	_sprite.material = mat
 	add_child(_sprite)
 
 ## 자식 스프라이트를 현재 아키타입·세력색·페이드에 맞춘다(프레임은 아키타입이 바뀔 때만 교체).
@@ -266,10 +272,11 @@ func _sync_sprite(a: float) -> void:
 		_sprite.play("default")
 	elif not _sprite.is_playing():
 		_sprite.play("default")
-	# 세력색 틴트(흰색으로 섞어 밝기 유지) + 이동/공격 페이드.
-	var tint := token_color.lerp(Color.WHITE, _TINT_MIX)
-	tint.a = a
-	_sprite.modulate = tint
+	# 세력색은 셰이더가 튜닉 존만 치환(몸통 나머지는 원색). modulate는 이동/공격 페이드(알파)에만 쓴다.
+	var mat := _sprite.material as ShaderMaterial
+	if mat != null:
+		mat.set_shader_parameter("team_color", token_color.lerp(Color.WHITE, _TINT_MIX))
+	_sprite.modulate = Color(1, 1, 1, a)
 	_sprite.show()
 
 func _draw() -> void:

@@ -33,6 +33,26 @@ func test_sprite_uses_nearest_filter() -> void:
 	assert_eq(p._sprite.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST,
 		"맵 토큰 스프라이트는 NEAREST 필터(흐릿함 방지)")
 
+# --- 팀컬러 셰이더(세력색은 튜닉 존만 치환, 몸통 원색 유지) ---
+
+func test_sprite_has_team_color_shader() -> void:
+	# 스프라이트에 팀컬러 셰이더 머티리얼이 붙는다(세력색 팔레트 스왑). → Party.md 세력 틴트
+	var p := _party()
+	var mat := p._sprite.material as ShaderMaterial
+	assert_not_null(mat, "스프라이트에 ShaderMaterial이 있다")
+	assert_eq(mat.shader, p._TEAM_SHADER, "team_color.gdshader를 쓴다")
+
+func test_team_color_param_follows_token_color() -> void:
+	# token_color(흰색 살짝 섞음)가 셰이더 team_color 파라미터로 전달된다. → Party.md 세력 틴트
+	var p := _party()
+	p.token_color = Color(0.2, 0.3, 0.8)
+	p.soldiers = 1
+	p._sync_sprite(1.0)   # _draw 경로에서 파라미터를 갱신
+	var mat := p._sprite.material as ShaderMaterial
+	var expected := p.token_color.lerp(Color.WHITE, p._TINT_MIX)
+	assert_eq(mat.get_shader_parameter("team_color"), expected,
+		"team_color 파라미터 = token_color를 흰색으로 살짝 섞은 색")
+
 # --- 병종(월드맵 아이콘 판별) ---
 
 func test_is_ranged_true_for_archer_archetype() -> void:

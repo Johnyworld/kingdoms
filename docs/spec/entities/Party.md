@@ -85,7 +85,9 @@
 - **필터** — 스프라이트·부대 노드 모두 `texture_filter = TEXTURE_FILTER_NEAREST`([전투 화면](../features/lang-battle.md)과 동일). 스프라이트 픽셀·`draw_string`(인원 배지 숫자) 글리프가 축소·줌 확대에도 **선명**하게 유지된다(Linear면 흐릿).
 - **그림자** — 발밑에 **납작한 타원 3겹**(`_draw_ellipse`, 바깥 옅음→안쪽 진함)으로 그린다([전투 화면](../features/lang-battle.md)과 동일 방식 — 수치는 맵 규모로 축소). 정원이 아니라 지면에 앉은 타원.
 - **레이어** — 스프라이트는 `show_behind_parent = true`로 두어, 부대 `_draw`의 오버레이(선택 링·지휘 배지·인원 배지)가 **스프라이트 위**에 그려지게 한다(가림 방지).
-- **세력 틴트** — `modulate = token_color`를 가독성 위해 흰색으로 섞은 색(`token_color.lerp(Color.WHITE, TINT_MIX)`)으로 둔다. 플레이어(금색)·NPC(세력색) 구분을 스프라이트 위에 얹는다. 이동/공격 페이드는 `modulate.a`에 곱한다.
+- **세력색(팀컬러 셰이더)** — 스프라이트에 팀컬러 셰이더 머티리얼(`scenes/party/team_color.gdshader`)을 붙여 **세력색 존(붉은 튜닉)만 `token_color`로 치환**한다. 몸통 나머지(투구·갑옷·피부)는 원색을 유지하고, 원본 픽셀의 명암(밝기)을 곱셈으로 보존해 단색 덩어리가 아니라 명암 있는 세력색이 된다. `_sync_sprite`가 매 갱신 시 셰이더 파라미터 `team_color`를 `token_color.lerp(Color.WHITE, TINT_MIX)`(가독성 위해 흰색 살짝 섞음, `TINT_MIX≈0.15`)로 설정한다. 플레이어(금색)·NPC(세력색)가 이렇게 구분된다. 이동/공격 페이드는 `modulate.a`(몸통 알파)에만 곱한다.
+  - **[임시 마스크] 존 선택**은 현재 셰이더가 `key_color`(붉은 튜닉 색조)에 가까운 픽셀을 hue로 자동 판정한다(애니메이션 6프레임에 자동 정렬되는 장점). 실사용 정밀화 시 이 hue 판정을 **아티스트가 그린 마스크 텍스처 샘플링**으로 교체할 수 있다. hue 방식은 영웅 스프라이트처럼 튜닉 외에도 같은 색조(머리카락 등)가 있으면 함께 물드는 한계가 있다.
+  - **작은 토큰 가독성**: 튜닉만 칠하므로 확대 시 깔끔하나 실제 맵 토큰(≈8~16px)에선 세력 구분이 다소 약하다(예전 전체 틴트 대비). 발밑 세력색 베이스 링 등 보강은 미구현(TODO).
 - **전멸**(`soldiers <= 0`) 시 스프라이트를 숨긴다. NPC 안개 처리는 부대 노드 `visible`로 되어 자식 스프라이트도 함께 숨는다([Fog of War](../features/fog-of-war.md)).
 
 ## 동작
@@ -116,7 +118,7 @@
 - `wait() -> void` — **[대기]**: 남은 이동력과 공격 기회를 모두 포기하고 이번 턴을 끝낸다(`move_points = 0` + `waited = true`). `can_move()`·`can_attack()`·`can_rest()` 모두 거짓이 돼 "더 할 게 없음"(E)이 된다. **`attacked_this_turn`은 세우지 않아 토큰이 흐려지지 않고 E 배지로만 표시**된다(공격 완료 흐림과 구분). 강제 소진이라 다음 `reset_turn()`으로 복원된다. → [Turn](../features/turn.md#턴-종료-버튼-turn_hudgd)
 - `can_rest() -> bool` — 아직 행동이 가능한지(`not attacked_this_turn and not waited`). 선택 가능 판정에 쓴다.
 - `reset_turn() -> void` — 턴 종료 시 호출. `move_points`를 `movement()`로 채우고 `attacked_this_turn`를 `false`로 되돌린 뒤 불투명하게 다시 그린다.
-- `_draw()` — `soldiers <= 0`(전멸)이면 스프라이트를 숨기고 아무것도 그리지 않는다("사라짐"). 그 외엔 자식 [스프라이트](#맵-토큰-외형-sprite)의 프레임·틴트·재생을 현재 상태에 맞추고, 캔버스로 오버레이를 얹는다: 선택 시 발밑 강조 링(노란색), NPC 공격 [하이라이트](../features/npc-movement.md) 링, [지휘 버프](../features/command-range.md) 중이면 캐릭터 **머리 위**에 아주 작은 금색 갈매기(▲) 배지, `exhausted`(이번 턴 더 할 것 없음)면 인원 배지 **왼쪽**에 작은 회색 "E" 글자(플레이어 부대만 — 영웅도 같은 지점). `shows_member_count()`면 **발=중심 기준 아래-우측**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자, 폰트 **갈무리14**(`_BADGE_FONT`, 픽셀 폰트 — fallback 벡터 폰트는 흐릿해 교체)). **배지·삼각형은 16px 헥스 규모**의 작은 상수로 잡는다(`_CMD_BADGE_*`: 반폭 2.5·머리 위 y −10.5; `_COUNT_BADGE_*`: 중심 (4,4)·반지름 3·폰트 4). **숫자는 `MapText` 공용 헬퍼**(`scenes/game/map_text.gd`)로 그린다 — 갈무리14(픽셀)+합성 볼드(`variation_embolden` 0.4, regular만 있어 합성)를 **슈퍼샘플**(3배 래스터 후 1/3 축소)해 작아도 기본 3배 줌에서 48px 헥스급으로 또렷하다. **링·배지 원·갈매기(▲) 같은 벡터 도형은 `MapDraw` 공용 헬퍼**(`scenes/game/map_draw.gd`, `MapText`의 벡터판)로 그린다 — `draw_arc`/`draw_circle`/`draw_colored_polygon`의 안티에일리어싱 feather가 로컬 해상도 기준이라 그냥 그리면 줌 확대 시 계단처럼 깨진다. 좌표·선폭을 `SUPERSAMPLE`(3)배로 키워 그린 뒤 1/3 축소해 선명하게(하이브리드: 픽셀 스프라이트 + 선명한 벡터 UI). 부대 노드는 `texture_filter = NEAREST`. (거점/세력 라벨도 같은 헬퍼를 쓴다 → [건물 렌더](../features/building.md).) 캐릭터 스프라이트는 헥스 위로 조금 솟을 수 있다. **이동력을 다 썼고(`move_points == 0`) 공격까지 마쳤으면(`attacked_this_turn`)** — 이번 턴 더 할 게 없을 때 — 스프라이트·오버레이를 반투명하게(`_MOVED_ALPHA`). 인원 배지는 플레이어·보이는 NPC 일반부대 모두 표시(사상자로 줄어든 병력 확인). 몸통 원·외곽선·코드 병종 아이콘은 스프라이트로 대체되어 그리지 않는다.
+- `_draw()` — `soldiers <= 0`(전멸)이면 스프라이트를 숨기고 아무것도 그리지 않는다("사라짐"). 그 외엔 자식 [스프라이트](#맵-토큰-외형-sprite)의 프레임·세력색(팀컬러 셰이더 파라미터)·재생을 현재 상태에 맞추고, 캔버스로 오버레이를 얹는다: 선택 시 발밑 강조 링(노란색), NPC 공격 [하이라이트](../features/npc-movement.md) 링, [지휘 버프](../features/command-range.md) 중이면 캐릭터 **머리 위**에 아주 작은 금색 갈매기(▲) 배지, `exhausted`(이번 턴 더 할 것 없음)면 인원 배지 **왼쪽**에 작은 회색 "E" 글자(플레이어 부대만 — 영웅도 같은 지점). `shows_member_count()`면 **발=중심 기준 아래-우측**에 남은 병력수(`soldiers`, 1~10) 배지(어두운 배경 원 + 흰 숫자, 폰트 **갈무리14**(`_BADGE_FONT`, 픽셀 폰트 — fallback 벡터 폰트는 흐릿해 교체)). **배지·삼각형은 16px 헥스 규모**의 작은 상수로 잡는다(`_CMD_BADGE_*`: 반폭 2.5·머리 위 y −10.5; `_COUNT_BADGE_*`: 중심 (4,4)·반지름 3·폰트 4). **숫자는 `MapText` 공용 헬퍼**(`scenes/game/map_text.gd`)로 그린다 — 갈무리14(픽셀)+합성 볼드(`variation_embolden` 0.4, regular만 있어 합성)를 **슈퍼샘플**(3배 래스터 후 1/3 축소)해 작아도 기본 3배 줌에서 48px 헥스급으로 또렷하다. **링·배지 원·갈매기(▲) 같은 벡터 도형은 `MapDraw` 공용 헬퍼**(`scenes/game/map_draw.gd`, `MapText`의 벡터판)로 그린다 — `draw_arc`/`draw_circle`/`draw_colored_polygon`의 안티에일리어싱 feather가 로컬 해상도 기준이라 그냥 그리면 줌 확대 시 계단처럼 깨진다. 좌표·선폭을 `SUPERSAMPLE`(3)배로 키워 그린 뒤 1/3 축소해 선명하게(하이브리드: 픽셀 스프라이트 + 선명한 벡터 UI). 부대 노드는 `texture_filter = NEAREST`. (거점/세력 라벨도 같은 헬퍼를 쓴다 → [건물 렌더](../features/building.md).) 캐릭터 스프라이트는 헥스 위로 조금 솟을 수 있다. **이동력을 다 썼고(`move_points == 0`) 공격까지 마쳤으면(`attacked_this_turn`)** — 이번 턴 더 할 게 없을 때 — 스프라이트·오버레이를 반투명하게(`_MOVED_ALPHA`). 인원 배지는 플레이어·보이는 NPC 일반부대 모두 표시(사상자로 줄어든 병력 확인). 몸통 원·외곽선·코드 병종 아이콘은 스프라이트로 대체되어 그리지 않는다.
 
 ## 테스트 시나리오
 
@@ -152,6 +154,8 @@
 ### Party (`test/unit/test_party.gd`)
 
 - [정상] 트리에 추가된 부대의 자식 스프라이트 `texture_filter == TEXTURE_FILTER_NEAREST`(픽셀 선명 — 흐릿함 방지, 전투 화면과 동일)
+- [정상] 스프라이트에 팀컬러 셰이더 머티리얼(`team_color.gdshader`)이 붙는다
+- [정상] `_sync_sprite` 후 셰이더 `team_color` 파라미터 == `token_color.lerp(Color.WHITE, TINT_MIX)`(세력색 튜닉 치환)
 - [정상] `party_name` 기본값은 빈 문자열, 설정 가능
 - [정상] `faction_name` 기본값은 빈 문자열, 설정 가능
 - [정상] `token_color` 기본값은 금색 `Color(0.92, 0.78, 0.35)`, 설정 가능
