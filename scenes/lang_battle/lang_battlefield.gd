@@ -40,7 +40,9 @@ const ATTACK_FPS := 18.0
 const HURT_FPS := 12.0
 const DEATH_FPS := 10.0
 const HIT_FLASH_DUR := 0.12  # 피격 흰색 플래시 지속(초) — 이 시간동안 flash를 1→0 감쇠
-const HIT_FLASH_SHADER := preload("res://scenes/lang_battle/hit_flash.gdshader")
+## 팀컬러+피격플래시 공용 셰이더(맵 토큰과 동일). 세력색은 튜닉/머리 존만 치환, flash로 피격 흰색 팝. → scenes/party/team_color.gdshader
+const TEAM_SHADER := preload("res://scenes/party/team_color.gdshader")
+const TEAM_TINT_MIX := 0.15  # 세력색을 흰색으로 살짝 섞는 비율(맵 토큰 _TINT_MIX와 동일)
 # 스프라이트 세트 — 진영·병종별 캐릭터(Tiny RPG pack, 100×100 프레임). 개발용 플레이스홀더.
 #   A(side0): 경보병=soldier / 경궁병=archer_a(Archer) / 영웅=sword(Swordsman)
 #   B(side1): 경보병=orc / 경궁병=skelarcher(Skeleton Archer) / 영웅=eliteorc(Elite Orc)
@@ -110,6 +112,10 @@ const PIT := Color8(24, 22, 20)
 var _soldiers := {0: [], 1: []}
 # side별 스프라이트 세트 키(병종 데이터로 결정 — set_side_sprites로 주입). 비었으면 _sprite_set이 side 폴백.
 var _side_sprite := {0: "", 1: ""}
+# side별 세력색(맵 token_color — set_side_colors로 주입). 팀컬러 셰이더 team_color 파라미터에 쓴다.
+var _side_color := {0: Color.WHITE, 1: Color.WHITE}
+# 세력색 치환 활성 여부. 게임 오버레이(부대 전투)만 true; 설정 화면·시나리오는 false(원색 유지).
+var _team_enabled := false
 var _flashes: Array = []
 var _effects: Array = []  # 전방으로 날아가는 공격 이펙트 [0x1860]
 var _shake := 0.0
@@ -246,6 +252,12 @@ func setup_hero(hero_hp: int, infantry_n: int) -> void:
 ## 빈 문자열이면 _sprite_set이 기존 side 기반 매핑으로 폴백(설정 화면·직접 진입 호환).
 func set_side_sprites(a_sprite: String, b_sprite: String) -> void:
 	_side_sprite = {0: a_sprite, 1: b_sprite}
+
+## side별 세력색(맵 token_color)을 주입한다 — 팀컬러 셰이더로 튜닉/머리를 세력색으로 물들인다.
+## 게임 오버레이(부대 전투)만 호출한다. 안 부르면 _team_enabled=false로 원색 유지(설정 화면·시나리오). setup_* 전에 부른다.
+func set_side_colors(a_color: Color, b_color: Color) -> void:
+	_side_color = {0: a_color, 1: b_color}
+	_team_enabled = true
 
 ## 커스텀 근접 전투(설정 화면): 각 side {kind, count}로 스폰. hero/infantry/archer 혼합 지원.
 ##  - hero: 1스프라이트(HP=count, 병사 몫), 중앙 단독 배치
@@ -1187,8 +1199,11 @@ func _sync_sprites() -> void:
 				spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # 픽셀 선명하게
 				spr.scale = Vector2(SPRITE_SCALE, SPRITE_SCALE)
 				spr.offset.y = _foot_offset(set_key)  # 세트별 발끝을 그림자(pos.y+8)에 맞춤(뜨는 문제 보정)
-				var mat := ShaderMaterial.new()          # 피격 흰색 플래시용(병사별 flash 파라미터)
-				mat.shader = HIT_FLASH_SHADER
+				var mat := ShaderMaterial.new()          # 팀컬러(세력색 존 치환) + 피격 흰색 플래시 공용 셰이더
+				mat.shader = TEAM_SHADER
+				# 세력색은 side별 상수 — 생성 시 1회 설정(맵 토큰과 동일하게 흰색 살짝 섞음).
+				mat.set_shader_parameter("team_color", (_side_color[side] as Color).lerp(Color.WHITE, TEAM_TINT_MIX))
+				mat.set_shader_parameter("strength", 1.0 if _team_enabled else 0.0)
 				spr.material = mat
 				spr.play("walk")
 				spr.frame = _rng.randi() % WALK_FRAMES   # 위상 분산 — 병사들이 발맞춰 걷지 않게

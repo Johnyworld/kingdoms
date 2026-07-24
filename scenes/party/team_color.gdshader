@@ -8,10 +8,12 @@ shader_type canvas_item;
 // 실사용에선 이 hue 판정을 아티스트가 그린 마스크 텍스처 샘플링으로 교체하면 된다.
 
 uniform vec4 team_color : source_color = vec4(0.2, 0.3, 0.8, 1.0);
-uniform vec3 key_color : source_color = vec3(0.40, 0.125, 0.125); // 대체할 원본 존 색(붉은 튜닉)
+uniform vec3 key_color : source_color = vec3(0.40, 0.125, 0.125); // 대체할 원본 존 색(붉은 튜닉/머리)
 uniform float hue_tolerance = 0.08;   // 색조 허용 오차(원 위 거리)
-uniform float min_saturation = 0.25;  // 이 이상 채도인 픽셀만(회색 제외)
-uniform float strength = 1.0;         // 0=원본, 1=완전 치환
+uniform float min_saturation = 0.55;  // 이 이상 채도만 — 진한 튜닉/머리는 통과, 채도 낮은 피부는 제외
+uniform float max_value = 0.70;       // 이 이하 밝기만 — 어두운 튜닉/머리는 통과, 밝은 얼굴 피부는 제외
+uniform float strength = 1.0;         // 0=원본(치환 안 함), 1=완전 치환. 전투의 세력 없는 시나리오는 0.
+uniform float flash : hint_range(0.0, 1.0) = 0.0;  // 피격 흰색 플래시(전투 공용). 0=없음.
 
 vec3 rgb2hsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -27,10 +29,10 @@ void fragment() {
 	vec3 hsv = rgb2hsv(tex.rgb);
 	vec3 key = rgb2hsv(key_color);
 
-	// 색조 원형 거리 → 존 여부(마스크). 채도 낮은(회색) 픽셀·투명 픽셀 제외.
+	// 색조 원형 거리 → 존 여부(마스크). 채도 낮은(회색/피부)·너무 밝은(얼굴 피부)·투명 픽셀 제외.
 	float dh = abs(hsv.x - key.x);
 	dh = min(dh, 1.0 - dh);
-	float mask = step(dh, hue_tolerance) * step(min_saturation, hsv.y) * step(0.01, tex.a);
+	float mask = step(dh, hue_tolerance) * step(min_saturation, hsv.y) * step(hsv.z, max_value) * step(0.01, tex.a);
 	mask *= strength;
 
 	// 원본 밝기(value)를 key 밝기 기준으로 정규화해 team_color에 곱함 → 명암 보존.
@@ -38,5 +40,6 @@ void fragment() {
 	vec3 recolored = team_color.rgb * (hsv.z / max(key.z, 0.001));
 
 	vec3 outc = mix(tex.rgb, recolored, mask);
+	outc = mix(outc, vec3(1.0), flash);   // 피격 플래시(전투). 세력색 치환 뒤 흰색으로 덮음.
 	COLOR = vec4(outc, tex.a);
 }

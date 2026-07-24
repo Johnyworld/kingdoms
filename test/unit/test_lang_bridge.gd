@@ -93,6 +93,16 @@ func test_battle_config_carries_faction_and_party() -> void:
 	assert_eq(cfg["b"]["faction"], "암흑 제국", "방어측 세력명")
 	assert_eq(cfg["b"]["party"], "오크 전사대", "방어측 부대명")
 
+func test_battle_config_carries_token_color() -> void:
+	# 맵 토큰 색(token_color)을 cfg에 실어 전투 팀컬러 셰이더가 맵과 같은 색을 쓰게 한다.
+	var atk := _party(PartyScript.KIND_TROOP, "light_infantry", 10)
+	atk.token_color = Color(0.1, 0.2, 0.9)
+	var dfd := _party(PartyScript.KIND_TROOP, "light_infantry", 10)
+	dfd.token_color = Color(0.2, 0.6, 0.3)
+	var cfg: Dictionary = LangBridge.battle_config(atk, dfd, 1)
+	assert_eq(cfg["a"]["token_color"], Color(0.1, 0.2, 0.9), "공격측 token_color 전달")
+	assert_eq(cfg["b"]["token_color"], Color(0.2, 0.6, 0.3), "방어측 token_color 전달")
+
 func test_battle_config_carries_faction_color() -> void:
 	# 색은 factions.csv 세력 색(표시명 역조회) — 맵 토큰 색(token_color)이 아님.
 	var atk := _party(PartyScript.KIND_TROOP, "light_infantry", 10)

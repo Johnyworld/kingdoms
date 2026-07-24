@@ -43,4 +43,5 @@ static func _cfg_side(party) -> Dictionary:
 		"faction": party.faction_name,
 		"party": party.party_name,
 		"color": FactionCatalog.color_of(party.faction_name),
+		"token_color": party.token_color,   # 맵 토큰 몸통 색(플레이어=금색, 일반부대=어둡게) — 전투 팀컬러 셰이더와 일치
 	}

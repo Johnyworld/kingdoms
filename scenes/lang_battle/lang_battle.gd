@@ -150,6 +150,9 @@ func _load_custom(cfg: Dictionary) -> void:
 	var mode := String(cfg.get("mode", "melee"))
 	# side별 캐릭터 세트 주입(병종 데이터). 설정 화면 cfg엔 sprite가 없어 ""→_sprite_set side 폴백.
 	_field.call("set_side_sprites", String(a.get("sprite", "")), String(b.get("sprite", "")))
+	# side별 세력색 주입(게임 오버레이만 token_color 보유). 설정 화면·시나리오는 없어 원색 유지.
+	if a.has("token_color") and b.has("token_color"):
+		_field.call("set_side_colors", a["token_color"], b["token_color"])
 	_scenario = -1
 	_a_cur = int(a["count"])
 	_b_cur = int(b["count"])
