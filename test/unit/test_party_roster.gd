@@ -8,12 +8,13 @@ func before_each() -> void:
 	roster = load("res://scenes/party/party_roster.gd").new()
 	add_child_autofree(roster)
 
-func _party(p_name: String, soldiers: int, cmdr := "") -> Node2D:
+func _party(p_name: String, soldiers: int, cmdr := "", kind := Party.KIND_HERO) -> Node2D:
 	var p: Node2D = load("res://scenes/party/party.gd").new()
 	add_child_autofree(p)
 	p.party_name = p_name
 	p.soldiers = soldiers
 	p.commander_name = cmdr
+	p.kind = kind   # 일람은 영웅부대만 표시 → 기본 헬퍼는 영웅부대로 생성
 	return p
 
 func _sample_party() -> Node2D:
@@ -50,3 +51,8 @@ func test_empty_party_not_listed() -> void:
 	# 병력 0(전멸)인 부대는 일람에서 제외한다.
 	roster.set_parties([_sample_party(), _party("빈 부대", 0)])
 	assert_eq(roster._list.get_child_count(), 1, "병력 0 부대는 일람에서 제외")
+
+func test_troop_party_not_listed() -> void:
+	# 일반부대(하위·거점 방어)는 영웅부대가 아니므로 일람에서 제외한다.
+	roster.set_parties([_sample_party(), _party("경보병", 10, "경보병", Party.KIND_TROOP)])
+	assert_eq(roster._list.get_child_count(), 1, "일반부대는 일람에서 제외(영웅부대만)")

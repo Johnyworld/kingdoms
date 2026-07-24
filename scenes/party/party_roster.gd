@@ -1,5 +1,5 @@
 extends CanvasLayer
-## 부대 일람. 화면 우측 상단에 게임 내 모든 부대를 나열하고, 항목을 누르면
+## 부대 일람. 화면 우측 상단에 게임 내 영웅부대만 나열하고, 항목을 누르면
 ## 그 부대를 실어 party_selected 시그널을 방출한다(카메라 이동은 game.gd가 담당).
 ## party_info.gd·camp_menu.gd·turn_hud.gd처럼 UI를 코드로 구성한다(별도 .tscn 없음).
 
@@ -31,9 +31,8 @@ func _build() -> void:
 	panel.add_child(vbox)
 
 	var title := Label.new()
-	title.theme_type_variation = &"TitleLabel"
+	title.theme_type_variation = &"LabelLG"
 	title.text = "부대 일람"
-	title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(title)
 
 	vbox.add_child(HSeparator.new())
@@ -47,6 +46,8 @@ func set_parties(parties: Array) -> void:
 	for child in _list.get_children():
 		child.free()   # 즉시 제거(다음 프레임까지 낡은 항목이 남지 않도록)
 	for party in parties:
+		if not party.is_hero():
+			continue   # 일람에는 영웅부대만 — 하위 일반부대는 제외
 		if party.soldiers <= 0:
 			continue   # 전멸해 사라진 부대는 일람에서 제외
 		var button := Button.new()
